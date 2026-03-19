@@ -66,12 +66,13 @@ class OptionPage extends StatelessWidget {
                     header: Container(
                         padding: const EdgeInsets.only(left: 16),
                         child: Text('教务', style: headerFooterTextStyle)),
-                    footer: _optionController.pushOnGradeChange &&
+                    footer: (_optionController.pushOnGradeChange ||
+                                _optionController.pushOnDdlReminder) &&
                             _optionController.scholar.value.isLogan
                         ? Padding(
                             padding: const EdgeInsets.only(left: 16),
                             child: Text(
-                                'Celechron 将不定期自动运行以刷新成绩。请开启通知权限，且不要将 Celechron 从后台中移除。',
+                                'Celechron 将不定期自动运行以刷新数据。请开启通知权限，且不要将 Celechron 从后台中移除。',
                                 style: headerFooterTextStyle))
                         : null,
                     children: <CupertinoListTile>[
@@ -158,6 +159,17 @@ class OptionPage extends StatelessWidget {
                               onChanged: PlatformFeatures.hasBackgroundRefresh
                                   ? (value) async {
                                       _optionController.pushOnGradeChange =
+                                          value;
+                                    }
+                                  : null,
+                            )),
+                        CupertinoListTile(
+                            title: const Text('推送作业截止提醒'),
+                            trailing: CupertinoSwitch(
+                              value: _optionController.pushOnDdlReminder,
+                              onChanged: PlatformFeatures.hasBackgroundRefresh
+                                  ? (value) async {
+                                      _optionController.pushOnDdlReminder =
                                           value;
                                     }
                                   : null,
