@@ -39,6 +39,16 @@ dependencies:
   timezone:
   device_info_plus:
 
+dependency_overrides:
+  # path_provider_foundation 2.6.0 switched from plugin-based to FFI (using
+  # package:objective_c as a native asset), which causes a runtime crash on
+  # iOS 26 because the objective_c.framework dylib is not bundled in the app.
+  # Version 2.5.1 explicitly reverts to the plugin-based implementation while
+  # the upstream FFI bundling issues are investigated. Remove this override
+  # once a fixed version of path_provider_foundation is available.
+  # See: https://github.com/flutter/flutter/issues/178915
+  path_provider_foundation: 2.5.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
