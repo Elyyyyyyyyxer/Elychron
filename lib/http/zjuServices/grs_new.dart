@@ -147,7 +147,8 @@ class GrsNew {
         final retryJson = await res.transform(utf8.decoder).join();
         final retryResult = jsonDecode(retryJson) as Map<String, dynamic>;
         if (retryResult["success"] != true) {
-          throw ExceptionWithMessage('获取成绩api错误，错误信息为 ${retryResult["message"]}');
+          throw ExceptionWithMessage(
+              '获取成绩api错误，错误信息为 ${retryResult["message"]}');
         }
         return _parseGrades(retryResult);
       }
@@ -247,7 +248,8 @@ class GrsNew {
         final retryJson = await res.transform(utf8.decoder).join();
         final retryResult = jsonDecode(retryJson) as Map<String, dynamic>;
         if (retryResult["success"] != true) {
-          throw ExceptionWithMessage("获取考试api错误，错误信息为 ${retryResult["message"]}");
+          throw ExceptionWithMessage(
+              "获取考试api错误，错误信息为 ${retryResult["message"]}");
         }
         return _parseExams(retryResult, year);
       }
@@ -338,8 +340,7 @@ class GrsNew {
         url += "&xns=$year";
         url += "&xqMc=${Uri.encodeComponent(semesterName)}";
         url += "&kcbh=${Uri.encodeComponent(sessionId)}";
-        url +=
-            "&kcmc=${Uri.encodeComponent(courseSessions.first.name)}";
+        url += "&kcmc=${Uri.encodeComponent(courseSessions.first.name)}";
         url += "&zjjsJzgId=${Uri.encodeComponent(teacherId)}";
         var req = await httpClient.getUrl(Uri.parse(url)).timeout(
             const Duration(seconds: 8),
@@ -450,7 +451,8 @@ class GrsNew {
         final retryJson = await res.transform(utf8.decoder).join();
         final retryResult = jsonDecode(retryJson) as Map<String, dynamic>;
         if (retryResult["success"] != true) {
-          throw ExceptionWithMessage("获取课程api错误，错误信息为 ${retryResult["message"]}");
+          throw ExceptionWithMessage(
+              "获取课程api错误，错误信息为 ${retryResult["message"]}");
         }
         return _parseTimetable(httpClient, retryResult, year, semester);
       }
@@ -535,8 +537,7 @@ class GrsNew {
             if (weekExtraList.length > threshold) {
               newSession.oddWeek = newSession.evenWeek = true;
             } else {
-              int oddWeekCount =
-                  weekExtraList.where((e) => e % 2 == 1).length;
+              int oddWeekCount = weekExtraList.where((e) => e % 2 == 1).length;
               if (oddWeekCount > weekExtraList.length / 2) {
                 newSession.oddWeek = true;
               } else {

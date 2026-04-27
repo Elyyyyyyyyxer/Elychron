@@ -163,8 +163,7 @@ Future<void> refreshScholar() async {
       notifiedDdlIds.removeWhere((id) {
         var todo = scholar.todos.where((t) => t.id == id);
         if (todo.isEmpty) return true;
-        return todo.first.endTime != null &&
-            todo.first.endTime!.isBefore(now);
+        return todo.first.endTime != null && todo.first.endTime!.isBefore(now);
       });
 
       await secureStorage.write(
