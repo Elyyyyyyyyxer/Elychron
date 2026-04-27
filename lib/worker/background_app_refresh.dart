@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:celechron/model/scholar.dart';
 import 'package:workmanager/workmanager.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -33,24 +35,43 @@ Future<void> refreshScholar() async {
       android: initializationSettingsAndroid,
       iOS: initializationSettingsDarwin);
   await flutterLocalNotificationsPlugin.initialize(initializationSettings);
-  const androidNotificationDetails = AndroidNotificationDetails(
-    'top.celechron.celechron.gradeChange',
-    '成绩变动提醒',
-    importance: Importance.max,
-    priority: Priority.high,
-    showWhen: false,
+
+  // 成绩变动通知 channel
+  const gradeNotificationDetails = NotificationDetails(
+    android: AndroidNotificationDetails(
+      'top.celechron.celechron.gradeChange',
+      '成绩变动提醒',
+      importance: Importance.max,
+      priority: Priority.high,
+      showWhen: false,
+    ),
+    iOS: DarwinNotificationDetails(
+      presentSound: true,
+      presentBadge: true,
+      presentBanner: true,
+      presentList: true,
+      sound: 'default',
+      badgeNumber: 0,
+    ),
   );
-  const darwinNotificationDetails = DarwinNotificationDetails(
-    presentSound: true,
-    presentBadge: true,
-    presentBanner: true,
-    presentList: true,
-    sound: 'default',
-    badgeNumber: 0,
-  );
-  const notificationDetails = NotificationDetails(
-    android: androidNotificationDetails,
-    iOS: darwinNotificationDetails,
+
+  // DDL 截止提醒 channel
+  const ddlNotificationDetails = NotificationDetails(
+    android: AndroidNotificationDetails(
+      'top.celechron.celechron.ddlReminder',
+      '作业截止提醒',
+      importance: Importance.max,
+      priority: Priority.high,
+      showWhen: false,
+    ),
+    iOS: DarwinNotificationDetails(
+      presentSound: true,
+      presentBadge: true,
+      presentBanner: true,
+      presentList: true,
+      sound: 'default',
+      badgeNumber: 0,
+    ),
   );
 
   var scholar = Scholar();
@@ -67,6 +88,12 @@ Future<void> refreshScholar() async {
       '0';
   var pushOnGradeChangeFuse = await secureStorage.read(
       key: 'pushOnGradeChangeFuse', iOptions: secureStorageIOSOptions);
+  var pushOnGradeChange = await secureStorage.read(
+      key: 'pushOnGradeChange', iOptions: secureStorageIOSOptions);
+  var pushOnDdlReminder = await secureStorage.read(
+      key: 'pushOnDdlReminder', iOptions: secureStorageIOSOptions);
+  var notifiedDdlIdsStr = await secureStorage.read(
+      key: 'notifiedDdlIds', iOptions: secureStorageIOSOptions);
 
   try {
     var error = await scholar.login();
@@ -74,29 +101,77 @@ Future<void> refreshScholar() async {
     error = await scholar.refresh();
     if (error.any((e) => e != null)) return;
 
-    if (pushOnGradeChangeFuse == null) {
-      await flutterLocalNotificationsPlugin.show(
-          0,
-          '首次成绩推送',
-          '若有新出分的课程，Celechron 将会通知您。若不需要此功能，可在 Celechron 的设置页面中关闭。',
-          notificationDetails);
+    // 成绩变动通知
+    if (pushOnGradeChange != 'false') {
+      if (pushOnGradeChangeFuse == null) {
+        await flutterLocalNotificationsPlugin.show(
+            0,
+            '首次成绩推送',
+            '若有新出分的课程，Celechron 将会通知您。若不需要此功能，可在 Celechron 的设置页面中关闭。',
+            gradeNotificationDetails);
+        await secureStorage.write(
+            key: 'pushOnGradeChangeFuse',
+            value: '1',
+            iOptions: secureStorageIOSOptions);
+      } else if (scholar.gpa[0] != double.tryParse(oldGpa) ||
+          scholar.gradedCourseCount != int.tryParse(gradedCourseCount)) {
+        await flutterLocalNotificationsPlugin.show(0, '成绩变动提醒',
+            '有新出分的课程，可在 Celechron 的学业页面中刷新查看。', gradeNotificationDetails);
+      }
       await secureStorage.write(
-          key: 'pushOnGradeChangeFuse',
-          value: '1',
+          key: 'gpa',
+          value: scholar.gpa[0].toString(),
           iOptions: secureStorageIOSOptions);
-    } else if (scholar.gpa[0] != double.tryParse(oldGpa) ||
-        scholar.gradedCourseCount != int.tryParse(gradedCourseCount)) {
-      await flutterLocalNotificationsPlugin.show(
-          0, '成绩变动提醒', '有新出分的课程，可在 Celechron 的学业页面中刷新查看。', notificationDetails);
+      await secureStorage.write(
+          key: 'gradedCourseCount',
+          value: scholar.gradedCourseCount.toString(),
+          iOptions: secureStorageIOSOptions);
     }
-    await secureStorage.write(
-        key: 'gpa',
-        value: scholar.gpa[0].toString(),
-        iOptions: secureStorageIOSOptions);
-    await secureStorage.write(
-        key: 'gradedCourseCount',
-        value: scholar.gradedCourseCount.toString(),
-        iOptions: secureStorageIOSOptions);
+
+    // DDL 截止提醒
+    if (pushOnDdlReminder != 'false') {
+      Set<String> notifiedDdlIds = {};
+      if (notifiedDdlIdsStr != null && notifiedDdlIdsStr.isNotEmpty) {
+        notifiedDdlIds = Set<String>.from(jsonDecode(notifiedDdlIdsStr));
+      }
+
+      var now = DateTime.now();
+      var upcomingTodos = scholar.todos.where((todo) {
+        if (todo.endTime == null) return false;
+        var timeLeft = todo.endTime!.difference(now);
+        // 24 小时内到期且尚未通知过
+        return timeLeft.inHours >= 0 &&
+            timeLeft.inHours <= 24 &&
+            !notifiedDdlIds.contains(todo.id);
+      }).toList();
+
+      if (upcomingTodos.isNotEmpty) {
+        var notificationId = 1000; // DDL 通知从 1000 开始
+        for (var todo in upcomingTodos) {
+          var hoursLeft = todo.endTime!.difference(now).inHours;
+          var timeDesc = hoursLeft > 0 ? '$hoursLeft 小时后' : '即将';
+          await flutterLocalNotificationsPlugin.show(
+              notificationId++,
+              '作业截止提醒',
+              '「${todo.course}」的作业「${todo.name}」将于$timeDesc截止',
+              ddlNotificationDetails);
+          notifiedDdlIds.add(todo.id);
+        }
+      }
+
+      // 清理已过期的通知记录，避免无限增长
+      notifiedDdlIds.removeWhere((id) {
+        var todo = scholar.todos.where((t) => t.id == id);
+        if (todo.isEmpty) return true;
+        return todo.first.endTime != null &&
+            todo.first.endTime!.isBefore(now);
+      });
+
+      await secureStorage.write(
+          key: 'notifiedDdlIds',
+          value: jsonEncode(notifiedDdlIds.toList()),
+          iOptions: secureStorageIOSOptions);
+    }
   } catch (e) {
     return;
   }

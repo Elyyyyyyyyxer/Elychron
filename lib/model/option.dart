@@ -28,6 +28,7 @@ class Option {
   RxMap<DateTime, DateTime> allowTime;
   Rx<GpaStrategy> gpaStrategy;
   RxBool pushOnGradeChange;
+  RxBool pushOnDdlReminder;
   Rx<BrightnessMode> brightnessMode;
   RxList<CourseIdMap> courseIdMappingList;
   RxBool hideHomeGpa;
@@ -38,6 +39,7 @@ class Option {
     required this.allowTime,
     required this.gpaStrategy,
     required this.pushOnGradeChange,
+    required this.pushOnDdlReminder,
     required this.brightnessMode,
     required this.courseIdMappingList,
     required this.hideHomeGpa,

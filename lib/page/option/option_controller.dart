@@ -15,6 +15,8 @@ import 'package:celechron/utils/platform_features.dart';
 import 'package:celechron/model/calendar_to_system.dart';
 import 'package:celechron/model/calendar_to_ical.dart';
 
+import 'package:celechron/utils/utils.dart';
+
 class OptionController extends GetxController {
   final _option = Get.find<Option>(tag: 'option');
   final scholar = Get.find<Rx<Scholar>>(tag: 'scholar');
@@ -31,7 +33,7 @@ class OptionController extends GetxController {
     _calendarManager = CalendarToSystemManager(scholar.value);
 
     if (PlatformFeatures.hasBackgroundRefresh) {
-      if (_option.pushOnGradeChange.value) {
+      if (_option.pushOnGradeChange.value || _option.pushOnDdlReminder.value) {
         Workmanager()
             .initialize(callbackDispatcher)
             .then((value) => Workmanager().registerPeriodicTask(
@@ -88,17 +90,44 @@ class OptionController extends GetxController {
   set pushOnGradeChange(bool value) {
     _option.pushOnGradeChange.value = value;
     _db.setPushOnGradeChange(value);
+    // 同步到 SecureStorage 供后台任务读取
+    _db.secureStorage.write(
+        key: 'pushOnGradeChange',
+        value: value.toString(),
+        iOptions: secureStorageIOSOptions);
 
     if (!PlatformFeatures.hasBackgroundRefresh) {
       return;
     }
 
+    _updateBackgroundWorker(value || pushOnDdlReminder);
+  }
+
+  bool get pushOnDdlReminder => _option.pushOnDdlReminder.value;
+
+  set pushOnDdlReminder(bool value) {
+    _option.pushOnDdlReminder.value = value;
+    _db.setPushOnDdlReminder(value);
+    // 同步到 SecureStorage 供后台任务读取
+    _db.secureStorage.write(
+        key: 'pushOnDdlReminder',
+        value: value.toString(),
+        iOptions: secureStorageIOSOptions);
+
+    if (!PlatformFeatures.hasBackgroundRefresh) {
+      return;
+    }
+
+    _updateBackgroundWorker(value || pushOnGradeChange);
+  }
+
+  void _updateBackgroundWorker(bool enabled) {
     Workmanager()
         .cancelByUniqueName('top.celechron.celechron.backgroundScholarFetch')
         .then((value) {
       if (Platform.isIOS) return Workmanager().printScheduledTasks();
     });
-    if (value) {
+    if (enabled) {
       FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
           FlutterLocalNotificationsPlugin();
       const initializationSettingsAndroid =

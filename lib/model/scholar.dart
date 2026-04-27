@@ -159,6 +159,7 @@ class Scholar {
       return [];
     }
     _mutex++;
+    try {
     return await _spider?.getEverything().then((value) async {
           for (var e in value.item1) {
             // ignore: avoid_print
@@ -248,8 +249,16 @@ class Scholar {
           return value.item1.every((e) => e == null)
               ? value.item2
               : value.item1;
-        }).whenComplete(() => _mutex--) ??
+        }) ??
         ['未登录'];
+    } catch (e) {
+      // 网络异常等情况下保留已有数据，不清空
+      // ignore: avoid_print
+      print('refresh error: $e');
+      return ['网络连接失败，请检查网络后重试'];
+    } finally {
+      _mutex--;
+    }
   }
 
   void updateLastUpdateTime(List<String?> errorMessage) {

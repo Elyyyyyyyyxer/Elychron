@@ -14,6 +14,7 @@ class GitHubService {
     'FoggyDawn',
     'poormonitor',
     'heddxh',
+    'ChenyuHeee',
   ];
 
   Future<Tuple<Exception?, List<String>>> getContributors(

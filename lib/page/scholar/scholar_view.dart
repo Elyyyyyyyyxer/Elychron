@@ -969,12 +969,40 @@ class ScholarPage extends StatelessWidget {
             } else {
               return SizedBox(
                   height: 500,
-                  child: Column(children: [
-                    const Spacer(),
-                    Text(_scholarController.scholar.isLogan ? '下拉刷新' : '未登录',
-                        style: CupertinoTheme.of(context).textTheme.textStyle),
-                    const Spacer()
-                  ]));
+                  child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Spacer(),
+                        Icon(
+                          _scholarController.scholar.isLogan
+                              ? CupertinoIcons.arrow_clockwise
+                              : CupertinoIcons.person_crop_circle,
+                          size: 48,
+                          color: CupertinoDynamicColor.resolve(
+                              CupertinoColors.secondaryLabel, context),
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                            _scholarController.scholar.isLogan
+                                ? '下拉刷新以获取数据'
+                                : '未登录',
+                            style: CupertinoTheme.of(context)
+                                .textTheme
+                                .textStyle),
+                        if (_scholarController.scholar.isLogan)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: Text(
+                              '离线数据将在同步失败时自动使用',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: CupertinoDynamicColor.resolve(
+                                    CupertinoColors.secondaryLabel, context),
+                              ),
+                            ),
+                          ),
+                        const Spacer()
+                      ]));
             }
           }),
         ),

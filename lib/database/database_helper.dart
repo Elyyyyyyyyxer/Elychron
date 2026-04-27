@@ -67,6 +67,7 @@ class DatabaseHelper {
   final String kAllowTime = 'allowTime';
   final String kGpaStrategy = 'gpaStrategy';
   final String kPushOnGradeChange = 'pushOnGradeChange';
+  final String kPushOnDdlReminder = 'pushOnDdlReminder';
   final String kBrightnessMode = 'brightnessMode';
   final String kCourseIdMappingList = 'courseIdMappingList';
   final String kHideHomeGpa = 'hideHomeGpa';
@@ -78,6 +79,7 @@ class DatabaseHelper {
       allowTime: getAllowTime().obs,
       gpaStrategy: getGpaStrategy().obs,
       pushOnGradeChange: getPushOnGradeChange().obs,
+      pushOnDdlReminder: getPushOnDdlReminder().obs,
       brightnessMode: getBrightnessMode().obs,
       courseIdMappingList: getCourseIdMappingList().obs,
       hideHomeGpa: getHideHomeGpa().obs,
@@ -140,6 +142,17 @@ class DatabaseHelper {
 
   Future<void> setPushOnGradeChange(bool pushOnGradeChange) async {
     await optionsBox.put(kPushOnGradeChange, pushOnGradeChange);
+  }
+
+  bool getPushOnDdlReminder() {
+    if (optionsBox.get(kPushOnDdlReminder) == null) {
+      optionsBox.put(kPushOnDdlReminder, true);
+    }
+    return optionsBox.get(kPushOnDdlReminder);
+  }
+
+  Future<void> setPushOnDdlReminder(bool pushOnDdlReminder) async {
+    await optionsBox.put(kPushOnDdlReminder, pushOnDdlReminder);
   }
 
   Future<void> setBrightnessMode(BrightnessMode brightness) async {
