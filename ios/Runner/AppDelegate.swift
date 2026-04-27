@@ -1,5 +1,5 @@
-import UIKit
 import Flutter
+import UIKit
 import WidgetKit
 import workmanager
 import flutter_local_notifications
@@ -20,39 +20,40 @@ private class FlowMessengerImplementation: FlowMessenger {
 }
 
 @main
-@objc class AppDelegate: FlutterAppDelegate {
+@objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
     override func application(
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
     ) -> Bool {
-        
-        // Flow widget MethodChannel
-        let controller : FlutterViewController = window?.rootViewController as! FlutterViewController
-        FlowMessengerSetup.setUp(binaryMessenger: controller.binaryMessenger, api: FlowMessengerImplementation())
-        
+
         // Background AppRefresh MethodChannel
         WorkmanagerPlugin.registerPeriodicTask(withIdentifier: "top.celechron.celechron.backgroundScholarFetch", frequency: NSNumber(value: 15 * 60))
         WorkmanagerPlugin.setPluginRegistrantCallback { registry in
             GeneratedPluginRegistrant.register(with: registry)
         }
-        
+
         // Notification MethodChannel
         UNUserNotificationCenter.current().delegate = self as UNUserNotificationCenterDelegate
         FlutterLocalNotificationsPlugin.setPluginRegistrantCallback { (registry) in
             GeneratedPluginRegistrant.register(with: registry)
         }
-        
+
+        return super.application(application, didFinishLaunchingWithOptions: launchOptions)
+    }
+
+    func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
+        GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
+
+        // Flow widget MethodChannel
+        FlowMessengerSetup.setUp(binaryMessenger: engineBridge.applicationRegistrar.messenger(), api: FlowMessengerImplementation())
+
         // ECard widget MethodChannel
-        let ecardWidgetChannel = FlutterMethodChannel(name: "top.celechron.celechron/ecardWidget", binaryMessenger: controller.binaryMessenger)
+        let ecardWidgetChannel = FlutterMethodChannel(name: "top.celechron.celechron/ecardWidget", binaryMessenger: engineBridge.applicationRegistrar.messenger())
         ecardWidgetChannel.setMethodCallHandler({
           (call: FlutterMethodCall, result: @escaping FlutterResult) -> Void in
             if #available(iOS 14.0, *) {
                 WidgetCenter.shared.reloadTimelines(ofKind: "ECardWidget")
             }
         })
-
-        
-        GeneratedPluginRegistrant.register(with: self)
-        return super.application(application, didFinishLaunchingWithOptions: launchOptions)
     }
 }
