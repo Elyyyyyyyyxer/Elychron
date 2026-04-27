@@ -153,7 +153,8 @@ class UgrsSpider implements Spider {
     var yearEnroll = int.parse(_username.substring(1, 3)) + 2000;
     var yearGraduate = yearEnroll + 7;
     Map<String, int> semesterIndexMap = <String, int>{};
-    for (var i = 7, j = 0; i >= 0; i--, j++) {
+    // 大一开学考的学期是入学的前一学期
+    for (var i = 7, j = 0; i >= -1; i--, j++) {
       semesterIndexMap.addEntries(
           [MapEntry('${yearEnroll + i}-${yearEnroll + i + 1}-2', j * 2)]);
       semesterIndexMap.addEntries(
