@@ -39,15 +39,19 @@ void main() async {
   if (scholar.value.isLogan) {
     // 启动时先用缓存数据展示，后台异步刷新
     scholar.refresh();
-    scholar.value.login().then((value) async {
-      GlobalStatus.isFirstScreenReq = true;
-      await scholar.value.refresh();
-      GlobalStatus.isFirstScreenReq = false;
-    }).then((value) => scholar.refresh()).catchError((e) {
-      // 网络异常时保留本地缓存数据，不影响已有展示
-      GlobalStatus.isFirstScreenReq = false;
-      scholar.refresh();
-    });
+    scholar.value
+        .login()
+        .then((value) async {
+          GlobalStatus.isFirstScreenReq = true;
+          await scholar.value.refresh();
+          GlobalStatus.isFirstScreenReq = false;
+        })
+        .then((value) => scholar.refresh())
+        .catchError((e) {
+          // 网络异常时保留本地缓存数据，不影响已有展示
+          GlobalStatus.isFirstScreenReq = false;
+          scholar.refresh();
+        });
   }
 
   ECardWidgetMessenger.update();

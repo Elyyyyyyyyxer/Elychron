@@ -986,9 +986,8 @@ class ScholarPage extends StatelessWidget {
                             _scholarController.scholar.isLogan
                                 ? '下拉刷新以获取数据'
                                 : '未登录',
-                            style: CupertinoTheme.of(context)
-                                .textTheme
-                                .textStyle),
+                            style:
+                                CupertinoTheme.of(context).textTheme.textStyle),
                         if (_scholarController.scholar.isLogan)
                           Padding(
                             padding: const EdgeInsets.only(top: 8),

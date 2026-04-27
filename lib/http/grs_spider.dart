@@ -157,7 +157,7 @@ class GrsSpider implements Spider {
             String errStr = res.item1.toString().toLowerCase();
             if (errStr.contains("connection closed") ||
                 errStr.contains("httpexception") ||
-              errStr.contains("请求超时") ||
+                errStr.contains("请求超时") ||
                 errStr.contains("网络错误") ||
                 errStr.contains("未登录") ||
                 errStr.contains("超时") ||
@@ -357,32 +357,36 @@ class GrsSpider implements Spider {
       }
 
       // 研究生课
-      timetableFetches
-          .add(_fetchWithRetry(() => _grsNew.getTimetable(_httpClient, yearEnroll, 13)).then((value) {
+      timetableFetches.add(_fetchWithRetry(
+              () => _grsNew.getTimetable(_httpClient, yearEnroll, 13))
+          .then((value) {
         for (var e in value.item2) {
           outSemesters[semesterIndexMap['$yearStr-1']!]
               .addSession(e, '$yearStr-1', true);
         }
         return value.item1?.toString();
       }).catchError((e) => 'grsNew($yearStr-1, 13) $e'));
-      timetableFetches
-          .add(_fetchWithRetry(() => _grsNew.getTimetable(_httpClient, yearEnroll, 14)).then((value) {
+      timetableFetches.add(_fetchWithRetry(
+              () => _grsNew.getTimetable(_httpClient, yearEnroll, 14))
+          .then((value) {
         for (var e in value.item2) {
           outSemesters[semesterIndexMap['$yearStr-1']!]
               .addSession(e, '$yearStr-1', true);
         }
         return value.item1?.toString();
       }).catchError((e) => 'grsNew($yearStr-1, 14) $e'));
-      timetableFetches
-          .add(_fetchWithRetry(() => _grsNew.getTimetable(_httpClient, yearEnroll, 11)).then((value) {
+      timetableFetches.add(_fetchWithRetry(
+              () => _grsNew.getTimetable(_httpClient, yearEnroll, 11))
+          .then((value) {
         for (var e in value.item2) {
           outSemesters[semesterIndexMap['$yearStr-2']!]
               .addSession(e, '$yearStr-2', true);
         }
         return value.item1?.toString();
       }).catchError((e) => 'grsNew($yearStr-2, 11) $e'));
-      timetableFetches
-          .add(_fetchWithRetry(() => _grsNew.getTimetable(_httpClient, yearEnroll, 12)).then((value) {
+      timetableFetches.add(_fetchWithRetry(
+              () => _grsNew.getTimetable(_httpClient, yearEnroll, 12))
+          .then((value) {
         for (var e in value.item2) {
           outSemesters[semesterIndexMap['$yearStr-2']!]
               .addSession(e, '$yearStr-2', true);
@@ -391,16 +395,16 @@ class GrsSpider implements Spider {
       }).catchError((e) => 'grsNew($yearStr-2, 12) $e'));
 
       // 研究生课考试
-      examFetches
-          .add(_fetchWithRetry(() => _grsNew.getExamsDto(_httpClient, yearEnroll, 12)).then((value) {
+      examFetches.add(_fetchWithRetry(
+          () => _grsNew.getExamsDto(_httpClient, yearEnroll, 12)).then((value) {
         for (var e in value.item2) {
           outSemesters[semesterIndexMap['$yearStr-1']!]
               .addExamWithSemester(e, '$yearStr-1');
         }
         return value.item1?.toString();
       }).catchError((e) => 'grsExam($yearStr-1) $e'));
-      examFetches
-          .add(_fetchWithRetry(() => _grsNew.getExamsDto(_httpClient, yearEnroll, 11)).then((value) {
+      examFetches.add(_fetchWithRetry(
+          () => _grsNew.getExamsDto(_httpClient, yearEnroll, 11)).then((value) {
         for (var e in value.item2) {
           outSemesters[semesterIndexMap['$yearStr-2']!]
               .addExamWithSemester(e, '$yearStr-2');
