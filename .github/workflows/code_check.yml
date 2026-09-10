@@ -1,4 +1,14 @@
-name: Check code issues
+name: 检查代码问题
+
+# 魔改版自己的 CI：只跑我们关心的两件事。
+#
+# 与上游 code_check.yml 的差异：
+# 1. 去掉了全仓库 `dart format --set-exit-if-changed .`——上游大量文件是用
+#    旧版格式化器排版的，换新版 Dart 会大面积误报，这个检查没有意义。
+# 2. analyze 关闭 warning/info 的致命判定：上游遗留了 20 多处 warning
+#    （calendar_to_system.dart、refresh_coordinator.dart 等），
+#    不该被上游的历史问题卡住；只对 error 敏感。
+# 3. 补上 flutter test——这是魔改版最重要的回归网（上游 106 个 + 我们 26 个）。
 
 on:
   push:
@@ -9,12 +19,12 @@ on:
       - main
 
 jobs:
-  flutter_analyze:
+  analyze_and_test:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
@@ -22,17 +32,11 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Verify Flutter installation
-        run: flutter --version
-
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Check code formatting
-        run: dart format --output=none --set-exit-if-changed .
+      - name: Analyze code（只有 error 会让 CI 失败）
+        run: flutter analyze --no-fatal-infos --no-fatal-warnings
 
-      - name: Analyze code
-        run: flutter analyze --no-fatal-infos
-
-      # - name: Run tests
-      #   run: flutter test
+      - name: Run tests
+        run: flutter test
