@@ -240,19 +240,6 @@ class DatabaseHelper {
     await optionsBox.put(kAlarmTheme, id);
   }
 
-  // 最近一次自动刷新课表数据的日期
-  final String kLastAutoRefresh = 'lastAutoRefresh';
-
-  DateTime? getLastAutoRefresh() {
-    final value = optionsBox.get(kLastAutoRefresh);
-    if (value is DateTime) return value;
-    return null;
-  }
-
-  Future<void> setLastAutoRefresh(DateTime time) async {
-    await optionsBox.put(kLastAutoRefresh, time);
-  }
-
   // 标签库：用户用过的标签，下次可以一键复用
   final String kTagLibrary = 'tagLibrary';
 

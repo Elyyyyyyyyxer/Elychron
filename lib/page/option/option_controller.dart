@@ -3,12 +3,14 @@ import 'dart:io';
 
 import 'package:get/get.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:workmanager/workmanager.dart';
 
 import 'package:celechron/model/scholar.dart';
 import 'package:celechron/model/option.dart';
 import 'package:celechron/services/diagnostic_log_service.dart';
 import 'package:celechron/database/database_helper.dart';
+import 'package:celechron/worker/background_app_refresh.dart';
 import 'package:celechron/worker/ecard_widget_messenger.dart';
 import 'package:celechron/worker/fuse.dart';
 import 'package:celechron/utils/platform_features.dart';
@@ -20,6 +22,7 @@ import 'package:celechron/utils/utils.dart';
 
 const _backgroundScholarFetchTask =
     'top.celechron.celechron.backgroundScholarFetch';
+const _backgroundScholarFetchInterval = Duration(minutes: 15);
 
 class OptionController extends GetxController {
   final _option = Get.find<Option>(tag: 'option');
@@ -47,9 +50,11 @@ class OptionController extends GetxController {
     TaskReminder.mode = reminderMode.value;
 
     if (PlatformFeatures.hasBackgroundRefresh) {
-      // 已移除后台定时刷新：课表数据改为「每天第一次打开时刷新一次」
-      Workmanager()
-          .cancelByUniqueName('top.celechron.celechron.backgroundScholarFetch');
+      if (_option.pushOnGradeChange.value || _option.pushOnDdlReminder.value) {
+        unawaited(_ensureBackgroundWorkerScheduled());
+      } else {
+        unawaited(_cancelBackgroundWorker());
+      }
     }
 
     ever(courseIdMappingList, (value) {
@@ -124,11 +129,39 @@ class OptionController extends GetxController {
     unawaited(_updateBackgroundWorker(value || pushOnGradeChange));
   }
 
-  /// ===== MOD BEGIN: 后台定时刷新已移除 =====
-  /// 课表数据改为「每天第一次打开时刷新一次」，这里只负责清理历史遗留的周期任务。
-  /// 注意：上游的 _ensureBackgroundWorkerScheduled 一并去掉了，所以
-  /// 「推送成绩变动 / 推送作业截止提醒」两个开关不会真正触发后台任务。
-  Future<void> _updateBackgroundWorker(bool enabled) async {
+  Future<void> _ensureBackgroundWorkerScheduled() async {
+    try {
+      final workmanager = Workmanager();
+      await workmanager.initialize(callbackDispatcher);
+      // Android 的周期任务会跨 App 启动持久化；不要每次页面控制器初始化时
+      // 重新排一个 10 秒后的任务。iOS 仍需提交 BGAppRefresh 请求，但最早
+      // 执行时间与正常周期一致，并由前台租约做最终保护。
+      if (Platform.isAndroid &&
+          await workmanager
+              .isScheduledByUniqueName(_backgroundScholarFetchTask)) {
+        return;
+      }
+      await workmanager.registerPeriodicTask(
+        _backgroundScholarFetchTask,
+        _backgroundScholarFetchTask,
+        frequency: _backgroundScholarFetchInterval,
+        initialDelay: _backgroundScholarFetchInterval,
+        existingWorkPolicy: ExistingWorkPolicy.keep,
+        constraints: Constraints(networkType: NetworkType.connected),
+      );
+    } on Object catch (error, stackTrace) {
+      DiagnosticLogService.instance.record(
+        level: CelechronLogLevel.warning,
+        module: '后台刷新',
+        operation: 'schedule',
+        message: '后台刷新任务注册失败',
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+  }
+
+  Future<void> _cancelBackgroundWorker() async {
     try {
       await Workmanager().cancelByUniqueName(_backgroundScholarFetchTask);
       if (Platform.isIOS) await Workmanager().printScheduledTasks();
@@ -138,6 +171,36 @@ class OptionController extends GetxController {
         module: '后台刷新',
         operation: 'cancel',
         message: '后台刷新任务取消失败',
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+  }
+
+  Future<void> _updateBackgroundWorker(bool enabled) async {
+    await _cancelBackgroundWorker();
+    if (!enabled) return;
+    try {
+      FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+          FlutterLocalNotificationsPlugin();
+      const initializationSettingsAndroid =
+          AndroidInitializationSettings('@mipmap/ic_launcher');
+      const initializationSettingsDarwin = DarwinInitializationSettings(
+        requestSoundPermission: true,
+        requestBadgePermission: true,
+        requestAlertPermission: true,
+      );
+      const initializationSettings = InitializationSettings(
+          android: initializationSettingsAndroid,
+          iOS: initializationSettingsDarwin);
+      await flutterLocalNotificationsPlugin.initialize(initializationSettings);
+      await _ensureBackgroundWorkerScheduled();
+    } on Object catch (error, stackTrace) {
+      DiagnosticLogService.instance.record(
+        level: CelechronLogLevel.warning,
+        module: '后台刷新',
+        operation: 'enable',
+        message: '启用后台刷新任务失败',
         error: error,
         stackTrace: stackTrace,
       );

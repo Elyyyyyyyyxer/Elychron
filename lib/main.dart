@@ -43,27 +43,14 @@ void main() async {
 
   var scholar = Get.find<Rx<Scholar>>(tag: 'scholar');
   if (scholar.value.isLogan) {
-    // ===== MOD BEGIN: 每天第一次打开时刷新一次课表数据 =====
-    // 其余时间直接用缓存；后台定时刷新已移除。刷新本身复用上游的统一入口
-    // _refreshRestoredScholar（会话重建、诊断日志都在它内部完成）。
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final lastAutoRefresh = db.getLastAutoRefresh();
-    final needRefresh = lastAutoRefresh == null ||
-        DateTime(lastAutoRefresh.year, lastAutoRefresh.month,
-                lastAutoRefresh.day)
-            .isBefore(today);
-    if (needRefresh) {
-      unawaited(
-        _refreshRestoredScholar(scholar).whenComplete(() async {
-          await db.setLastAutoRefresh(DateTime.now());
-          ECardWidgetMessenger.update();
-        }),
-      );
-    } else {
-      unawaited(ECardWidgetMessenger.update());
-    }
-    // ===== MOD END =====
+    // 启动恢复只有一个自动刷新入口；会话重建由 Scholar.refresh 内部完成。
+    // 用户此时手动刷新会复用并等待这一个 refresh Future。
+    // 校园卡使用不同 HttpClient/User-Agent，等 Scholar 认证和抓取
+    // 完成后再启动，避免两套 CAS 链路在启动瞬间互相干扰。
+    unawaited(
+      _refreshRestoredScholar(scholar)
+          .whenComplete(ECardWidgetMessenger.update),
+    );
   } else {
     unawaited(ECardWidgetMessenger.update());
   }
