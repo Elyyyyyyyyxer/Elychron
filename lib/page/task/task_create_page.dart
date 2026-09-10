@@ -8,6 +8,9 @@ import 'package:celechron/utils/attachment_helper.dart';
 import 'package:celechron/utils/time_helper.dart';
 import 'package:celechron/utils/utils.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart' show Icons;
+import 'package:celechron/mod/ai/ai_compose_sheet.dart';
+import 'package:celechron/mod/ai/ai_task_draft.dart';
 
 /// 钉钉风格的「新建待办」页。
 ///
@@ -410,6 +413,24 @@ class _TaskCreatePageState extends State<TaskCreatePage> {
 
   // ------------------------------------------------------------------ build
 
+  // ===== MOD: AI 整理成待办 =====
+  // AI 只产出受限草稿，由 AiTaskDraft 逐字段校验后再 applyTo，绝不直接吃模型 JSON
+  Future<void> _runAiCompose() async {
+    final title = _titleController.text.trim();
+    final seed = title.length > 25 ? title : _descriptionController.text;
+    final draft = await showAiComposeSheet(context, initialText: seed);
+    if (draft == null || !mounted) return;
+    setState(() {
+      draft.applyTo(now);
+      _titleController.text = now.summary;
+      _descriptionController.text = now.description;
+      _locationController.text = now.location;
+    });
+    if (draft.warnings.isNotEmpty) {
+      _alert('已填入，但有几处我替你改了：\n\n${draft.warnings.join('\n')}');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final labelColor =
@@ -431,13 +452,26 @@ class _TaskCreatePageState extends State<TaskCreatePage> {
           child: const Icon(CupertinoIcons.xmark),
         ),
         middle: Text(widget.pageTitle),
-        trailing: CupertinoButton(
-          padding: EdgeInsets.zero,
-          onPressed: _canCreate ? _saveAndExit : null,
-          child: Text(
-            widget.confirmLabel,
-            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
-          ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // ===== MOD: AI 整理入口 =====
+            CupertinoButton(
+              padding: EdgeInsets.zero,
+              onPressed: _runAiCompose,
+              child: const Icon(Icons.auto_awesome, size: 21),
+            ),
+            const SizedBox(width: 14),
+            CupertinoButton(
+              padding: EdgeInsets.zero,
+              onPressed: _canCreate ? _saveAndExit : null,
+              child: Text(
+                widget.confirmLabel,
+                style:
+                    const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+              ),
+            ),
+          ],
         ),
         border: null,
       ),

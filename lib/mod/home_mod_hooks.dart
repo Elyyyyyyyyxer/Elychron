@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:celechron/mod/ai/ai_compose_sheet.dart';
+import 'package:celechron/mod/ai/deepseek.dart';
 import 'package:celechron/model/task.dart';
 import 'package:celechron/page/task/task_alarm_page.dart';
 import 'package:celechron/page/task/task_create_page.dart';
@@ -63,6 +65,37 @@ class HomeModHooks {
     }
   }
 
+  /// 分享进来的是文字时，问一句要不要交给 AI 整理
+  Future<bool?> _askUseAi(BuildContext context, String text) async {
+    await AiConfig.load();
+    if (!AiConfig.isReady) return null;
+    return showCupertinoModalPopup<bool>(
+      context: context,
+      builder: (BuildContext context) => CupertinoActionSheet(
+        title: const Text('要用 AI 整理这条分享吗？'),
+        message: Text(
+          text.length > 60 ? '${text.substring(0, 60)}…' : text,
+          style: const TextStyle(fontSize: 13),
+        ),
+        actions: [
+          CupertinoActionSheetAction(
+            isDefaultAction: true,
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('AI 整理成待办'),
+          ),
+          CupertinoActionSheetAction(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('直接新建'),
+          ),
+        ],
+        cancelButton: CupertinoActionSheetAction(
+          onPressed: () => Navigator.of(context).pop(null),
+          child: const Text('取消'),
+        ),
+      ),
+    );
+  }
+
   Future<void> _handleShared(List<SharedItem> items) async {
     if (items.isEmpty || _handlingShare) return;
     _handlingShare = true;
@@ -100,6 +133,22 @@ class HomeModHooks {
       draft.repeatEndsTime = dateOnly(end);
       draft.summary = title;
       draft.attachments = attachments;
+
+      // ===== MOD: 分享进来的文字可以直接交给 AI 整理 =====
+      // 只有纯文字分享才提示（带文件时先保证文件不丢），且 AI 必须已配置好
+      if (title.length >= 12 && attachments.isEmpty) {
+        final useAi = await _askUseAi(context, title);
+        if (useAi == true) {
+          final aiDraft = await showAiComposeSheet(context, initialText: title);
+          if (aiDraft != null) {
+            aiDraft.applyTo(draft);
+            // 原文别丢：AI 没给描述时就把原文放进描述
+            if (draft.description.trim().isEmpty) {
+              draft.description = title;
+            }
+          }
+        }
+      }
 
       final res = await showCupertinoModalPopup<Task>(
         context: context,
