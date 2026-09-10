@@ -888,3 +888,7 @@ DerivedData/
 !**/ios/**/default.pbxuser
 !**/ios/**/default.perspectivev3
 !/packages/flutter_tools/test/data/dart_dependencies_test/**/.packages
+# ===== MOD: 调试产物 =====
+/s_*.png
+/ui.xml
+/credits.txt
