@@ -1,9 +1,13 @@
+import 'dart:async';
+import 'dart:io';
+
 import 'package:get/get.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:workmanager/workmanager.dart';
 
 import 'package:celechron/model/scholar.dart';
 import 'package:celechron/model/option.dart';
+import 'package:celechron/services/diagnostic_log_service.dart';
 import 'package:celechron/database/database_helper.dart';
 import 'package:celechron/worker/ecard_widget_messenger.dart';
 import 'package:celechron/worker/fuse.dart';
@@ -13,6 +17,9 @@ import 'package:celechron/model/calendar_to_ical.dart';
 
 import 'package:celechron/utils/task_reminder.dart';
 import 'package:celechron/utils/utils.dart';
+
+const _backgroundScholarFetchTask =
+    'top.celechron.celechron.backgroundScholarFetch';
 
 class OptionController extends GetxController {
   final _option = Get.find<Option>(tag: 'option');
@@ -96,7 +103,7 @@ class OptionController extends GetxController {
       return;
     }
 
-    _updateBackgroundWorker(value || pushOnDdlReminder);
+    unawaited(_updateBackgroundWorker(value || pushOnDdlReminder));
   }
 
   bool get pushOnDdlReminder => _option.pushOnDdlReminder.value;
@@ -114,14 +121,29 @@ class OptionController extends GetxController {
       return;
     }
 
-    _updateBackgroundWorker(value || pushOnGradeChange);
+    unawaited(_updateBackgroundWorker(value || pushOnGradeChange));
   }
 
-  /// 后台定时刷新已移除：这里只负责清理历史遗留的周期任务。
-  void _updateBackgroundWorker(bool enabled) {
-    Workmanager()
-        .cancelByUniqueName('top.celechron.celechron.backgroundScholarFetch');
+  /// ===== MOD BEGIN: 后台定时刷新已移除 =====
+  /// 课表数据改为「每天第一次打开时刷新一次」，这里只负责清理历史遗留的周期任务。
+  /// 注意：上游的 _ensureBackgroundWorkerScheduled 一并去掉了，所以
+  /// 「推送成绩变动 / 推送作业截止提醒」两个开关不会真正触发后台任务。
+  Future<void> _updateBackgroundWorker(bool enabled) async {
+    try {
+      await Workmanager().cancelByUniqueName(_backgroundScholarFetchTask);
+      if (Platform.isIOS) await Workmanager().printScheduledTasks();
+    } on Object catch (error, stackTrace) {
+      DiagnosticLogService.instance.record(
+        level: CelechronLogLevel.warning,
+        module: '后台刷新',
+        operation: 'cancel',
+        message: '后台刷新任务取消失败',
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
   }
+  // ===== MOD END =====
 
   BrightnessMode get brightnessMode => _option.brightnessMode.value;
 
@@ -137,6 +159,13 @@ class OptionController extends GetxController {
   set hideHomeGpa(bool value) {
     _option.hideHomeGpa.value = value;
     _db.setHideHomeGpa(value);
+  }
+
+  bool get asyncRefresh => _option.asyncRefresh.value;
+
+  set asyncRefresh(bool value) {
+    _option.asyncRefresh.value = value;
+    _db.setAsyncRefresh(value);
   }
 
   String get celechronVersion => _fuse.value.displayVersion;

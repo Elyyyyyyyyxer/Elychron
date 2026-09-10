@@ -12,23 +12,33 @@ void main() {
   setUp(() async {
     tempDir = await Directory.systemTemp.createTemp('celechron_test');
     Hive.init(tempDir.path);
-    if (!Hive.isAdapterRegistered(4)) Hive.registerAdapter(DurationAdapter());
-    if (!Hive.isAdapterRegistered(6)) Hive.registerAdapter(DeadlineAdapter());
-    if (!Hive.isAdapterRegistered(7))
+    if (!Hive.isAdapterRegistered(4)) {
+      Hive.registerAdapter(DurationAdapter());
+    }
+    if (!Hive.isAdapterRegistered(6)) {
+      Hive.registerAdapter(DeadlineAdapter());
+    }
+    if (!Hive.isAdapterRegistered(7)) {
       Hive.registerAdapter(DeadlineStatusAdapter());
-    if (!Hive.isAdapterRegistered(10))
+    }
+    if (!Hive.isAdapterRegistered(10)) {
       Hive.registerAdapter(DeadlineTypeAdapter());
+    }
     if (!Hive.isAdapterRegistered(11)) {
       Hive.registerAdapter(DeadlineRepeatTypeAdapter());
     }
-    if (!Hive.isAdapterRegistered(14)) Hive.registerAdapter(SubTaskAdapter());
+    if (!Hive.isAdapterRegistered(14)) {
+      Hive.registerAdapter(SubTaskAdapter());
+    }
     if (!Hive.isAdapterRegistered(15)) {
       Hive.registerAdapter(TaskAttachmentAdapter());
     }
-    if (!Hive.isAdapterRegistered(16))
+    if (!Hive.isAdapterRegistered(16)) {
       Hive.registerAdapter(TaskCommentAdapter());
-    if (!Hive.isAdapterRegistered(17))
+    }
+    if (!Hive.isAdapterRegistered(17)) {
       Hive.registerAdapter(TaskPriorityAdapter());
+    }
   });
 
   tearDown(() async {

@@ -10,6 +10,7 @@ class TaskController extends GetxController {
   final taskList = Get.find<RxList<Task>>(tag: 'taskList');
   final taskListLastUpdate = Get.find<Rx<DateTime>>(tag: 'taskListLastUpdate');
   final _db = Get.find<DatabaseHelper>(tag: 'db');
+  Timer? _timer;
 
   /// 未完成的待办（含带时段的任务），先按优先级从高到低，再按截止时间从近到远。
   List<Task> get todoDeadlineList {
@@ -201,9 +202,8 @@ class TaskController extends GetxController {
   @override
   void onInit() {
     updateDeadlineList();
-    Timer.periodic(const Duration(seconds: 1), (Timer t) {
+    _timer = Timer.periodic(const Duration(seconds: 1), (Timer t) {
       updateDeadlineList();
-      refreshDeadlineList();
       checkAlarms();
     });
     super.onInit();
@@ -237,9 +237,10 @@ class TaskController extends GetxController {
     }
   }
 
-  void refreshDeadlineList() {
-    saveDeadlineListToDb();
-    //print('TaskListPage: refreshed');
+  @override
+  void onClose() {
+    _timer?.cancel();
+    super.onClose();
   }
 
   Future<void> saveDeadlineListToDb() async {
@@ -253,21 +254,33 @@ class TaskController extends GetxController {
 
   void updateDeadlineListTime() {
     taskListLastUpdate.value = DateTime.now();
+    // 所有改字段不改列表结构的用户操作（标记完成、暂停/继续等）都经过这里，即时落盘
+    saveDeadlineListToDb();
   }
 
-  void updateDeadlineList() {
-    // 标记为已删除的：留墓碑再移除（同步时才知道这条是被删的，而不是新加的）
-    _removeWithTombstone(
-        taskList.where((element) => element.status == TaskStatus.deleted));
+  /// 刷新任务状态（过期判定、固定日程滚动等）。返回是否有数据变化。
+  /// 只在真正有变化时执行 RxList 操作和写库，避免每秒空转通知 UI、全量写 Hive。
+  bool updateDeadlineList() {
+    var changed = false;
+
+    if (taskList.any((element) => element.status == TaskStatus.deleted)) {
+      // ===== MOD: 删除前先留墓碑，同步时才知道这条是被删的而不是新加的 =====
+      _removeWithTombstone(
+          taskList.where((element) => element.status == TaskStatus.deleted));
+      changed = true;
+    }
 
     Set<String> existingUid = {};
     List<Task> newDeadlineList = [];
     for (var deadline in taskList) {
-      // 兼容旧数据：普通待办不该有开始时间（早期版本会写成「截止前 1 分钟」）
+      // ===== MOD: 兼容旧数据——普通待办不该有开始时间（早期版本写成「截止前 1 分钟」）=====
       if (deadline.type == TaskType.deadline &&
           deadline.startTime != deadline.endTime) {
         deadline.startTime = deadline.endTime;
+        changed = true;
       }
+      final oldStatus = deadline.status;
+      final oldEndTime = deadline.endTime;
       deadline.refreshStatus();
       if (deadline.type == TaskType.deadline) {
         // 不再按「用时」自动完成；完成只由打钩决定
@@ -295,10 +308,17 @@ class TaskController extends GetxController {
           }
         }
       }
+      if (deadline.status != oldStatus || deadline.endTime != oldEndTime) {
+        changed = true;
+      }
     }
-    taskList.addAll(newDeadlineList);
+    if (newDeadlineList.isNotEmpty) {
+      taskList.addAll(newDeadlineList);
+      changed = true;
+    }
 
-    // 周期性待办：完成之后自动生成下一次（用 fromUid 标记，避免每秒重复生成）
+    // ===== MOD BEGIN: 周期性待办完成之后自动生成下一次 =====
+    // 用 fromUid 标记，避免每秒重复生成；带时段的重复待办同样会生成下一期。
     final spawnedFrom = taskList
         .where((element) => element.fromUid != null)
         .map((element) => element.fromUid!)
@@ -322,21 +342,49 @@ class TaskController extends GetxController {
       nextOccurrences.add(next);
       spawnedFrom.add(deadline.uid);
     }
-    taskList.addAll(nextOccurrences);
+    if (nextOccurrences.isNotEmpty) {
+      taskList.addAll(nextOccurrences);
+      changed = true;
+    }
+    // ===== MOD END =====
 
-    taskList.removeWhere((element) =>
+    if (taskList.any((element) =>
         element.type == TaskType.fixedlegacy &&
-        !existingUid.contains(element.fromUid));
+        !existingUid.contains(element.fromUid))) {
+      taskList.removeWhere((element) =>
+          element.type == TaskType.fixedlegacy &&
+          !existingUid.contains(element.fromUid));
+      changed = true;
+    }
 
-    taskList.sort((a, b) => a.endTime.compareTo(b.endTime));
+    // 视图可能直接 taskList.add 了新任务或改了 endTime，用顺序守卫兜底
+    if (!changed) {
+      changed = !_isSortedByEndTime();
+    }
 
-    // 把开启提醒的任务同步成本地通知（内部有签名缓存，未变化时不会重复调度）
+    if (changed) {
+      // sort 无条件通知，兼作纯状态翻转（无 RxList 结构操作）时的 UI 通知
+      taskList.sort((a, b) => a.endTime.compareTo(b.endTime));
+      saveDeadlineListToDb();
+    }
+
+    // ===== MOD: 把开启提醒的任务同步成本地通知（内部有签名缓存，未变化不重复调度）=====
     TaskReminder.mode = _db.getReminderMode();
     TaskReminder.syncAll(taskList);
+
+    return changed;
   }
 
-  /// 移除待办并留下删除墓碑。
-  ///
+  bool _isSortedByEndTime() {
+    for (var i = 1; i < taskList.length; i++) {
+      if (taskList[i - 1].endTime.isAfter(taskList[i].endTime)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /// ===== MOD: 移除待办并留下删除墓碑 =====
   /// legacy 的《过去日程》副本属于本地派生数据，不留墓碑（它们挂在原日程的
   /// fromUid 上，原日程被删时合并逻辑会一并清掉）。
   void _removeWithTombstone(Iterable<Task> tasks) {
@@ -357,12 +405,14 @@ class TaskController extends GetxController {
     _removeWithTombstone(taskList.where((element) =>
         element.type == TaskType.deadline &&
         element.status == TaskStatus.completed));
+    saveDeadlineListToDb();
   }
 
   void removeFailedDeadline(context) {
     _removeWithTombstone(taskList.where((element) =>
         element.type == TaskType.deadline &&
         element.status == TaskStatus.failed));
+    saveDeadlineListToDb();
   }
 
   int suspendAllDeadline(context) {

@@ -21,6 +21,7 @@ import 'package:celechron/design/cupertino_async_switch.dart';
 import 'allow_time_edit_page.dart';
 import 'course_id_mapping_edit_page.dart';
 import 'credits_page.dart';
+import 'diagnostic_log_page.dart';
 import 'package:get/get.dart';
 import 'custom_license_page.dart';
 import 'login_page.dart';
@@ -274,6 +275,14 @@ class OptionPage extends StatelessWidget {
                                         CourseIdMappingEditPage()));
                           },
                         ),
+                        CupertinoListTile(
+                            title: const Text('异步刷新'),
+                            trailing: Obx(() => CupertinoSwitch(
+                                  value: _optionController.asyncRefresh,
+                                  onChanged: (value) async {
+                                    _optionController.asyncRefresh = value;
+                                  },
+                                ))),
                         CupertinoListTile(
                             title: const Text('推送成绩变动'),
                             trailing: CupertinoSwitch(
@@ -579,6 +588,33 @@ class OptionPage extends StatelessWidget {
                     },
                   ),
                 ])),
+            // 关于
+            SliverToBoxAdapter(
+              child: CupertinoListSection.insetGrouped(
+                additionalDividerMargin: 2,
+                margin: _defaultMargin,
+                header: Container(
+                  padding: const EdgeInsets.only(left: 16),
+                  child: Text('诊断与测试', style: headerFooterTextStyle),
+                ),
+                children: [
+                  CupertinoListTile(
+                    title: const Text('测试日志'),
+                    subtitle: const Text('查看、复制或导出脱敏 TXT'),
+                    trailing: const BackChervonRow(),
+                    onTap: () {
+                      Navigator.of(context, rootNavigator: true).push(
+                        CupertinoPageRoute(
+                          builder: (context) => DiagnosticLogPage(
+                            version: _optionController.celechronVersion,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
             // 关于
             SliverToBoxAdapter(
               child: CupertinoListSection.insetGrouped(

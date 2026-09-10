@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/cupertino.dart';
@@ -14,11 +15,16 @@ import 'package:celechron/model/scholar.dart';
 import 'package:celechron/model/option.dart';
 import 'package:celechron/page/home_page.dart';
 import 'package:celechron/page/option/ecard_pay_page.dart';
+import 'package:celechron/services/diagnostic_log_service.dart';
+import 'package:celechron/services/refresh_coordinator.dart';
 import 'package:celechron/worker/ecard_widget_messenger.dart';
 import 'package:celechron/database/database_helper.dart';
 import 'package:celechron/utils/global.dart';
 
 void main() async {
+  // 尽可能早地声明前台活跃，Workmanager isolate 会据此安全让行。
+  await RefreshCoordinator.setForegroundActive(true);
+
   // 初始化数据库
   await Hive.initFlutter();
   var db = Get.put(DatabaseHelper(), tag: 'db');
@@ -37,31 +43,50 @@ void main() async {
 
   var scholar = Get.find<Rx<Scholar>>(tag: 'scholar');
   if (scholar.value.isLogan) {
-    // 每天第一次打开时刷新一次课表数据（其余时间用缓存，不再后台定时刷新）
+    // ===== MOD BEGIN: 每天第一次打开时刷新一次课表数据 =====
+    // 其余时间直接用缓存；后台定时刷新已移除。刷新本身复用上游的统一入口
+    // _refreshRestoredScholar（会话重建、诊断日志都在它内部完成）。
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    final last = db.getLastAutoRefresh();
-    final needRefresh = last == null ||
-        DateTime(last.year, last.month, last.day).isBefore(today);
+    final lastAutoRefresh = db.getLastAutoRefresh();
+    final needRefresh = lastAutoRefresh == null ||
+        DateTime(lastAutoRefresh.year, lastAutoRefresh.month,
+                lastAutoRefresh.day)
+            .isBefore(today);
     if (needRefresh) {
-      scholar.value
-          .login()
-          .then((value) async {
-            GlobalStatus.isFirstScreenReq = true;
-            await scholar.value.refresh();
-            GlobalStatus.isFirstScreenReq = false;
-            await db.setLastAutoRefresh(DateTime.now());
-          })
-          .then((value) => scholar.refresh())
-          .catchError((e) {
-            // 网络异常时保留本地缓存数据，下次打开再试
-            GlobalStatus.isFirstScreenReq = false;
-            scholar.refresh();
-          });
+      unawaited(
+        _refreshRestoredScholar(scholar).whenComplete(() async {
+          await db.setLastAutoRefresh(DateTime.now());
+          ECardWidgetMessenger.update();
+        }),
+      );
+    } else {
+      unawaited(ECardWidgetMessenger.update());
     }
+    // ===== MOD END =====
+  } else {
+    unawaited(ECardWidgetMessenger.update());
   }
+}
 
-  ECardWidgetMessenger.update();
+Future<void> _refreshRestoredScholar(Rx<Scholar> scholar) async {
+  GlobalStatus.isFirstScreenReq = true;
+  try {
+    await scholar.value.refresh(onPartialUpdate: scholar.refresh);
+  } on Object catch (error, stackTrace) {
+    // 启动刷新不阻断缓存数据展示，但异常仍进入诊断日志。
+    DiagnosticLogService.instance.record(
+      level: CelechronLogLevel.error,
+      module: 'refresh',
+      operation: 'startupRefresh',
+      message: '启动自动刷新异常结束',
+      error: error,
+      stackTrace: stackTrace,
+    );
+  } finally {
+    GlobalStatus.isFirstScreenReq = false;
+    scholar.refresh();
+  }
 }
 
 class CelechronApp extends StatefulWidget {
@@ -73,10 +98,13 @@ class CelechronApp extends StatefulWidget {
 
 class _CelechronAppState extends State<CelechronApp>
     with WidgetsBindingObserver {
+  Timer? _foregroundLeaseHeartbeat;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _startForegroundLease();
 
     // 监听AppLinks，用于跳转至付款码页面
     _initAppLinks();
@@ -91,14 +119,36 @@ class _CelechronAppState extends State<CelechronApp>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _stopForegroundLease();
     super.dispose();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _startForegroundLease();
+    } else if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden ||
+        state == AppLifecycleState.detached) {
+      _stopForegroundLease();
+    }
     if (state == AppLifecycleState.paused) {
       ECardWidgetMessenger.update();
     }
+  }
+
+  void _startForegroundLease() {
+    unawaited(RefreshCoordinator.setForegroundActive(true));
+    _foregroundLeaseHeartbeat ??= Timer.periodic(
+      RefreshCoordinator.foregroundHeartbeatInterval,
+      (_) => unawaited(RefreshCoordinator.setForegroundActive(true)),
+    );
+  }
+
+  void _stopForegroundLease() {
+    _foregroundLeaseHeartbeat?.cancel();
+    _foregroundLeaseHeartbeat = null;
+    unawaited(RefreshCoordinator.setForegroundActive(false));
   }
 
   @override
