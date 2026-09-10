@@ -1,4 +1,5 @@
 import 'package:celechron/design/alarm_theme_picker.dart';
+import 'package:celechron/mod/lan_sync_page.dart';
 import 'package:celechron/mod/settings_data_actions.dart';
 import 'package:celechron/page/option/option_controller.dart';
 import 'package:celechron/page/option/option_view.dart' show BackChervonRow;
@@ -62,8 +63,20 @@ Widget modDataSection(
                 child: Text('数据', style: headerStyle)),
             children: <CupertinoListTile>[
           CupertinoListTile(
+            title: const Text('局域网同步'),
+            subtitle: const Text('同一 Wi-Fi 下用电脑浏览器看待办、改待办，无需账号'),
+            trailing: const BackChervonRow(),
+            onTap: () async {
+              await Navigator.of(context, rootNavigator: true).push(
+                CupertinoPageRoute<void>(
+                  builder: (BuildContext context) => const LanSyncPage(),
+                ),
+              );
+            },
+          ),
+          CupertinoListTile(
             title: const Text('导出数据'),
-            subtitle: const Text('导出为 JSON 文件，可存到坚果云'),
+            subtitle: const Text('导出为 JSON 文件，可自己保存或传到电脑'),
             trailing: const BackChervonRow(),
             onTap: () => modExportData(context),
           ),
