@@ -88,15 +88,22 @@ test/**                        单元测试
 | `lib/page/home_page.dart` | 102 行 | **16 行** | 分享接收 + 闹钟监听搬到 `lib/mod/home_mod_hooks.dart`，首页只留 `_modHooks.start()/dispose()` 与一行 import |
 | `lib/page/task/task_controller.dart`（部分） | 285 行 | **212 行** | 前台闹钟检查、周期待办生成、旧数据归一化、删除墓碑、提醒同步搬到 `lib/mod/task_runtime_mod.dart`，每处只留一行调用 |
 
+### 第 2 轮（已完成）
+
+| 文件中转站 | 原接缝 | 现接缝 | 做法 |
+|---|---|---|---|
+| `task_controller.dart` | 212 行 | **36 行** | 分类/排序/筛选状态做成 `mixin TaskListFilterMod on GetxController`（`lib/mod/task_list_filter_mod.dart`），类声明只加一个 `with`。注意：**static 成员不会被 with 继承**，所以 `tabNames` 留在控制器里 |
+| `option_view.dart` | 177 行 | **60 行** | 导出/导入的 110 行实现搬到 `lib/mod/settings_data_actions.dart`，顺带删掉 9 个只为它存在的 import |
+
+三个文件的接缝合计：**564 行 → 112 行（−80%）**。
+
 ### 待办（按收益排序）
 
-1. `task_controller.dart` 剩余 212 行里，约 120 行是**任务页的分类/排序/筛选状态**
-   （`selectedTab` / `selectedTags` / `sortKey` / `visibleTaskList` / `tabCount` / `allTags` / `resetFilters`）。
-   可以做成 `mixin TaskListFilterMod on GetxController`，类声明加一个 `with` 即可，
-   预估能把这部分压到 1 行。
-2. `lib/page/option/option_view.dart`（177 行）：我们的三个设置行
-   （待办提醒方式 / 闹钟配色 / 数据分区）可做成 `lib/mod/settings_mod_section.dart` 一个 widget，
-   上游文件里只留 1 行挂载。
+1. `option_view.dart` 剩余 60 行是两个声明式设置块（待办提醒方式 + 闹钟配色、数据分区），
+   可做成 `lib/mod/settings_mod_section.dart` 的 widget，留 2 行挂载。
+2. `lib/database/database_helper.dart`（114 行）：墓碑、标签库/配色、提醒方式、闹钟配色这些
+   getter/setter 可以搬到 `extension DatabaseModExt on DatabaseHelper`
+   （`optionsBox` / `tombstoneBox` 都是 public 字段），上游文件只留 4 行 adapter 注册 + 1 行开箱。
 3. `lib/database/database_helper.dart`（114 行）：墓碑、标签库/配色、提醒方式、闹钟配色这些
    getter/setter 可以搬到 `extension DatabaseModExt on DatabaseHelper`
    （`optionsBox` / `tombstoneBox` 都是 public 字段），上游文件只留 4 行 adapter 注册 + 1 行开箱。
