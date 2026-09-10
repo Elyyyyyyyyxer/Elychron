@@ -278,6 +278,20 @@ class _AiComposeSheetState extends State<_AiComposeSheet> {
             children: rows,
           ),
         ),
+        if (draft.uncertain.isNotEmpty) ...[
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: CupertinoColors.systemGrey.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Text(
+              '原文没写清、已经留空的字段：${draft.uncertain.join("、")}\n（需要的话自己补上）',
+              style: const TextStyle(fontSize: 13),
+            ),
+          ),
+        ],
         if (draft.warnings.isNotEmpty) ...[
           const SizedBox(height: 10),
           _note(

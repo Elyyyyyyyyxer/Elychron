@@ -1,4 +1,7 @@
+import 'package:celechron/database/database_helper.dart';
 import 'package:celechron/mod/ai/deepseek.dart';
+import 'package:celechron/mod/database_mod.dart';
+import 'package:get/get.dart';
 import 'package:celechron/model/task.dart';
 import 'package:celechron/utils/utils.dart';
 
@@ -18,6 +21,7 @@ class AiTaskDraft {
     required this.tags,
     required this.location,
     required this.subtasks,
+    required this.uncertain,
     required this.warnings,
   });
 
@@ -28,6 +32,10 @@ class AiTaskDraft {
   final List<String> tags;
   final String location;
   final List<String> subtasks;
+
+  /// 模型自报「原文里没写、我不确定」的字段名（如 截止时间 / 地点）。
+  /// 这些字段会留空交给用户自己补，而不是靠模型猜。
+  final List<String> uncertain;
 
   /// 我们改动过模型输出的地方（比如时间在过去、优先级不认识），
   /// 如实告诉用户，不做静默修补。
@@ -47,6 +55,7 @@ class AiTaskDraft {
   /// 让模型把一段文字整理成草稿。文本过长会被截断，避免烧钱又跑偏。
   static Future<AiTaskDraft> fromText(String rawText) async {
     await AiConfig.load();
+    final existingTags = _existingTags();
     final text = rawText.trim();
     if (text.isEmpty) {
       throw AiException('先粘贴一段文字');
@@ -56,14 +65,18 @@ class AiTaskDraft {
 
     final client = DeepSeekClient();
     final json = await client.chatJson(
-      system: _buildSystemPrompt(),
+      system: _buildSystemPrompt(existingTags),
       user: clipped,
       temperature: 0.1,
     );
-    return _fromJson(json, clippedTooLong: text.length > maxInputChars);
+    return _fromJson(
+      json,
+      existingTags: existingTags,
+      clippedTooLong: text.length > maxInputChars,
+    );
   }
 
-  static String _buildSystemPrompt() {
+  static String _buildSystemPrompt(List<String> existingTags) {
     final now = DateTime.now();
     const weekdays = ['一', '二', '三', '四', '五', '六', '日'];
     final weekday = weekdays[now.weekday - 1];
@@ -86,8 +99,20 @@ class AiTaskDraft {
   "priority": "只能是 low / normal / high / urgent 之一",
   "tags": ["最多 $maxTagCount 个，每个不超过 $maxTagChars 字"],
   "location": "地点；原文没提就给空字符串",
-  "subtasks": ["仅当原文确实包含多个步骤时才给，最多 $maxSubtaskCount 条；否则给空数组"]
+  "subtasks": ["仅当原文确实包含多个步骤时才给，最多 $maxSubtaskCount 条；否则给空数组"],
+  "uncertain": ["你不确定的字段名，例如 截止时间、地点；没有就给空数组"]
 }
+
+用户的标签库（**优先复用**，不要另造近义词）：
+${existingTags.isEmpty ? '（现在是空的，可以新建标签）' : existingTags.join('、')}
+- 如果上面某个标签能表达这条待办，就**原样使用它**（例如已有「作业」就不要写「作业提交」）
+- 总数不超过 $maxTagCount 个；确实没有合适的才新建，且最多新建 2 个
+
+关于「不确定就留空」——这条比填满更重要：
+- 原文没提到的地点、标签、子步骤，一律留空字符串或空数组，**不要靠常识补全**
+- 不要编造原文没有的要求（原文只说「交报告」，就不要自己加「打印纸质版」这类步骤）
+- 把你判断「原文没写清楚」的字段名列进 uncertain 数组，最多 5 个
+- 唯一不能留空的是 endTime：完全没提到时间时用今天 23:59，并把「截止时间」列进 uncertain
 
 时间换算的硬规则：
 1. 今天日期是 $todayIso。所有相对时间（今天/明天/后天/本周五/下周三/月底/三天后）必须换算成绝对日期。
@@ -101,6 +126,7 @@ class AiTaskDraft {
 
   static AiTaskDraft _fromJson(
     Map<String, dynamic> json, {
+    List<String> existingTags = const <String>[],
     bool clippedTooLong = false,
   }) {
     final warnings = <String>[];
@@ -156,14 +182,21 @@ class AiTaskDraft {
       warnings,
     );
 
+    // --- 标签：优先落到用户已有的标签上（大小写/空格归一后精确匹配）
+    final mappedTags = _mapTagsToExisting(tags, existingTags, warnings);
+
+    // --- uncertain：模型自报没写清的字段名
+    final uncertain = _stringList(source["uncertain"], 5, 10);
+
     return AiTaskDraft(
       summary: summary,
       description: description,
       endTime: endTime,
       priority: priority,
-      tags: tags,
+      tags: mappedTags,
       location: location,
       subtasks: subtasks,
+      uncertain: uncertain,
       warnings: warnings,
     );
   }
@@ -235,6 +268,44 @@ class AiTaskDraft {
   ///
   /// 只写我们自己认可的字段：`type` 保持普通待办、`startTime` 与 `endTime` 对齐
   /// （与「普通待办不该有开始时间」的既有约定一致），其余一律走模型默认值。
+  /// 用户标签库（拿不到就当空）
+  static List<String> _existingTags() {
+    try {
+      if (!Get.isRegistered<DatabaseHelper>(tag: "db")) return const <String>[];
+      return Get.find<DatabaseHelper>(tag: "db").getTagLibrary();
+    } catch (_) {
+      return const <String>[];
+    }
+  }
+
+  /// 去掉大小写与所有空白，只用于「是不是同一个标签」的判断
+  static String _normalizeTag(String tag) =>
+      tag.replaceAll(RegExp(r"\s+"), "").toLowerCase();
+
+  /// 把模型给的标签尽量落到用户已有的标签上：
+  /// 归一化后完全一样 → 换成用户那边原本的写法（避免「作业」和「作业 」两个标签）。
+  /// 只做精确匹配，不做模糊合并——「报告」和「实验报告」是两回事，不替用户决定。
+  static List<String> _mapTagsToExisting(
+    List<String> tags,
+    List<String> existing,
+    List<String> warnings,
+  ) {
+    if (tags.isEmpty || existing.isEmpty) return tags;
+    final byNormalized = <String, String>{
+      for (final tag in existing) _normalizeTag(tag): tag,
+    };
+    final result = <String>[];
+    for (final tag in tags) {
+      final matched = byNormalized[_normalizeTag(tag)];
+      final finalTag = matched ?? tag;
+      if (matched != null && matched != tag) {
+        warnings.add("标签「$tag」并入了你已有的「$matched」");
+      }
+      if (!result.contains(finalTag)) result.add(finalTag);
+    }
+    return result;
+  }
+
   void applyTo(Task task) {
     task.summary = summary;
     if (description.isNotEmpty) task.description = description;
