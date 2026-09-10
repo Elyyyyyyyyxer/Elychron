@@ -73,6 +73,38 @@ test/**                        单元测试
 - 能通过「新增文件 + 一处挂载」实现的功能，一律走这条路（魔改的闹钟、分享、同步都是这么做的）。
 - 体积大的重写（`task_view.dart` 等）后续可考虑迁到 `lib/mod/` 下，上游文件只留薄壳转发。
 
+## 一点五、接缝压缩（进行中）
+
+**原则：魔改逻辑一律放进 `lib/mod/`，上游文件里只留"调用点"。**
+
+上游在持续重构（1.3 就把首页标签机制从 `CupertinoTabController` 换成了
+`PageView` + `_KeepAlivePage`），所以凡是我们在上游文件里写的**逻辑**，
+越少越好——冲突发生在重叠行上，逻辑挪走，冲突就只剩一行。
+
+### 已完成
+
+| 文件中转站 | 原接缝 | 现接缝 | 做法 |
+|---|---|---|---|
+| `lib/page/home_page.dart` | 102 行 | **16 行** | 分享接收 + 闹钟监听搬到 `lib/mod/home_mod_hooks.dart`，首页只留 `_modHooks.start()/dispose()` 与一行 import |
+| `lib/page/task/task_controller.dart`（部分） | 285 行 | **212 行** | 前台闹钟检查、周期待办生成、旧数据归一化、删除墓碑、提醒同步搬到 `lib/mod/task_runtime_mod.dart`，每处只留一行调用 |
+
+### 待办（按收益排序）
+
+1. `task_controller.dart` 剩余 212 行里，约 120 行是**任务页的分类/排序/筛选状态**
+   （`selectedTab` / `selectedTags` / `sortKey` / `visibleTaskList` / `tabCount` / `allTags` / `resetFilters`）。
+   可以做成 `mixin TaskListFilterMod on GetxController`，类声明加一个 `with` 即可，
+   预估能把这部分压到 1 行。
+2. `lib/page/option/option_view.dart`（177 行）：我们的三个设置行
+   （待办提醒方式 / 闹钟配色 / 数据分区）可做成 `lib/mod/settings_mod_section.dart` 一个 widget，
+   上游文件里只留 1 行挂载。
+3. `lib/database/database_helper.dart`（114 行）：墓碑、标签库/配色、提醒方式、闹钟配色这些
+   getter/setter 可以搬到 `extension DatabaseModExt on DatabaseHelper`
+   （`optionsBox` / `tombstoneBox` 都是 public 字段），上游文件只留 4 行 adapter 注册 + 1 行开箱。
+4. `lib/page/task/task_view.dart`（417 行）与 `task_edit_page.dart`（1205 行）是我们**整页重写**的。
+   彻底的做法是把整页搬到 `lib/mod/`，上游文件保持原样（在我们这儿变成死代码），
+   挂载点只留一行。**代价**：上游对这些页面的修复不再自动合并进来，将来要人工挑。
+   当前它们没有产生过冲突（上游 1.3 没动这两个文件），所以**先不动**，列为观察项。
+
 ## 二、跟版步骤
 
 ```bash

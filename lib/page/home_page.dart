@@ -11,14 +11,8 @@ import 'package:celechron/page/flow/flow_view.dart';
 import 'package:celechron/page/task/task_view.dart';
 import 'package:celechron/page/calendar/calendar_view.dart';
 import 'package:celechron/page/option/option_view.dart';
-import 'package:celechron/page/task/task_alarm_page.dart';
-import 'package:celechron/page/task/task_create_page.dart';
-import 'package:celechron/page/task/task_controller.dart';
-import 'package:celechron/model/task.dart';
-import 'package:celechron/utils/attachment_helper.dart';
-import 'package:celechron/utils/share_receiver.dart';
-import 'package:celechron/utils/task_alarm_center.dart';
-import 'package:celechron/utils/utils.dart';
+// ===== MOD: 分享接收 / 闹钟逻辑集中在 lib/mod/home_mod_hooks.dart =====
+import 'package:celechron/mod/home_mod_hooks.dart';
 
 import 'package:celechron/worker/fuse.dart';
 
@@ -45,106 +39,26 @@ class _HomePageState extends State<HomePage> {
   ];
 
   // ===== MOD BEGIN: 分享接收 / 闹钟监听 =====
-  StreamSubscription<List<SharedItem>>? _shareSubscription;
-  bool _handlingShare = false;
+
+  // ===== MOD BEGIN: 分享接收 / 闹钟（实现见 lib/mod/home_mod_hooks.dart）=====
+  late final HomeModHooks _modHooks = HomeModHooks(
+    jumpToTaskTab: () => _pageController.jumpToPage(2),
+  );
+  // ===== MOD END =====
   // ===== MOD END =====
 
   @override
   void initState() {
     super.initState();
     initFuse();
-    _listenShares();
-    TaskAlarmCenter.current.addListener(_onAlarm);
+    _modHooks.start();
   }
 
   @override
   void dispose() {
-    TaskAlarmCenter.current.removeListener(_onAlarm);
-    _shareSubscription?.cancel();
+    _modHooks.dispose();
     _pageController.dispose();
     super.dispose();
-  }
-
-  /// 闹钟到点：弹出全屏闹钟页
-  void _onAlarm() {
-    final task = TaskAlarmCenter.current.value;
-    if (task == null || !mounted) return;
-    Navigator.of(context, rootNavigator: true).push(
-      CupertinoPageRoute(
-        builder: (BuildContext context) => TaskAlarmPage(task: task),
-        fullscreenDialog: true,
-      ),
-    );
-  }
-
-  /// 接收系统分享面板发来的图片/文件/文本 → 直接打开新建待办
-  Future<void> _listenShares() async {
-    try {
-      final initial = await ShareReceiver.getInitial();
-      if (initial.isNotEmpty) {
-        await _handleShared(initial);
-      }
-      _shareSubscription = ShareReceiver.stream.listen((items) {
-        _handleShared(items);
-      });
-    } catch (_) {
-      // 平台不支持时静默跳过
-    }
-  }
-
-  Future<void> _handleShared(List<SharedItem> items) async {
-    if (items.isEmpty || _handlingShare || !mounted) return;
-    _handlingShare = true;
-    try {
-      // 先把分享过来的文件复制到应用附件目录
-      final attachments = <TaskAttachment>[];
-      String title = '';
-      for (final item in items) {
-        if (title.isEmpty && (item.text?.trim().isNotEmpty ?? false)) {
-          title = item.text!.trim();
-        }
-        final path = item.path;
-        if (path != null) {
-          final copied = await copyToAttachments(path, item.name ?? '分享的文件');
-          if (copied != null) attachments.add(copied);
-        }
-      }
-
-      // 切到「待办」页，再弹出新建窗口
-      _pageController.jumpToPage(2);
-      await Future.delayed(const Duration(milliseconds: 260));
-      if (!mounted) return;
-
-      final now = DateTime.now();
-      final draft = Task(
-        endTime: DateTime(now.year, now.month, now.day, 23, 59),
-        startTime: DateTime(now.year, now.month, now.day, 23, 59),
-        repeatEndsTime: dateOnly(now),
-      );
-      draft.reset();
-      final end = DateTime(now.year, now.month, now.day, 23, 59);
-      draft.startTime = end;
-      draft.endTime = end;
-      draft.repeatEndsTime = dateOnly(end);
-      draft.summary = title;
-      draft.attachments = attachments;
-
-      final res = await showCupertinoModalPopup<Task>(
-        context: context,
-        builder: (BuildContext context) => TaskCreatePage(draft),
-      );
-      if (res == null || !mounted) return;
-      if (res.status == TaskStatus.deleted) return;
-
-      final taskList = Get.find<RxList<Task>>(tag: 'taskList');
-      taskList.add(res);
-      final controller = Get.find<TaskController>();
-      controller.updateDeadlineList();
-      controller.updateDeadlineListTime();
-      controller.taskList.refresh();
-    } finally {
-      _handlingShare = false;
-    }
   }
 
   @override

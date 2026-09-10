@@ -2,8 +2,8 @@ import 'dart:async';
 import 'package:get/get.dart';
 import 'package:celechron/database/database_helper.dart';
 import 'package:celechron/model/task.dart';
-import 'package:celechron/utils/task_alarm_center.dart';
-import 'package:celechron/utils/task_reminder.dart';
+// ===== MOD: 魔改逻辑集中在 lib/mod/ 下，本文件只留调用点 =====
+import 'package:celechron/mod/task_runtime_mod.dart';
 import 'package:celechron/utils/utils.dart';
 
 class TaskController extends GetxController {
@@ -204,37 +204,9 @@ class TaskController extends GetxController {
     updateDeadlineList();
     _timer = Timer.periodic(const Duration(seconds: 1), (Timer t) {
       updateDeadlineList();
-      checkAlarms();
+      TaskAlarmCoordinator.tick(taskList);
     });
     super.onInit();
-  }
-
-  /// 闹钟模式下，前台到点就弹出全屏闹钟
-  final Set<String> _firedAlarms = <String>{};
-
-  void checkAlarms() {
-    if (TaskAlarmCenter.current.value == null) {
-      _firedAlarms.clear();
-    }
-    if (TaskReminder.mode != TaskReminder.modeAlarm) return;
-    if (TaskAlarmCenter.current.value != null) return;
-
-    final now = DateTime.now();
-    for (final task in taskList) {
-      if (!task.reminderEnabled) continue;
-      if (task.type != TaskType.deadline) continue;
-      if (task.status != TaskStatus.running &&
-          task.status != TaskStatus.suspended) {
-        continue;
-      }
-      final fireAt = task.reminderTargetTime;
-      if (fireAt.isAfter(now)) continue;
-      if (now.difference(fireAt).inMinutes >= 1) continue;
-      if (_firedAlarms.contains(task.uid)) continue;
-      _firedAlarms.add(task.uid);
-      TaskAlarmCenter.fire(task);
-      return;
-    }
   }
 
   @override
@@ -263,22 +235,14 @@ class TaskController extends GetxController {
   bool updateDeadlineList() {
     var changed = false;
 
-    if (taskList.any((element) => element.status == TaskStatus.deleted)) {
-      // ===== MOD: 删除前先留墓碑，同步时才知道这条是被删的而不是新加的 =====
-      _removeWithTombstone(
-          taskList.where((element) => element.status == TaskStatus.deleted));
-      changed = true;
-    }
+    // ===== MOD: 删除前先留墓碑（实现见 lib/mod/task_runtime_mod.dart）=====
+    if (TaskTombstoneStore.removeDeleted(taskList)) changed = true;
 
     Set<String> existingUid = {};
     List<Task> newDeadlineList = [];
     for (var deadline in taskList) {
-      // ===== MOD: 兼容旧数据——普通待办不该有开始时间（早期版本写成「截止前 1 分钟」）=====
-      if (deadline.type == TaskType.deadline &&
-          deadline.startTime != deadline.endTime) {
-        deadline.startTime = deadline.endTime;
-        changed = true;
-      }
+      // ===== MOD: 兼容旧数据（早期版本会把 DDL 写成「截止前 1 分钟」）=====
+      if (normalizeLegacyTask(deadline)) changed = true;
       final oldStatus = deadline.status;
       final oldEndTime = deadline.endTime;
       deadline.refreshStatus();
@@ -317,36 +281,8 @@ class TaskController extends GetxController {
       changed = true;
     }
 
-    // ===== MOD BEGIN: 周期性待办完成之后自动生成下一次 =====
-    // 用 fromUid 标记，避免每秒重复生成；带时段的重复待办同样会生成下一期。
-    final spawnedFrom = taskList
-        .where((element) => element.fromUid != null)
-        .map((element) => element.fromUid!)
-        .toSet();
-    final nextOccurrences = <Task>[];
-    for (var deadline in taskList) {
-      if (deadline.type == TaskType.fixedlegacy) continue;
-      if (deadline.status != TaskStatus.completed) continue;
-      if (deadline.repeatType == TaskRepeatType.norepeat) continue;
-      if (spawnedFrom.contains(deadline.uid)) continue;
-
-      final next = deadline.copyWith();
-      next.genUid();
-      next.fromUid = deadline.uid;
-      next.status = TaskStatus.running;
-      next.timeSpent = const Duration(minutes: 0);
-      if (!next.advanceRepeatPeriod()) continue;
-      if (next.status == TaskStatus.outdated) continue;
-      next.forceRefreshStatus();
-      if (next.status != TaskStatus.running) continue;
-      nextOccurrences.add(next);
-      spawnedFrom.add(deadline.uid);
-    }
-    if (nextOccurrences.isNotEmpty) {
-      taskList.addAll(nextOccurrences);
-      changed = true;
-    }
-    // ===== MOD END =====
+    // ===== MOD: 周期性待办完成即生成下一次（实现见 lib/mod/task_runtime_mod.dart）=====
+    if (spawnNextOccurrences(taskList)) changed = true;
 
     if (taskList.any((element) =>
         element.type == TaskType.fixedlegacy &&
@@ -368,9 +304,8 @@ class TaskController extends GetxController {
       saveDeadlineListToDb();
     }
 
-    // ===== MOD: 把开启提醒的任务同步成本地通知（内部有签名缓存，未变化不重复调度）=====
-    TaskReminder.mode = _db.getReminderMode();
-    TaskReminder.syncAll(taskList);
+    // ===== MOD: 同步本地提醒 =====
+    syncTaskReminders(taskList);
 
     return changed;
   }
@@ -384,34 +319,21 @@ class TaskController extends GetxController {
     return true;
   }
 
-  /// ===== MOD: 移除待办并留下删除墓碑 =====
-  /// legacy 的《过去日程》副本属于本地派生数据，不留墓碑（它们挂在原日程的
-  /// fromUid 上，原日程被删时合并逻辑会一并清掉）。
-  void _removeWithTombstone(Iterable<Task> tasks) {
-    final list = tasks.toList();
-    if (list.isEmpty) return;
-    final uids = <String>[];
-    for (final task in list) {
-      if (task.uid.isEmpty) continue;
-      if (task.type != TaskType.fixedlegacy) uids.add(task.uid);
-    }
-    if (uids.isNotEmpty) {
-      _db.addTombstones(uids);
-    }
-    taskList.removeWhere((element) => list.contains(element));
-  }
-
   void removeCompletedDeadline(context) {
-    _removeWithTombstone(taskList.where((element) =>
-        element.type == TaskType.deadline &&
-        element.status == TaskStatus.completed));
+    TaskTombstoneStore.remove(
+        taskList,
+        taskList.where((element) =>
+            element.type == TaskType.deadline &&
+            element.status == TaskStatus.completed));
     saveDeadlineListToDb();
   }
 
   void removeFailedDeadline(context) {
-    _removeWithTombstone(taskList.where((element) =>
-        element.type == TaskType.deadline &&
-        element.status == TaskStatus.failed));
+    TaskTombstoneStore.remove(
+        taskList,
+        taskList.where((element) =>
+            element.type == TaskType.deadline &&
+            element.status == TaskStatus.failed));
     saveDeadlineListToDb();
   }
 
