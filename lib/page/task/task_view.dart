@@ -1,6 +1,11 @@
 import 'package:celechron/design/custom_decoration.dart';
+import 'package:celechron/design/dingtalk_menu.dart';
+import 'package:celechron/design/tag_manager.dart';
+import 'package:celechron/design/task_filter_sheets.dart';
+import 'package:celechron/design/task_priority_color.dart';
 import 'package:celechron/page/flow/flow_controller.dart';
 import 'package:celechron/page/task/task_controller.dart';
+import 'package:celechron/utils/task_complete.dart';
 import 'package:celechron/utils/utils.dart';
 import 'package:celechron/design/sub_title.dart';
 import 'package:celechron/design/round_rectangle_card.dart';
@@ -9,6 +14,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:celechron/model/task.dart';
 import 'package:celechron/model/period.dart';
+import 'task_create_page.dart';
 import 'task_edit_page.dart';
 import 'dart:async';
 import 'package:get/get.dart';
@@ -18,10 +24,6 @@ class TaskPage extends StatelessWidget {
 
   final _taskController = Get.put(TaskController());
   final _flowController = Get.put(FlowController());
-
-  String deadlineProgress(Task deadline) {
-    return '${(deadline.getProgress() * 100).toInt()}% 已完成：预期 ${durationToString(deadline.timeNeeded)}，还要 ${durationToString(deadline.timeNeeded <= deadline.timeSpent ? Duration.zero : (deadline.timeNeeded - deadline.timeSpent))}';
-  }
 
   Future<void> showCardDialog(BuildContext context, Task deadline) async {
     return showDialog<void>(
@@ -51,9 +53,6 @@ class TaskPage extends StatelessWidget {
                     Text(
                       '截止于 ${toStringHumanReadable(deadline.endTime)}${deadline.endTime.isBefore(DateTime.now()) ? ' - 已过期' : ''}',
                     ),
-                    Text(
-                      deadlineProgress(deadline),
-                    ),
                   ],
                   if (deadline.location.isNotEmpty) ...[
                     Text(
@@ -74,18 +73,20 @@ class TaskPage extends StatelessWidget {
               onPressed: () => Navigator.of(context).pop(),
               child: const Text('返回'),
             ),
-            if (deadline.type == TaskType.deadline &&
-                deadline.timeSpent < deadline.timeNeeded)
+            if (deadline.type == TaskType.deadline)
               CupertinoDialogAction(
-                onPressed: () {
+                onPressed: () async {
                   if (deadline.status != TaskStatus.completed) {
+                    // 有没勾完的子待办时先确认
+                    if (!await confirmCompleteTask(context, deadline)) return;
                     deadline.status = TaskStatus.completed;
                   } else {
-                    deadline.forceRefreshStatus();
+                    deadline.timeSpent = const Duration(minutes: 0);
+                    deadline.status = TaskStatus.running;
                   }
                   _taskController.updateDeadlineListTime();
                   _taskController.taskList.refresh();
-                  Navigator.of(context).pop();
+                  if (context.mounted) Navigator.of(context).pop();
                 },
                 child: Text(
                     '标记为${deadline.status == TaskStatus.completed ? '未' : ''}完成'),
@@ -156,7 +157,7 @@ class TaskPage extends StatelessWidget {
     Task? res = await showCupertinoModalPopup(
       context: context,
       builder: (BuildContext context) {
-        return TaskEditPage(deadline);
+        return TaskCreatePage(deadline);
       },
     );
     if (res != null && res.status != TaskStatus.deleted) {
@@ -173,9 +174,26 @@ class TaskPage extends StatelessWidget {
     }
   }
 
-  Widget createCard(context, Task deadline, Color color, String? title) {
-    double progress = deadline.getProgress();
+  /// 卡片上直接打钩完成 / 取消完成（待办与日程都支持）。
+  Future<void> _toggleDone(BuildContext context, Task task) async {
+    if (task.status == TaskStatus.completed) {
+      task.timeSpent = const Duration(minutes: 0);
+      task.status = TaskStatus.running;
+    } else {
+      // 有没勾完的子待办时先确认，确认后一起勾上
+      if (!await confirmCompleteTask(context, task)) return;
+      task.status = TaskStatus.completed;
+    }
+    _taskController.updateDeadlineList();
+    _taskController.updateDeadlineListTime();
+    _flowController.removeFlowInFlowList();
+    final now = DateTime.now();
+    _flowController.generateNewFlowList(
+        DateTime(now.year, now.month, now.day, now.hour, now.minute));
+    _taskController.taskList.refresh();
+  }
 
+  Widget createCard(context, Task deadline, Color color, String? title) {
     return Column(
       children: [
         title == null
@@ -246,12 +264,14 @@ class TaskPage extends StatelessWidget {
               // 向右滑（从左到右）：完成 - 不真正 dismiss，只更新状态
               if (deadline.type == TaskType.deadline) {
                 if (deadline.status == TaskStatus.completed) {
-                  // 如果已完成，恢复为未完成状态，并重置计时
+                  // 如果已完成，恢复为未完成状态
                   deadline.timeSpent = const Duration(minutes: 0);
-                  deadline.forceRefreshStatus();
+                  deadline.status = TaskStatus.running;
                 } else {
-                  // 标记为完成，完成度设为100%
-                  deadline.timeSpent = deadline.timeNeeded;
+                  // 有没勾完的子待办时先确认
+                  if (!await confirmCompleteTask(context, deadline)) {
+                    return false;
+                  }
                   deadline.status = TaskStatus.completed;
                 }
                 _taskController.updateDeadlineList();
@@ -295,8 +315,13 @@ class TaskPage extends StatelessWidget {
                   builder: (context) => TaskEditPage(deadline),
                 ),
               );
-              if (res != null && res.status != TaskStatus.deleted) {
-                deadline.copy(res);
+              if (res != null) {
+                // 详情页里点了「删除任务」：这里必须真的把它标成已删除
+                if (res.status == TaskStatus.deleted) {
+                  deadline.status = TaskStatus.deleted;
+                } else {
+                  deadline.copy(res);
+                }
                 _taskController.updateDeadlineList();
                 _taskController.updateDeadlineListTime();
                 // 重新规划
@@ -315,6 +340,21 @@ class TaskPage extends StatelessWidget {
                 children: [
                   Row(
                     children: [
+                      CupertinoButton(
+                        padding: EdgeInsets.zero,
+                        minimumSize: const Size(36, 36),
+                        onPressed: () => _toggleDone(context, deadline),
+                        child: Icon(
+                          deadline.status == TaskStatus.completed
+                              ? CupertinoIcons.checkmark_circle_fill
+                              : CupertinoIcons.circle,
+                          size: 22,
+                          color: deadline.status == TaskStatus.completed
+                              ? CupertinoColors.systemGreen
+                              : CupertinoDynamicColor.resolve(
+                                  CupertinoColors.tertiaryLabel, context),
+                        ),
+                      ),
                       Container(
                         width: 12.0,
                         height: 12.0,
@@ -440,68 +480,50 @@ class TaskPage extends StatelessWidget {
                               )))
                     ]),
                   ],
-                  if (deadline.type == TaskType.deadline)
-                    Row(children: [
-                      Icon(
-                        CupertinoIcons.play_fill,
-                        size: 14,
-                        color: CupertinoTheme.of(context)
-                            .textTheme
-                            .textStyle
-                            .color!
-                            .withValues(alpha: 0.5),
-                      ),
-                      Expanded(
-                          child: Text(deadlineProgress(deadline),
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.normal,
-                                color: CupertinoTheme.of(context)
-                                    .textTheme
-                                    .textStyle
-                                    .color!
-                                    .withValues(alpha: 0.75),
-                                overflow: TextOverflow.ellipsis,
-                              ))),
-                    ]),
-                  if (deadline.type == TaskType.fixed ||
-                      deadline.status == TaskStatus.running) ...[
-                    const SizedBox(height: 8.0),
-                    LinearProgressIndicator(
-                      value: progress,
-                      backgroundColor: CupertinoDynamicColor.resolve(
-                          CupertinoColors.separator, context),
-                      valueColor: AlwaysStoppedAnimation<Color>(color),
-                    ),
-                  ],
-                  if (deadline.type == TaskType.deadline &&
-                      deadline.status == TaskStatus.suspended) ...[
-                    const SizedBox(height: 8.0),
-                    LinearProgressIndicator(
-                      value: progress,
-                      backgroundColor: CupertinoDynamicColor.resolve(
-                          CupertinoColors.separator, context),
-                      valueColor: AlwaysStoppedAnimation<Color>(color),
-                    ),
-                  ],
-                  if (deadline.type == TaskType.deadline &&
-                      deadline.status == TaskStatus.completed) ...[
-                    const SizedBox(height: 8.0),
-                    LinearProgressIndicator(
-                      value: 1,
-                      backgroundColor: CupertinoDynamicColor.resolve(
-                          CupertinoColors.separator, context),
-                      valueColor: AlwaysStoppedAnimation<Color>(color),
-                    ),
-                  ],
-                  if (deadline.type == TaskType.deadline &&
-                      deadline.status == TaskStatus.failed) ...[
-                    const SizedBox(height: 8.0),
-                    LinearProgressIndicator(
-                      value: 0,
-                      backgroundColor: CupertinoDynamicColor.resolve(
-                          CupertinoColors.separator, context),
-                      valueColor: AlwaysStoppedAnimation<Color>(color),
+                  if (deadline.subtasks.isNotEmpty ||
+                      deadline.priority != TaskPriority.normal) ...[
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        if (deadline.priority != TaskPriority.normal) ...[
+                          Icon(
+                            CupertinoIcons.flag_fill,
+                            size: 14,
+                            color: taskPriorityColor(deadline.priority),
+                          ),
+                          Text(
+                            ' ${taskPriorityName[deadline.priority]!}',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: taskPriorityColor(deadline.priority),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                        ],
+                        if (deadline.subtasks.isNotEmpty) ...[
+                          Icon(
+                            CupertinoIcons.list_bullet,
+                            size: 14,
+                            color: CupertinoTheme.of(context)
+                                .textTheme
+                                .textStyle
+                                .color!
+                                .withValues(alpha: 0.5),
+                          ),
+                          Text(
+                            ' 子待办 ${deadline.subtaskDoneCount}/${deadline.subtasks.length}',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: CupertinoTheme.of(context)
+                                  .textTheme
+                                  .textStyle
+                                  .color!
+                                  .withValues(alpha: 0.75),
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ],
                 ],
@@ -520,9 +542,18 @@ class TaskPage extends StatelessWidget {
         child: CustomScrollView(
           slivers: [
             CupertinoSliverNavigationBar(
-              largeTitle: const Text('任务'),
+              largeTitle: const Text('待办'),
               border: null,
               stretch: true,
+              bottomMode: NavigationBarBottomMode.always,
+              // 分类标签页贴在标题下方，间距更紧凑
+              bottom: PreferredSize(
+                // 高度跟着系统字号走，避免大字号时标签行顶到下面的筛选行；
+                // 留白压到最小，让下面的胶囊整体上移
+                preferredSize: Size.fromHeight(
+                    MediaQuery.textScalerOf(context).scale(15) + 14),
+                child: _buildTabs(context),
+              ),
               trailing: // Two buttons in the nav bar.
                   Row(
                 mainAxisSize: MainAxisSize.min,
@@ -546,157 +577,101 @@ class TaskPage extends StatelessWidget {
                       semanticLabel: 'More',
                     ),
                     onPressed: () async {
-                      await showCupertinoModalPopup(
-                        context: context,
-                        builder: (BuildContext context) => CupertinoActionSheet(
-                          actions: <Widget>[
-                            CupertinoActionSheetAction(
-                              child: const Text('删除已完成任务'),
-                              onPressed: () async {
-                                _taskController
-                                    .removeCompletedDeadline(context);
-                                _taskController.updateDeadlineList();
-                                _taskController.taskList.refresh();
-                                Navigator.of(context).pop();
-                              },
-                            ),
-                            CupertinoActionSheetAction(
-                              child: const Text('删除已过期任务'),
-                              onPressed: () async {
-                                _taskController.removeFailedDeadline(context);
-                                _taskController.updateDeadlineList();
-                                _taskController.taskList.refresh();
-                                Navigator.of(context).pop();
-                              },
-                            ),
-                            CupertinoActionSheetAction(
-                              child: const Text('暂停所有任务'),
-                              onPressed: () {
-                                if (_taskController
-                                        .suspendAllDeadline(context) >
-                                    0) {
-                                  _flowController.removeFlowInFlowList();
-                                  _taskController.updateDeadlineListTime();
-                                  _taskController.taskList.refresh();
-                                }
-                                Navigator.of(context).pop();
-                              },
-                            ),
-                            CupertinoActionSheetAction(
-                              child: const Text('继续所有任务'),
-                              onPressed: () {
-                                if (_taskController
-                                        .continueAllDeadline(context) >
-                                    0) {
-                                  _flowController.removeFlowInFlowList();
-                                  _taskController.updateDeadlineListTime();
-                                  _taskController.taskList.refresh();
-                                }
-                                Navigator.of(context).pop();
-                              },
-                            ),
-                          ],
-                          cancelButton: CupertinoActionSheetAction(
-                            isDefaultAction: true,
-                            onPressed: () {
-                              Navigator.of(context).pop();
+                      await showDingTalkMenu(
+                        context,
+                        items: [
+                          DingTalkMenuItem(
+                            label: '删除已完成待办',
+                            icon: CupertinoIcons.checkmark_circle,
+                            onTap: () {
+                              _taskController.removeCompletedDeadline(context);
+                              _taskController.updateDeadlineList();
+                              _taskController.taskList.refresh();
                             },
-                            child: const Text('取消'),
                           ),
-                        ),
+                          DingTalkMenuItem(
+                            label: '删除已过期待办',
+                            icon: CupertinoIcons.clock,
+                            onTap: () {
+                              _taskController.removeFailedDeadline(context);
+                              _taskController.updateDeadlineList();
+                              _taskController.taskList.refresh();
+                            },
+                          ),
+                          DingTalkMenuItem(
+                            label: '暂停所有待办',
+                            icon: CupertinoIcons.pause_circle,
+                            onTap: () {
+                              if (_taskController.suspendAllDeadline(context) >
+                                  0) {
+                                _flowController.removeFlowInFlowList();
+                                _taskController.updateDeadlineListTime();
+                                _taskController.taskList.refresh();
+                              }
+                            },
+                          ),
+                          DingTalkMenuItem(
+                            label: '继续所有待办',
+                            icon: CupertinoIcons.play_circle,
+                            onTap: () {
+                              if (_taskController.continueAllDeadline(context) >
+                                  0) {
+                                _flowController.removeFlowInFlowList();
+                                _taskController.updateDeadlineListTime();
+                                _taskController.taskList.refresh();
+                              }
+                            },
+                          ),
+                        ],
                       );
                     },
                   ),
                 ],
               ),
             ),
-            if (_taskController.todoDeadlineList.isEmpty &&
-                _taskController.doneDeadlineList.isEmpty &&
-                _taskController.fixedDeadlineList.isEmpty)
-              SliverToBoxAdapter(
-                child: SizedBox(
-                  height: 500,
-                  child: Column(
-                    children: [
-                      const Spacer(),
-                      Text(
-                        '没有任务',
-                        style: CupertinoTheme.of(context).textTheme.textStyle,
-                        textAlign: TextAlign.center,
+            _buildFilterRow(context),
+            _buildTagRow(context),
+            Obx(
+              () {
+                final list = _taskController.visibleTaskList;
+                if (list.isEmpty) {
+                  return SliverToBoxAdapter(
+                    child: SizedBox(
+                      height: 320,
+                      child: Column(
+                        children: [
+                          const Spacer(),
+                          Text(
+                            '没有待办',
+                            style:
+                                CupertinoTheme.of(context).textTheme.textStyle,
+                            textAlign: TextAlign.center,
+                          ),
+                          const Spacer(),
+                        ],
                       ),
-                      const Spacer(),
-                    ],
+                    ),
+                  );
+                }
+                return SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) {
+                      final task = list[index];
+                      return Container(
+                        padding: EdgeInsets.only(
+                          top: index == 0 ? 4 : 5,
+                          bottom: 5,
+                          left: 16,
+                          right: 16,
+                        ),
+                        child: createCard(context, task,
+                            UidColors.colorFromUid(task.uid), null),
+                      );
+                    },
+                    childCount: list.length,
                   ),
-                ),
-              ),
-            Obx(
-              () => SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) {
-                    return Container(
-                      padding: EdgeInsets.only(
-                        top: index == 0 ? 0 : 5,
-                        bottom: 5,
-                        left: 16,
-                        right: 16,
-                      ),
-                      child: createCard(
-                          context,
-                          _taskController.todoDeadlineList[index],
-                          UidColors.colorFromUid(
-                              _taskController.todoDeadlineList[index].uid),
-                          index == 0 ? '待办' : null),
-                    );
-                  },
-                  childCount: _taskController.todoDeadlineList.length,
-                ),
-              ),
-            ),
-            Obx(
-              () => SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) {
-                    return Container(
-                      padding: EdgeInsets.only(
-                        top: index == 0 ? 0 : 5,
-                        bottom: 5,
-                        left: 16,
-                        right: 16,
-                      ),
-                      child: createCard(
-                          context,
-                          _taskController.doneDeadlineList[index],
-                          UidColors.colorFromUid(
-                              _taskController.doneDeadlineList[index].uid),
-                          index == 0 ? '已完成' : null),
-                    );
-                  },
-                  childCount: _taskController.doneDeadlineList.length,
-                ),
-              ),
-            ),
-            Obx(
-              () => SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) {
-                    return Container(
-                      padding: EdgeInsets.only(
-                        top: index == 0 ? 0 : 5,
-                        bottom: 5,
-                        left: 16,
-                        right: 16,
-                      ),
-                      child: createCard(
-                          context,
-                          _taskController.fixedDeadlineList[index],
-                          UidColors.colorFromUid(
-                              _taskController.fixedDeadlineList[index].uid),
-                          index == 0 ? '日程列表' : null),
-                    );
-                  },
-                  childCount: _taskController.fixedDeadlineList.length,
-                ),
-              ),
+                );
+              },
             ),
             SliverToBoxAdapter(
               child: Container(
@@ -705,6 +680,226 @@ class TaskPage extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  // ------------------------------------------------------- 标签页 / 分类行
+
+  Widget _buildTabs(BuildContext context) {
+    final labelColor =
+        CupertinoDynamicColor.resolve(CupertinoColors.secondaryLabel, context);
+    final textColor = CupertinoTheme.of(context).textTheme.textStyle.color;
+    return Obx(
+      () => Container(
+        // 不要背景色，避免标题下方出现一条灰带
+        color: CupertinoColors.transparent,
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+        child: Row(
+          // 两端对齐 + 等距分布，四个分类的间隔看起来一致
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: List.generate(TaskController.tabNames.length, (index) {
+            final selected = _taskController.selectedTab.value == index;
+            final count = _taskController.tabCount(index);
+            return GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => _taskController.selectedTab.value = index,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        TaskController.tabNames[index],
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight:
+                              selected ? FontWeight.w700 : FontWeight.w400,
+                          color: selected ? textColor : labelColor,
+                        ),
+                      ),
+                      if (count > 0) ...[
+                        const SizedBox(width: 4),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 5, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: index == 1
+                                ? CupertinoColors.systemOrange
+                                : CupertinoColors.systemBlue,
+                            borderRadius: BorderRadius.circular(9),
+                          ),
+                          child: Text(
+                            '$count',
+                            style: const TextStyle(
+                                fontSize: 11, color: CupertinoColors.white),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 5),
+                  Container(
+                    height: 3,
+                    width: 22,
+                    decoration: BoxDecoration(
+                      color: selected
+                          ? CupertinoColors.systemBlue
+                          : CupertinoColors.transparent,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
+        ),
+      ),
+    );
+  }
+
+  Widget _filterChip(
+    BuildContext context, {
+    required String label,
+    required bool active,
+    required VoidCallback onTap,
+    IconData? icon,
+    Color? dotColor,
+  }) {
+    final color = active
+        ? CupertinoColors.systemBlue
+        : CupertinoDynamicColor.resolve(CupertinoColors.label, context);
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: active
+              ? CupertinoColors.systemBlue.withValues(alpha: 0.08)
+              : CupertinoDynamicColor.resolve(
+                  CupertinoColors.tertiarySystemFill, context),
+          borderRadius: BorderRadius.circular(16),
+          border: active
+              ? Border.all(color: CupertinoColors.systemBlue, width: 1)
+              : null,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (dotColor != null) ...[
+              Container(
+                width: 8,
+                height: 8,
+                decoration:
+                    BoxDecoration(color: dotColor, shape: BoxShape.circle),
+              ),
+              const SizedBox(width: 6),
+            ],
+            if (icon != null) ...[
+              Icon(icon, size: 14, color: color),
+              const SizedBox(width: 5),
+            ],
+            Text(label, style: TextStyle(fontSize: 14, color: color)),
+            const SizedBox(width: 3),
+            Icon(CupertinoIcons.chevron_down, size: 11, color: color),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFilterRow(BuildContext context) {
+    return SliverToBoxAdapter(
+      child: Obx(
+        () => SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.fromLTRB(16, 2, 16, 3),
+          child: Row(
+            children: [
+              _filterChip(
+                context,
+                label: '全部分类',
+                // 「全部分类」= 没有选中任何标签，点一下清空标签筛选
+                active: _taskController.selectedTags.isEmpty,
+                onTap: _taskController.selectedTags.clear,
+              ),
+              const SizedBox(width: 8),
+              _filterChip(
+                context,
+                label: taskSortLabel(_taskController.sortKey.value),
+                active: true,
+                onTap: () => showSortSheet(context, _taskController),
+              ),
+              const SizedBox(width: 8),
+              _filterChip(
+                context,
+                label: '筛选',
+                icon: CupertinoIcons.line_horizontal_3_decrease,
+                active: _taskController.hasActiveFilters,
+                onTap: () => showFilterSheet(context, _taskController),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 第二行：标签管理入口 + 所有标签（图五）
+  Widget _buildTagRow(BuildContext context) {
+    return SliverToBoxAdapter(
+      child: Obx(
+        () {
+          // 依赖 tagVersion 让标签库增删后能刷新
+          _taskController.tagVersion.value;
+          final tags = _taskController.allTags;
+          return SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.fromLTRB(16, 3, 16, 6),
+            child: Row(
+              children: [
+                _filterChip(
+                  context,
+                  label: '标签管理',
+                  icon: CupertinoIcons.tag,
+                  active: false,
+                  onTap: () => showTagManager(
+                    context,
+                    onChanged: () {
+                      _taskController.tagVersion.value++;
+                      // 标签被删掉后，同步清掉它的筛选状态
+                      final tags = _taskController.allTags;
+                      _taskController.selectedTags
+                          .removeWhere((tag) => !tags.contains(tag));
+                    },
+                  ),
+                ),
+                ...tags.map((tag) {
+                  final active = _taskController.selectedTags.contains(tag);
+                  return Padding(
+                    padding: const EdgeInsets.only(left: 8),
+                    child: _filterChip(
+                      context,
+                      label: tag,
+                      dotColor: tagColorOf(tag),
+                      active: active,
+                      onTap: () {
+                        // 多选：点一下加进来，再点一下移出去
+                        if (active) {
+                          _taskController.selectedTags.remove(tag);
+                        } else {
+                          _taskController.selectedTags.add(tag);
+                        }
+                      },
+                    ),
+                  );
+                }),
+              ],
+            ),
+          );
+        },
       ),
     );
   }
