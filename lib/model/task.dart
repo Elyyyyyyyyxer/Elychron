@@ -13,7 +13,7 @@ enum TaskType {
 
 enum TaskStatus { running, suspended, completed, failed, deleted, outdated }
 
-enum TaskRepeatType { norepeat, days, month, year }
+enum TaskRepeatType { norepeat, days, month, year, weekday }
 
 const Map<TaskType, String> deadlineTypeName = {
   TaskType.deadline: 'DDL',
@@ -35,7 +35,151 @@ const Map<TaskRepeatType, String> deadlineRepeatTypeName = {
   TaskRepeatType.days: '每隔几天',
   TaskRepeatType.month: '每月的这一天',
   TaskRepeatType.year: '每年的这一天',
+  TaskRepeatType.weekday: '每周工作日',
 };
+
+/// 「无限重复」的哨兵值：没有结束日期的重复统一存这个日期。
+final DateTime kRepeatEndlessDate = DateTime(2099, 12, 31);
+
+bool isRepeatEndless(DateTime endsTime) =>
+    !endsTime.isBefore(kRepeatEndlessDate);
+
+enum TaskPriority { low, normal, high, urgent }
+
+const Map<TaskPriority, String> taskPriorityName = {
+  TaskPriority.low: '低',
+  TaskPriority.normal: '普通',
+  TaskPriority.high: '高',
+  TaskPriority.urgent: '紧急',
+};
+
+/// 子待办：用「跟正常待办一样的新建窗口」创建，因此保留了主要字段。
+@HiveType(typeId: 14)
+class SubTask {
+  @HiveField(0)
+  String uid;
+  @HiveField(1)
+  String title;
+  @HiveField(2)
+  bool done;
+  @HiveField(3)
+  String description;
+  @HiveField(4)
+  DateTime? endTime;
+  @HiveField(5)
+  TaskPriority priority;
+  @HiveField(6)
+  List<String> tags;
+  @HiveField(7)
+  List<TaskAttachment> attachments;
+  @HiveField(8)
+  String location;
+
+  SubTask({
+    String? uid,
+    this.title = '',
+    this.done = false,
+    this.description = '',
+    this.endTime,
+    this.priority = TaskPriority.normal,
+    List<String>? tags,
+    List<TaskAttachment>? attachments,
+    this.location = '',
+  })  : uid = uid ?? const Uuid().v4(),
+        tags = tags ?? <String>[],
+        attachments = attachments ?? <TaskAttachment>[];
+
+  SubTask copyWith({
+    String? title,
+    bool? done,
+    String? description,
+    DateTime? endTime,
+    TaskPriority? priority,
+    List<String>? tags,
+    List<TaskAttachment>? attachments,
+    String? location,
+  }) =>
+      SubTask(
+        uid: uid,
+        title: title ?? this.title,
+        done: done ?? this.done,
+        description: description ?? this.description,
+        endTime: endTime ?? this.endTime,
+        priority: priority ?? this.priority,
+        tags: tags ?? List<String>.of(this.tags),
+        attachments: attachments ?? List<TaskAttachment>.of(this.attachments),
+        location: location ?? this.location,
+      );
+
+  /// 由「新建窗口」返回的 Task 生成子待办
+  factory SubTask.fromTask(Task task) => SubTask(
+        title: task.summary,
+        description: task.description,
+        endTime: task.endTime,
+        priority: task.priority,
+        tags: List<String>.of(task.tags),
+        attachments: List<TaskAttachment>.of(task.attachments),
+        location: task.location,
+      );
+
+  void applyFromTask(Task task) {
+    title = task.summary;
+    description = task.description;
+    endTime = task.endTime;
+    priority = task.priority;
+    tags = List<String>.of(task.tags);
+    attachments = List<TaskAttachment>.of(task.attachments);
+    location = task.location;
+  }
+
+  /// 反向装回一个 Task，供新建/编辑窗口预填
+  Task toTask() {
+    final end = endTime ?? DateTime.now().add(const Duration(days: 1));
+    final task = Task(
+      summary: title,
+      description: description,
+      endTime: end,
+      startTime: end,
+      repeatEndsTime: dateOnly(end),
+      location: location,
+    );
+    task.reset();
+    task.summary = title;
+    task.description = description;
+    task.location = location;
+    task.startTime = end;
+    task.endTime = end;
+    task.repeatEndsTime = dateOnly(end);
+    task.priority = priority;
+    task.tags = List<String>.of(tags);
+    task.attachments = List<TaskAttachment>.of(attachments);
+    return task;
+  }
+}
+
+/// 附件：仅保存本地文件引用（选中的文件会被复制到应用目录）。
+@HiveType(typeId: 15)
+class TaskAttachment {
+  @HiveField(0)
+  String name;
+  @HiveField(1)
+  String path;
+  @HiveField(2)
+  int size;
+
+  TaskAttachment({this.name = '', this.path = '', this.size = 0});
+}
+
+/// 评论/备注：本地记录，不涉及多人协作。
+@HiveType(typeId: 16)
+class TaskComment {
+  @HiveField(0)
+  String content;
+  @HiveField(1)
+  DateTime time;
+
+  TaskComment({this.content = '', required this.time});
+}
 
 class DateTimePair {
   DateTime first, second;
@@ -98,6 +242,26 @@ class Task {
   bool blockArrangements;
   @HiveField(15)
   String? fromUid;
+  @HiveField(16)
+  List<SubTask> subtasks;
+  @HiveField(17)
+  TaskPriority priority;
+  @HiveField(18)
+  bool reminderEnabled;
+  @HiveField(19)
+  DateTime? reminderTime;
+  @HiveField(20)
+  List<TaskAttachment> attachments;
+  @HiveField(21)
+  List<TaskComment> comments;
+  @HiveField(22)
+  List<String> tags;
+  @HiveField(23)
+  bool starred;
+  @HiveField(24)
+  DateTime? createdAt;
+  @HiveField(25)
+  DateTime? updatedAt;
 
   Task({
     this.uid = '114514',
@@ -116,7 +280,47 @@ class Task {
     required this.repeatEndsTime,
     this.blockArrangements = true,
     this.fromUid,
-  });
+    List<SubTask>? subtasks,
+    this.priority = TaskPriority.normal,
+    this.reminderEnabled = false,
+    this.reminderTime,
+    List<TaskAttachment>? attachments,
+    List<TaskComment>? comments,
+    List<String>? tags,
+    this.starred = false,
+    this.createdAt,
+    this.updatedAt,
+  })  : subtasks = subtasks ?? <SubTask>[],
+        attachments = attachments ?? <TaskAttachment>[],
+        comments = comments ?? <TaskComment>[],
+        tags = tags ?? <String>[];
+
+  int get subtaskDoneCount => subtasks.where((e) => e.done).length;
+
+  double get subtaskProgress =>
+      subtasks.isEmpty ? 0.0 : subtaskDoneCount / subtasks.length;
+
+  /// 排序用的创建时间（老数据没有就退回截止时间）
+  DateTime get sortableCreatedAt => createdAt ?? endTime;
+
+  /// 排序用的更新时间
+  DateTime get sortableUpdatedAt => updatedAt ?? sortableCreatedAt;
+
+  /// 提醒触发时间：没单独设过就用截止时间。
+  DateTime get reminderTargetTime => reminderTime ?? endTime;
+
+  /// 距离截止的剩余时间，已过期则为负。
+  Duration get remainingTime => endTime.difference(DateTime.now());
+
+  /// 统一的「待办」：显式设了开始时间（早于截止时间）就按带时段的任务处理，
+  /// 否则就是只有截止时间的普通待办。界面不再暴露类型选择。
+  void normalizeType() {
+    if (type == TaskType.fixedlegacy) return;
+    type = startTime.isBefore(endTime) ? TaskType.fixed : TaskType.deadline;
+  }
+
+  /// 是否是带时段的任务（显示为「开始于 / 结束于」）。
+  bool get hasTimeRange => startTime.isBefore(endTime);
 
   void reset() {
     genUid();
@@ -138,6 +342,16 @@ class Task {
     repeatEndsTime = DateTime(startTime.year, startTime.month, startTime.day);
     blockArrangements = true;
     fromUid = null;
+    subtasks = <SubTask>[];
+    priority = TaskPriority.normal;
+    reminderEnabled = false;
+    reminderTime = null;
+    attachments = <TaskAttachment>[];
+    comments = <TaskComment>[];
+    tags = <String>[];
+    starred = false;
+    createdAt = DateTime.now();
+    updatedAt = DateTime.now();
   }
 
   void copy(Task another) {
@@ -157,6 +371,16 @@ class Task {
     repeatEndsTime = another.repeatEndsTime;
     blockArrangements = another.blockArrangements;
     fromUid = another.fromUid;
+    subtasks = another.subtasks.map((e) => e.copyWith()).toList();
+    priority = another.priority;
+    reminderEnabled = another.reminderEnabled;
+    reminderTime = another.reminderTime;
+    attachments = List<TaskAttachment>.of(another.attachments);
+    comments = List<TaskComment>.of(another.comments);
+    tags = List<String>.of(another.tags);
+    starred = another.starred;
+    createdAt = another.createdAt;
+    updatedAt = another.updatedAt;
   }
 
   Task copyWith({
@@ -176,6 +400,16 @@ class Task {
     DateTime? repeatEndsTime,
     bool? blockArrangements,
     String? fromUid,
+    List<SubTask>? subtasks,
+    TaskPriority? priority,
+    bool? reminderEnabled,
+    DateTime? reminderTime,
+    List<TaskAttachment>? attachments,
+    List<TaskComment>? comments,
+    List<String>? tags,
+    bool? starred,
+    DateTime? createdAt,
+    DateTime? updatedAt,
   }) {
     return Task(
       uid: uid ?? this.uid,
@@ -194,6 +428,16 @@ class Task {
       repeatEndsTime: repeatEndsTime ?? this.repeatEndsTime,
       blockArrangements: blockArrangements ?? this.blockArrangements,
       fromUid: fromUid ?? this.fromUid,
+      subtasks: subtasks ?? this.subtasks.map((e) => e.copyWith()).toList(),
+      priority: priority ?? this.priority,
+      reminderEnabled: reminderEnabled ?? this.reminderEnabled,
+      reminderTime: reminderTime ?? this.reminderTime,
+      attachments: attachments ?? List<TaskAttachment>.of(this.attachments),
+      comments: comments ?? List<TaskComment>.of(this.comments),
+      tags: tags ?? List<String>.of(this.tags),
+      starred: starred ?? this.starred,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
     );
   }
 
@@ -248,13 +492,14 @@ class Task {
 
   void refreshStatus() {
     if (type == TaskType.deadline) {
-      if (timeSpent >= timeNeeded) {
-        status = TaskStatus.completed;
-      } else if (status != TaskStatus.completed &&
-          endTime.isBefore(DateTime.now())) {
+      // 完成只由「打钩」决定（界面已移除时间安排，不再按用时自动完成）
+      if (status == TaskStatus.completed) return;
+      if (endTime.isBefore(DateTime.now())) {
         status = TaskStatus.failed;
       }
     } else if (type == TaskType.fixed) {
+      // 手动打钩完成的日程保持完成状态，不被每秒的状态刷新覆盖
+      if (status == TaskStatus.completed) return;
       if (dateOnly(startTime).isAfter(repeatEndsTime)) {
         status = TaskStatus.outdated;
       } else {
@@ -265,21 +510,69 @@ class Task {
 
   void forceRefreshStatus() {
     if (type == TaskType.deadline) {
-      if (timeSpent >= timeNeeded) {
-        status = TaskStatus.completed;
-      } else if (status != TaskStatus.completed &&
-          endTime.isBefore(DateTime.now())) {
+      if (status == TaskStatus.completed) return;
+      if (endTime.isBefore(DateTime.now())) {
         status = TaskStatus.failed;
       } else {
         status = TaskStatus.running;
       }
     } else if (type == TaskType.fixed) {
+      if (status == TaskStatus.completed) return;
       if (dateOnly(startTime).isAfter(repeatEndsTime)) {
         status = TaskStatus.outdated;
       } else {
         status = TaskStatus.running;
       }
     }
+  }
+
+  /// 按重复规则把 startTime / endTime 推进一个周期（不区分任务类型）。
+  ///
+  /// 返回是否推进成功；推进后若已越过重复截止日期，会把状态置为 outdated。
+  bool advanceRepeatPeriod() {
+    if (repeatType == TaskRepeatType.norepeat) return false;
+
+    if (repeatType == TaskRepeatType.days) {
+      if (repeatPeriod < 1) repeatPeriod = 1;
+      startTime = startTime.add(Duration(days: repeatPeriod));
+      endTime = endTime.add(Duration(days: repeatPeriod));
+    } else if (repeatType == TaskRepeatType.weekday) {
+      // 每周工作日：跳到下一个非周末的日子
+      var next = startTime.add(const Duration(days: 1));
+      while (next.weekday == DateTime.saturday ||
+          next.weekday == DateTime.sunday) {
+        next = next.add(const Duration(days: 1));
+      }
+      final difference = next.difference(startTime);
+      startTime = next;
+      endTime = endTime.add(difference);
+    } else if (repeatType == TaskRepeatType.month) {
+      final months = repeatPeriod < 1 ? 1 : repeatPeriod;
+      DateTime nex = DateTime(startTime.year, startTime.month + months, 1);
+      while (daysInMonth(nex.year, nex.month) < startTime.day) {
+        nex = DateTime(nex.year, nex.month + months, 1);
+      }
+      nex = DateTime(nex.year, nex.month, startTime.day);
+      // 用「日期」而不是「含时刻的时间」算天数差，否则非零点任务会少推一天
+      int difference = nex.difference(dateOnly(startTime)).inDays;
+      startTime = startTime.add(Duration(days: difference));
+      endTime = endTime.add(Duration(days: difference));
+    } else if (repeatType == TaskRepeatType.year) {
+      final years = repeatPeriod < 1 ? 1 : repeatPeriod;
+      DateTime nex = DateTime(startTime.year + years, startTime.month, 1);
+      while (daysInMonth(nex.year, nex.month) < startTime.day) {
+        nex = DateTime(nex.year + years, nex.month, 1);
+      }
+      nex = DateTime(nex.year, startTime.month, startTime.day);
+      int difference = nex.difference(dateOnly(startTime)).inDays;
+      startTime = startTime.add(Duration(days: difference));
+      endTime = endTime.add(Duration(days: difference));
+    }
+
+    if (dateOnly(startTime).isAfter(dateOnly(repeatEndsTime))) {
+      status = TaskStatus.outdated;
+    }
+    return true;
   }
 
   bool setToNextPeriod() {
@@ -289,35 +582,8 @@ class Task {
     if (repeatType == TaskRepeatType.norepeat) {
       status = TaskStatus.outdated;
       return false;
-    } else if (repeatType == TaskRepeatType.days) {
-      if (repeatPeriod < 1) {
-        repeatPeriod = 1;
-      }
-      startTime = startTime.add(Duration(days: repeatPeriod));
-      endTime = endTime.add(Duration(days: repeatPeriod));
-    } else if (repeatType == TaskRepeatType.month) {
-      DateTime nex = DateTime(startTime.year, startTime.month + 1, 1);
-      while (daysInMonth(nex.year, nex.month) < startTime.day) {
-        nex = DateTime(nex.year, nex.month + 1, 1);
-      }
-      nex = DateTime(nex.year, nex.month, startTime.day);
-      int difference = nex.difference(startTime).inDays;
-      startTime = startTime.add(Duration(days: difference));
-      endTime = endTime.add(Duration(days: difference));
-    } else if (repeatType == TaskRepeatType.year) {
-      DateTime nex = DateTime(startTime.year + 1, startTime.month, 1);
-      while (daysInMonth(nex.year, nex.month) < startTime.day) {
-        nex = DateTime(nex.year + 1, nex.month, 1);
-      }
-      nex = DateTime(nex.year, startTime.month, startTime.day);
-      int difference = nex.difference(startTime).inDays;
-      startTime = startTime.add(Duration(days: difference));
-      endTime = endTime.add(Duration(days: difference));
     }
-    if (dateOnly(startTime).isAfter(dateOnly(repeatEndsTime))) {
-      status = TaskStatus.outdated;
-    }
-    return true;
+    return advanceRepeatPeriod();
   }
 
   Period? deadlineOfTime(DateTime refTime, {bool predicting = false}) {

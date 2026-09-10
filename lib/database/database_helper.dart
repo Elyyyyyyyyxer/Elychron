@@ -3,6 +3,7 @@ import 'package:hive/hive.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import 'package:celechron/model/task.dart';
+import 'package:celechron/model/tombstone.dart';
 import 'package:celechron/worker/fuse.dart';
 import 'package:celechron/model/scholar.dart';
 import 'package:celechron/model/period.dart';
@@ -23,6 +24,7 @@ class DatabaseHelper {
   late final Box originalWebPageBox;
   late final Box fuseBox;
   late final Box customGpaBox;
+  late final Box tombstoneBox;
   late final FlutterSecureStorage secureStorage;
 
   Future<void> init() async {
@@ -31,6 +33,10 @@ class DatabaseHelper {
     Hive.registerAdapter(DeadlineStatusAdapter());
     Hive.registerAdapter(DeadlineTypeAdapter());
     Hive.registerAdapter(DeadlineRepeatTypeAdapter());
+    Hive.registerAdapter(TaskPriorityAdapter());
+    Hive.registerAdapter(SubTaskAdapter());
+    Hive.registerAdapter(TaskAttachmentAdapter());
+    Hive.registerAdapter(TaskCommentAdapter());
     Hive.registerAdapter(DeadlineAdapter());
     Hive.registerAdapter(PeriodTypeAdapter());
     Hive.registerAdapter(PeriodAdapter());
@@ -43,6 +49,7 @@ class DatabaseHelper {
     originalWebPageBox = await Hive.openBox(dbOriginalWebPage);
     fuseBox = await Hive.openBox(dbFuse);
     customGpaBox = await Hive.openBox(dbCustomGpa);
+    tombstoneBox = await Hive.openBox(dbTombstones);
     secureStorage = const FlutterSecureStorage();
     // Migrate all items without groupID
     var secureStorageItems = await secureStorage.readAll(
@@ -62,6 +69,10 @@ class DatabaseHelper {
 
   // Options
   final String dbOptions = 'dbOptions';
+
+  /// 删除墓碑：同步合并时用来判断"这条是被删掉的"
+  final String dbTombstones = 'dbTombstones';
+  final String kTombstones = 'tombstones';
   final String kWorkTime = 'workTime';
   final String kRestTime = 'restTime';
   final String kAllowTime = 'allowTime';
@@ -189,6 +200,89 @@ class DatabaseHelper {
     await optionsBox.put(kCourseIdMappingList, courseIdMappingList);
   }
 
+  // 提醒方式：0 = 通知（横幅+响铃），1 = 闹钟模式
+  final String kReminderMode = 'reminderMode';
+
+  int getReminderMode() {
+    final value = optionsBox.get(kReminderMode);
+    if (value is int) return value;
+    return 0;
+  }
+
+  Future<void> setReminderMode(int mode) async {
+    await optionsBox.put(kReminderMode, mode);
+  }
+
+  // 闹钟配色
+  final String kAlarmTheme = 'alarmTheme';
+
+  String getAlarmTheme() {
+    final value = optionsBox.get(kAlarmTheme);
+    if (value is String && value.isNotEmpty) return value;
+    return 'tianyi';
+  }
+
+  Future<void> setAlarmTheme(String id) async {
+    await optionsBox.put(kAlarmTheme, id);
+  }
+
+  // 最近一次自动刷新课表数据的日期
+  final String kLastAutoRefresh = 'lastAutoRefresh';
+
+  DateTime? getLastAutoRefresh() {
+    final value = optionsBox.get(kLastAutoRefresh);
+    if (value is DateTime) return value;
+    return null;
+  }
+
+  Future<void> setLastAutoRefresh(DateTime time) async {
+    await optionsBox.put(kLastAutoRefresh, time);
+  }
+
+  // 标签库：用户用过的标签，下次可以一键复用
+  final String kTagLibrary = 'tagLibrary';
+
+  List<String> getTagLibrary() {
+    if (optionsBox.get(kTagLibrary) == null) {
+      optionsBox.put(kTagLibrary, <String>[]);
+    }
+    return List<String>.from(optionsBox.get(kTagLibrary));
+  }
+
+  /// 写入标签库；默认拒绝空列表（防止意外清空），只有用户在标签管理里
+  /// 主动删光时才传 allowEmpty: true。
+  Future<void> setTagLibrary(List<String> tags,
+      {bool allowEmpty = false}) async {
+    if (tags.isEmpty && !allowEmpty) return;
+    await optionsBox.put(kTagLibrary, tags);
+  }
+
+  // 标签颜色：标签名 -> 颜色值（ARGB int）
+  final String kTagColors = 'tagColors';
+
+  Map<String, int> getTagColors() {
+    final raw = optionsBox.get(kTagColors);
+    if (raw == null) return <String, int>{};
+    return Map<String, int>.from(raw as Map);
+  }
+
+  Future<void> setTagColors(Map<String, int> colors) async {
+    await optionsBox.put(kTagColors, colors);
+  }
+
+  /// 标签颜色（没设过返回 null，由界面决定默认色）
+  int? getTagColor(String tag) => getTagColors()[tag];
+
+  Future<void> setTagColor(String tag, int? color) async {
+    final colors = getTagColors();
+    if (color == null) {
+      colors.remove(tag);
+    } else {
+      colors[tag] = color;
+    }
+    await setTagColors(colors);
+  }
+
   // Flow
   final String dbFlow = 'dbFlow';
   final String kFlowList = 'flowList';
@@ -231,6 +325,39 @@ class DatabaseHelper {
 
   Future<void> setTaskListUpdateTime(DateTime deadlineListUpdateTime) async {
     await taskBox.put(kTaskListUpdateTime, deadlineListUpdateTime);
+  }
+
+  // 删除墓碑
+  List<TaskTombstone> getTombstones() {
+    final raw = tombstoneBox.get(kTombstones);
+    if (raw is! List) return <TaskTombstone>[];
+    final result = <TaskTombstone>[];
+    for (final item in raw) {
+      if (item is Map) {
+        final tombstone =
+            TaskTombstone.fromJson(Map<String, dynamic>.from(item));
+        if (tombstone != null) result.add(tombstone);
+      }
+    }
+    return result;
+  }
+
+  Future<void> setTombstones(List<TaskTombstone> tombstones) async {
+    await tombstoneBox.put(
+        kTombstones, tombstones.map((t) => t.toJson()).toList());
+  }
+
+  /// 记录一批待办被删除（同 uid 只保留最新时间）
+  Future<void> addTombstones(Iterable<String> uids, {DateTime? at}) async {
+    if (uids.isEmpty) return;
+    final now = at ?? DateTime.now();
+    final map = <String, TaskTombstone>{
+      for (final tombstone in getTombstones()) tombstone.uid: tombstone,
+    };
+    for (final uid in uids) {
+      map[uid] = TaskTombstone(uid: uid, deletedAt: now);
+    }
+    await setTombstones(map.values.toList());
   }
 
   // Scholar

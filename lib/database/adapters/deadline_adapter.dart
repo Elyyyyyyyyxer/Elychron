@@ -36,6 +36,127 @@ class DeadlineRepeatTypeAdapter extends TypeAdapter<TaskRepeatType> {
       TaskRepeatType.values[reader.readInt()];
 }
 
+class TaskPriorityAdapter extends TypeAdapter<TaskPriority> {
+  @override
+  final typeId = 17;
+
+  @override
+  void write(BinaryWriter writer, TaskPriority obj) =>
+      writer.writeInt(obj.index);
+
+  @override
+  TaskPriority read(BinaryReader reader) =>
+      TaskPriority.values[reader.readInt()];
+}
+
+class SubTaskAdapter extends TypeAdapter<SubTask> {
+  @override
+  final typeId = 14;
+
+  @override
+  void write(BinaryWriter writer, SubTask obj) {
+    writer
+      ..writeByte(9)
+      ..writeByte(0)
+      ..write(obj.uid)
+      ..writeByte(1)
+      ..write(obj.title)
+      ..writeByte(2)
+      ..write(obj.done)
+      ..writeByte(3)
+      ..write(obj.description)
+      ..writeByte(4)
+      ..write(obj.endTime)
+      ..writeByte(5)
+      ..write(obj.priority)
+      ..writeByte(6)
+      ..write(obj.tags)
+      ..writeByte(7)
+      ..write(obj.attachments)
+      ..writeByte(8)
+      ..write(obj.location);
+  }
+
+  @override
+  SubTask read(BinaryReader reader) {
+    var numOfFields = reader.readByte();
+    var fields = <int, dynamic>{
+      for (var i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
+    };
+    return SubTask(
+      uid: fields[0] as String?,
+      title: fields[1] as String? ?? '',
+      done: fields[2] as bool? ?? false,
+      description: fields[3] as String? ?? '',
+      endTime: fields[4] as DateTime?,
+      priority: fields[5] as TaskPriority? ?? TaskPriority.normal,
+      tags:
+          (fields[6] as List?)?.map((e) => e as String).toList() ?? <String>[],
+      attachments:
+          (fields[7] as List?)?.map((e) => e as TaskAttachment).toList() ??
+              <TaskAttachment>[],
+      location: fields[8] as String? ?? '',
+    );
+  }
+}
+
+class TaskAttachmentAdapter extends TypeAdapter<TaskAttachment> {
+  @override
+  final typeId = 15;
+
+  @override
+  void write(BinaryWriter writer, TaskAttachment obj) {
+    writer
+      ..writeByte(3)
+      ..writeByte(0)
+      ..write(obj.name)
+      ..writeByte(1)
+      ..write(obj.path)
+      ..writeByte(2)
+      ..write(obj.size);
+  }
+
+  @override
+  TaskAttachment read(BinaryReader reader) {
+    var numOfFields = reader.readByte();
+    var fields = <int, dynamic>{
+      for (var i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
+    };
+    return TaskAttachment(
+      name: fields[0] as String? ?? '',
+      path: fields[1] as String? ?? '',
+      size: fields[2] as int? ?? 0,
+    );
+  }
+}
+
+class TaskCommentAdapter extends TypeAdapter<TaskComment> {
+  @override
+  final typeId = 16;
+
+  @override
+  void write(BinaryWriter writer, TaskComment obj) {
+    writer
+      ..writeByte(2)
+      ..writeByte(0)
+      ..write(obj.content)
+      ..writeByte(1)
+      ..write(obj.time);
+  }
+
+  @override
+  TaskComment read(BinaryReader reader) {
+    var numOfFields = reader.readByte();
+    var fields = <int, dynamic>{
+      for (var i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
+    };
+    return TaskComment(
+      content: fields[0] as String? ?? '',
+      time: fields[1] as DateTime? ?? DateTime.now(),
+    );
+  }
+}
+
 class DeadlineAdapter extends TypeAdapter<Task> {
   @override
   final typeId = 6;
@@ -43,7 +164,7 @@ class DeadlineAdapter extends TypeAdapter<Task> {
   @override
   void write(BinaryWriter writer, Task obj) {
     writer
-      ..writeByte(16)
+      ..writeByte(26)
       ..writeByte(0)
       ..write(obj.uid)
       ..writeByte(1)
@@ -75,7 +196,27 @@ class DeadlineAdapter extends TypeAdapter<Task> {
       ..writeByte(14)
       ..write(obj.blockArrangements)
       ..writeByte(15)
-      ..write(obj.fromUid);
+      ..write(obj.fromUid)
+      ..writeByte(16)
+      ..write(obj.subtasks)
+      ..writeByte(17)
+      ..write(obj.priority)
+      ..writeByte(18)
+      ..write(obj.reminderEnabled)
+      ..writeByte(19)
+      ..write(obj.reminderTime)
+      ..writeByte(20)
+      ..write(obj.attachments)
+      ..writeByte(21)
+      ..write(obj.comments)
+      ..writeByte(22)
+      ..write(obj.tags)
+      ..writeByte(23)
+      ..write(obj.starred)
+      ..writeByte(24)
+      ..write(obj.createdAt)
+      ..writeByte(25)
+      ..write(obj.updatedAt);
   }
 
   @override
@@ -104,6 +245,22 @@ class DeadlineAdapter extends TypeAdapter<Task> {
       ..repeatPeriod = fields[12] as int? ?? 1
       ..repeatEndsTime = fields[13] as DateTime? ?? (fields[5] as DateTime)
       ..blockArrangements = fields[14] as bool? ?? true
-      ..fromUid = fields[15] as String?;
+      ..fromUid = fields[15] as String?
+      ..subtasks = (fields[16] as List?)?.map((e) => e as SubTask).toList() ??
+          <SubTask>[]
+      ..priority = fields[17] as TaskPriority? ?? TaskPriority.normal
+      ..reminderEnabled = fields[18] as bool? ?? false
+      ..reminderTime = fields[19] as DateTime?
+      ..attachments =
+          (fields[20] as List?)?.map((e) => e as TaskAttachment).toList() ??
+              <TaskAttachment>[]
+      ..comments =
+          (fields[21] as List?)?.map((e) => e as TaskComment).toList() ??
+              <TaskComment>[]
+      ..tags =
+          (fields[22] as List?)?.map((e) => e as String).toList() ?? <String>[]
+      ..starred = fields[23] as bool? ?? false
+      ..createdAt = fields[24] as DateTime?
+      ..updatedAt = fields[25] as DateTime?;
   }
 }
