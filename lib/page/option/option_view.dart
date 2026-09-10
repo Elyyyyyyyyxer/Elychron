@@ -18,6 +18,7 @@ import 'diagnostic_log_page.dart';
 import 'package:get/get.dart';
 import 'custom_license_page.dart';
 import 'login_page.dart';
+import 'package:celechron/mod/settings_mod_section.dart';
 import 'option_controller.dart';
 
 const Color _kHeaderFooterColor = CupertinoDynamicColor(
@@ -188,39 +189,8 @@ class OptionPage extends StatelessWidget {
                                     }
                                   : null,
                             )),
-                        CupertinoListTile(
-                          title: const Text('待办提醒方式'),
-                          subtitle: const Text('通知：横幅弹出+响铃；闹钟：全屏响铃，可延迟或划掉'),
-                          trailing: Obx(() =>
-                              CupertinoSlidingSegmentedControl<int>(
-                                children: const {
-                                  0: Padding(
-                                      padding:
-                                          EdgeInsets.symmetric(horizontal: 10),
-                                      child: Text('通知')),
-                                  1: Padding(
-                                      padding:
-                                          EdgeInsets.symmetric(horizontal: 10),
-                                      child: Text('闹钟')),
-                                },
-                                groupValue:
-                                    _optionController.reminderMode.value,
-                                onValueChanged: (value) {
-                                  if (value != null) {
-                                    _optionController.setReminderMode(value);
-                                  }
-                                },
-                              )),
-                        ),
-                        CupertinoListTile(
-                          title: const Text('闹钟配色'),
-                          subtitle: const Text('浅色 + 毛玻璃，仅影响闹钟页'),
-                          trailing: const BackChervonRow(),
-                          onTap: () => showAlarmThemePicker(
-                            context,
-                            onChanged: () {},
-                          ),
-                        ),
+                        // ===== MOD: 提醒方式 / 闹钟配色 =====
+                        ...modReminderTiles(context, _optionController),
                       } else ...{
                         CupertinoListTile(
                           title: const Text('点击登录',
@@ -242,28 +212,9 @@ class OptionPage extends StatelessWidget {
                     ],
                   ),
                 )),
-            // 数据（导出 / 导入）
-            SliverToBoxAdapter(
-                child: CupertinoListSection.insetGrouped(
-                    additionalDividerMargin: 2,
-                    margin: _defaultMargin,
-                    header: Container(
-                        padding: const EdgeInsets.only(left: 16),
-                        child: Text('数据', style: headerFooterTextStyle)),
-                    children: <CupertinoListTile>[
-                  CupertinoListTile(
-                    title: const Text('导出数据'),
-                    subtitle: const Text('导出为 JSON 文件，可存到坚果云'),
-                    trailing: const BackChervonRow(),
-                    onTap: () => modExportData(context),
-                  ),
-                  CupertinoListTile(
-                    title: const Text('导入数据'),
-                    subtitle: const Text('从 JSON 文件合并（按 uid 比对，新的生效）'),
-                    trailing: const BackChervonRow(),
-                    onTap: () => modImportData(context),
-                  ),
-                ])),
+            // ===== MOD: 数据（导出 / 导入）=====
+            modDataSection(context,
+                headerStyle: headerFooterTextStyle, margin: _defaultMargin),
             // 时间规划
             SliverToBoxAdapter(
                 child: CupertinoListSection.insetGrouped(

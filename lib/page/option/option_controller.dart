@@ -10,6 +10,7 @@ import 'package:celechron/model/scholar.dart';
 import 'package:celechron/model/option.dart';
 import 'package:celechron/services/diagnostic_log_service.dart';
 import 'package:celechron/database/database_helper.dart';
+import 'package:celechron/mod/database_mod.dart';
 import 'package:celechron/worker/background_app_refresh.dart';
 import 'package:celechron/worker/ecard_widget_messenger.dart';
 import 'package:celechron/worker/fuse.dart';
