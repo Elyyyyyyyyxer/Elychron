@@ -2,7 +2,15 @@
     <!-- 日历读写权限 -->
    <uses-permission android:name="android.permission.READ_CALENDAR" />
    <uses-permission android:name="android.permission.WRITE_CALENDAR" />
-   <application android:label="Celechron" android:name="${applicationName}" android:icon="@mipmap/ic_launcher">
+    <!-- 任务提醒通知 -->
+   <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+   <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+   <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+   <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+    <!-- 闹钟模式：震动 + 全屏提醒 -->
+   <uses-permission android:name="android.permission.VIBRATE" />
+   <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+   <application android:label="Celechron魔改" android:name="${applicationName}" android:icon="@mipmap/ic_launcher">
         <activity android:name=".MainActivity" android:exported="true" android:launchMode="singleTop" android:theme="@style/LaunchTheme" android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode" android:hardwareAccelerated="true" android:windowSoftInputMode="adjustResize">
             <!-- Specifies an Android theme to apply to this Activity as soon as
                  the Android process has started. This theme is visible to the user
@@ -20,6 +28,17 @@
                 <category android:name="android.intent.category" />
                 <data android:scheme="celechron"/>
             </intent-filter>
+            <!-- 其它应用分享图片/文件/文本过来，直接在 Celechron 里新建待办 -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="*/*" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SEND_MULTIPLE" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="*/*" />
+            </intent-filter>
 
         </activity>
 
@@ -33,6 +52,19 @@
                    android:name="android.appwidget.provider"
                    android:resource="@xml/ecard_widget_info" />
        </receiver>
+
+        <!-- 任务提醒：定时通知的接收器（flutter_local_notifications） -->
+        <receiver android:exported="false"
+                  android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver" />
+        <receiver android:exported="false"
+                  android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED"/>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED"/>
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+                <action android:name="com.htc.intent.action.QUICKBOOT_POWERON"/>
+            </intent-filter>
+        </receiver>
 
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
