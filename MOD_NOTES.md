@@ -308,3 +308,16 @@ C:\Android\Sdk\platform-tools\adb.exe install -r D:\celechron-mod-release.apk
 5. **评论非协作**：纯本地数据，没有多人同步与 @ 提醒；「参与人」与「AI 拆解子待办」未实现。
 6. **分析器在中文路径下会崩**：flutter_tools 的 LSP 消息在非 ASCII 路径下被截断，所以 `flutter analyze` 请用 `D:\celechron-mod\Celechron` 这个联接路径。
 7. **release 包用 debug 签名**：与官方版签名不同，因此不能覆盖安装官方版（本方案改为共存包名，规避此问题）。
+
+### 回滚：恢复上游的后台刷新逻辑（1.3 合并之后）
+
+早前按需求做过两处「权宜改动」，1.3 跟上之后已按上游恢复：
+
+| 早前的改动 | 现状 |
+|---|---|
+| 删掉 workmanager 后台周期刷新，改成「每天第一次打开才刷新课表」 | **已恢复上游逻辑**：启动即走统一入口 `_refreshRestoredScholar`，后台按设置里的开关注册 15 分钟周期任务 |
+| 「推送成绩变动 / 推送作业截止提醒」两个开关失效 | **已恢复可用**（它们本来就依赖上面那个 worker） |
+
+理由：本魔改的初衷是弥补 1.2 更新不及时带来的问题；合并到 1.3 之后上游自己是新的，
+就不需要这类改动了。现在 `lib/main.dart` 与 `lib/page/option/option_controller.dart`
+与上游完全一致，跟版冲突面进一步缩小。

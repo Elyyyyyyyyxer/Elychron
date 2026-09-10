@@ -50,10 +50,15 @@ test/**                        单元测试
 | `lib/page/task/task_controller.dart` | 上游做性能重构（`updateDeadlineList` 返回 `changed`、只在真变化时写库；定时器加 `onClose`）；我们加了墓碑、合并类型、重复生成 |
 | `lib/page/option/option_controller.dart` | 上游后台刷新接入新协调器；我们移除了后台刷新、加了提醒方式设置 |
 | `lib/page/home_page.dart` | 上游重构首页（`PageController` + `_KeepAlivePage`）；我们加了分享接收与闹钟监听 |
-| `lib/main.dart` | 上游接入刷新协调器；我们改成每天首次打开刷新 |
+| `lib/main.dart` | 上游接入统一刷新入口 `_refreshRestoredScholar`（1.3 合并后已完全采用上游逻辑） |
 | `lib/page/calendar/calendar_view.dart` | 上游小改；我们加了待办卡片与打钩 |
 | `lib/page/task/task_view.dart` | 上游少量适配；我们基本重写 |
 | `pubspec.yaml` | 版本号 |
+
+> 1.3 合并时 `option_controller.dart` 也冲突过（上游强化了后台周期刷新）。当时的决策是
+> 「继续移除后台刷新」，但随后**已按上游恢复**——理由见 `MOD_NOTES.md`：本魔改的初衷
+> 是弥补 1.2 更新不及时，1.3 跟上之后就不需要这类权宜改动了。
+> 现在 `main.dart` 与 `option_controller.dart` 都**完全等同上游**，冲突面比上表更小。
 
 **目标：让这一层的改动"少、集中、有标记"**：
 
@@ -104,8 +109,19 @@ git push origin main mod-1.4.0
 
 | 版本 | 上游 commit | 结果 |
 |---|---|---|
-| `mod-1.2.0` | 基于 `5b688e0`（v1.2.0） | 当前基线 |
-| `v1.3.0` 影子合并实测 | `ceab2a4` | **17 处冲突 / 7 个文件**：`task_controller` 8 处、`option_controller` 3 处、`home_page` 2 处、`main`/`calendar_view`/`task_view`/`pubspec` 各 1 处；`database_helper`、`option_view` 自动合并成功，其余 68 个上游文件零冲突 |
+| `mod-1.2.0` | 基于 `5b688e0`（v1.2.0） | 上一个基线 |
+| `mod-1.3.0` | 合并 `ceab2a4`（v1.3.0） | **已完成**：17 处冲突 / 7 个文件（`task_controller` 8、`option_controller` 3、`home_page` 2、`main`/`calendar_view`/`task_view`/`pubspec` 各 1），`database_helper`、`option_view` 自动合并，其余 68 个上游文件零冲突。合并后 analyze 0 error、**132 个测试全绿**（上游自带 106 个成为额外回归网）、APK 构建通过。**实测工时约 1 小时**，与静态评估吻合 |
+
+### 1.3 合并的解法（下次可参考）
+
+| 冲突 | 决策 |
+|---|---|
+| `task_controller.dart`（8 处） | **吸收上游的 `changed` 门控重构**（不再每秒全量写 Hive），同时保留墓碑 / 旧数据归一化 / 周期待办生成 / 前台闹钟检查 |
+| `home_page.dart`（2 处） | **采用上游的 `PageView` + `_KeepAlivePage`**，把分享与闹钟监听重新挂回，底栏保留「待办」 |
+| `option_controller.dart`（3 处） | 先按原计划移除后台刷新，**后按上游恢复**（见上方说明） |
+| `main.dart`（1 处） | 保留上游统一刷新入口，外层套我们的「每天首次刷新」→ **后按上游恢复** |
+| `calendar_view.dart` / `task_view.dart` | 保留魔改（日历待办卡片、无进度条卡片），上游改的是同一处旧版本 |
+| `pubspec.yaml` | 版本取 `1.3.0-mod.N+1` |
 
 ## 五、分发合规备忘（GPLv3）
 
