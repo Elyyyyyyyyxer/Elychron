@@ -1,203 +1,22 @@
 import 'dart:async';
 import 'package:get/get.dart';
 import 'package:celechron/database/database_helper.dart';
+// ===== MOD: 分类/排序/筛选逻辑在 lib/mod/task_list_filter_mod.dart =====
+import 'package:celechron/mod/task_list_filter_mod.dart';
 import 'package:celechron/model/task.dart';
 // ===== MOD: 魔改逻辑集中在 lib/mod/ 下，本文件只留调用点 =====
 import 'package:celechron/mod/task_runtime_mod.dart';
 import 'package:celechron/utils/utils.dart';
 
-class TaskController extends GetxController {
+class TaskController extends GetxController with TaskListFilterMod {
+  // ===== MOD: 标签页名字（static 不能放 mixin，留着也是魔改的一部分）=====
+  static const List<String> tabNames = ['待我处理', '优先处理', '我已处理', '星标'];
   final taskList = Get.find<RxList<Task>>(tag: 'taskList');
   final taskListLastUpdate = Get.find<Rx<DateTime>>(tag: 'taskListLastUpdate');
   final _db = Get.find<DatabaseHelper>(tag: 'db');
   Timer? _timer;
 
   /// 未完成的待办（含带时段的任务），先按优先级从高到低，再按截止时间从近到远。
-  List<Task> get todoDeadlineList {
-    final list = taskList
-        .where((element) =>
-            element.type != TaskType.fixedlegacy &&
-            element.status != TaskStatus.completed &&
-            element.status != TaskStatus.deleted &&
-            element.status != TaskStatus.outdated)
-        .toList();
-    list.sort((a, b) {
-      if (a.priority != b.priority) {
-        return b.priority.index.compareTo(a.priority.index);
-      }
-      return a.endTime.compareTo(b.endTime);
-    });
-    return list;
-  }
-
-  /// 已完成的待办
-  List<Task> get doneDeadlineList => taskList
-      .where((element) =>
-          element.type != TaskType.fixedlegacy &&
-          element.status == TaskStatus.completed)
-      .toList();
-
-  // ---------------------------------------------------- 任务页的分类/排序/筛选
-
-  static const List<String> tabNames = ['待我处理', '优先处理', '我已处理', '星标'];
-
-  /// 当前标签页：0 待我处理 1 优先处理 2 我已处理 3 星标
-  final selectedTab = 0.obs;
-
-  /// 标签筛选（多选）：空集合 = 全部分类
-  final selectedTags = <String>{}.obs;
-
-  /// 排序：endTime / createdAt / updatedAt / priority
-  final sortKey = 'createdAt'.obs;
-  final sortAscending = false.obs;
-
-  /// 筛选
-  final filterCompleted = Rxn<bool>();
-  final filterPriorities = <TaskPriority>{}.obs;
-  final filterDue = Rxn<String>();
-  final filterRangeStart = Rxn<DateTime>();
-  final filterRangeEnd = Rxn<DateTime>();
-
-  bool get hasActiveFilters =>
-      filterCompleted.value != null ||
-      filterPriorities.isNotEmpty ||
-      filterDue.value != null ||
-      filterRangeStart.value != null ||
-      filterRangeEnd.value != null;
-
-  static bool _isDone(Task task) => task.status == TaskStatus.completed;
-
-  List<Task> _allTasks() => taskList
-      .where((t) =>
-          t.type != TaskType.fixedlegacy && t.status != TaskStatus.deleted)
-      .toList();
-
-  /// 某个标签页的原始列表（不含筛选）
-  List<Task> _tasksOfTab(int tab) {
-    final list = _allTasks();
-    switch (tab) {
-      case 1:
-        return list
-            .where((t) =>
-                !_isDone(t) &&
-                (t.priority == TaskPriority.high ||
-                    t.priority == TaskPriority.urgent))
-            .toList();
-      case 2:
-        return list.where(_isDone).toList();
-      case 3:
-        return list.where((t) => t.starred).toList();
-      default:
-        return list
-            .where((t) => !_isDone(t) && t.status != TaskStatus.outdated)
-            .toList();
-    }
-  }
-
-  int tabCount(int tab) => _tasksOfTab(tab).length;
-
-  /// 当前标签页 + 分类 + 筛选 + 排序后的列表
-  List<Task> get visibleTaskList {
-    var list = _tasksOfTab(selectedTab.value);
-
-    // 标签多选：命中任意一个选中的标签即保留
-    if (selectedTags.isNotEmpty) {
-      list = list
-          .where((t) => t.tags.any((tag) => selectedTags.contains(tag)))
-          .toList();
-    }
-
-    final completed = filterCompleted.value;
-    if (completed != null) {
-      list = list.where((t) => _isDone(t) == completed).toList();
-    }
-
-    if (filterPriorities.isNotEmpty) {
-      list = list.where((t) => filterPriorities.contains(t.priority)).toList();
-    }
-
-    final due = filterDue.value;
-    if (due != null) {
-      list = list.where((t) => _matchDue(t, due)).toList();
-    }
-
-    final start = filterRangeStart.value;
-    if (start != null) {
-      list = list
-          .where((t) => !dateOnly(t.endTime).isBefore(dateOnly(start)))
-          .toList();
-    }
-    final end = filterRangeEnd.value;
-    if (end != null) {
-      list = list
-          .where((t) => !dateOnly(t.endTime).isAfter(dateOnly(end)))
-          .toList();
-    }
-
-    list.sort(_compare);
-    return list;
-  }
-
-  int _compare(Task a, Task b) {
-    int result;
-    switch (sortKey.value) {
-      case 'endTime':
-        result = a.endTime.compareTo(b.endTime);
-        break;
-      case 'updatedAt':
-        result = a.sortableUpdatedAt.compareTo(b.sortableUpdatedAt);
-        break;
-      case 'priority':
-        result = a.priority.index.compareTo(b.priority.index);
-        break;
-      default:
-        result = a.sortableCreatedAt.compareTo(b.sortableCreatedAt);
-    }
-    return sortAscending.value ? result : -result;
-  }
-
-  bool _matchDue(Task task, String due) {
-    final today = dateOnly(DateTime.now());
-    final day = dateOnly(task.endTime);
-    switch (due) {
-      case 'overdue':
-        return day.isBefore(today) && !_isDone(task);
-      case 'today':
-        return day == today;
-      case 'tomorrow':
-        return day == today.add(const Duration(days: 1));
-      case 'week':
-        return !day.isBefore(today) &&
-            !day.isAfter(today.add(const Duration(days: 7)));
-      case 'none':
-        return false; // 本应用的任务都有截止时间
-    }
-    return true;
-  }
-
-  /// 标签库版本号：标签管理里增删改后自增，用来触发界面刷新
-  final tagVersion = 0.obs;
-
-  /// 所有标签：标签库 + 任务里用过的
-  List<String> get allTags {
-    final set = <String>{};
-    try {
-      set.addAll(_db.getTagLibrary());
-    } catch (_) {}
-    for (final task in taskList) {
-      set.addAll(task.tags);
-    }
-    final list = set.toList()..sort();
-    return list;
-  }
-
-  void resetFilters() {
-    filterCompleted.value = null;
-    filterPriorities.clear();
-    filterDue.value = null;
-    filterRangeStart.value = null;
-    filterRangeEnd.value = null;
-  }
 
   @override
   void onInit() {
