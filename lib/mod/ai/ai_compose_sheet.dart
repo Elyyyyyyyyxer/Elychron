@@ -245,9 +245,18 @@ class _AiComposeSheetState extends State<_AiComposeSheet> {
   Widget _preview(BuildContext context, AiTaskDraft draft) {
     final rows = <Widget>[
       _kv(context, '标题', draft.summary),
+      if (draft.startTime != null)
+        _kv(context, '开始', _describeTime(draft.startTime!)),
       _kv(context, '截止', _describeTime(draft.endTime)),
       if (draft.description.isNotEmpty) _kv(context, '描述', draft.description),
       if (draft.location.isNotEmpty) _kv(context, '地点', draft.location),
+      if (draft.reminderMinutes > 0)
+        _kv(
+          context,
+          '提醒',
+          '提前 ${_describeMinutes(draft.reminderMinutes)}'
+              '（${_describeTime((draft.startTime ?? draft.endTime).subtract(Duration(minutes: draft.reminderMinutes)))}）',
+        ),
       if (draft.priority != TaskPriority.normal)
         _kv(context, '优先级', taskPriorityName[draft.priority] ?? ''),
       if (draft.tags.isNotEmpty) _kv(context, '标签', draft.tags.join('、')),
@@ -352,6 +361,14 @@ class _AiComposeSheetState extends State<_AiComposeSheet> {
         ],
       ),
     );
+  }
+
+  /// 30 → 30 分钟；60 → 1 小时；1440 → 1 天
+  static String _describeMinutes(int minutes) {
+    if (minutes < 60) return '$minutes 分钟';
+    if (minutes % 1440 == 0) return '${minutes ~/ 1440} 天';
+    if (minutes % 60 == 0) return '${minutes ~/ 60} 小时';
+    return '${minutes ~/ 60} 小时 ${minutes % 60} 分钟';
   }
 
   /// 「2026-09-12 23:59（后天）」——加个相对说法，方便一眼判断对不对
