@@ -1,4 +1,6 @@
 import 'package:celechron/design/alarm_theme_picker.dart';
+import 'package:celechron/mod/ai/ai_settings_page.dart';
+import 'package:celechron/mod/ai/deepseek.dart';
 import 'package:celechron/mod/lan_sync_page.dart';
 import 'package:celechron/mod/settings_data_actions.dart';
 import 'package:celechron/page/option/option_controller.dart';
@@ -87,3 +89,42 @@ Widget modDataSection(
             onTap: () => modImportData(context),
           ),
         ]));
+
+/// AI 智能助手（配置 API key / 模型 / 测试连接）
+Widget modAiSection(
+  BuildContext context, {
+  required TextStyle? headerStyle,
+  required EdgeInsetsGeometry margin,
+}) =>
+    ValueListenableBuilder<int>(
+      valueListenable: AiConfig.revision,
+      builder: (BuildContext context, int _, Widget? __) => SliverToBoxAdapter(
+        child: CupertinoListSection.insetGrouped(
+          additionalDividerMargin: 2,
+          margin: margin,
+          header: Container(
+              padding: const EdgeInsets.only(left: 16),
+              child: Text('智能', style: headerStyle)),
+          children: <CupertinoListTile>[
+            CupertinoListTile(
+              title: const Text('AI 智能助手'),
+              subtitle: Text(
+                AiConfig.isReady
+                    ? '已启用 · ${AiConfig.model}'
+                    : '默认关闭；填自己的 DeepSeek key 后可用',
+              ),
+              trailing: const BackChervonRow(),
+              onTap: () async {
+                await AiConfig.load();
+                if (!context.mounted) return;
+                await Navigator.of(context, rootNavigator: true).push(
+                  CupertinoPageRoute<void>(
+                    builder: (BuildContext context) => const AiSettingsPage(),
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );

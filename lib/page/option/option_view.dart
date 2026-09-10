@@ -212,6 +212,9 @@ class OptionPage extends StatelessWidget {
                     ],
                   ),
                 )),
+            // ===== MOD: AI 智能助手 =====
+            modAiSection(context,
+                headerStyle: headerFooterTextStyle, margin: _defaultMargin),
             // ===== MOD: 数据（导出 / 导入）=====
             modDataSection(context,
                 headerStyle: headerFooterTextStyle, margin: _defaultMargin),
