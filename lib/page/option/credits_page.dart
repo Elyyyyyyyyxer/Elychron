@@ -227,6 +227,26 @@ class _CreditsPageState extends State<CreditsPage> {
                     height: 16,
                   ),
                   _buildContributorsList(),
+                  // ===== MOD: 魔改版作者 =====
+                  const SizedBox(
+                    height: 24,
+                  ),
+                  const Text(
+                    '🔧魔改',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(
+                    height: 16,
+                  ),
+                  const Text(
+                    'Tixer',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 18),
+                  ),
                 ],
               ),
             ),
@@ -248,18 +268,6 @@ class _CreditsPageState extends State<CreditsPage> {
                   ),
                   Text(
                     '源码：github.com/Elyyyyyyyyxer/celechron-mod',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: CupertinoDynamicColor.resolve(
-                          CupertinoColors.secondaryLabel, context),
-                    ),
-                  ),
-                  const SizedBox(
-                    height: 4,
-                  ),
-                  Text(
-                    '浙ICP备2024061973号-2A',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 12,
