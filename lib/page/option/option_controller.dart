@@ -1,8 +1,5 @@
-import 'dart:io';
-
 import 'package:get/get.dart';
 import 'package:flutter/cupertino.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:workmanager/workmanager.dart';
 
 import 'package:celechron/model/scholar.dart';
@@ -10,11 +7,11 @@ import 'package:celechron/model/option.dart';
 import 'package:celechron/database/database_helper.dart';
 import 'package:celechron/worker/ecard_widget_messenger.dart';
 import 'package:celechron/worker/fuse.dart';
-import 'package:celechron/worker/background_app_refresh.dart';
 import 'package:celechron/utils/platform_features.dart';
 import 'package:celechron/model/calendar_to_system.dart';
 import 'package:celechron/model/calendar_to_ical.dart';
 
+import 'package:celechron/utils/task_reminder.dart';
 import 'package:celechron/utils/utils.dart';
 
 class OptionController extends GetxController {
@@ -24,6 +21,15 @@ class OptionController extends GetxController {
   final _db = Get.find<DatabaseHelper>(tag: 'db');
   late final RxInt allowTimeLength = _option.allowTime.length.obs;
 
+  /// 提醒方式：0 = 通知（横幅+响铃），1 = 闹钟模式
+  late final reminderMode = _db.getReminderMode().obs;
+
+  void setReminderMode(int value) {
+    reminderMode.value = value;
+    _db.setReminderMode(value);
+    TaskReminder.mode = value;
+  }
+
   // 日历管理器
   late final CalendarToSystemManager _calendarManager;
 
@@ -31,21 +37,12 @@ class OptionController extends GetxController {
   void onInit() {
     super.onInit();
     _calendarManager = CalendarToSystemManager(scholar.value);
+    TaskReminder.mode = reminderMode.value;
 
     if (PlatformFeatures.hasBackgroundRefresh) {
-      if (_option.pushOnGradeChange.value || _option.pushOnDdlReminder.value) {
-        Workmanager()
-            .initialize(callbackDispatcher)
-            .then((value) => Workmanager().registerPeriodicTask(
-                  'top.celechron.celechron.backgroundScholarFetch',
-                  'top.celechron.celechron.backgroundScholarFetch',
-                  initialDelay: const Duration(seconds: 10),
-                  frequency: const Duration(minutes: 15),
-                ));
-      } else {
-        Workmanager().cancelByUniqueName(
-            'top.celechron.celechron.backgroundScholarFetch');
-      }
+      // 已移除后台定时刷新：课表数据改为「每天第一次打开时刷新一次」
+      Workmanager()
+          .cancelByUniqueName('top.celechron.celechron.backgroundScholarFetch');
     }
 
     ever(courseIdMappingList, (value) {
@@ -57,7 +54,6 @@ class OptionController extends GetxController {
   }
 
   Duration get workTime => _option.workTime.value;
-
   set workTime(Duration value) {
     _option.workTime.value = value;
     _db.setWorkTime(value);
@@ -121,37 +117,10 @@ class OptionController extends GetxController {
     _updateBackgroundWorker(value || pushOnGradeChange);
   }
 
+  /// 后台定时刷新已移除：这里只负责清理历史遗留的周期任务。
   void _updateBackgroundWorker(bool enabled) {
     Workmanager()
-        .cancelByUniqueName('top.celechron.celechron.backgroundScholarFetch')
-        .then((value) {
-      if (Platform.isIOS) return Workmanager().printScheduledTasks();
-    });
-    if (enabled) {
-      FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
-          FlutterLocalNotificationsPlugin();
-      const initializationSettingsAndroid =
-          AndroidInitializationSettings('@mipmap/ic_launcher');
-      const initializationSettingsDarwin = DarwinInitializationSettings(
-        requestSoundPermission: true,
-        requestBadgePermission: true,
-        requestAlertPermission: true,
-      );
-      const initializationSettings = InitializationSettings(
-          android: initializationSettingsAndroid,
-          iOS: initializationSettingsDarwin);
-      flutterLocalNotificationsPlugin.initialize(initializationSettings);
-      Workmanager()
-          .initialize(callbackDispatcher)
-          .then((value) => Workmanager().registerPeriodicTask(
-                'top.celechron.celechron.backgroundScholarFetch',
-                'top.celechron.celechron.backgroundScholarFetch',
-                frequency: const Duration(minutes: 15),
-                constraints: Constraints(
-                  networkType: NetworkType.connected,
-                ),
-              ));
-    }
+        .cancelByUniqueName('top.celechron.celechron.backgroundScholarFetch');
   }
 
   BrightnessMode get brightnessMode => _option.brightnessMode.value;

@@ -1,6 +1,8 @@
 import 'package:celechron/design/custom_decoration.dart';
 import 'package:celechron/design/sub_title.dart';
+import 'package:celechron/design/task_priority_color.dart';
 import 'package:celechron/model/task.dart';
+import 'package:celechron/page/task/task_create_page.dart';
 import 'package:celechron/page/task/task_controller.dart';
 import 'package:celechron/page/task/task_edit_page.dart';
 import 'package:celechron/page/flow/flow_controller.dart';
@@ -9,6 +11,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:celechron/model/period.dart';
+import 'package:celechron/utils/task_complete.dart';
 import 'package:celechron/utils/utils.dart';
 
 import 'package:celechron/design/round_rectangle_card.dart';
@@ -151,7 +154,8 @@ class CalendarPage extends StatelessWidget {
                             _calendarController.calendarFormat.value = format;
                           },
                           eventLoader: (day) {
-                            return _calendarController.getEventsForDay(day);
+                            // 课程 / 考试 / 日程 / 待办 都参与月视图标记
+                            return _calendarController.getMarkersForDay(day);
                           },
                           calendarStyle: CalendarStyle(
                             markersAnchor: -0.1,
@@ -220,17 +224,7 @@ class CalendarPage extends StatelessWidget {
                       Expanded(
                         child: Obx(
                           () => ListView(
-                            children: _calendarController
-                                .getEventsForDay(
-                                    _calendarController.selectedDay.value)
-                                .map(
-                                  (e) => Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                        vertical: 5, horizontal: 16),
-                                    child: createCard(context, e),
-                                  ),
-                                )
-                                .toList(),
+                            children: _buildDayEntries(context),
                           ),
                         ),
                       ),
@@ -255,18 +249,16 @@ class CalendarPage extends StatelessWidget {
     deadline.startTime = time.copyWith();
     deadline.endTime = time.copyWith();
     deadline.repeatEndsTime = time.copyWith();
-    deadline.type = TaskType.fixed;
     deadline.status = TaskStatus.running;
     Task? res = await showCupertinoModalPopup(
       context: context,
       builder: (BuildContext context) {
-        return TaskEditPage(deadline);
+        return TaskCreatePage(deadline);
       },
     );
-    if (res != null &&
-        res.checkTimeValid() &&
-        res.status != TaskStatus.deleted) {
+    if (res != null && res.status != TaskStatus.deleted) {
       _taskController.taskList.add(res);
+      _taskController.updateDeadlineList();
       _taskController.updateDeadlineListTime();
       _taskController.taskList.refresh();
     }
@@ -354,6 +346,155 @@ class CalendarPage extends StatelessWidget {
     );
   }
 
+  /// 某一天的列表：课程 / 考试 / 日程（Period）+ 当天到期的待办（Task），按时间排序。
+  List<Widget> _buildDayEntries(BuildContext context) {
+    final day = _calendarController.selectedDay.value;
+    final entries = <MapEntry<DateTime, Widget>>[];
+
+    for (final period in _calendarController.getEventsForDay(day)) {
+      entries.add(MapEntry(period.startTime, createCard(context, period)));
+    }
+    for (final task in _calendarController.getDeadlinesForDay(day)) {
+      entries.add(MapEntry(task.endTime, createDeadlineCard(context, task)));
+    }
+
+    entries.sort((a, b) => a.key.compareTo(b.key));
+    return entries
+        .map(
+          (e) => Padding(
+            padding: const EdgeInsets.symmetric(vertical: 5, horizontal: 16),
+            child: e.value,
+          ),
+        )
+        .toList();
+  }
+
+  /// 找出某个 Period 对应的任务（用于打钩完成）。
+  Task? _taskOfPeriod(Period period) {
+    if (period.type != PeriodType.user) return null;
+    return deadlineList.firstWhereOrNull((task) => task.uid == period.fromUid);
+  }
+
+  Widget _taskCheckbox(BuildContext context, Task task) {
+    final done = task.status == TaskStatus.completed;
+    return CupertinoButton(
+      padding: EdgeInsets.zero,
+      minimumSize: const Size(40, 40),
+      onPressed: () => _toggleTaskDone(context, task),
+      child: Icon(
+        done ? CupertinoIcons.checkmark_circle_fill : CupertinoIcons.circle,
+        size: 22,
+        color: done
+            ? CupertinoColors.systemGreen
+            : CupertinoDynamicColor.resolve(
+                CupertinoColors.tertiaryLabel, context),
+      ),
+    );
+  }
+
+  /// 直接在日历里打钩完成 / 取消完成。
+  Future<void> _toggleTaskDone(BuildContext context, Task task) async {
+    if (task.status == TaskStatus.completed) {
+      task.timeSpent = const Duration(minutes: 0);
+      task.status = TaskStatus.running;
+    } else {
+      // 有没勾完的子待办时先确认，确认后一起勾上
+      if (!await confirmCompleteTask(context, task)) return;
+      task.status = TaskStatus.completed;
+    }
+    _taskController.updateDeadlineList();
+    _taskController.updateDeadlineListTime();
+    _taskController.taskList.refresh();
+  }
+
+  /// 待办（DDL）在日历里的卡片：打钩 + 标题 + 截止时间 + 子待办进度。
+  Widget createDeadlineCard(BuildContext context, Task task) {
+    final done = task.status == TaskStatus.completed;
+    final labelColor =
+        CupertinoDynamicColor.resolve(CupertinoColors.secondaryLabel, context);
+
+    return RoundRectangleCard(
+      onTap: () async {
+        Task? res = await Navigator.of(context).push(
+          CupertinoPageRoute(
+            builder: (BuildContext context) => TaskEditPage(task),
+          ),
+        );
+        if (res != null) {
+          if (res.status == TaskStatus.deleted) {
+            task.status = TaskStatus.deleted;
+          } else {
+            task.copy(res);
+          }
+        }
+        _taskController.updateDeadlineList();
+        _taskController.updateDeadlineListTime();
+        _taskController.taskList.refresh();
+      },
+      child: Padding(
+        padding: const EdgeInsets.only(left: 8, right: 8),
+        child: Row(
+          children: [
+            _taskCheckbox(context, task),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 12.0,
+                        height: 12.0,
+                        decoration: customDecoration(
+                          color: UidColors.colorFromUid(task.uid),
+                          shape: periodTypeShape[PeriodType.user]!,
+                        ),
+                      ),
+                      const SizedBox(width: 8.0),
+                      Expanded(
+                        child: Text(
+                          task.summary.isEmpty ? '(未命名待办)' : task.summary,
+                          style: CupertinoTheme.of(context)
+                              .textTheme
+                              .textStyle
+                              .copyWith(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                overflow: TextOverflow.ellipsis,
+                                decoration:
+                                    done ? TextDecoration.lineThrough : null,
+                              ),
+                        ),
+                      ),
+                      if (task.priority != TaskPriority.normal)
+                        Icon(CupertinoIcons.flag_fill,
+                            size: 14, color: taskPriorityColor(task.priority)),
+                    ],
+                  ),
+                  const SizedBox(height: 4.0),
+                  Text(
+                    '截止 ${toStringHumanReadable(task.endTime)}',
+                    style: TextStyle(fontSize: 14, color: labelColor),
+                  ),
+                  if (task.location.isNotEmpty)
+                    Text(
+                      '地点 ${task.location}',
+                      style: TextStyle(fontSize: 14, color: labelColor),
+                    ),
+                  if (task.subtasks.isNotEmpty)
+                    Text(
+                      '子待办 ${task.subtaskDoneCount}/${task.subtasks.length}',
+                      style: TextStyle(fontSize: 14, color: labelColor),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget createCard(context, Period period) {
     return RoundRectangleCard(
       onTap:
@@ -380,6 +521,12 @@ class CalendarPage extends StatelessWidget {
         padding: const EdgeInsets.only(left: 8, right: 8),
         child: Row(
           children: [
+            if (period.type == PeriodType.user)
+              () {
+                final task = _taskOfPeriod(period);
+                if (task == null) return const SizedBox.shrink();
+                return _taskCheckbox(context, task);
+              }(),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -496,21 +643,36 @@ class CalendarPage extends StatelessWidget {
     );
   }
 
-  static Widget singleMarkerBuilder(context, day, Period event) {
-    if (event.type == PeriodType.virtual) {
+  static Widget singleMarkerBuilder(context, day, Object event) {
+    if (event is Task) {
+      return Container(
+        width: 4.5,
+        height: 4.5,
+        margin: const EdgeInsets.symmetric(horizontal: 0.3),
+        decoration: customDecoration(
+          color: event.status == TaskStatus.completed
+              ? CupertinoColors.systemGreen
+              : UidColors.colorFromUid(event.uid),
+          shape: periodTypeShape[PeriodType.user]!,
+        ),
+      );
+    }
+    if (event is! Period) return const SizedBox.shrink();
+    final Period period = event;
+    if (period.type == PeriodType.virtual) {
       return const SizedBox.shrink();
     }
 
     Color color = CupertinoColors.systemPink;
-    if (event.type == PeriodType.classes) {
-      color = TimeColors.colorFromHour(event.startTime.hour);
-    } else if (event.type == PeriodType.user) {
-      color = UidColors.colorFromUid(event.fromFromUid ?? event.fromUid);
+    if (period.type == PeriodType.classes) {
+      color = TimeColors.colorFromHour(period.startTime.hour);
+    } else if (period.type == PeriodType.user) {
+      color = UidColors.colorFromUid(period.fromFromUid ?? period.fromUid);
     }
 
     double size = 4.5;
 
-    if (event.type == PeriodType.test) {
+    if (period.type == PeriodType.test) {
       size = 6;
     }
 
@@ -520,7 +682,7 @@ class CalendarPage extends StatelessWidget {
       margin: const EdgeInsets.symmetric(horizontal: 0.3),
       decoration: customDecoration(
         color: color,
-        shape: periodTypeShape[event.type]!,
+        shape: periodTypeShape[period.type]!,
       ),
     );
   }

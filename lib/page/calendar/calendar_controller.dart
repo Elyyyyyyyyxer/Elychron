@@ -84,6 +84,24 @@ class CalendarController extends GetxController {
     return eventsOfDay;
   }
 
+  /// 当天到期的待办（DDL）：让待办也出现在日历里。
+  List<Task> getDeadlinesForDay(DateTime day) {
+    final target = dateOnly(day);
+    final result = taskList
+        .where((task) =>
+            task.type == TaskType.deadline &&
+            task.status != TaskStatus.deleted &&
+            dateOnly(task.endTime) == target)
+        .toList();
+    result.sort((a, b) => a.endTime.compareTo(b.endTime));
+    return result;
+  }
+
+  /// 月视图上的标记：课程/考试/日程（Period）+ 当天到期的待办（Task）。
+  List<Object> getMarkersForDay(DateTime day) {
+    return <Object>[...getEventsForDay(day), ...getDeadlinesForDay(day)];
+  }
+
   void toggleViewMode() {
     viewMode.value = viewMode.value == CalendarViewMode.calendar
         ? CalendarViewMode.schedule

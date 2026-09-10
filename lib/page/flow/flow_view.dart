@@ -501,7 +501,7 @@ class FlowPage extends StatelessWidget {
                             '时间不够了！',
                           ),
                           content: const Text(
-                              '即使是完全不休息也有任务无法完成。请压缩任务的预期时间，或者检查是否有任务在规划开始时间之前就结束。'),
+                              '即使是完全不休息也有待办无法完成。请压缩待办的预期时间，或者检查是否有待办在规划开始时间之前就结束。'),
                           actions: [
                             CupertinoDialogAction(
                               child: const Text('确定'),
@@ -523,7 +523,7 @@ class FlowPage extends StatelessWidget {
                             '休息时间已压缩',
                           ),
                           content: Text(
-                              '因为任务过多，你需要把休息时间压缩到 ${durationToString(Duration(minutes: ret))}才能完成任务。'),
+                              '因为待办过多，你需要把休息时间压缩到 ${durationToString(Duration(minutes: ret))}才能完成任务。'),
                           actions: [
                             CupertinoDialogAction(
                               child: const Text('确定'),

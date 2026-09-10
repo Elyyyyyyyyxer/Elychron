@@ -37,21 +37,28 @@ void main() async {
 
   var scholar = Get.find<Rx<Scholar>>(tag: 'scholar');
   if (scholar.value.isLogan) {
-    // 启动时先用缓存数据展示，后台异步刷新
-    scholar.refresh();
-    scholar.value
-        .login()
-        .then((value) async {
-          GlobalStatus.isFirstScreenReq = true;
-          await scholar.value.refresh();
-          GlobalStatus.isFirstScreenReq = false;
-        })
-        .then((value) => scholar.refresh())
-        .catchError((e) {
-          // 网络异常时保留本地缓存数据，不影响已有展示
-          GlobalStatus.isFirstScreenReq = false;
-          scholar.refresh();
-        });
+    // 每天第一次打开时刷新一次课表数据（其余时间用缓存，不再后台定时刷新）
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final last = db.getLastAutoRefresh();
+    final needRefresh = last == null ||
+        DateTime(last.year, last.month, last.day).isBefore(today);
+    if (needRefresh) {
+      scholar.value
+          .login()
+          .then((value) async {
+            GlobalStatus.isFirstScreenReq = true;
+            await scholar.value.refresh();
+            GlobalStatus.isFirstScreenReq = false;
+            await db.setLastAutoRefresh(DateTime.now());
+          })
+          .then((value) => scholar.refresh())
+          .catchError((e) {
+            // 网络异常时保留本地缓存数据，下次打开再试
+            GlobalStatus.isFirstScreenReq = false;
+            scholar.refresh();
+          });
+    }
   }
 
   ECardWidgetMessenger.update();
