@@ -1,5 +1,6 @@
 import 'package:celechron/database/database_helper.dart';
 import 'package:celechron/mod/ai/deepseek.dart';
+import 'package:celechron/mod/ai/model_resolver.dart';
 import 'package:celechron/mod/database_mod.dart';
 import 'package:celechron/mod/tag_harvest.dart';
 import 'package:get/get.dart';
@@ -73,11 +74,18 @@ class AiTaskDraft {
     final clipped =
         text.length > maxInputChars ? text.substring(0, maxInputChars) : text;
 
-    final client = DeepSeekClient();
-    final json = await client.chatJson(
-      system: _buildSystemPrompt(existingTags),
-      user: clipped,
-      temperature: 0.1,
+    // 模型名可能被官方改过：还没有解析结果就先问一次 /models
+    // （拿不到也不阻断，继续用兜底名；失败时由 withModelHealing 自愈重试）
+    if (AiConfig.resolvedModel.isEmpty && !AiConfig.isManualModel) {
+      await ModelResolver.resolve();
+    }
+
+    final json = await ModelResolver.withModelHealing(
+      () => DeepSeekClient().chatJson(
+        system: _buildSystemPrompt(existingTags),
+        user: clipped,
+        temperature: 0.1,
+      ),
     );
     return _fromJson(
       json,

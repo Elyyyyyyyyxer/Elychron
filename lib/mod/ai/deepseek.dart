@@ -70,6 +70,9 @@ class AiConfig {
   static const _kApiKey = 'ai_api_key';
   static const _kBaseUrl = 'ai_base_url';
   static const _kModel = 'ai_model';
+  static const _kResolvedModel = 'ai_resolved_model';
+  static const _kModelList = 'ai_model_list';
+  static const _kModelListAt = 'ai_model_list_at';
 
   /// 每次改动都会 bump，界面用它触发刷新（避免把 Rx 依赖带进这个纯工具类）
   static final ValueNotifier<int> revision = ValueNotifier<int>(0);
@@ -77,13 +80,61 @@ class AiConfig {
   static bool _enabled = false;
   static String _apiKey = '';
   static String _baseUrl = defaultBaseUrl;
-  static String _model = defaultModel;
+
+  /// 用户手动选定的模型；空字符串表示「自动」
+  static String _manualModel = '';
+
+  /// 自动解析出来的模型名（来自官方 /models）
+  static String _resolvedModel = '';
+
+  /// 最近一次从 /models 拿到的可用列表
+  static List<String> _availableModels = <String>[];
+  static DateTime? _modelsFetchedAt;
   static bool _loaded = false;
 
   static bool get enabled => _enabled;
   static String get apiKey => _apiKey;
   static String get baseUrl => _baseUrl.isEmpty ? defaultBaseUrl : _baseUrl;
-  static String get model => _model.isEmpty ? defaultModel : _model;
+
+  /// 实际调用要用的模型名：**手动 > 自动解析 > 兜底常量**
+  static String get model {
+    if (_manualModel.isNotEmpty) return _manualModel;
+    if (_resolvedModel.isNotEmpty) return _resolvedModel;
+    return defaultModel;
+  }
+
+  static bool get isManualModel => _manualModel.isNotEmpty;
+  static String get manualModel => _manualModel;
+  static String get resolvedModel => _resolvedModel;
+  static List<String> get availableModels =>
+      List<String>.unmodifiable(_availableModels);
+  static DateTime? get modelsFetchedAt => _modelsFetchedAt;
+
+  /// 手动指定模型
+  static Future<void> setModel(String value) async {
+    _manualModel = value.trim();
+    await _write(_kModel, _manualModel);
+  }
+
+  /// 回到「自动选择」
+  static Future<void> setAutoModel() async {
+    _manualModel = '';
+    await _write(_kModel, '');
+  }
+
+  /// 缓存自动解析结果
+  static Future<void> cacheResolvedModel(String value) async {
+    _resolvedModel = value;
+    await _write(_kResolvedModel, value);
+  }
+
+  /// 缓存 /models 拉到的列表
+  static Future<void> cacheModelList(List<String> ids, {DateTime? at}) async {
+    _availableModels = <String>[...ids];
+    _modelsFetchedAt = at ?? DateTime.now();
+    await _write(_kModelList, jsonEncode(_availableModels));
+    await _write(_kModelListAt, _modelsFetchedAt!.toIso8601String());
+  }
 
   static bool get isReady => _enabled && _apiKey.isNotEmpty;
 
@@ -100,13 +151,27 @@ class AiConfig {
       _enabled = (await _storage.read(key: _kEnabled)) == 'true';
       _apiKey = (await _storage.read(key: _kApiKey)) ?? '';
       _baseUrl = (await _storage.read(key: _kBaseUrl)) ?? defaultBaseUrl;
-      _model = (await _storage.read(key: _kModel)) ?? defaultModel;
-      // 手里存着已退役的模型名就静默迁移，否则用户会在不知情的情况下调用失败
-      _model = _legacyModels[_model] ?? _model;
-      if (!models.contains(_model)) {
-        _model = defaultModel;
+      _manualModel = (await _storage.read(key: _kModel)) ?? '';
+      _resolvedModel = (await _storage.read(key: _kResolvedModel)) ?? '';
+      final listRaw = await _storage.read(key: _kModelList);
+      if (listRaw != null && listRaw.isNotEmpty) {
+        final decoded = jsonDecode(listRaw);
+        if (decoded is List) {
+          _availableModels = decoded.whereType<String>().toList();
+        }
       }
-      await _write(_kModel, _model);
+      final atRaw = await _storage.read(key: _kModelListAt);
+      _modelsFetchedAt = atRaw == null ? null : DateTime.tryParse(atRaw);
+      // 手里存着已退役的模型名就静默迁移，否则用户会在不知情的情况下调用失败
+      if (_manualModel.isNotEmpty) {
+        _manualModel = _legacyModels[_manualModel] ?? _manualModel;
+        // 有可用列表时，用户手选的名字如果已经不在列表里就退回「自动」
+        if (_availableModels.isNotEmpty &&
+            !_availableModels.contains(_manualModel)) {
+          _manualModel = '';
+        }
+        await _write(_kModel, _manualModel);
+      }
     } catch (_) {
       // 密钥库不可用时退化为「未配置」，不阻断 App
     }
@@ -129,10 +194,7 @@ class AiConfig {
     await _write(_kBaseUrl, _baseUrl);
   }
 
-  static Future<void> setModel(String value) async {
-    _model = value;
-    await _write(_kModel, _model);
-  }
+  // setModel / setAutoModel 见上面（手动与自动双轨）
 
   static Future<void> clearApiKey() async {
     _apiKey = '';
@@ -247,6 +309,62 @@ class DeepSeekClient {
       throw AiException('HTTPS 握手失败，检查网络环境');
     } finally {
       client.close(force: true);
+    }
+  }
+
+  /// 拉取官方当前可用的模型列表（GET /models，OpenAI 兼容）
+  ///
+  /// 这是「模型名会变」这个问题的正解：不问代码里写死的名字，直接问官方。
+  Future<List<String>> listModels({Duration? timeout}) async {
+    if (_apiKey.isEmpty) {
+      throw AiException('还没有填 API key（设置 → AI 智能助手）');
+    }
+    final limit = timeout ?? const Duration(seconds: 20);
+    final client = HttpClient()..connectionTimeout = limit;
+    try {
+      final request =
+          await client.getUrl(Uri.parse('$_baseUrl/models')).timeout(limit);
+      request.headers.set(HttpHeaders.authorizationHeader, 'Bearer $_apiKey');
+      final response = await request.close().timeout(limit);
+      final body = await utf8.decoder.bind(response).join();
+      if (response.statusCode != 200) {
+        throw AiException(_describeHttpError(response.statusCode, body));
+      }
+      return parseModelIds(body);
+    } on SocketException catch (error) {
+      throw AiException('连不上模型服务：${error.message}');
+    } on TimeoutException {
+      throw AiException('拉取模型列表超时，检查网络后重试');
+    } finally {
+      client.close(force: true);
+    }
+  }
+
+  /// 解析 /models 的返回体，取出模型 id 列表
+  static List<String> parseModelIds(String body) {
+    try {
+      final decoded = jsonDecode(body);
+      if (decoded is! Map) return <String>[];
+      final data = decoded['data'];
+      final ids = <String>[];
+      if (data is List) {
+        for (final item in data) {
+          if (item is Map) {
+            final id = item['id'];
+            if (id is String && id.trim().isNotEmpty) ids.add(id.trim());
+          } else if (item is String && item.trim().isNotEmpty) {
+            ids.add(item.trim());
+          }
+        }
+      } else if (data is Map) {
+        // 有些中转服务直接返回 { "模型名": {...} } 这种形式
+        for (final key in data.keys) {
+          if (key is String && key.trim().isNotEmpty) ids.add(key.trim());
+        }
+      }
+      return ids;
+    } catch (_) {
+      return <String>[];
     }
   }
 

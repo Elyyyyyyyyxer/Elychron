@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:celechron/mod/ai/deepseek.dart';
+import 'package:celechron/mod/ai/model_resolver.dart';
 import 'package:flutter/cupertino.dart';
 
 /// 设置 → AI 智能助手
@@ -18,13 +19,23 @@ class _AiSettingsPageState extends State<AiSettingsPage> {
   final _keyController = TextEditingController();
   final _baseUrlController = TextEditingController();
   bool _testing = false;
+  bool _refreshing = false;
+  String? _modelError;
   String? _testResult;
   bool _testOk = false;
 
   @override
   void initState() {
     super.initState();
-    AiConfig.load();
+    AiConfig.load().then((_) async {
+      if (!mounted) return;
+      setState(() {});
+      // 打开设置页时顺手刷新模型列表：让用户永远看到官方真实的模型名
+      if (AiConfig.apiKey.isNotEmpty &&
+          !ModelResolver.isFresh(AiConfig.modelsFetchedAt)) {
+        await _refreshModels();
+      }
+    });
     _baseUrlController.text = AiConfig.baseUrl;
   }
 
@@ -83,6 +94,26 @@ class _AiSettingsPageState extends State<AiSettingsPage> {
     });
   }
 
+  /// 重新问官方要模型列表，并按「便宜档优先」挑一个
+  Future<void> _refreshModels() async {
+    if (!mounted) return;
+    setState(() {
+      _refreshing = true;
+      _modelError = null;
+    });
+    try {
+      final picked = await ModelResolver.resolve(force: true);
+      if (picked.isEmpty && !AiConfig.isManualModel && mounted) {
+        setState(
+            () => _modelError = '没拿到模型列表（网络问题，或这个服务没提供 /models）。可以手动填模型名。');
+      }
+    } on AiException catch (error) {
+      if (mounted) setState(() => _modelError = error.message);
+    } finally {
+      if (mounted) setState(() => _refreshing = false);
+    }
+  }
+
   Future<void> _test() async {
     setState(() {
       _testing = true;
@@ -90,11 +121,13 @@ class _AiSettingsPageState extends State<AiSettingsPage> {
     });
     try {
       final client = DeepSeekClient();
-      final reply = await client.chat(
-        system: '你是连通性测试助手，只回一句话。',
-        user: '用不超过 15 个字回复：连接成功。',
-        temperature: 0,
-        timeout: const Duration(seconds: 30),
+      final reply = await ModelResolver.withModelHealing(
+        () => client.chat(
+          system: '你是连通性测试助手，只回一句话。',
+          user: '用不超过 15 个字回复：连接成功。',
+          temperature: 0,
+          timeout: const Duration(seconds: 30),
+        ),
       );
       if (!mounted) return;
       setState(() {
@@ -144,6 +177,13 @@ class _AiSettingsPageState extends State<AiSettingsPage> {
     await AiConfig.clearApiKey();
     await AiConfig.setEnabled(false);
     if (mounted) setState(() => _testResult = null);
+  }
+
+  static String _formatTime(DateTime? time) {
+    if (time == null) return '未知';
+    String two(int value) => value.toString().padLeft(2, '0');
+    return '${time.year}-${two(time.month)}-${two(time.day)} '
+        '${two(time.hour)}:${two(time.minute)}';
   }
 
   @override
@@ -234,23 +274,70 @@ class _AiSettingsPageState extends State<AiSettingsPage> {
               ),
               CupertinoListSection.insetGrouped(
                 header: const Text('模型'),
-                footer: const Text(
-                  '模型名随官方发布变动：现在用 deepseek-flash 调最新的 V4.1 Flash。\n'
-                  '以后官方换名字，这里会跟着更新；旧的配置会自动迁移。',
+                footer: Text(
+                  AiConfig.isManualModel
+                      ? '当前是手动指定。点「自动选择」可以交回给应用自动挑。'
+                      : (ModelResolver.lastAutoPickReason.isEmpty
+                          ? '应用会自动问官方「现在有哪些模型」，按「便宜档优先 + 官方别名优先」挑一个。'
+                              '官方改名时会自动跟上，也永远不会因为改名而悄悄变贵。'
+                          : '自动选择的理由：${ModelResolver.lastAutoPickReason}'),
                 ),
                 children: [
-                  for (final model in AiConfig.models)
-                    CupertinoListTile(
-                      title: Text(AiConfig.modelLabel(model)),
-                      subtitle: Text(AiConfig.modelNote(model)),
-                      trailing: AiConfig.model == model
-                          ? const Icon(
-                              CupertinoIcons.check_mark,
-                              color: CupertinoColors.activeBlue,
-                            )
-                          : null,
-                      onTap: () => AiConfig.setModel(model),
+                  CupertinoListTile(
+                    title: const Text('当前使用'),
+                    subtitle: Text(
+                      '${AiConfig.model}（${AiConfig.isManualModel ? '手动' : '自动'}）',
                     ),
+                  ),
+                  CupertinoListTile(
+                    title: const Text('自动选择（推荐）'),
+                    subtitle: const Text('改名自动跟上；只挑便宜档，pro 需要手动选'),
+                    trailing: AiConfig.isManualModel
+                        ? null
+                        : const Icon(
+                            CupertinoIcons.check_mark,
+                            color: CupertinoColors.activeBlue,
+                          ),
+                    onTap: () => AiConfig.setAutoModel(),
+                  ),
+                  if (AiConfig.availableModels.isEmpty)
+                    for (final model in AiConfig.models)
+                      CupertinoListTile(
+                        title: Text(AiConfig.modelLabel(model)),
+                        subtitle: Text(AiConfig.modelNote(model)),
+                        onTap: () => AiConfig.setModel(model),
+                      )
+                  else
+                    for (final id in AiConfig.availableModels)
+                      CupertinoListTile(
+                        title: Text(id),
+                        subtitle: Text(
+                          id == AiConfig.resolvedModel &&
+                                  !AiConfig.isManualModel
+                              ? '自动选中'
+                              : '',
+                        ),
+                        trailing: AiConfig.manualModel == id
+                            ? const Icon(
+                                CupertinoIcons.check_mark,
+                                color: CupertinoColors.activeBlue,
+                              )
+                            : null,
+                        onTap: () => AiConfig.setModel(id),
+                      ),
+                  CupertinoListTile(
+                    title: const Text('刷新模型列表'),
+                    subtitle: Text(
+                      _modelError ??
+                          (AiConfig.availableModels.isEmpty
+                              ? '点一下问官方现在有哪些模型'
+                              : '上次更新：${_formatTime(AiConfig.modelsFetchedAt)}'),
+                    ),
+                    trailing: _refreshing
+                        ? const CupertinoActivityIndicator()
+                        : const Icon(CupertinoIcons.arrow_clockwise, size: 18),
+                    onTap: _refreshing ? null : _refreshModels,
+                  ),
                 ],
               ),
               CupertinoListSection.insetGrouped(
