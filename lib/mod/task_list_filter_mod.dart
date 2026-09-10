@@ -1,4 +1,5 @@
 import 'package:celechron/database/database_helper.dart';
+import 'package:celechron/mod/tag_harvest.dart';
 import 'package:celechron/mod/database_mod.dart';
 import 'package:celechron/model/task.dart';
 import 'package:celechron/utils/utils.dart';
@@ -13,6 +14,15 @@ mixin TaskListFilterMod on GetxController {
   RxList<Task> get _tasks => Get.find<RxList<Task>>(tag: 'taskList');
 
   DatabaseHelper get _modDb => Get.find<DatabaseHelper>(tag: 'db');
+
+  @override
+  void onInit() {
+    super.onInit();
+    // 标签库自愈：AI 生成的标签、导入/同步合并进来的标签、旧数据里的标签
+    // 可能只存在于待办身上，这里补进标签库，避免「筛选器有、选择器空」。
+    TagHarvest.harvest(_tasks);
+  }
+
   List<Task> get todoDeadlineList {
     final list = _tasks
         .where((element) =>

@@ -1,6 +1,7 @@
 import 'package:celechron/database/database_helper.dart';
 import 'package:celechron/mod/ai/deepseek.dart';
 import 'package:celechron/mod/database_mod.dart';
+import 'package:celechron/mod/tag_harvest.dart';
 import 'package:get/get.dart';
 import 'package:celechron/model/task.dart';
 import 'package:celechron/utils/utils.dart';
@@ -315,6 +316,8 @@ ${existingTags.isEmpty ? '（现在是空的，可以新建标签）' : existing
     task.priority = priority;
     if (tags.isNotEmpty) {
       task.tags = <String>[...tags];
+      // 记住 AI 用过的标签，下次它就能复用这些写法（也让标签库不再是空的）
+      TagHarvest.remember(tags);
     }
     if (location.isNotEmpty) task.location = location;
     if (subtasks.isNotEmpty) {
