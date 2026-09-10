@@ -11,7 +11,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Celechron</string>
+	<string>Telechron</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -19,7 +19,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>celechron</string>
+	<string>telechron</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -35,7 +35,7 @@
 			<string>top.celechron.celechron</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>celechron</string>
+				<string>telechron</string>
 			</array>
 		</dict>
 	</array>

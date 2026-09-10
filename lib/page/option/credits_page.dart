@@ -137,7 +137,7 @@ class _CreditsPageState extends State<CreditsPage> {
                       Column(
                         children: [
                           const Text(
-                            'Celechron',
+                            'Telechron',
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: 32,
@@ -148,6 +148,16 @@ class _CreditsPageState extends State<CreditsPage> {
                             textAlign: TextAlign.center,
                             style: const TextStyle(
                               fontSize: 12,
+                            ),
+                          ),
+                          // ===== MOD: 非官方修改版声明（GPLv3 §5a 要求标注修改）=====
+                          const SizedBox(height: 10),
+                          const Text(
+                            'Celechron 的非官方修改版\n基于上游 v1.3.0，2026 年 9 月起修改\n与官方无关，问题请反馈到本仓库',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: CupertinoColors.systemGrey,
                             ),
                           ),
                         ],
@@ -232,6 +242,18 @@ class _CreditsPageState extends State<CreditsPage> {
                         fontSize: 12,
                         color: CupertinoDynamicColor.resolve(
                             CupertinoColors.secondaryLabel, context)),
+                  ),
+                  const SizedBox(
+                    height: 4,
+                  ),
+                  Text(
+                    '源码：github.com/Elyyyyyyyyxer/celechron-mod',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: CupertinoDynamicColor.resolve(
+                          CupertinoColors.secondaryLabel, context),
+                    ),
                   ),
                   const SizedBox(
                     height: 4,
