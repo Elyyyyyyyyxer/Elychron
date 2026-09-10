@@ -15,13 +15,52 @@ class AiConfig {
   AiConfig._();
 
   static const String defaultBaseUrl = 'https://api.deepseek.com';
-  static const String defaultModel = 'deepseek-chat';
 
-  /// 可选的模型（DeepSeek 官方两个）
+  /// 当前有效的模型名（2026-09 官方文档）：
+  /// - `deepseek-flash` 指向最新的 **V4.1 Flash**，快、便宜、原生多模态
+  /// - `deepseek-v4-pro` 是 Pro；官方公告 2026-09-14 12:00 起会路由到 V4.1 Flash
+  ///
+  /// 注意：`deepseek-chat` / `deepseek-reasoner` 是**过时名字**，别再用了。
+  static const String defaultModel = 'deepseek-flash';
+
   static const List<String> models = <String>[
-    'deepseek-chat',
-    'deepseek-reasoner',
+    'deepseek-flash',
+    'deepseek-v4-pro',
   ];
+
+  /// 过时模型名 → 现在的名字（老配置自动迁移，避免用户手里存着失效的名字）
+  static const Map<String, String> _legacyModels = <String, String>{
+    'deepseek-chat': 'deepseek-flash',
+    'deepseek-coder': 'deepseek-flash',
+    'deepseek-v3': 'deepseek-flash',
+    'deepseek-v4-flash': 'deepseek-flash',
+    'deepseek-v4-flash-vision-exp': 'deepseek-flash',
+    'deepseek-reasoner': 'deepseek-v4-pro',
+  };
+
+  /// 界面上显示的模型名
+  static String modelLabel(String id) {
+    switch (id) {
+      case 'deepseek-flash':
+        return 'deepseek-flash （V4.1 Flash）';
+      case 'deepseek-v4-pro':
+        return 'deepseek-v4-pro （V4 Pro）';
+      default:
+        return id;
+    }
+  }
+
+  /// 每个模型的用处说明
+  static String modelNote(String id) {
+    switch (id) {
+      case 'deepseek-flash':
+        return '推荐。最新 V4.1 Flash，快且便宜，解析文字、拆子待办够用';
+      case 'deepseek-v4-pro':
+        return 'Pro 型号；官方公告 2026-09-14 起会先路由到 V4.1 Flash';
+      default:
+        return '';
+    }
+  }
 
   static const _storage = FlutterSecureStorage(
     aOptions: AndroidOptions(encryptedSharedPreferences: true),
@@ -62,6 +101,12 @@ class AiConfig {
       _apiKey = (await _storage.read(key: _kApiKey)) ?? '';
       _baseUrl = (await _storage.read(key: _kBaseUrl)) ?? defaultBaseUrl;
       _model = (await _storage.read(key: _kModel)) ?? defaultModel;
+      // 手里存着已退役的模型名就静默迁移，否则用户会在不知情的情况下调用失败
+      _model = _legacyModels[_model] ?? _model;
+      if (!models.contains(_model)) {
+        _model = defaultModel;
+      }
+      await _write(_kModel, _model);
     } catch (_) {
       // 密钥库不可用时退化为「未配置」，不阻断 App
     }

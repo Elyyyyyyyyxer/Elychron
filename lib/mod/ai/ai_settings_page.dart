@@ -38,6 +38,43 @@ class _AiSettingsPageState extends State<AiSettingsPage> {
   Future<void> _saveKey() async {
     final value = _keyController.text.trim();
     if (value.isEmpty) return;
+
+    // 最常见的一种填错：把文档网址当成密钥粘进来了
+    if (value.startsWith('http://') || value.startsWith('https://')) {
+      final useAsUrl = await showCupertinoDialog<bool>(
+        context: context,
+        builder: (BuildContext context) => CupertinoAlertDialog(
+          title: const Text('这看起来是网址'),
+          content: const Padding(
+            padding: EdgeInsets.only(top: 8),
+            child: Text(
+              '密钥一般是 sk- 开头的一串字符，不是网址。\n\n'
+              '要把这个地址填到下面的「接口地址」里吗？',
+              style: TextStyle(fontSize: 14),
+            ),
+          ),
+          actions: [
+            CupertinoDialogAction(
+              child: const Text('重新填写'),
+              onPressed: () => Navigator.of(context).pop(false),
+            ),
+            CupertinoDialogAction(
+              isDefaultAction: true,
+              child: const Text('填到接口地址'),
+              onPressed: () => Navigator.of(context).pop(true),
+            ),
+          ],
+        ),
+      );
+      if (useAsUrl == true) {
+        await AiConfig.setBaseUrl(value);
+        _baseUrlController.text = AiConfig.baseUrl;
+        _keyController.clear();
+        if (mounted) setState(() => _testResult = null);
+      }
+      return;
+    }
+
     await AiConfig.setApiKey(value);
     _keyController.clear();
     if (!mounted) return;
@@ -198,13 +235,14 @@ class _AiSettingsPageState extends State<AiSettingsPage> {
               CupertinoListSection.insetGrouped(
                 header: const Text('模型'),
                 footer: const Text(
-                  'deepseek-chat 快、便宜，适合解析文字和拆子待办；\n'
-                  'deepseek-reasoner 会先推理再回答，更准但更慢也更贵。',
+                  '模型名随官方发布变动：现在用 deepseek-flash 调最新的 V4.1 Flash。\n'
+                  '以后官方换名字，这里会跟着更新；旧的配置会自动迁移。',
                 ),
                 children: [
                   for (final model in AiConfig.models)
                     CupertinoListTile(
-                      title: Text(model),
+                      title: Text(AiConfig.modelLabel(model)),
+                      subtitle: Text(AiConfig.modelNote(model)),
                       trailing: AiConfig.model == model
                           ? const Icon(
                               CupertinoIcons.check_mark,
