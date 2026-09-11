@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:get/get.dart';
+import 'package:celechron/model/task.dart';
 import 'package:celechron/utils/utils.dart';
 
 import 'package:hive_flutter/hive_flutter.dart';

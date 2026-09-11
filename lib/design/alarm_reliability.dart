@@ -36,10 +36,10 @@ Future<void> showAlarmReliabilityDialog(BuildContext context) async {
             _row(
               context,
               '闹钟渠道重要度',
-              channelImportance == 5
+              channelImportance >= 4
                   ? '最高'
                   : (channelImportance < 0 ? '未创建' : '只有 '),
-              channelImportance == 5,
+              channelImportance >= 4,
             ),
             _row(
               context,
@@ -54,6 +54,14 @@ Future<void> showAlarmReliabilityDialog(BuildContext context) async {
                   : '没有「全屏通知」权限时，闹钟到点只会弹一条通知，不会自动弹全屏。'
                       '点下面的按钮去开启。',
               style: const TextStyle(fontSize: 13),
+            ),
+            const SizedBox(height: 8),
+            const SizedBox(height: 8),
+            const Text(
+              '华为/小米等机型还会「智能」压低通知重要度：如果上面显示的重要度低于「最高」，'
+              '闹钟到点就会只留一条静默通知。请到「通知设置」里把本应用的通知重要度调到最高，'
+              '并允许横幅与锁屏显示。',
+              style: TextStyle(fontSize: 12.5),
             ),
             const SizedBox(height: 8),
             Text(
@@ -71,7 +79,14 @@ Future<void> showAlarmReliabilityDialog(BuildContext context) async {
           child: const Text('关闭'),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        if (channelImportance != 5 && channelImportance >= 0)
+        CupertinoDialogAction(
+          child: const Text('通知设置'),
+          onPressed: () {
+            Navigator.of(context).pop();
+            AlarmPlayer.openAppNotificationSettings();
+          },
+        ),
+        if (channelImportance < 5 && channelImportance >= 0)
           CupertinoDialogAction(
             isDefaultAction: true,
             child: const Text('调高渠道'),

@@ -94,6 +94,10 @@ class MainActivity: FlutterActivity() {
                     }
                     "isIgnoringBatteryOptimizations" -> result.success(isIgnoringBatteryOptimizations())
                     "getAlarmChannelImportance" -> result.success(getAlarmChannelImportance())
+                    "openAppNotificationSettings" -> {
+                        openAppNotificationSettings()
+                        result.success(null)
+                    }
                     "openAlarmChannelSettings" -> {
                         openAlarmChannelSettings()
                         result.success(null)
