@@ -51,6 +51,24 @@ class AlarmPlayer {
     } catch (_) {}
   }
 
+  /// 闹钟渠道当前重要度：5=MAX 正常；被系统降级会变成 3（就不响也不弹全屏了）
+  static Future<int> alarmChannelImportance() async {
+    try {
+      final value =
+          await _channel.invokeMethod<int>('getAlarmChannelImportance');
+      return value ?? -1;
+    } catch (_) {
+      return -1;
+    }
+  }
+
+  /// 跳到系统里本应用「待办闹钟」渠道的设置页（用户可手动调回高重要度）
+  static Future<void> openAlarmChannelSettings() async {
+    try {
+      await _channel.invokeMethod<void>('openAlarmChannelSettings');
+    } catch (_) {}
+  }
+
   static Future<void> stop() async {
     if (!_playing) return;
     _playing = false;

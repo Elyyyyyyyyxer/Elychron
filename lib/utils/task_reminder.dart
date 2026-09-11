@@ -41,7 +41,10 @@ class TaskReminder {
 
   static const AndroidNotificationDetails _notificationDetails =
       AndroidNotificationDetails(
-    'task_reminder_v2',
+    // 注意：Android 的通知渠道一旦创建就**不可修改**（重要度/声音/音量流都锁死）。
+    // 早期版本建的渠道被系统降过级（实测 mOriginalImp=5 但 effective=3），
+    // 所以这里换新渠道名，才能拿到正确的重要度与音量流。
+    'task_reminder_v3',
     '待办提醒',
     channelDescription: '待办截止提醒：横幅弹出 + 响铃',
     importance: Importance.max,
@@ -52,7 +55,7 @@ class TaskReminder {
 
   static const AndroidNotificationDetails _alarmDetails =
       AndroidNotificationDetails(
-    'task_reminder_alarm',
+    'task_reminder_alarm_v2',
     '待办闹钟',
     channelDescription: '闹钟模式：全屏提醒 + 闹钟铃声，可延迟或划掉',
     importance: Importance.max,
@@ -61,6 +64,11 @@ class TaskReminder {
     fullScreenIntent: true,
     playSound: true,
     enableVibration: true,
+    // 走「闹钟」音量流：否则默认用通知音量流，静音模式/音量低时就听不见，
+    // 也不会像系统闹钟那样绕过免打扰
+    audioAttributesUsage: AudioAttributesUsage.alarm,
+    ongoing: true,
+    autoCancel: false,
     actions: _actions,
   );
 

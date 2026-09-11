@@ -12,6 +12,7 @@ import 'package:flutter/cupertino.dart';
 /// 这里把能查的查出来、能一键跳转的给出按钮，剩下的用文字说清楚。
 Future<void> showAlarmReliabilityDialog(BuildContext context) async {
   final canFullScreen = await AlarmPlayer.canUseFullScreenIntent();
+  final channelImportance = await AlarmPlayer.alarmChannelImportance();
   final ignoreBattery = await AlarmPlayer.isIgnoringBatteryOptimizations();
   if (!context.mounted) return;
 
@@ -30,6 +31,15 @@ Future<void> showAlarmReliabilityDialog(BuildContext context) async {
               '全屏闹钟（Android 14+）',
               canFullScreen ? '已授权' : '未授权',
               canFullScreen,
+            ),
+            // 通知渠道一旦创建就不可修改，被系统降级后就不响也不弹全屏了
+            _row(
+              context,
+              '闹钟渠道重要度',
+              channelImportance == 5
+                  ? '最高'
+                  : (channelImportance < 0 ? '未创建' : '只有 '),
+              channelImportance == 5,
             ),
             _row(
               context,
@@ -61,7 +71,16 @@ Future<void> showAlarmReliabilityDialog(BuildContext context) async {
           child: const Text('关闭'),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        if (!canFullScreen)
+        if (channelImportance != 5 && channelImportance >= 0)
+          CupertinoDialogAction(
+            isDefaultAction: true,
+            child: const Text('调高渠道'),
+            onPressed: () {
+              Navigator.of(context).pop();
+              AlarmPlayer.openAlarmChannelSettings();
+            },
+          )
+        else if (!canFullScreen)
           CupertinoDialogAction(
             isDefaultAction: true,
             child: const Text('去授权'),

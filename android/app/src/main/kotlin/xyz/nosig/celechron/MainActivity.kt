@@ -93,6 +93,11 @@ class MainActivity: FlutterActivity() {
                         result.success(null)
                     }
                     "isIgnoringBatteryOptimizations" -> result.success(isIgnoringBatteryOptimizations())
+                    "getAlarmChannelImportance" -> result.success(getAlarmChannelImportance())
+                    "openAlarmChannelSettings" -> {
+                        openAlarmChannelSettings()
+                        result.success(null)
+                    }
                     "openBatterySettings" -> {
                         openBatterySettings()
                         result.success(null)
@@ -103,6 +108,28 @@ class MainActivity: FlutterActivity() {
     }
 
     private var alarmPlayer: MediaPlayer? = null
+
+    /** 闹钟渠道当前的重要度（5=MAX 才是能横幅/全屏/响铃的级别；渠道被系统降级会变成 3） */
+    private fun getAlarmChannelImportance(): Int {
+        return try {
+            val manager = getSystemService(NotificationManager::class.java)
+            manager?.getNotificationChannel("task_reminder_alarm_v2")?.importance ?: -1
+        } catch (e: Exception) {
+            -1
+        }
+    }
+
+    private fun openAlarmChannelSettings() {
+        try {
+            startActivity(
+                Intent("android.settings.CHANNEL_NOTIFICATION_SETTINGS")
+                    .putExtra("android.provider.extra.APP_PACKAGE", packageName)
+                    .putExtra("android.provider.extra.CHANNEL_ID", "task_reminder_alarm_v2")
+            )
+        } catch (e: Exception) {
+            openAppNotificationSettings()
+        }
+    }
 
     /** Android 14+ 需要单独授予「全屏通知」权限，否则闹钟只弹通知不弹全屏 */
     private fun canUseFullScreenIntent(): Boolean {
