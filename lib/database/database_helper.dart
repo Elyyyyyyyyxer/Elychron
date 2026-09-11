@@ -75,6 +75,8 @@ class DatabaseHelper {
   final String kGpaStrategy = 'gpaStrategy';
   final String kPushOnGradeChange = 'pushOnGradeChange';
   final String kPushOnDdlReminder = 'pushOnDdlReminder';
+  // P1：默认提醒提前量（分钟）。活动与截止用它；提醒型就是那一刻本身。
+  final String kReminderLeadMinutes = 'reminderLeadMinutes';
   final String kBrightnessMode = 'brightnessMode';
   final String kCourseIdMappingList = 'courseIdMappingList';
   final String kHideHomeGpa = 'hideHomeGpa';
@@ -90,6 +92,19 @@ class DatabaseHelper {
       hideHomeGpa: getHideHomeGpa().obs,
       asyncRefresh: getAsyncRefresh().obs,
     );
+  }
+
+  /// 默认提醒提前量（分钟）：活动锚开始时间、截止锚截止时间，各自再提前这么多。
+  /// 提醒型不受影响（就是那一刻）；备忘型不调度。
+  int getReminderLeadMinutes() {
+    if (optionsBox.get(kReminderLeadMinutes) == null) {
+      optionsBox.put(kReminderLeadMinutes, 30);
+    }
+    return optionsBox.get(kReminderLeadMinutes);
+  }
+
+  void setReminderLeadMinutes(int minutes) {
+    optionsBox.put(kReminderLeadMinutes, minutes);
   }
 
   GpaStrategy getGpaStrategy() {

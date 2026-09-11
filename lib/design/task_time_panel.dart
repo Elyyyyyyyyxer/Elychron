@@ -2,7 +2,9 @@ import 'package:celechron/design/date_picker_sheet.dart';
 import 'package:celechron/design/repeat_sheet.dart';
 import 'package:celechron/model/task.dart';
 import 'package:celechron/utils/time_helper.dart';
+import 'package:celechron/database/database_helper.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:get/get.dart';
 
 /// 钉钉「其他日期」里的时间面板：截止时间 / 提醒时间 / 设置重复。
 ///
@@ -84,10 +86,15 @@ class _TaskTimePanelState extends State<_TaskTimePanel> {
     _notify();
   }
 
-  /// 默认提前量：活动与截止提前 30 分钟；提醒型就是那一刻本身。
-  /// TODO(P1·Step2 收尾)：接到设置里的「默认提前量」。
-  Duration get _defaultLead =>
-      _task.isRemind ? Duration.zero : const Duration(minutes: 30);
+  /// 默认提前量：提醒型就是那一刻（0）；其余从设置里读，默认 30 分钟。
+  Duration get _defaultLead {
+    if (_task.isRemind) return Duration.zero;
+    if (Get.isRegistered<DatabaseHelper>(tag: 'db')) {
+      final db = Get.find<DatabaseHelper>(tag: 'db');
+      return Duration(minutes: db.getReminderLeadMinutes());
+    }
+    return const Duration(minutes: 30);
+  }
 
   /// 按类型算默认提醒时间：锚点 − 提前量；若已过去则退回锚点本身。
   DateTime _defaultReminderTime() {
