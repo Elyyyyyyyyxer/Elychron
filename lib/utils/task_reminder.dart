@@ -171,8 +171,9 @@ class TaskReminder {
       ].join('|');
 
   static bool _shouldSchedule(Task task) {
-    if (!task.reminderEnabled) return false;
-    if (task.type != TaskType.deadline) return false;
+    // 活动 / 截止 / 提醒 三类都调度；备忘型永不调度。
+    // schedulesReminder 已内含 reminderEnabled 与备忘判定。
+    if (!task.schedulesReminder) return false;
     if (task.status != TaskStatus.running &&
         task.status != TaskStatus.suspended) {
       return false;

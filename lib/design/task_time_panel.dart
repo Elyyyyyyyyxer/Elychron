@@ -71,25 +71,35 @@ class _TaskTimePanelState extends State<_TaskTimePanel> {
       // 截止时间不晚于开始时间：取消时段，退化为普通待办
       _task.startTime = _task.endTime;
     }
-    // 截止时间变了，失效的提醒时间按「截止前 30 分钟」重算
+    // 时间变了：失效的提醒时间按「该类型的锚点 − 提前量」重算。
+    // 活动锚开始时间；截止与提醒锚那一刻。
     if (_task.reminderEnabled) {
+      final anchor = _task.reminderAnchor;
       final target = _task.reminderTargetTime;
-      if (!target.isAfter(DateTime.now()) || target.isAfter(_task.endTime)) {
-        final candidate = _task.endTime.subtract(const Duration(minutes: 30));
-        _task.reminderTime =
-            candidate.isAfter(DateTime.now()) ? candidate : _task.endTime;
+      if (!target.isAfter(DateTime.now()) || target.isAfter(anchor)) {
+        _task.reminderTime = _defaultReminderTime();
       }
     }
     _task.normalizeType();
     _notify();
   }
 
+  /// 默认提前量：活动与截止提前 30 分钟；提醒型就是那一刻本身。
+  /// TODO(P1·Step2 收尾)：接到设置里的「默认提前量」。
+  Duration get _defaultLead =>
+      _task.isRemind ? Duration.zero : const Duration(minutes: 30);
+
+  /// 按类型算默认提醒时间：锚点 − 提前量；若已过去则退回锚点本身。
+  DateTime _defaultReminderTime() {
+    final anchor = _task.reminderAnchor;
+    final candidate = anchor.subtract(_defaultLead);
+    return candidate.isAfter(DateTime.now()) ? candidate : anchor;
+  }
+
   Future<void> _pickReminderTime() async {
     if (!_task.reminderEnabled) {
-      final candidate = _task.endTime.subtract(const Duration(minutes: 30));
       _task.reminderEnabled = true;
-      _task.reminderTime =
-          candidate.isAfter(DateTime.now()) ? candidate : _task.endTime;
+      _task.reminderTime = _defaultReminderTime();
       _notify();
     }
     final result = await showDateTimeSheet(
