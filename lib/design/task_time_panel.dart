@@ -187,6 +187,35 @@ class _TaskTimePanelState extends State<_TaskTimePanel> {
       );
 
   @override
+
+  /// 切换时间语义：把时间字段调整成该类型需要的样子。
+  /// 注意 normalizeType() 对 remind / memo 不会再自动翻转，显式选择是安全的。
+  void _pickKind(TaskType kind) {
+    if (_task.type == kind) return;
+    switch (kind) {
+      case TaskType.fixed:
+        // 活动：必须有 start < end，否则给个 1 小时的默认时段
+        if (!_task.startTime.isBefore(_task.endTime)) {
+          _task.startTime = _task.endTime.subtract(const Duration(hours: 1));
+        }
+        break;
+      case TaskType.deadline:
+      case TaskType.remind:
+      case TaskType.memo:
+      case TaskType.fixedlegacy:
+        // 单时刻：start 与 end 重合（备忘内部也存占位值以满足模型约束）
+        _task.startTime = _task.endTime;
+        break;
+    }
+    _task.type = kind;
+    if (_task.isMemo) {
+      // 备忘永不提醒
+      _task.reminderEnabled = false;
+      _task.reminderTime = null;
+    }
+    _notify();
+  }
+
   Widget build(BuildContext context) {
     final labelColor =
         CupertinoDynamicColor.resolve(CupertinoColors.secondaryLabel, context);
@@ -214,6 +243,24 @@ class _TaskTimePanelState extends State<_TaskTimePanel> {
                 ),
               ),
             ),
+            // P1：四种时间语义 —— 创建/编辑时明确选择，时间输入随类型变化
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 2, 16, 4),
+              child: CupertinoSlidingSegmentedControl<TaskType>(
+                groupValue: _task.type == TaskType.fixedlegacy
+                    ? TaskType.fixed
+                    : _task.type,
+                children: const {
+                  TaskType.fixed: Text('活动'),
+                  TaskType.deadline: Text('截止'),
+                  TaskType.remind: Text('提醒'),
+                  TaskType.memo: Text('备忘'),
+                },
+                onValueChanged: (value) {
+                  if (value != null) _pickKind(value);
+                },
+              ),
+            ),
             Container(
               margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
@@ -224,51 +271,45 @@ class _TaskTimePanelState extends State<_TaskTimePanel> {
               ),
               child: Column(
                 children: [
-                  _row(
-                    icon: CupertinoIcons.time,
-                    label: '开始时间',
-                    value: _task.hasTimeRange
-                        ? TimeHelper.chineseDateTime(_task.startTime)
-                        : '未设置',
-                    highlight: _task.hasTimeRange,
-                    onTap: _pickStartTime,
-                    trailing: _task.hasTimeRange
-                        ? CupertinoButton(
-                            padding: EdgeInsets.zero,
-                            minimumSize: const Size(28, 28),
-                            onPressed: _clearStartTime,
-                            child: Icon(CupertinoIcons.xmark,
-                                size: 15, color: labelColor),
-                          )
-                        : null,
-                  ),
-                  _divider(),
-                  _row(
-                    icon: CupertinoIcons.calendar,
-                    label: '截止时间',
-                    value: TimeHelper.chineseDateTime(_task.endTime),
-                    onTap: _pickEndTime,
-                  ),
-                  _divider(),
-                  _row(
-                    icon: CupertinoIcons.bell,
-                    label: '提醒时间',
-                    value: _task.reminderEnabled
-                        ? TimeHelper.chineseDateTime(_task.reminderTargetTime)
-                        : '未设置',
-                    highlight: _task.reminderEnabled,
-                    onTap: _pickReminderTime,
-                    trailing: _task.reminderEnabled
-                        ? CupertinoButton(
-                            padding: EdgeInsets.zero,
-                            minimumSize: const Size(28, 28),
-                            onPressed: _clearReminder,
-                            child: Icon(CupertinoIcons.xmark,
-                                size: 15, color: labelColor),
-                          )
-                        : null,
-                  ),
-                  _divider(),
+                  if (_task.isEvent) ...[
+                    _row(
+                      icon: CupertinoIcons.time,
+                      label: '开始时间',
+                      value: TimeHelper.chineseDateTime(_task.startTime),
+                      onTap: _pickStartTime,
+                    ),
+                    _divider(),
+                  ],
+                  if (!_task.isRemind && !_task.isMemo) ...[
+                    _row(
+                      icon: CupertinoIcons.calendar,
+                      label: _task.isEvent ? '结束时间' : '截止时间',
+                      value: TimeHelper.chineseDateTime(_task.endTime),
+                      onTap: _pickEndTime,
+                    ),
+                    _divider(),
+                  ],
+                  if (!_task.isMemo) ...[
+                    _row(
+                      icon: CupertinoIcons.bell,
+                      label: _task.isRemind ? '提醒我' : '提醒时间',
+                      value: _task.reminderEnabled
+                          ? TimeHelper.chineseDateTime(_task.reminderTargetTime)
+                          : '未设置',
+                      highlight: _task.reminderEnabled,
+                      onTap: _pickReminderTime,
+                      trailing: _task.reminderEnabled
+                          ? CupertinoButton(
+                              padding: EdgeInsets.zero,
+                              minimumSize: const Size(28, 28),
+                              onPressed: _clearReminder,
+                              child: Icon(CupertinoIcons.xmark,
+                                  size: 15, color: labelColor),
+                            )
+                          : null,
+                    ),
+                    _divider(),
+                  ],
                   _row(
                     icon: CupertinoIcons.repeat,
                     label: '设置重复',
