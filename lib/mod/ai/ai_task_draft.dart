@@ -21,6 +21,7 @@ class AiTaskDraft {
     required this.description,
     required this.endTime,
     required this.startTime,
+    required this.kind,
     required this.reminderMinutes,
     required this.priority,
     required this.tags,
@@ -34,11 +35,16 @@ class AiTaskDraft {
   final String description;
   final DateTime endTime;
 
-  /// 只有「事件」才有开始时间；交付类待办为 null。
-  /// startTime < endTime 会被既有逻辑认成「日程」，正是活动该有的样子。
+  /// 只有「活动」才有开始时间；截止 / 提醒 / 备忘为 null。
   final DateTime? startTime;
 
-  /// 提前多少分钟提醒；0 表示不设提醒
+  /// ===== P1：模型划分出的时间语义（活动 / 截止 / 提醒 / 备忘）=====
+  ///
+  /// 不是 `fixedlegacy`（内部值，模型不许碰），且经过 `_validateKind` 白名单
+  /// 与一致性校验，绝不让模型直接决定枚举值。
+  final TaskType kind;
+
+  /// 提前多少分钟提醒；0 表示用应用里的默认提前量（提醒型就是那一刻）
   final int reminderMinutes;
   final TaskPriority priority;
   final List<String> tags;
@@ -127,10 +133,11 @@ ${fromImage ? _imageRules : ''}
 
 {
   "summary": "一句话动作短语，不超过 $maxSummaryChars 字，不要出现「待办」「任务」这类词",
+  "kind": "活动 / 截止 / 提醒 / 备忘 之一，规则见下面",
   "description": "原文里对完成这件事有用的补充信息（材料、要求、链接等）；没有就给空字符串，不要编造",
   "endTime": "截止时间，格式必须是 YYYY-MM-DDTHH:mm:ss",
   "startTime": "事件开始时间，格式同上；不是事件就留空字符串",
-  "reminderMinutes": 提前多少分钟提醒；不提醒给 0
+  "reminderMinutes": 提前多少分钟提醒；用默认值就给 0
   "priority": "只能是 low / normal / high / urgent 之一",
   "tags": ["最多 $maxTagCount 个，每个不超过 $maxTagChars 字"],
   "location": "地点；原文没提就给空字符串",
@@ -164,17 +171,24 @@ ${AiConfig.autoSubtasks ? '' : '注意：用户已关闭「自动生成子待办
 - 给了具体时刻（9:30、19:00 等）→ 原样用
 - 只给了日期、连时段都没说 → 23:59，并在 description 里注明「原文未给出具体时间」
 
-区分「事件」和「截止」——决定要不要给 startTime：
-- **事件**（典礼、会议、考试、讲座、要参加的集体活动）：必须给 startTime（用上面换算出的时刻）；
-  endTime 给活动结束时间，原文没说就按 startTime + 2 小时
-- **交付**（交作业、交报告、报名、缴费、填问卷）：startTime 留空字符串，
-  endTime 给截止时刻（只给日期就是当天 23:59）
-- 判断不了就按「交付」处理（startTime 留空）
+区分「活动 / 截止 / 提醒 / 备忘」——这是**必给**字段，它决定这条待办怎么显示、怎么提醒：
+- **活动**：有明确起止时段、要去参加的事（典礼、会议、考试、讲座、团建、面试）。
+  必须给 startTime；endTime 给结束时刻，原文没说就按 startTime + 2 小时
+- **截止**：有「什么时候之前要交/做完」但本身不占时段（交作业、交报告、报名、缴费、填问卷）。
+  startTime 留空字符串，endTime 给截止时刻（只给日期就是当天 23:59）
+- **提醒**：单个时刻要做的一件小事、没有时长（「9 点去取快递」「下午 3 点打个电话」）。
+  startTime 留空字符串，endTime 给那一刻
+- **备忘**：只是记一条信息、原文根本没提时间（「记得买牙膏」「问一下老师教材」）。
+  startTime 与 endTime 都给空字符串，reminderMinutes 给 0
 
-提醒（reminderMinutes = 提前多少分钟）：
-- 事件类：给 30（活动前半小时）；全天/半天的大型活动给 60
-- 交付类：原文强调「别忘」「记得」「务必」就给 120；不强调就给 0
-- 不需要提醒一律给 0''';
+判断顺序：先看有没有明确起止时段 → 活动；再看到底是「期限」还是「某个时刻要做的小事」
+→ 截止 / 提醒；都没有时间 → 备忘。拿不准就按「截止」。
+
+reminderMinutes（提前多少分钟提醒）：
+- 活动：给 30（活动前半小时）；全天/半天的大型活动给 60
+- 截止：原文强调「别忘」「记得」「务必」就给 120；不强调就给 0（0 = 用应用里的默认提前量）
+- 提醒：给 0（就在那一刻响）
+- 备忘：给 0（备忘从不提醒）''';
   }
 
   /// 从图片（截图）整理草稿。
@@ -287,6 +301,13 @@ ${AiConfig.autoSubtasks ? '' : '注意：用户已关闭「自动生成子待办
 
   // ---------------------------------------------------- 逐字段校验（重点）
 
+  /// **只给测试用**：直接拿一个「模型返回的 JSON 对象」走完整套校验。
+  ///
+  /// 走的和线上是同一个 `_fromJson`，所以钉住的就是真实行为
+  /// （尤其是 P1 的时间语义划分与一致性校验）。
+  static AiTaskDraft fromJsonForTest(Map<String, dynamic> json) =>
+      _fromJson(json);
+
   static AiTaskDraft _fromJson(
     Map<String, dynamic> json, {
     List<String> existingTags = const <String>[],
@@ -345,28 +366,60 @@ ${AiConfig.autoSubtasks ? '' : '注意：用户已关闭「自动生成子待办
         ? _stringList(source['subtasks'], maxSubtaskCount, maxSubtaskChars)
         : <String>[];
 
-    // --- endTime：最需要把关的字段
-    final endTime = _validateEndTime(
-      source['endTime'] ?? source['deadline'] ?? source['due'],
+    // ===== P1：先定时间语义，它决定后面几个字段怎么校验 =====
+    var kind = _validateKind(
+      source['kind'] ?? source['type'] ?? source['semantic'],
       warnings,
     );
 
-    // --- startTime：只有事件才有；给了但不合理就当没有
-    final startTime = _validateStartTime(
+    // --- endTime：最需要把关的字段
+    final DateTime endTime;
+    if (kind == TaskType.memo && _cleanString(source['endTime'], 40).isEmpty) {
+      // 备忘本来就没有时间：内部给个占位值，不打扰用户（界面上不显示）
+      endTime = _todayEnd();
+    } else {
+      endTime = _validateEndTime(
+        source['endTime'] ?? source['deadline'] ?? source['due'],
+        warnings,
+      );
+    }
+
+    // --- startTime：只有活动才有；给了但不合理就当没有
+    var startTime = _validateStartTime(
       source["startTime"] ?? source["beginTime"],
       endTime,
       warnings,
     );
 
+    // --- 模型没给类型：按有没有开始时间来推断（老行为）
+    kind ??= startTime != null ? TaskType.fixed : TaskType.deadline;
+
+    // --- 语义一致性：以 kind 为准，改动如实记一条，不静默修补
+    if (kind == TaskType.fixed) {
+      // _validateStartTime 已经把「读不出来 / 不早于结束时间」的开始时间丢掉了，
+      // 这里只剩两种情况：有可用的开始时间 → 真活动；没有 → 老老实实降级成截止。
+      if (startTime == null) {
+        warnings.add('模型说这是「活动」但没给出可用的开始时间，已按「截止」处理');
+        kind = TaskType.deadline;
+      }
+    } else if (startTime != null) {
+      warnings.add('「${taskKindName[kind]}」不需要开始时间，已忽略模型给的开始时间');
+      startTime = null;
+    }
+
     // --- 提醒提前量
-    final reminderMinutes = _validateReminder(
+    var reminderMinutes = _validateReminder(
       source["reminderMinutes"] ??
           source["remindBeforeMinutes"] ??
           source["reminder"],
     );
+    // 提醒型「就在那一刻」，备忘型从不提醒：这两种类型不看模型给的提前量
+    if (kind == TaskType.remind || kind == TaskType.memo) {
+      reminderMinutes = 0;
+    }
     if (reminderMinutes > 0) {
-      final fireAt =
-          (startTime ?? endTime).subtract(Duration(minutes: reminderMinutes));
+      final anchor = kind == TaskType.fixed ? startTime! : endTime;
+      final fireAt = anchor.subtract(Duration(minutes: reminderMinutes));
       if (!fireAt.isAfter(DateTime.now())) {
         warnings.add("按建议的提醒时间（${_fmt(fireAt)}）已经过去了，这条先不设提醒");
       }
@@ -387,6 +440,7 @@ ${AiConfig.autoSubtasks ? '' : '注意：用户已关闭「自动生成子待办
       location: location,
       subtasks: subtasks,
       startTime: startTime,
+      kind: kind,
       reminderMinutes: reminderMinutes,
       uncertain: uncertain,
       warnings: warnings,
@@ -478,6 +532,50 @@ ${AiConfig.autoSubtasks ? '' : '注意：用户已关闭「自动生成子待办
     return parsed;
   }
 
+  // ===== P1：模型划分的时间语义 =====
+
+  /// 模型可能写出来的类型写法（中文 / 英文 / 近义词）。
+  ///
+  /// 只认白名单，`fixedlegacy` 这种内部值绝不放进来。
+  static const Map<String, TaskType> _kindAliases = {
+    '活动': TaskType.fixed,
+    '日程': TaskType.fixed,
+    '事件': TaskType.fixed,
+    'fixed': TaskType.fixed,
+    'event': TaskType.fixed,
+    'activity': TaskType.fixed,
+    '截止': TaskType.deadline,
+    '任务': TaskType.deadline,
+    'ddl': TaskType.deadline,
+    'deadline': TaskType.deadline,
+    'due': TaskType.deadline,
+    '提醒': TaskType.remind,
+    'remind': TaskType.remind,
+    'reminder': TaskType.remind,
+    '备忘': TaskType.memo,
+    '笔记': TaskType.memo,
+    'memo': TaskType.memo,
+    'note': TaskType.memo,
+  };
+
+  /// 校验模型给的 `kind`；不认识的写法和没给一样，返回 null 交给调用方推断。
+  static TaskType? _validateKind(Object? raw, List<String> warnings) {
+    final text = _cleanString(raw, 20).replaceAll(RegExp(r'\s+'), '').toLowerCase();
+    if (text.isEmpty) return null;
+    final kind = _kindAliases[text];
+    if (kind == null) {
+      warnings.add('模型给的「时间类型」写法「$text」不认识，已按时间去判断');
+      return null;
+    }
+    return kind;
+  }
+
+  /// 备忘型没有时间，内部给一个占位值（今天 23:59），界面上不显示。
+  static DateTime _todayEnd() {
+    final now = DateTime.now();
+    return DateTime(now.year, now.month, now.day, 23, 59);
+  }
+
   static String _cleanString(Object? raw, int maxChars) {
     if (raw is! String) return '';
     // 去掉换行与多余空白，避免把多行文本塞进单行字段
@@ -547,8 +645,10 @@ ${AiConfig.autoSubtasks ? '' : '注意：用户已关闭「自动生成子待办
     task.summary = summary;
     if (description.isNotEmpty) task.description = description;
     task.endTime = endTime;
-    // 事件带开始时间（startTime < endTime 会在保存时被认成「日程」）
     task.startTime = startTime ?? endTime;
+    // ===== P1：四种时间语义由模型划分，这里按类型把时间字段摆正 =====
+    // applyKind 还会替「提醒型」打开提醒（就在那一刻）、替「备忘型」关掉提醒
+    task.applyKind(kind);
     task.repeatEndsTime = dateOnly(endTime);
     task.priority = priority;
     if (tags.isNotEmpty) {
@@ -562,10 +662,12 @@ ${AiConfig.autoSubtasks ? '' : '注意：用户已关闭「自动生成子待办
         for (final title in subtasks) SubTask(title: title),
       ];
     }
-    // 提醒：算出来的时刻必须还在未来，否则宁可不设
-    if (reminderMinutes > 0) {
-      final fireAt =
-          (startTime ?? endTime).subtract(Duration(minutes: reminderMinutes));
+    // 提醒：活动锚「开始」、截止锚「截止」，再按模型给的提前量往前推。
+    // 模型没给（0）就交给应用里的默认提前量，不再硬编码。
+    // 注意这里不能用 schedulesReminder —— 那需要 reminderEnabled，而我们现在才要打开它。
+    if (reminderMinutes > 0 && !task.isMemo) {
+      final fireAt = task.reminderAnchor
+          .subtract(Duration(minutes: reminderMinutes));
       if (fireAt.isAfter(DateTime.now())) {
         task.reminderEnabled = true;
         task.reminderTime = fireAt;

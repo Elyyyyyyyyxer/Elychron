@@ -381,9 +381,12 @@ class _AiComposeSheetState extends State<_AiComposeSheet> {
   Widget _preview(BuildContext context, AiTaskDraft draft) {
     final rows = <Widget>[
       _kv(context, '标题', draft.summary),
+      // ===== P1：模型划分的时间语义（活动 / 截止 / 提醒 / 备忘）=====
+      _kv(context, '类型', taskKindName[draft.kind] ?? ''),
       if (draft.startTime != null)
         _kv(context, '开始', _describeTime(draft.startTime!)),
-      _kv(context, '截止', _describeTime(draft.endTime)),
+      _kv(context, draft.kind == TaskType.memo ? '时间' : '截止',
+          draft.kind == TaskType.memo ? '备忘不设时间' : _describeTime(draft.endTime)),
       if (draft.description.isNotEmpty) _kv(context, '描述', draft.description),
       if (draft.location.isNotEmpty) _kv(context, '地点', draft.location),
       if (draft.reminderMinutes > 0)
