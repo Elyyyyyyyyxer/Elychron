@@ -38,7 +38,7 @@ Future<void> showAlarmReliabilityDialog(BuildContext context) async {
               '闹钟渠道重要度',
               channelImportance >= 4
                   ? '最高'
-                  : (channelImportance < 0 ? '未创建' : '只有 '),
+                  : (channelImportance < 0 ? '未创建' : '只有 $channelImportance'),
               channelImportance >= 4,
             ),
             _row(
@@ -86,7 +86,7 @@ Future<void> showAlarmReliabilityDialog(BuildContext context) async {
             AlarmPlayer.openAppNotificationSettings();
           },
         ),
-        if (channelImportance < 5 && channelImportance >= 0)
+        if (channelImportance < 4 && channelImportance >= 0)
           CupertinoDialogAction(
             isDefaultAction: true,
             child: const Text('调高渠道'),
