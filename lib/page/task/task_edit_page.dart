@@ -174,7 +174,6 @@ class _TaskEditPageState extends State<TaskEditPage> {
     }
     setState(() {
       if (_isCompleted) {
-        now.timeSpent = const Duration(minutes: 0);
         now.status = TaskStatus.running;
       } else {
         now.status = TaskStatus.completed;

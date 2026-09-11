@@ -23,9 +23,6 @@ class CourseIdMap {
 }
 
 class Option {
-  Rx<Duration> workTime;
-  Rx<Duration> restTime;
-  RxMap<DateTime, DateTime> allowTime;
   Rx<GpaStrategy> gpaStrategy;
   RxBool pushOnGradeChange;
   RxBool pushOnDdlReminder;
@@ -35,9 +32,6 @@ class Option {
   RxBool asyncRefresh;
 
   Option({
-    required this.workTime,
-    required this.restTime,
-    required this.allowTime,
     required this.gpaStrategy,
     required this.pushOnGradeChange,
     required this.pushOnDdlReminder,

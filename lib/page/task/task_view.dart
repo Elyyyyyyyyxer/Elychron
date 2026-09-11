@@ -81,7 +81,6 @@ class TaskPage extends StatelessWidget {
                     if (!await confirmCompleteTask(context, deadline)) return;
                     deadline.status = TaskStatus.completed;
                   } else {
-                    deadline.timeSpent = const Duration(minutes: 0);
                     deadline.status = TaskStatus.running;
                   }
                   _taskController.updateDeadlineListTime();
@@ -166,12 +165,6 @@ class TaskPage extends StatelessWidget {
       _taskController.taskList.add(res);
       _taskController.updateDeadlineList();
       _taskController.updateDeadlineListTime();
-      // 重新规划
-      _flowController.removeFlowInFlowList();
-      DateTime now = DateTime.now();
-      DateTime startsAt =
-          DateTime(now.year, now.month, now.day, now.hour, now.minute);
-      _flowController.generateNewFlowList(startsAt);
       _taskController.taskList.refresh();
     }
   }
@@ -179,7 +172,6 @@ class TaskPage extends StatelessWidget {
   /// 卡片上直接打钩完成 / 取消完成（待办与日程都支持）。
   Future<void> _toggleDone(BuildContext context, Task task) async {
     if (task.status == TaskStatus.completed) {
-      task.timeSpent = const Duration(minutes: 0);
       task.status = TaskStatus.running;
     } else {
       // 有没勾完的子待办时先确认，确认后一起勾上
@@ -188,10 +180,7 @@ class TaskPage extends StatelessWidget {
     }
     _taskController.updateDeadlineList();
     _taskController.updateDeadlineListTime();
-    _flowController.removeFlowInFlowList();
     final now = DateTime.now();
-    _flowController.generateNewFlowList(
-        DateTime(now.year, now.month, now.day, now.hour, now.minute));
     _taskController.taskList.refresh();
   }
 
@@ -267,7 +256,6 @@ class TaskPage extends StatelessWidget {
               if (deadline.type == TaskType.deadline) {
                 if (deadline.status == TaskStatus.completed) {
                   // 如果已完成，恢复为未完成状态
-                  deadline.timeSpent = const Duration(minutes: 0);
                   deadline.status = TaskStatus.running;
                 } else {
                   // 有没勾完的子待办时先确认
@@ -278,12 +266,6 @@ class TaskPage extends StatelessWidget {
                 }
                 _taskController.updateDeadlineList();
                 _taskController.updateDeadlineListTime();
-                // 重新规划
-                _flowController.removeFlowInFlowList();
-                DateTime now = DateTime.now();
-                DateTime startsAt = DateTime(
-                    now.year, now.month, now.day, now.hour, now.minute);
-                _flowController.generateNewFlowList(startsAt);
                 _taskController.taskList.refresh();
               }
               return false; // 阻止真正的 dismiss
@@ -300,12 +282,6 @@ class TaskPage extends StatelessWidget {
               deadline.status = TaskStatus.deleted;
               _taskController.updateDeadlineList();
               _taskController.updateDeadlineListTime();
-              // 重新规划
-              _flowController.removeFlowInFlowList();
-              DateTime now = DateTime.now();
-              DateTime startsAt =
-                  DateTime(now.year, now.month, now.day, now.hour, now.minute);
-              _flowController.generateNewFlowList(startsAt);
               _taskController.taskList.refresh();
             }
           },
@@ -326,12 +302,6 @@ class TaskPage extends StatelessWidget {
                 }
                 _taskController.updateDeadlineList();
                 _taskController.updateDeadlineListTime();
-                // 重新规划
-                _flowController.removeFlowInFlowList();
-                DateTime now = DateTime.now();
-                DateTime startsAt = DateTime(
-                    now.year, now.month, now.day, now.hour, now.minute);
-                _flowController.generateNewFlowList(startsAt);
                 _taskController.taskList.refresh();
               }
             },
@@ -610,7 +580,6 @@ class TaskPage extends StatelessWidget {
                             onTap: () {
                               if (_taskController.suspendAllDeadline(context) >
                                   0) {
-                                _flowController.removeFlowInFlowList();
                                 _taskController.updateDeadlineListTime();
                                 _taskController.taskList.refresh();
                               }
@@ -622,7 +591,6 @@ class TaskPage extends StatelessWidget {
                             onTap: () {
                               if (_taskController.continueAllDeadline(context) >
                                   0) {
-                                _flowController.removeFlowInFlowList();
                                 _taskController.updateDeadlineListTime();
                                 _taskController.taskList.refresh();
                               }

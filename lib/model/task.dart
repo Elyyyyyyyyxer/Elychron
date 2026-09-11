@@ -64,6 +64,9 @@ class SubTask {
   String title;
   @HiveField(2)
   bool done;
+  // ===== 以下 4 个字段（timeSpent/timeNeeded/isBreakable/blockArrangements）
+// 属于已移除的「时间规划」功能。**只保留字段，不删** —— 它们是 Hive 按序号存储的，
+// 删掉会让后面所有字段的序号前移，导致已有待办数据被读错。等数据迁移时再清理。=====
   @HiveField(3)
   String description;
   @HiveField(4)
@@ -217,6 +220,9 @@ class Task {
   TaskStatus status;
   @HiveField(2)
   String description;
+  // ===== 以下 4 个字段（timeSpent/timeNeeded/isBreakable/blockArrangements）
+// 属于已移除的「时间规划」功能。**只保留字段，不删** —— 它们是 Hive 按序号存储的，
+// 删掉会让后面所有字段的序号前移，导致已有待办数据被读错。等数据迁移时再清理。=====
   @HiveField(3)
   Duration timeSpent;
   @HiveField(4)
@@ -479,17 +485,6 @@ class Task {
       progress = 0;
     }
     return progress;
-  }
-
-  void updateTimeSpent(Duration length) {
-    if (type != TaskType.deadline) {
-      return;
-    }
-    timeSpent = length;
-    if (timeSpent > timeNeeded) {
-      timeSpent = timeNeeded;
-    }
-    refreshStatus();
   }
 
   void refreshStatus() {

@@ -11,7 +11,6 @@ import 'package:celechron/design/cupertino_async_switch.dart';
 // ===== MOD: 导出/导入实现见 lib/mod/settings_data_actions.dart =====
 import 'package:celechron/mod/settings_data_actions.dart';
 
-import 'allow_time_edit_page.dart';
 import 'course_id_mapping_edit_page.dart';
 import 'credits_page.dart';
 import 'diagnostic_log_page.dart';
@@ -218,129 +217,6 @@ class OptionPage extends StatelessWidget {
             // ===== MOD: 数据（导出 / 导入）=====
             modDataSection(context,
                 headerStyle: headerFooterTextStyle, margin: _defaultMargin),
-            // 时间规划
-            SliverToBoxAdapter(
-                child: CupertinoListSection.insetGrouped(
-                    additionalDividerMargin: 2,
-                    margin: _defaultMargin,
-                    header: Container(
-                        padding: const EdgeInsets.only(left: 16),
-                        child: Text('时间规划', style: headerFooterTextStyle)),
-                    children: <CupertinoListTile>[
-                  CupertinoListTile(
-                    title: const Text('工作段时间长度'),
-                    trailing: BackChervonRow(
-                        child: Obx(() => Text(
-                            durationToString(_optionController.workTime),
-                            style: TextStyle(
-                                color: CupertinoDynamicColor.resolve(
-                                    CupertinoColors.secondaryLabel, context),
-                                fontSize: 16)))),
-                    onTap: () async {
-                      Duration newWorkTime = _optionController.workTime;
-                      await showCupertinoDialog(
-                          context: context,
-                          builder: (BuildContext context) {
-                            return CupertinoAlertDialog(
-                              title: const Text(
-                                '工作段时间长度',
-                              ),
-                              content: SizedBox(
-                                width: double.maxFinite,
-                                height: 200,
-                                child: Column(
-                                  children: [
-                                    Expanded(
-                                      child: CupertinoTimerPicker(
-                                        mode: CupertinoTimerPickerMode.hm,
-                                        minuteInterval: 5,
-                                        initialTimerDuration: newWorkTime,
-                                        onTimerDurationChanged: (value) {
-                                          if (value >=
-                                              const Duration(minutes: 5)) {
-                                            newWorkTime = value;
-                                          } else {
-                                            newWorkTime =
-                                                const Duration(minutes: 5);
-                                          }
-                                        },
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              actions: [
-                                CupertinoDialogAction(
-                                  child: const Text('确定'),
-                                  onPressed: () async {
-                                    Navigator.of(context).pop();
-                                  },
-                                )
-                              ],
-                            );
-                          });
-                      _optionController.workTime = newWorkTime;
-                    },
-                  ),
-                  CupertinoListTile(
-                    title: const Text('休息段时间长度'),
-                    trailing: BackChervonRow(
-                        child: Obx(() => Text(
-                            durationToString(_optionController.restTime),
-                            style: trailingTextStyle))),
-                    onTap: () async {
-                      Duration newRestTime = _optionController.restTime;
-                      await showCupertinoDialog(
-                          context: context,
-                          builder: (BuildContext context) {
-                            return CupertinoAlertDialog(
-                              title: const Text(
-                                '休息段时间长度',
-                              ),
-                              content: SizedBox(
-                                width: double.maxFinite,
-                                height: 200,
-                                child: Column(
-                                  children: [
-                                    Expanded(
-                                      child: CupertinoTimerPicker(
-                                        mode: CupertinoTimerPickerMode.hm,
-                                        initialTimerDuration: newRestTime,
-                                        onTimerDurationChanged: (value) {
-                                          newRestTime = value;
-                                        },
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              actions: [
-                                CupertinoDialogAction(
-                                  child: const Text('确定'),
-                                  onPressed: () async {
-                                    Navigator.of(context).pop();
-                                  },
-                                )
-                              ],
-                            );
-                          });
-                      _optionController.restTime = newRestTime;
-                    },
-                  ),
-                  CupertinoListTile(
-                    title: const Text('可用的工作时段'),
-                    trailing: BackChervonRow(
-                        child: Obx(() => Text(
-                            '${_optionController.allowTimeLength} 个时段',
-                            style: trailingTextStyle))),
-                    onTap: () async {
-                      await Navigator.of(context, rootNavigator: true)
-                          .push(CupertinoPageRoute(
-                        builder: (context) => const AllowTimeEditPage(),
-                      ));
-                    },
-                  ),
-                ])),
             // 日程
             Obx(() => SliverToBoxAdapter(
                     child: CupertinoListSection.insetGrouped(

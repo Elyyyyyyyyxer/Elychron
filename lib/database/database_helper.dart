@@ -72,9 +72,6 @@ class DatabaseHelper {
 
   /// 删除墓碑：同步合并时用来判断"这条是被删掉的"
   final String dbTombstones = 'dbTombstones';
-  final String kWorkTime = 'workTime';
-  final String kRestTime = 'restTime';
-  final String kAllowTime = 'allowTime';
   final String kGpaStrategy = 'gpaStrategy';
   final String kPushOnGradeChange = 'pushOnGradeChange';
   final String kPushOnDdlReminder = 'pushOnDdlReminder';
@@ -85,9 +82,6 @@ class DatabaseHelper {
 
   Option getOption() {
     return Option(
-      workTime: getWorkTime().obs,
-      restTime: getRestTime().obs,
-      allowTime: getAllowTime().obs,
       gpaStrategy: getGpaStrategy().obs,
       pushOnGradeChange: getPushOnGradeChange().obs,
       pushOnDdlReminder: getPushOnDdlReminder().obs,
@@ -96,42 +90,6 @@ class DatabaseHelper {
       hideHomeGpa: getHideHomeGpa().obs,
       asyncRefresh: getAsyncRefresh().obs,
     );
-  }
-
-  Duration getWorkTime() {
-    if (optionsBox.get(kWorkTime) == null) {
-      optionsBox.put(kWorkTime, const Duration(minutes: 45));
-    }
-    return optionsBox.get(kWorkTime);
-  }
-
-  void setWorkTime(Duration workTime) {
-    optionsBox.put(kWorkTime, workTime);
-  }
-
-  Duration getRestTime() {
-    if (optionsBox.get(kRestTime) == null) {
-      optionsBox.put(kRestTime, const Duration(minutes: 15));
-    }
-    return optionsBox.get(kRestTime);
-  }
-
-  void setRestTime(Duration restTime) {
-    optionsBox.put(kRestTime, restTime);
-  }
-
-  Map<DateTime, DateTime> getAllowTime() {
-    if (optionsBox.get(kAllowTime) == null) {
-      Map<DateTime, DateTime> base = {};
-      base[DateTime(0, 0, 0, 8, 0)] = DateTime(0, 0, 0, 11, 35);
-      base[DateTime(0, 0, 0, 14, 15)] = DateTime(0, 0, 0, 23, 00);
-      optionsBox.put(kAllowTime, base);
-    }
-    return Map<DateTime, DateTime>.from(optionsBox.get(kAllowTime));
-  }
-
-  Future<void> setAllowTime(Map<DateTime, DateTime> allowTime) async {
-    await optionsBox.put(kAllowTime, allowTime);
   }
 
   GpaStrategy getGpaStrategy() {

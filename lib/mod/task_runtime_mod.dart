@@ -79,7 +79,6 @@ bool spawnNextOccurrences(List<Task> taskList) {
     next.genUid();
     next.fromUid = task.uid;
     next.status = TaskStatus.running;
-    next.timeSpent = const Duration(minutes: 0);
     if (!next.advanceRepeatPeriod()) continue;
     if (next.status == TaskStatus.outdated) continue;
     next.forceRefreshStatus();

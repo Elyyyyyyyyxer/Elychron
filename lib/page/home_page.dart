@@ -7,7 +7,6 @@ import 'package:get/get.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
 import 'package:celechron/page/scholar/scholar_view.dart';
-import 'package:celechron/page/flow/flow_view.dart';
 import 'package:celechron/page/task/task_view.dart';
 import 'package:celechron/page/calendar/calendar_view.dart';
 import 'package:celechron/page/option/option_view.dart';
@@ -31,7 +30,6 @@ class _HomePageState extends State<HomePage> {
 
   // 只构建一次，保持各页 widget 身份稳定，切页时不会重跑各页构造器里的 Get.put
   late final List<Widget> _pages = [
-    _KeepAlivePage(child: FlowPage()),
     _KeepAlivePage(child: CalendarPage()),
     _KeepAlivePage(child: TaskPage()),
     _KeepAlivePage(child: ScholarPage()),
@@ -42,7 +40,7 @@ class _HomePageState extends State<HomePage> {
 
   // ===== MOD BEGIN: 分享接收 / 闹钟（实现见 lib/mod/home_mod_hooks.dart）=====
   late final HomeModHooks _modHooks = HomeModHooks(
-    jumpToTaskTab: () => _pageController.jumpToPage(2),
+    jumpToTaskTab: () => _pageController.jumpToPage(1),
   );
   // ===== MOD END =====
   // ===== MOD END =====
@@ -69,10 +67,6 @@ class _HomePageState extends State<HomePage> {
               CupertinoColors.secondarySystemBackground, context)
           .withValues(alpha: 0.5),
       items: const <BottomNavigationBarItem>[
-        BottomNavigationBarItem(
-          icon: Icon(CupertinoIcons.time),
-          label: '接下来',
-        ),
         BottomNavigationBarItem(
           icon: Icon(CupertinoIcons.calendar),
           label: '日程',

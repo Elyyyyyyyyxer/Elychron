@@ -30,7 +30,6 @@ class OptionController extends GetxController {
   final scholar = Get.find<Rx<Scholar>>(tag: 'scholar');
   final _fuse = Get.find<Rx<Fuse>>(tag: 'fuse');
   final _db = Get.find<DatabaseHelper>(tag: 'db');
-  late final RxInt allowTimeLength = _option.allowTime.length.obs;
 
   /// 提醒方式：0 = 通知（横幅+响铃），1 = 闹钟模式
   late final reminderMode = _db.getReminderMode().obs;
@@ -64,27 +63,6 @@ class OptionController extends GetxController {
 
     // 初始化时检查日历权限和同步状态（不显示提示框）
     _calendarManager.checkInitialCalendarSyncStatus();
-  }
-
-  Duration get workTime => _option.workTime.value;
-  set workTime(Duration value) {
-    _option.workTime.value = value;
-    _db.setWorkTime(value);
-  }
-
-  Duration get restTime => _option.restTime.value;
-
-  set restTime(Duration value) {
-    _option.restTime.value = value;
-    _db.setRestTime(value);
-  }
-
-  Map<DateTime, DateTime> get allowTime => _option.allowTime;
-
-  set allowTime(Map<DateTime, DateTime> value) {
-    _option.allowTime.value = value;
-    _db.setAllowTime(value);
-    allowTimeLength.value = value.length;
   }
 
   GpaStrategy get gpaStrategy => _option.gpaStrategy.value;
