@@ -6,8 +6,10 @@ import 'package:celechron/design/image_preview.dart';
 import 'package:celechron/design/repeat_sheet.dart';
 import 'package:celechron/design/tag_picker.dart';
 import 'package:celechron/design/task_priority_color.dart';
+import 'package:celechron/design/task_kind_selector.dart';
 import 'package:celechron/mod/ai/ai_subtasks_ui.dart';
 import 'package:celechron/model/task.dart';
+import 'package:celechron/database/database_helper.dart';
 import 'package:celechron/page/task/task_controller.dart';
 import 'package:celechron/page/task/task_create_page.dart';
 import 'package:flutter/material.dart' show Icons;
@@ -113,14 +115,9 @@ class _TaskEditPageState extends State<TaskEditPage> {
     now.location = _locationController.text;
 
     // 保存前归一化提醒时间：滚动日期滚轮时可能停在中间值上，
-    // 这里保证提醒既不在过去、也不晚于截止时间。
-    if (now.reminderEnabled) {
-      final target = now.reminderTargetTime;
-      if (!target.isAfter(DateTime.now()) || target.isAfter(now.endTime)) {
-        final candidate = now.endTime.subtract(const Duration(minutes: 30));
-        now.reminderTime =
-            candidate.isAfter(DateTime.now()) ? candidate : now.endTime;
-      }
+    // 这里保证提醒既不在过去、也不晚于该类型的锚点（活动=开始，截止=截止）。
+    if (now.schedulesReminder) {
+      _syncReminder();
     }
 
     now.normalizeType();
@@ -181,47 +178,65 @@ class _TaskEditPageState extends State<TaskEditPage> {
     });
   }
 
-  String _formatRemaining(Duration d) {
-    final expired = d.isNegative;
-    d = expired ? -d : d;
-    final days = d.inDays;
-    final hours = d.inHours % 24;
-    final minutes = d.inMinutes % 60;
-    String text;
-    if (days > 0) {
-      text = '$days 天 $hours 小时';
-    } else if (hours > 0) {
-      text = '$hours 小时 $minutes 分钟';
-    } else if (minutes > 0) {
-      text = '$minutes 分钟';
-    } else {
-      text = '不到 1 分钟';
+  // ---------------------------------------------------- P1：提醒锚点与提前量
+
+  /// 默认提前量：提醒型就是那一刻（0）；其余从设置里读，默认 30 分钟。
+  Duration get _defaultLead {
+    if (now.isRemind) return Duration.zero;
+    if (Get.isRegistered<DatabaseHelper>(tag: 'db')) {
+      return Duration(
+          minutes: Get.find<DatabaseHelper>(tag: 'db').getReminderLeadMinutes());
     }
-    return expired ? '已超时 $text' : '剩 $text';
+    return const Duration(minutes: 30);
+  }
+
+  /// 按当前类型的锚点算默认提醒时间：锚点 − 提前量；若已过去则退回锚点本身。
+  DateTime _defaultReminderTime() {
+    final anchor = now.reminderAnchor;
+    final candidate = anchor.subtract(_defaultLead);
+    return candidate.isAfter(DateTime.now()) ? candidate : anchor;
+  }
+
+  /// 时间或类型变了之后，把失效的提醒时间按新锚点重算一次。
+  ///
+  /// 活动锚「开始」、截止锚「截止」、提醒型就是那一刻；备忘不调度。
+  void _syncReminder() {
+    if (!now.schedulesReminder) return;
+    final anchor = now.reminderAnchor;
+    final target = now.reminderTargetTime;
+    if (target.isAfter(anchor) || !target.isAfter(DateTime.now())) {
+      now.reminderTime = now.isRemind ? null : _defaultReminderTime();
+    }
   }
 
   Future<void> _pickEndTime() async {
     final result = await showDateTimeSheet(
       context,
       initial: now.endTime,
-      title: now.type == TaskType.deadline ? '截止时间' : '结束时间',
+      title: now.endTimeLabel,
     );
     if (result == null || !mounted) return;
     setState(() {
       now.endTime = result;
-      if (now.type == TaskType.fixed && now.startTime.isAfter(now.endTime)) {
+      if (now.isEvent && now.startTime.isAfter(now.endTime)) {
         now.startTime = now.endTime;
       }
-      // 截止时间变了，如果原来的提醒时间已失效（已过或晚于新的截止），
-      // 就按“截止前 30 分钟”重新推算。
-      if (now.reminderEnabled) {
-        final target = now.reminderTargetTime;
-        if (!target.isAfter(DateTime.now()) || target.isAfter(now.endTime)) {
-          final candidate = now.endTime.subtract(const Duration(minutes: 30));
-          now.reminderTime =
-              candidate.isAfter(DateTime.now()) ? candidate : now.endTime;
-        }
-      }
+      _syncReminder();
+    });
+  }
+
+  /// 提醒型的「那一刻」：直接改 endTime（= 锚点），提醒时间继续跟随锚点。
+  Future<void> _pickRemindMoment() async {
+    final result = await showDateTimeSheet(
+      context,
+      initial: now.endTime,
+      title: '提醒时刻',
+    );
+    if (result == null || !mounted) return;
+    setState(() {
+      now.endTime = result;
+      now.startTime = result;
+      now.reminderTime = null;
     });
   }
 
@@ -237,6 +252,7 @@ class _TaskEditPageState extends State<TaskEditPage> {
       if (now.endTime.isBefore(now.startTime)) {
         now.endTime = now.startTime;
       }
+      _syncReminder();
     });
   }
 
@@ -262,10 +278,9 @@ class _TaskEditPageState extends State<TaskEditPage> {
   void _toggleReminder() {
     if (!now.reminderEnabled) {
       setState(() {
-        final candidate = now.endTime.subtract(const Duration(minutes: 30));
         now.reminderEnabled = true;
-        now.reminderTime =
-            candidate.isAfter(DateTime.now()) ? candidate : now.endTime;
+        // 活动锚开始、截止锚截止，各自再提前「默认提前量」
+        now.reminderTime = now.isRemind ? null : _defaultReminderTime();
       });
     } else {
       _pickReminderTime();
@@ -814,117 +829,110 @@ class _TaskEditPageState extends State<TaskEditPage> {
               ],
             ),
 
-            // 截止时间 + 提醒
+            // ===== P1：时间类型 + 时间行（全部随类型变化）=====
             _card(
               children: [
-                _iconRow(
-                  icon: CupertinoIcons.time,
-                  child: _chip(
-                    onTap: _pickEndTime,
-                    child: Text(
-                      '${TimeHelper.chineseDateTime(now.endTime)} ${now.type == TaskType.deadline ? '截止' : '结束'}',
-                      style: TextStyle(fontSize: 15, color: textColor),
-                    ),
-                  ),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      CupertinoButton(
-                        padding: EdgeInsets.zero,
-                        minimumSize: const Size(32, 32),
-                        onPressed: _toggleReminder,
-                        child: Icon(
-                          now.reminderEnabled
-                              ? CupertinoIcons.bell_fill
-                              : CupertinoIcons.bell,
-                          size: 20,
-                          color: now.reminderEnabled
-                              ? CupertinoColors.systemOrange
-                              : labelColor,
+                taskKindControl(now, (kind) {
+                  setState(() {
+                    now.applyKind(kind);
+                    _syncReminder();
+                  });
+                }),
+                if (!now.isMemo) ...[
+                  _divider(),
+                  // 「结束 / 截止」：活动与截止型才有；提醒型的时间由下面那行负责
+                  if (!now.isRemind)
+                    _iconRow(
+                      icon: CupertinoIcons.time,
+                      child: _chip(
+                        onTap: _pickEndTime,
+                        child: Text(
+                          '${TimeHelper.chineseDateTime(now.endTime)} ${now.isEvent ? '结束' : '截止'}',
+                          style: TextStyle(fontSize: 15, color: textColor),
                         ),
                       ),
-                      if (now.reminderEnabled)
-                        CupertinoButton(
-                          padding: EdgeInsets.zero,
-                          minimumSize: const Size(32, 32),
-                          onPressed: _clearReminder,
-                          child: Icon(
-                            CupertinoIcons.xmark,
-                            size: 18,
-                            color: labelColor,
+                    ),
+                  // 提醒时刻：活动的开始前、截止的截止前、提醒型的那一瞬
+                  _iconRow(
+                    icon: now.reminderEnabled
+                        ? CupertinoIcons.bell_fill
+                        : CupertinoIcons.bell,
+                    child: now.reminderEnabled
+                        ? GestureDetector(
+                            onTap: now.isRemind
+                                ? _pickRemindMoment
+                                : _pickReminderTime,
+                            child: Text(
+                              now.isRemind
+                                  ? '到点提醒：${TimeHelper.chineseDateTime(now.reminderTargetTime)}'
+                                  : '提醒：${TimeHelper.chineseDateTime(now.reminderTargetTime)}',
+                              style: const TextStyle(
+                                fontSize: 15,
+                                color: CupertinoColors.systemOrange,
+                              ),
+                            ),
+                          )
+                        : GestureDetector(
+                            onTap: _toggleReminder,
+                            child: Text(
+                              '添加提醒',
+                              style: TextStyle(fontSize: 15, color: labelColor),
+                            ),
                           ),
-                        ),
-                    ],
+                    trailing: now.reminderEnabled
+                        ? CupertinoButton(
+                            padding: EdgeInsets.zero,
+                            minimumSize: const Size(32, 32),
+                            onPressed: _clearReminder,
+                            child: Icon(CupertinoIcons.xmark,
+                                size: 16, color: labelColor),
+                          )
+                        : null,
                   ),
-                ),
-                if (now.reminderEnabled)
-                  Padding(
-                    padding: const EdgeInsets.only(left: 32, bottom: 10),
-                    child: GestureDetector(
-                      onTap: _pickReminderTime,
+                  // 开始时间：只有活动型才有「时段」
+                  if (now.isEvent) ...[
+                    _divider(),
+                    _iconRow(
+                      icon: CupertinoIcons.time_solid,
+                      onTap: _pickStartTime,
                       child: Text(
-                        '提醒时间：${TimeHelper.chineseDateTime(now.reminderTargetTime)}',
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: CupertinoColors.systemOrange,
-                        ),
+                        now.hasTimeRange
+                            ? '开始于 ${TimeHelper.chineseDateTime(now.startTime)}'
+                            : '设置开始时间',
+                        style: TextStyle(fontSize: 15, color: textColor),
                       ),
                     ),
-                  ),
-                _divider(),
-                _iconRow(
-                  icon: CupertinoIcons.time_solid,
-                  onTap: _pickStartTime,
-                  child: Text(
-                    now.hasTimeRange
-                        ? '开始于 ${TimeHelper.chineseDateTime(now.startTime)}'
-                        : '设置开始时间（可选）',
-                    style: TextStyle(
-                      fontSize: 15,
-                      color: now.hasTimeRange ? textColor : labelColor,
-                    ),
-                  ),
-                  trailing: now.hasTimeRange
-                      ? CupertinoButton(
-                          padding: EdgeInsets.zero,
-                          minimumSize: const Size(32, 32),
-                          onPressed: () => setState(() {
-                            now.startTime = now.endTime;
-                            now.normalizeType();
-                          }),
-                          child: Icon(CupertinoIcons.xmark,
-                              size: 16, color: labelColor),
-                        )
-                      : null,
-                ),
+                  ],
+                ],
               ],
             ),
 
-            // 倒计时
-            Padding(
-              padding: const EdgeInsets.only(left: 32, top: 2),
-              child: Row(
-                children: [
-                  Icon(
-                    CupertinoIcons.hourglass,
-                    size: 14,
-                    color: now.remainingTime.isNegative
-                        ? CupertinoColors.systemRed
-                        : labelColor,
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    '距截止${_formatRemaining(now.remainingTime)}',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: now.remainingTime.isNegative
+            // 时间状态（备忘型不显示；只有截止型过期才标红）
+            if (now.timeStatus != null)
+              Padding(
+                padding: const EdgeInsets.only(left: 32, top: 2),
+                child: Row(
+                  children: [
+                    Icon(
+                      CupertinoIcons.hourglass,
+                      size: 14,
+                      color: now.timeStatus!.urgent
                           ? CupertinoColors.systemRed
                           : labelColor,
                     ),
-                  ),
-                ],
+                    const SizedBox(width: 6),
+                    Text(
+                      now.timeStatus!.text,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: now.timeStatus!.urgent
+                            ? CupertinoColors.systemRed
+                            : labelColor,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
 
             // 优先级
             _card(

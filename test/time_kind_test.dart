@@ -21,6 +21,10 @@ void main() {
     return task;
   }
 
+  /// 单时刻任务（start 与 end 同一刻），用来测类型切换与时间状态行。
+  Task moment(DateTime end) =>
+      Task(endTime: end, startTime: end, repeatEndsTime: end);
+
   group('类型映射', () {
     test('活动：有起止，isEvent 为真，提醒锚点是开始时间', () {
       final t = makeTask(type: TaskType.fixed);
@@ -112,6 +116,124 @@ void main() {
       expect(TaskType.fixedlegacy.index, 2);
       expect(TaskType.remind.index, 3);
       expect(TaskType.memo.index, 4);
+    });
+  });
+
+  // ===== 本轮新增：显式切换类型 / 时间状态行 =====
+
+  group('applyKind：显式切换类型时把时间字段摆对', () {
+    test('切成活动：单时刻会被撑成 1 小时时段', () {
+      final t = moment(DateTime(2026, 9, 11, 14, 0));
+      t.applyKind(TaskType.fixed);
+      expect(t.type, TaskType.fixed);
+      expect(t.startTime, DateTime(2026, 9, 11, 13, 0));
+      expect(t.endTime, DateTime(2026, 9, 11, 14, 0));
+      expect(t.hasTimeRange, isTrue);
+    });
+
+    test('切成提醒：start 与 end 收成同一时刻，且默认打开提醒', () {
+      final t = moment(DateTime(2026, 9, 11, 19, 50));
+      t.startTime = DateTime(2026, 9, 11, 14, 20);
+      t.applyKind(TaskType.remind);
+      expect(t.startTime, t.endTime);
+      expect(t.reminderEnabled, isTrue);
+      expect(t.reminderTime, isNull);
+      // reminderTime 为空就用锚点本身 —— 也就是「那一刻」
+      expect(t.reminderTargetTime, t.endTime);
+    });
+
+    test('切成备忘：关掉提醒、清掉提醒时间', () {
+      final t = moment(DateTime(2026, 9, 11, 19, 50));
+      t.reminderEnabled = true;
+      t.reminderTime = DateTime(2026, 9, 11, 19, 0);
+      t.applyKind(TaskType.memo);
+      expect(t.type, TaskType.memo);
+      expect(t.reminderEnabled, isFalse);
+      expect(t.reminderTime, isNull);
+      expect(t.schedulesReminder, isFalse);
+    });
+
+    test('切成截止：start 与 end 收成同一时刻', () {
+      final t = moment(DateTime(2026, 9, 11, 23, 59));
+      t.startTime = DateTime(2026, 9, 11, 14, 0);
+      t.applyKind(TaskType.deadline);
+      expect(t.startTime, t.endTime);
+      expect(t.endTimeLabel, '截止时间');
+    });
+
+    test('切换之后再 normalizeType 不会被翻回去', () {
+      final t = moment(DateTime(2026, 9, 11, 23, 59));
+      t.applyKind(TaskType.memo);
+      t.normalizeType();
+      expect(t.type, TaskType.memo);
+    });
+
+    test('各类型的时间行称呼', () {
+      final t = moment(DateTime(2026, 9, 11, 23, 59));
+      t.startTime = DateTime(2026, 9, 11, 22, 0);
+      t.type = TaskType.fixed;
+      expect(t.endTimeLabel, '结束时间');
+      t.applyKind(TaskType.deadline);
+      expect(t.endTimeLabel, '截止时间');
+      t.applyKind(TaskType.remind);
+      expect(t.endTimeLabel, '提醒时刻');
+      t.applyKind(TaskType.memo);
+      expect(t.endTimeLabel, '时间');
+    });
+  });
+
+  group('timeStatus：哪一行、红不红', () {
+    test('备忘不显示时间状态行', () {
+      final t = moment(DateTime(2000, 1, 1));
+      t.applyKind(TaskType.memo);
+      expect(t.timeStatus, isNull);
+    });
+
+    test('截止过期才标红', () {
+      final t = moment(DateTime.now().subtract(const Duration(hours: 2)));
+      t.applyKind(TaskType.deadline);
+      expect(t.timeStatus!.urgent, isTrue);
+      expect(t.timeStatus!.text, startsWith('已超时'));
+      expect(t.isOverdue, isTrue);
+    });
+
+    test('截止没过期不标红', () {
+      final t = moment(DateTime.now().add(const Duration(hours: 2)));
+      t.applyKind(TaskType.deadline);
+      expect(t.timeStatus!.urgent, isFalse);
+      expect(t.timeStatus!.text, startsWith('剩'));
+    });
+
+    test('提醒过期不标红（只是响过一次）', () {
+      final t = moment(DateTime.now().subtract(const Duration(hours: 2)));
+      t.applyKind(TaskType.remind);
+      expect(t.timeStatus!.urgent, isFalse);
+      expect(t.timeStatus!.text, startsWith('提醒已过'));
+      expect(t.isOverdue, isFalse);
+    });
+
+    test('活动：未开始 / 进行中 / 已结束都不标红', () {
+      final t = moment(DateTime.now().add(const Duration(hours: 3)));
+      t.applyKind(TaskType.fixed);
+      expect(t.timeStatus!.text, startsWith('距开始'));
+      expect(t.timeStatus!.urgent, isFalse);
+
+      t.startTime = DateTime.now().subtract(const Duration(minutes: 10));
+      t.endTime = DateTime.now().add(const Duration(minutes: 50));
+      expect(t.timeStatus!.text, '进行中');
+
+      t.startTime = DateTime.now().subtract(const Duration(hours: 2));
+      t.endTime = DateTime.now().subtract(const Duration(hours: 1));
+      expect(t.timeStatus!.text, startsWith('已结束'));
+      expect(t.timeStatus!.urgent, isFalse);
+      expect(t.isOverdue, isFalse);
+    });
+
+    test('humanDuration 写成人话', () {
+      expect(humanDuration(const Duration(seconds: 30)), '不到 1 分钟');
+      expect(humanDuration(const Duration(minutes: 5)), '5 分钟');
+      expect(humanDuration(const Duration(hours: 3, minutes: 20)), '3 小时 20 分钟');
+      expect(humanDuration(const Duration(days: 2, hours: 3)), '2 天 3 小时');
     });
   });
 }

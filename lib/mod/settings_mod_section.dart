@@ -1,5 +1,6 @@
 import 'package:celechron/design/alarm_reliability.dart';
 import 'package:celechron/design/alarm_theme_picker.dart';
+import 'package:celechron/database/database_helper.dart';
 import 'package:celechron/mod/ai/ai_settings_page.dart';
 import 'package:celechron/mod/ai/deepseek.dart';
 import 'package:celechron/mod/lan_sync_page.dart';
@@ -14,8 +15,8 @@ import 'package:get/get.dart';
 /// 上游的 `lib/page/option/option_view.dart` 一直在更新（1.3 就加了 36 行），
 /// 所以把这些声明式的设置行放在这里，那个文件里只留两处挂载（见 `// ===== MOD =====`）。
 
-/// 待办提醒方式 / 闹钟配色
-List<CupertinoListTile> modReminderTiles(
+/// 待办提醒方式 / 默认提前量 / 闹钟配色
+List<Widget> modReminderTiles(
   BuildContext context,
   OptionController optionController,
 ) =>
@@ -40,6 +41,9 @@ List<CupertinoListTile> modReminderTiles(
               },
             )),
       ),
+      // ===== P1：默认提醒提前量 =====
+      // 活动锚「开始」、截止锚「截止」，各自再提前这么多；提醒型就是那一刻。
+      const _ReminderLeadTile(),
       CupertinoListTile(
         title: const Text('闹钟可靠性'),
         subtitle: const Text('全屏闹钟授权、锁屏弹出、电池白名单，一项项查'),
@@ -56,6 +60,68 @@ List<CupertinoListTile> modReminderTiles(
         ),
       ),
     ];
+
+/// 「默认提醒提前量」这一行：点开选一个值，存进 optionsBox。
+class _ReminderLeadTile extends StatefulWidget {
+  const _ReminderLeadTile();
+
+  @override
+  State<_ReminderLeadTile> createState() => _ReminderLeadTileState();
+}
+
+class _ReminderLeadTileState extends State<_ReminderLeadTile> {
+  /// 可选的提前量（分钟）。0 = 准时，1440 = 提前一天。
+  static const List<int> _options = [0, 5, 10, 15, 30, 60, 120, 1440];
+
+  DatabaseHelper? get _db {
+    if (!Get.isRegistered<DatabaseHelper>(tag: 'db')) return null;
+    return Get.find<DatabaseHelper>(tag: 'db');
+  }
+
+  int get _minutes => _db?.getReminderLeadMinutes() ?? 30;
+
+  static String leadLabel(int minutes) {
+    if (minutes <= 0) return '准时';
+    if (minutes % 1440 == 0) return '提前 ${minutes ~/ 1440} 天';
+    if (minutes % 60 == 0) return '提前 ${minutes ~/ 60} 小时';
+    return '提前 $minutes 分钟';
+  }
+
+  Future<void> _pick() async {
+    await showCupertinoModalPopup<void>(
+      context: context,
+      builder: (BuildContext context) => CupertinoActionSheet(
+        title: const Text('默认提前多久提醒'),
+        message: const Text('活动按「开始前」算，截止按「截止前」算；提醒型不受影响。'),
+        actions: _options
+            .map((minutes) => CupertinoActionSheetAction(
+                  onPressed: () {
+                    _db?.setReminderLeadMinutes(minutes);
+                    Navigator.of(context).pop();
+                    if (mounted) setState(() {});
+                  },
+                  child: Text(leadLabel(minutes)),
+                ))
+            .toList(),
+        cancelButton: CupertinoActionSheetAction(
+          isDefaultAction: true,
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('取消'),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return CupertinoListTile(
+      title: const Text('默认提醒提前量'),
+      subtitle: Text('新建活动/截止时默认 ${leadLabel(_minutes)} 提醒'),
+      trailing: BackChervonRow(child: Text(leadLabel(_minutes))),
+      onTap: _pick,
+    );
+  }
+}
 
 /// 数据（导出 / 导入）
 Widget modDataSection(

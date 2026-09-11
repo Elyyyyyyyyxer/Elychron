@@ -81,7 +81,8 @@ class OptionPage extends StatelessWidget {
                                 'Telechron 将不定期自动运行以刷新数据。请开启通知权限，且不要将 Telechron 从后台中移除。',
                                 style: headerFooterTextStyle))
                         : null,
-                    children: <CupertinoListTile>[
+                    // ===== MOD: 改成 <Widget>，好让魔改的行（默认提前量）能混进来 =====
+                    children: <Widget>[
                       if (_optionController.scholar.value.isLogan) ...{
                         CupertinoListTile(
                             title: Text(

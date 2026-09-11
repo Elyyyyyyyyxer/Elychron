@@ -2,6 +2,7 @@ import 'package:celechron/design/repeat_sheet.dart';
 import 'package:celechron/design/image_preview.dart';
 import 'package:celechron/design/tag_picker.dart';
 import 'package:celechron/design/task_priority_color.dart';
+import 'package:celechron/design/task_kind_selector.dart';
 import 'package:celechron/design/task_time_panel.dart';
 import 'package:celechron/model/task.dart';
 import 'package:celechron/utils/attachment_helper.dart';
@@ -139,18 +140,27 @@ class _TaskCreatePageState extends State<TaskCreatePage> {
     );
   }
 
-  /// 快捷日期下方的只读摘要，让人一眼看到当前的时间设置。
+  /// 快捷日期下方的只读摘要，让人一眼看到当前的时间设置（随类型变化）。
   String _timeSummary() {
     final parts = <String>[];
-    if (now.hasTimeRange) {
-      parts.add('${TimeHelper.chineseDateTime(now.startTime)} 开始');
-      parts.add('${TimeHelper.chineseDateTime(now.endTime)} 结束');
+    if (now.isMemo) {
+      return '备忘：不设时间、不提醒、永不逾期，也不进日历';
+    }
+    if (now.isRemind) {
+      parts.add('${TimeHelper.chineseDateTime(now.endTime)} 提醒');
+    } else if (now.isEvent) {
+      if (now.hasTimeRange) {
+        parts.add('${TimeHelper.chineseDateTime(now.startTime)} 开始');
+        parts.add('${TimeHelper.chineseDateTime(now.endTime)} 结束');
+      } else {
+        parts.add('${TimeHelper.chineseDateTime(now.endTime)} 开始');
+      }
     } else {
       parts.add('截止 ${TimeHelper.chineseDateTime(now.endTime)}');
     }
     final repeat = RepeatSetting.fromTask(now).label;
     if (repeat != '不重复') parts.add(repeat);
-    if (now.reminderEnabled) {
+    if (now.schedulesReminder) {
       parts.add('提醒 ${TimeHelper.chineseDateTime(now.reminderTargetTime)}');
     }
     return parts.join(' · ');
@@ -505,6 +515,16 @@ class _TaskCreatePageState extends State<TaskCreatePage> {
 
             const SizedBox(height: 10),
 
+            // ===== P1：时间类型（活动 / 截止 / 提醒 / 备忘）=====
+            // 放在最上面，是因为它决定了下面所有时间输入长什么样。
+            _card(
+              children: [
+                taskKindControl(now, (kind) {
+                  setState(() => now.applyKind(kind));
+                }),
+              ],
+            ),
+
             // 描述
             _card(
               children: [
@@ -578,47 +598,48 @@ class _TaskCreatePageState extends State<TaskCreatePage> {
               ],
             ),
 
-            // 快捷日期
-            _card(
-              children: [
-                _iconRow(
-                  icon: CupertinoIcons.calendar,
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: [
-                        _quickDateChip(
-                          label: '今天',
-                          date: today,
-                          selected: endDate == today,
-                          onTap: () => _applyQuickDate(today),
-                        ),
-                        const SizedBox(width: 8),
-                        _quickDateChip(
-                          label: '明天',
-                          date: tomorrow,
-                          selected: endDate == tomorrow,
-                          onTap: () => _applyQuickDate(tomorrow),
-                        ),
-                        const SizedBox(width: 8),
-                        _quickDateChip(
-                          label: '其他日期',
-                          selected: endDate != today && endDate != tomorrow,
-                          onTap: _showOtherDatePanel,
-                        ),
-                      ],
+            // 快捷日期（备忘型不设时间，整块隐藏）
+            if (!now.isMemo)
+              _card(
+                children: [
+                  _iconRow(
+                    icon: CupertinoIcons.calendar,
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          _quickDateChip(
+                            label: '今天',
+                            date: today,
+                            selected: endDate == today,
+                            onTap: () => _applyQuickDate(today),
+                          ),
+                          const SizedBox(width: 8),
+                          _quickDateChip(
+                            label: '明天',
+                            date: tomorrow,
+                            selected: endDate == tomorrow,
+                            onTap: () => _applyQuickDate(tomorrow),
+                          ),
+                          const SizedBox(width: 8),
+                          _quickDateChip(
+                            label: '其他日期',
+                            selected: endDate != today && endDate != tomorrow,
+                            onTap: _showOtherDatePanel,
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.only(left: 32, bottom: 10),
-                  child: Text(
-                    _timeSummary(),
-                    style: TextStyle(fontSize: 13, color: labelColor),
+                  Padding(
+                    padding: const EdgeInsets.only(left: 32, bottom: 10),
+                    child: Text(
+                      _timeSummary(),
+                      style: TextStyle(fontSize: 13, color: labelColor),
+                    ),
                   ),
-                ),
-              ],
-            ),
+                ],
+              ),
 
             // 优先级
             _card(

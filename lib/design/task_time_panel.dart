@@ -1,5 +1,6 @@
 import 'package:celechron/design/date_picker_sheet.dart';
 import 'package:celechron/design/repeat_sheet.dart';
+import 'package:celechron/design/task_kind_selector.dart';
 import 'package:celechron/model/task.dart';
 import 'package:celechron/utils/time_helper.dart';
 import 'package:celechron/database/database_helper.dart';
@@ -55,12 +56,6 @@ class _TaskTimePanelState extends State<_TaskTimePanel> {
     _notify();
   }
 
-  void _clearStartTime() {
-    _task.startTime = _task.endTime;
-    _task.normalizeType();
-    _notify();
-  }
-
   Future<void> _pickEndTime() async {
     final result = await showDateTimeSheet(
       context,
@@ -95,7 +90,6 @@ class _TaskTimePanelState extends State<_TaskTimePanel> {
     }
     return const Duration(minutes: 30);
   }
-
   /// 按类型算默认提醒时间：锚点 − 提前量；若已过去则退回锚点本身。
   DateTime _defaultReminderTime() {
     final anchor = _task.reminderAnchor;
@@ -186,36 +180,14 @@ class _TaskTimePanelState extends State<_TaskTimePanel> {
             CupertinoDynamicColor.resolve(CupertinoColors.separator, context),
       );
 
-  @override
-
-  /// 切换时间语义：把时间字段调整成该类型需要的样子。
-  /// 注意 normalizeType() 对 remind / memo 不会再自动翻转，显式选择是安全的。
+  /// 切换时间语义：调整时间字段的逻辑在 Task.applyKind 里，三处 UI 共用。
   void _pickKind(TaskType kind) {
     if (_task.type == kind) return;
-    switch (kind) {
-      case TaskType.fixed:
-        // 活动：必须有 start < end，否则给个 1 小时的默认时段
-        if (!_task.startTime.isBefore(_task.endTime)) {
-          _task.startTime = _task.endTime.subtract(const Duration(hours: 1));
-        }
-        break;
-      case TaskType.deadline:
-      case TaskType.remind:
-      case TaskType.memo:
-      case TaskType.fixedlegacy:
-        // 单时刻：start 与 end 重合（备忘内部也存占位值以满足模型约束）
-        _task.startTime = _task.endTime;
-        break;
-    }
-    _task.type = kind;
-    if (_task.isMemo) {
-      // 备忘永不提醒
-      _task.reminderEnabled = false;
-      _task.reminderTime = null;
-    }
+    _task.applyKind(kind);
     _notify();
   }
 
+  @override
   Widget build(BuildContext context) {
     final labelColor =
         CupertinoDynamicColor.resolve(CupertinoColors.secondaryLabel, context);
@@ -245,21 +217,8 @@ class _TaskTimePanelState extends State<_TaskTimePanel> {
             ),
             // P1：四种时间语义 —— 创建/编辑时明确选择，时间输入随类型变化
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 2, 16, 4),
-              child: CupertinoSlidingSegmentedControl<TaskType>(
-                groupValue: _task.type == TaskType.fixedlegacy
-                    ? TaskType.fixed
-                    : _task.type,
-                children: const {
-                  TaskType.fixed: Text('活动'),
-                  TaskType.deadline: Text('截止'),
-                  TaskType.remind: Text('提醒'),
-                  TaskType.memo: Text('备忘'),
-                },
-                onValueChanged: (value) {
-                  if (value != null) _pickKind(value);
-                },
-              ),
+              padding: const EdgeInsets.fromLTRB(16, 2, 16, 0),
+              child: taskKindControl(_task, _pickKind),
             ),
             Container(
               margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),

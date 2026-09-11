@@ -23,12 +23,54 @@ enum TaskStatus { running, suspended, completed, failed, deleted, outdated }
 
 enum TaskRepeatType { norepeat, days, month, year, weekday }
 
+/// 详情页 / 卡片上「时间状态」那一行的文案与颜色倾向。
+///
+/// 见 [Task.timeStatus]：四类时间语义在这里统一决定「显示什么、红不红」。
+class TaskTimeStatus {
+  final String text;
+
+  /// 是否该标红（只有截止型已经过期才是 true）。
+  final bool urgent;
+
+  const TaskTimeStatus(this.text, this.urgent);
+}
+
+/// 把时长写成人话：「2 天 3 小时」「5 分钟」「不到 1 分钟」。
+String humanDuration(Duration d) {
+  d = d.isNegative ? -d : d;
+  final days = d.inDays;
+  final hours = d.inHours % 24;
+  final minutes = d.inMinutes % 60;
+  if (days > 0) return '$days 天 $hours 小时';
+  if (hours > 0) return '$hours 小时 $minutes 分钟';
+  if (minutes > 0) return '$minutes 分钟';
+  return '不到 1 分钟';
+}
+
 const Map<TaskType, String> deadlineTypeName = {
   TaskType.deadline: 'DDL',
   TaskType.fixed: '日程',
   TaskType.fixedlegacy: '过去日程',
   TaskType.remind: '提醒',
   TaskType.memo: '备忘',
+};
+
+/// ===== P1：四种时间语义的显示名与一句话说明 =====
+///
+/// 只在「类型选择器」上用；`fixedlegacy` 是内部值，界面上不出现。
+const Map<TaskType, String> taskKindName = {
+  TaskType.fixed: '活动',
+  TaskType.deadline: '截止',
+  TaskType.remind: '提醒',
+  TaskType.memo: '备忘',
+};
+
+/// 每种类型下方那句解释，帮人一眼明白选它会怎样。
+const Map<TaskType, String> taskKindHint = {
+  TaskType.fixed: '有开始和结束，占一段时间；提醒锚「开始」，日历里占时段',
+  TaskType.deadline: '只有一个截止时刻，过期会标红；提醒锚「截止」',
+  TaskType.remind: '单个时刻，到点提醒一次；过期不标红',
+  TaskType.memo: '随手记下，不设时间、不提醒、永不逾期、不进日历',
 };
 
 const Map<TaskStatus, String> deadlineStatusName = {
@@ -353,8 +395,42 @@ class Task {
   /// 距离截止的剩余时间，已过期则为负。
   Duration get remainingTime => endTime.difference(DateTime.now());
 
-  /// 是否已过期：备忘型永不逾期。
-  bool get isOverdue => !isMemo && endTime.isBefore(DateTime.now());
+  /// 是否已过期：**只有截止型会过期**。
+  ///
+  /// 备忘型永不逾期；提醒型过了也不标红（它只是"响过一次"）；
+  /// 活动型结束后由 P1 的自动归档处理，不算逾期。
+  bool get isOverdue =>
+      type == TaskType.deadline && endTime.isBefore(DateTime.now());
+
+  /// 详情页 / 卡片上那行「时间状态」：文案 + 是否该标红。
+  ///
+  /// 备忘型返回 null（不显示这一行）。这是四类时间语义在界面上
+  /// 唯一一处「红不红」的判定来源，避免各页面各写一套。
+  TaskTimeStatus? get timeStatus {
+    final now = DateTime.now();
+    if (isMemo) return null;
+    if (isRemind) {
+      final d = endTime.difference(now);
+      // 提醒型过期不标红
+      return TaskTimeStatus(
+        d.isNegative ? '提醒已过 ${humanDuration(-d)}' : '距提醒 ${humanDuration(d)}',
+        false,
+      );
+    }
+    if (isEvent) {
+      if (now.isBefore(startTime)) {
+        return TaskTimeStatus(
+            '距开始 ${humanDuration(startTime.difference(now))}', false);
+      }
+      if (now.isBefore(endTime)) return const TaskTimeStatus('进行中', false);
+      return TaskTimeStatus('已结束 ${humanDuration(now.difference(endTime))}', false);
+    }
+    final d = endTime.difference(now);
+    return TaskTimeStatus(
+      d.isNegative ? '已超时 ${humanDuration(-d)}' : '剩 ${humanDuration(d)}',
+      d.isNegative,
+    );
+  }
 
   /// 依据起止时间在「活动 / 截止」之间推断类型。
   ///
@@ -367,6 +443,48 @@ class Task {
       return;
     }
     type = startTime.isBefore(endTime) ? TaskType.fixed : TaskType.deadline;
+  }
+
+  /// 显式切换时间语义：把时间字段调整成该类型需要的样子。
+  ///
+  /// 与 [normalizeType] 不同，这里之后**不会**再被起止时间自动翻转：
+  /// 用户选了「提醒」「备忘」就一直是它（见 normalizeType 的早退分支）。
+  /// 创建页、详情页、「其他日期」面板共用这一处逻辑。
+  void applyKind(TaskType kind) {
+    switch (kind) {
+      case TaskType.fixed:
+        // 活动：必须有 开始 < 结束，否则给个 1 小时的默认时段
+        if (!startTime.isBefore(endTime)) {
+          startTime = endTime.subtract(const Duration(hours: 1));
+        }
+        break;
+      case TaskType.deadline:
+      case TaskType.remind:
+      case TaskType.memo:
+      case TaskType.fixedlegacy:
+        // 单时刻：start 与 end 重合（备忘内部也存占位值以满足模型约束）
+        startTime = endTime;
+        break;
+    }
+    type = kind;
+    if (kind == TaskType.remind) {
+      // 提醒型「到点响一次」：默认打开提醒，且不提前（reminderTime 留空
+      // 就会用锚点本身 = endTime 那一刻）
+      reminderEnabled = true;
+      reminderTime = null;
+    }
+    if (kind == TaskType.memo) {
+      // 备忘永不提醒
+      reminderEnabled = false;
+      reminderTime = null;
+    }
+  }
+
+  /// 该类型下「结束时间」这一行该怎么称呼。
+  String get endTimeLabel {
+    if (isMemo) return '时间';
+    if (isRemind) return '提醒时刻';
+    return isEvent ? '结束时间' : '截止时间';
   }
 
   /// 是否是带时段的任务（显示为「开始于 / 结束于」）。
@@ -544,6 +662,10 @@ class Task {
       } else {
         status = TaskStatus.running;
       }
+    } else if (type == TaskType.remind || type == TaskType.memo) {
+      // 提醒型过了也不标红、备忘型永不逾期：两者都不会变成「已过期」
+      if (status == TaskStatus.completed) return;
+      status = TaskStatus.running;
     }
   }
 
@@ -562,6 +684,10 @@ class Task {
       } else {
         status = TaskStatus.running;
       }
+    } else if (type == TaskType.remind || type == TaskType.memo) {
+      // 提醒型过了也不标红、备忘型永不逾期：两者都不会变成「已过期」
+      if (status == TaskStatus.completed) return;
+      status = TaskStatus.running;
     }
   }
 
