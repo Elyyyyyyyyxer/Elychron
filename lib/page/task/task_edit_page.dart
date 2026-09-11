@@ -153,15 +153,6 @@ class _TaskEditPageState extends State<TaskEditPage> {
       context,
       items: [
         DingTalkMenuItem(
-          label: 'AI 拆成子待办',
-          icon: Icons.auto_awesome,
-          onTap: () => runAiSubtasks(
-            context,
-            now,
-            onChanged: () => setState(() {}),
-          ),
-        ),
-        DingTalkMenuItem(
           label: now.starred ? '取消星标' : '星标',
           icon: now.starred ? CupertinoIcons.star_fill : CupertinoIcons.star,
           onTap: () => setState(() => now.starred = !now.starred),
@@ -333,31 +324,36 @@ class _TaskEditPageState extends State<TaskEditPage> {
   // --------------------------------------------------------------- 子待办
 
   /// 点「添加子待办」：先弹小窗口选「选择现有待办 / 新建子待办」
+  /// 添加子待办：钉钉风格弹窗，三种方式（选现有的 / 新建 / 让 AI 拆）
   Future<void> _addSubtask() async {
-    final action = await showCupertinoModalPopup<String>(
-      context: context,
-      builder: (BuildContext context) => CupertinoActionSheet(
-        title: const Text('添加子待办'),
-        actions: [
-          CupertinoActionSheetAction(
-            onPressed: () => Navigator.of(context).pop('existing'),
-            child: const Text('选择现有待办'),
-          ),
-          CupertinoActionSheetAction(
-            onPressed: () => Navigator.of(context).pop('new'),
-            child: const Text('新建子待办'),
-          ),
-        ],
-        cancelButton: CupertinoActionSheetAction(
-          isDefaultAction: true,
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('取消'),
+    String? action;
+    await showDingTalkMenu(
+      context,
+      title: '添加子待办',
+      message: '还没想好怎么拆？可以让 AI 按这条待办的内容给出几条能做的小步骤。',
+      items: [
+        DingTalkMenuItem(
+          label: '选择现有待办',
+          icon: CupertinoIcons.list_bullet,
+          onTap: () => action = 'existing',
         ),
-      ),
+        DingTalkMenuItem(
+          label: '新建子待办',
+          icon: CupertinoIcons.add,
+          onTap: () => action = 'new',
+        ),
+        DingTalkMenuItem(
+          label: 'AI 拆成子待办',
+          icon: Icons.auto_awesome,
+          onTap: () => action = 'ai',
+        ),
+      ],
     );
-    if (action == null || !mounted) return;
+    if (!mounted || action == null) return;
     if (action == 'new') {
       await _createNewSubtask();
+    } else if (action == 'ai') {
+      await runAiSubtasks(context, now, onChanged: () => setState(() {}));
     } else {
       await _pickExistingTaskAsSubtask();
     }
