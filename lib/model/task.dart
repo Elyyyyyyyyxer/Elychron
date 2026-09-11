@@ -130,6 +130,14 @@ class SubTask {
   @HiveField(8)
   String location;
 
+  // ===== P2：行程型子待办（只追加序号，绝不能插入/调序）=====
+  // 「这一步几点开始」+「提前几分钟提醒」。两个都为 null 的就是老式的
+  // 「清单型」步骤（写论文 → 查文献 / 写提纲），行为跟以前完全一样。
+  @HiveField(9)
+  DateTime? startTime;
+  @HiveField(10)
+  int? reminderMinutes;
+
   SubTask({
     String? uid,
     this.title = '',
@@ -140,6 +148,8 @@ class SubTask {
     List<String>? tags,
     List<TaskAttachment>? attachments,
     this.location = '',
+    this.startTime,
+    this.reminderMinutes,
   })  : uid = uid ?? const Uuid().v4(),
         tags = tags ?? <String>[],
         attachments = attachments ?? <TaskAttachment>[];
@@ -153,6 +163,8 @@ class SubTask {
     List<String>? tags,
     List<TaskAttachment>? attachments,
     String? location,
+    DateTime? startTime,
+    int? reminderMinutes,
   }) =>
       SubTask(
         uid: uid,
@@ -164,12 +176,57 @@ class SubTask {
         tags: tags ?? List<String>.of(this.tags),
         attachments: attachments ?? List<TaskAttachment>.of(this.attachments),
         location: location ?? this.location,
+        startTime: startTime ?? this.startTime,
+        reminderMinutes: reminderMinutes ?? this.reminderMinutes,
       );
+
+  // ---------------------------------------------------------- 行程型判定
+
+  /// 行程型：这一步有自己的时间。清单型为 false（行为与以前一致）。
+  bool get hasTime => startTime != null || endTime != null;
+
+  /// 这一步的「那一刻」：只给了开始时间就用它，只给了结束时间也用它。
+  DateTime? get anchorTime => startTime ?? endTime;
+
+  /// 是不是一段（而不是一个时刻）。详情页里段显示成 `14:30-17:30`。
+  bool get isSpan {
+    final s = startTime;
+    final e = endTime;
+    return s != null && e != null && s.isBefore(e);
+  }
+
+  /// 现在正处在这一步里 —— 详情页高亮它（已经过去的时段不算）。
+  bool isOngoingAt(DateTime now) {
+    if (done || !isSpan) return false;
+    return !now.isBefore(startTime!) && now.isBefore(endTime!);
+  }
+
+  /// 这一步已经过去了、而且没勾完 —— 详情页标红。
+  bool isMissedAt(DateTime now) {
+    if (done) return false;
+    final due = endTime ?? startTime;
+    if (due == null) return false;
+    return due.isBefore(now);
+  }
+
+  /// 这一步该在什么时候提醒：`开始时间 − 提前量`。
+  ///
+  /// 没单独设提前量就用全局默认（设置里的「默认提醒提前量」）；
+  /// 没有时间、或者已经勾完的步骤不提醒（返回 null）。
+  DateTime? reminderAt(int defaultLeadMinutes) {
+    if (done) return null;
+    final anchor = anchorTime;
+    if (anchor == null) return null;
+    final lead = reminderMinutes ?? defaultLeadMinutes;
+    return anchor.subtract(Duration(minutes: lead < 0 ? 0 : lead));
+  }
 
   /// 由「新建窗口」返回的 Task 生成子待办
   factory SubTask.fromTask(Task task) => SubTask(
         title: task.summary,
         description: task.description,
+        // 只有「活动」形态的时段才记开始时间；单时刻的步骤只留那一刻
+        startTime: task.hasTimeRange ? task.startTime : null,
         endTime: task.endTime,
         priority: task.priority,
         tags: List<String>.of(task.tags),
@@ -180,6 +237,7 @@ class SubTask {
   void applyFromTask(Task task) {
     title = task.summary;
     description = task.description;
+    startTime = task.hasTimeRange ? task.startTime : null;
     endTime = task.endTime;
     priority = task.priority;
     tags = List<String>.of(task.tags);
@@ -188,13 +246,17 @@ class SubTask {
   }
 
   /// 反向装回一个 Task，供新建/编辑窗口预填
+  ///
+  /// 有开始时间就装成「活动」（时段），否则装成单时刻 —— 这就是这一步在
+  /// 界面上的两种样子，类型胶囊会跟着停在对应的那一个上。
   Task toTask() {
     final end = endTime ?? DateTime.now().add(const Duration(days: 1));
+    final start = startTime;
     final task = Task(
       summary: title,
       description: description,
       endTime: end,
-      startTime: end,
+      startTime: start ?? end,
       repeatEndsTime: dateOnly(end),
       location: location,
     );
@@ -202,12 +264,15 @@ class SubTask {
     task.summary = title;
     task.description = description;
     task.location = location;
-    task.startTime = end;
+    task.startTime = start ?? end;
     task.endTime = end;
     task.repeatEndsTime = dateOnly(end);
     task.priority = priority;
     task.tags = List<String>.of(tags);
     task.attachments = List<TaskAttachment>.of(attachments);
+    task.type = (start != null && start.isBefore(end))
+        ? TaskType.fixed
+        : TaskType.deadline;
     return task;
   }
 }
@@ -507,6 +572,21 @@ class Task {
       subtasks.isNotEmpty &&
       subtaskDoneCount < subtasks.length &&
       endTime.isBefore(DateTime.now());
+
+  /// ===== P2：行程型待办的「下一步」 =====
+  ///
+  /// 第一个还没完成、且带时间的步骤（按时间排序）。
+  /// 卡片上用它代替光秃秃的 `子待办 0/3`。
+  SubTask? get nextItineraryStep {
+    final pending = subtasks
+        .where((s) => s.hasTime && !s.done && s.anchorTime != null)
+        .toList()
+      ..sort((a, b) => a.anchorTime!.compareTo(b.anchorTime!));
+    return pending.isEmpty ? null : pending.first;
+  }
+
+  /// 这组子待办是不是「行程型」（有任何一步带时间）
+  bool get hasItinerary => subtasks.any((s) => s.hasTime);
 
   /// 是否是带时段的任务（显示为「开始于 / 结束于」）。
   bool get hasTimeRange => startTime.isBefore(endTime);

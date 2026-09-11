@@ -55,8 +55,9 @@ class SubTaskAdapter extends TypeAdapter<SubTask> {
 
   @override
   void write(BinaryWriter writer, SubTask obj) {
+    // 字段数 9 → 11：P2 追加了 startTime(9) 与 reminderMinutes(10)
     writer
-      ..writeByte(9)
+      ..writeByte(11)
       ..writeByte(0)
       ..write(obj.uid)
       ..writeByte(1)
@@ -74,7 +75,11 @@ class SubTaskAdapter extends TypeAdapter<SubTask> {
       ..writeByte(7)
       ..write(obj.attachments)
       ..writeByte(8)
-      ..write(obj.location);
+      ..write(obj.location)
+      ..writeByte(9)
+      ..write(obj.startTime)
+      ..writeByte(10)
+      ..write(obj.reminderMinutes);
   }
 
   @override
@@ -96,6 +101,9 @@ class SubTaskAdapter extends TypeAdapter<SubTask> {
           (fields[7] as List?)?.map((e) => e as TaskAttachment).toList() ??
               <TaskAttachment>[],
       location: fields[8] as String? ?? '',
+      // 老数据没有这两项 → null，就是「清单型」步骤，行为不变
+      startTime: fields[9] as DateTime?,
+      reminderMinutes: fields[10] as int?,
     );
   }
 }

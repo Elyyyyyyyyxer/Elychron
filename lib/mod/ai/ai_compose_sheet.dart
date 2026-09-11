@@ -403,7 +403,15 @@ class _AiComposeSheetState extends State<_AiComposeSheet> {
         _kv(
           context,
           '子待办',
-          draft.subtasks.map((s) => '· $s').join('\n'), // 多行展示，便于逐条检查
+          // P2：行程型的步骤带时间/地点，逐条列清楚（含注意事项）
+          draft.subtasks.map((step) {
+            final parts = <String>[];
+            if (step.timeLabel.isNotEmpty) parts.add(step.timeLabel);
+            parts.add(step.title);
+            if (step.location.isNotEmpty) parts.add('@${step.location}');
+            final line = parts.join(' ');
+            return step.note.isEmpty ? '· $line' : '· $line（${step.note}）';
+          }).join('\n'),
         ),
     ];
 

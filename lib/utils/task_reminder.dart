@@ -1,7 +1,10 @@
 import 'dart:io';
 
+import 'package:celechron/database/database_helper.dart';
+import 'package:celechron/design/task_detail_nav.dart';
 import 'package:celechron/model/task.dart';
 import 'package:celechron/utils/task_alarm_center.dart';
+import 'package:celechron/utils/global.dart';
 import 'package:celechron/utils/time_helper.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:get/get.dart';
@@ -127,23 +130,56 @@ class TaskReminder {
 
   /// 点通知 / 点通知上的按钮
   static Future<void> _onResponse(NotificationResponse response) async {
-    final uid = response.payload;
-    if (uid == null || uid.isEmpty) return;
-    final task = _findTask(uid);
+    final payload = response.payload;
+    if (payload == null || payload.isEmpty) return;
 
+    // 「延迟 / 划掉」只可能来自任务级通知（子待办只走普通通知，没有按钮）
     if (response.actionId == 'snooze') {
-      if (task != null) {
-        await snooze(task, const Duration(minutes: 10));
-      }
+      final task = _findTask(payload);
+      if (task != null) await snooze(task, const Duration(minutes: 10));
       return;
     }
     if (response.actionId == 'dismiss') {
       TaskAlarmCenter.clear();
       return;
     }
-    // 点通知本体：闹钟模式下弹出全屏闹钟
-    if (task != null && mode == modeAlarm) {
+
+    // ===== P2：子待办通知 → 进父任务详情页并高亮这一步 =====
+    if (payload.startsWith(subtaskPayloadPrefix)) {
+      final parts = payload.split(':');
+      if (parts.length < 3) return;
+      final task = _findTask(parts[1]);
+      if (task != null) {
+        await _openTaskDetail(task, highlightSubtaskUid: parts[2]);
+      }
+      return;
+    }
+
+    final task = _findTask(payload);
+    if (task == null) return;
+    // 闹钟模式：弹全屏闹钟；通知模式：直接进这条待办的详情页
+    if (mode == modeAlarm) {
       TaskAlarmCenter.fire(task);
+    } else {
+      await _openTaskDetail(task);
+    }
+  }
+
+  /// 从通知进详情页：这条路径没有调用方接返回值，所以结果由 openTaskDetail 写回。
+  static Future<void> _openTaskDetail(
+    Task task, {
+    String? highlightSubtaskUid,
+  }) async {
+    try {
+      final context = navigatorKey.currentContext;
+      if (context == null || !context.mounted) return;
+      await openTaskDetail(
+        context,
+        task,
+        highlightSubtaskUid: highlightSubtaskUid,
+      );
+    } catch (_) {
+      // 打不开就算了，通知本身已经起到提醒作用
     }
   }
 
@@ -158,6 +194,50 @@ class TaskReminder {
   }
 
   static int _idOf(String uid) => uid.hashCode & 0x7fffffff;
+
+  // ===== P2：行程型子待办的通知调度 =====
+  //
+  // 单独一套 key（`sub:<任务uid>:<子待办uid>`）与通知 id，避免和任务级撞车。
+  // 子待办**只走普通通知**，不走全屏闹钟 —— 否则一上午会被闹钟连炸。
+
+  static const String subtaskPayloadPrefix = 'sub:';
+
+  static String _subKey(String taskUid, String subUid) =>
+      '$subtaskPayloadPrefix$taskUid:$subUid';
+
+  static String _subPayload(String taskUid, String subUid) =>
+      '$subtaskPayloadPrefix$taskUid:$subUid';
+
+  /// 设置里的「默认提醒提前量」（分钟）；拿不到就用 30。
+  static int get _defaultLeadMinutes {
+    try {
+      if (Get.isRegistered<DatabaseHelper>(tag: 'db')) {
+        return Get.find<DatabaseHelper>(tag: 'db').getReminderLeadMinutes();
+      }
+    } catch (_) {}
+    return 30;
+  }
+
+  /// 这一步该在什么时候响；None（null）表示不用调度。
+  static DateTime? _subFireTimeOf(Task task, SubTask sub) {
+    if (task.status != TaskStatus.running &&
+        task.status != TaskStatus.suspended) {
+      return null;
+    }
+    final when = sub.reminderAt(_defaultLeadMinutes);
+    if (when == null) return null;
+    return when.isAfter(DateTime.now()) ? when : null;
+  }
+
+  static String _subSignatureOf(Task task, SubTask sub) => [
+        task.status.index,
+        sub.done,
+        sub.title,
+        sub.startTime?.millisecondsSinceEpoch,
+        sub.endTime?.millisecondsSinceEpoch,
+        sub.reminderMinutes,
+        _defaultLeadMinutes,
+      ].join('|');
 
   static DateTime _fireTimeOf(Task task) =>
       _snoozed[task.uid] ?? task.reminderTargetTime;
@@ -204,19 +284,42 @@ class TaskReminder {
     for (final task in tasks) {
       alive.add(task.uid);
       final signature = _signatureOf(task);
-      if (_synced[task.uid] == signature) continue;
-
-      final id = _idOf(task.uid);
-      try {
-        await _plugin.cancel(id);
-        if (_shouldSchedule(task)) {
-          await _requestExactAlarmOnce();
-          await _schedule(task, id, _fireTimeOf(task));
+      if (_synced[task.uid] == signature) {
+        // 任务级没变化，但子待办可能变了：仍然走一遍（下面的签名判断很快）
+      } else {
+        final id = _idOf(task.uid);
+        try {
+          await _plugin.cancel(id);
+          if (_shouldSchedule(task)) {
+            await _requestExactAlarmOnce();
+            await _schedule(task, id, _fireTimeOf(task));
+          }
+        } catch (_) {
+          // 失败也记下签名，避免每秒重试刷屏；数据变化或下次启动时会重新同步。
+        } finally {
+          _synced[task.uid] = signature;
         }
-      } catch (_) {
-        // 失败也记下签名，避免每秒重试刷屏；数据变化或下次启动时会重新同步。
-      } finally {
-        _synced[task.uid] = signature;
+      }
+
+      // ===== P2：行程型子待办各自提醒 =====
+      for (final sub in task.subtasks) {
+        final key = _subKey(task.uid, sub.uid);
+        alive.add(key);
+        final subSignature = _subSignatureOf(task, sub);
+        if (_synced[key] == subSignature) continue;
+        final subId = _idOf(key);
+        try {
+          await _plugin.cancel(subId);
+          final when = _subFireTimeOf(task, sub);
+          if (when != null) {
+            await _requestExactAlarmOnce();
+            await _scheduleSubtask(task, sub, subId, when);
+          }
+        } catch (_) {
+          // 同上：失败也记签名，别每秒重试
+        } finally {
+          _synced[key] = subSignature;
+        }
       }
     }
 
@@ -258,6 +361,52 @@ class TaskReminder {
         uiLocalNotificationDateInterpretation:
             UILocalNotificationDateInterpretation.absoluteTime,
         payload: task.uid,
+      );
+    }
+  }
+
+  /// 行程型子待办的通知：只有「通知」这一条路，永远不用闹钟那套详情。
+  static Future<void> _scheduleSubtask(
+    Task task,
+    SubTask sub,
+    int id,
+    DateTime when,
+  ) async {
+    final fireAt = tz.TZDateTime.from(when, tz.local);
+    final title = sub.title.isEmpty
+        ? (task.summary.isEmpty ? '下一步' : task.summary)
+        : sub.title;
+    final bodyParts = <String>[];
+    if (task.summary.isNotEmpty) bodyParts.add(task.summary);
+    if (sub.anchorTime != null) {
+      bodyParts.add(TimeHelper.chineseDateTime(sub.anchorTime!));
+    }
+    if (sub.location.isNotEmpty) bodyParts.add(sub.location);
+    final body = bodyParts.isEmpty ? '到点了，这一步该开始了' : bodyParts.join(' · ');
+    final payload = _subPayload(task.uid, sub.uid);
+    try {
+      await _plugin.zonedSchedule(
+        id,
+        title,
+        body,
+        fireAt,
+        _details,
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+        payload: payload,
+      );
+    } catch (_) {
+      await _plugin.zonedSchedule(
+        id,
+        title,
+        body,
+        fireAt,
+        _details,
+        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+        payload: payload,
       );
     }
   }

@@ -73,10 +73,10 @@ Future<void> runAiSubtasks(
     ),
   );
 
-  List<String> titles = const <String>[];
+  List<AiStepDraft> steps = const <AiStepDraft>[];
   String? failure;
   try {
-    titles = await AiTaskDraft.subtasksFor(task);
+    steps = await AiTaskDraft.subtasksFor(task);
   } on AiException catch (error) {
     failure = error.message;
   } catch (error) {
@@ -90,17 +90,17 @@ Future<void> runAiSubtasks(
     await _simple(context, '没能拆出来', failure);
     return;
   }
-  if (titles.isEmpty) {
+  if (steps.isEmpty) {
     await _simple(context, '没拆出来', 'AI 没给出可用的子待办。把待办的标题或描述写具体一点再试一次。');
     return;
   }
 
-  final replace = await _preview(context, titles, hasExisting: hasExisting);
+  final replace = await _preview(context, steps, hasExisting: hasExisting);
   if (replace == null) return; // 用户取消
 
   if (replace) task.subtasks.clear();
-  for (final title in titles) {
-    task.subtasks.add(SubTask(title: title));
+  for (final step in steps) {
+    task.subtasks.add(step.toSubTask());
   }
   task.updatedAt = DateTime.now();
   onChanged();
@@ -129,7 +129,7 @@ Future<void> _simple(BuildContext context, String title, String message) {
 /// 预览拆出来的子待办；返回 true = 替换现有，false = 追加，null = 取消
 Future<bool?> _preview(
   BuildContext context,
-  List<String> titles, {
+  List<AiStepDraft> steps, {
   required bool hasExisting,
 }) {
   bool? replace;
@@ -143,10 +143,32 @@ Future<bool?> _preview(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            for (final title in titles)
+            for (final step in steps)
               Padding(
                 padding: const EdgeInsets.only(bottom: 5),
-                child: Text('· $title', style: const TextStyle(fontSize: 14)),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      step.timeLabel.isEmpty
+                          ? '· ${step.title}'
+                          : '· ${step.timeLabel}  ${step.title}',
+                      style: const TextStyle(fontSize: 14),
+                    ),
+                    if (step.location.isNotEmpty || step.note.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(left: 12),
+                        child: Text(
+                          [
+                            if (step.location.isNotEmpty) step.location,
+                            if (step.note.isNotEmpty) step.note,
+                          ].join(' · '),
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                      ),
+                  ],
+                ),
               ),
           ],
         ),

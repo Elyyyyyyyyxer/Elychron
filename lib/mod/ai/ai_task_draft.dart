@@ -8,6 +8,61 @@ import 'package:get/get.dart';
 import 'package:celechron/model/task.dart';
 import 'package:celechron/utils/utils.dart';
 
+/// ===== P2：AI 拆出来的一步 =====
+///
+/// 可能是「有时有地点的一步」（团建：14:30-17:30 嗦歌KTV），
+/// 也可能只是「一句话的步骤」（写论文：查文献）。时间/地点都可以为空。
+class AiStepDraft {
+  final String title;
+
+  /// 这一步的注意事项（地图到 `SubTask.description`）
+  final String note;
+
+  final String location;
+  final DateTime? startTime;
+  final DateTime? endTime;
+
+  const AiStepDraft({
+    required this.title,
+    this.note = '',
+    this.location = '',
+    this.startTime,
+    this.endTime,
+  });
+
+  bool get hasTime => startTime != null || endTime != null;
+
+  /// 排序与显示用的「那一刻」
+  DateTime? get anchor => startTime ?? endTime;
+
+  /// 详情页时间轴上那一行：`14:30-17:30` 或 `14:20`
+  String get timeLabel {
+    String hm(DateTime t) =>
+        '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+    final s = startTime;
+    final e = endTime;
+    if (s != null && e != null && s.isBefore(e)) return '${hm(s)}-${hm(e)}';
+    final one = anchor;
+    return one == null ? '' : hm(one);
+  }
+
+  /// 填进任务时用（带时间/地点/注意事项）
+  SubTask toSubTask() => SubTask(
+        title: title,
+        description: note,
+        location: location,
+        startTime: startTime,
+        endTime: endTime,
+      );
+
+  /// 去掉时间，只留标题（预览里「全部不要时间」用）
+  AiStepDraft withoutTime() => AiStepDraft(
+        title: title,
+        note: note,
+        location: location,
+      );
+}
+
 /// ============ AI 生成待办草稿 ============
 ///
 /// **核心安全原则：绝不让 AI 直接产出 Task JSON。**
@@ -49,7 +104,9 @@ class AiTaskDraft {
   final TaskPriority priority;
   final List<String> tags;
   final String location;
-  final List<String> subtasks;
+
+  /// ===== P2：结构化的子步骤（可能带时间/地点）=====
+  final List<AiStepDraft> subtasks;
 
   /// 模型自报「原文里没写、我不确定」的字段名（如 截止时间 / 地点）。
   /// 这些字段会留空交给用户自己补，而不是靠模型猜。
@@ -141,9 +198,11 @@ ${fromImage ? _imageRules : ''}
   "priority": "只能是 low / normal / high / urgent 之一",
   "tags": ["最多 $maxTagCount 个，每个不超过 $maxTagChars 字"],
   "location": "地点；原文没提就给空字符串",
-  "subtasks": ["仅当原文确实包含多个步骤时才给，最多 $maxSubtaskCount 条；否则给空数组"],
+  "subtasks": ["仅当原文确实包含多个步骤时才给，最多 $maxSubtaskCount 条；否则给空数组；格式见下"],
   "uncertain": ["你不确定的字段名，例如 截止时间、地点；没有就给空数组"]
 }
+
+$_stepSchemaRules
 
 用户的标签库（**优先复用**，不要另造近义词）：
 ${existingTags.isEmpty ? '（现在是空的，可以新建标签）' : existingTags.join('、')}
@@ -236,8 +295,8 @@ reminderMinutes（提前多少分钟提醒）：
 
   // ------------------------------------------------ AI 拆子待办（单项功能）
 
-  /// 把一条待办拆成几条可执行的子待办，只返回标题列表（写回由调用方决定）。
-  static Future<List<String>> subtasksFor(Task task) async {
+  /// 把一条待办拆成几条可执行的子待办（P2：可能带时间与地点）。
+  static Future<List<AiStepDraft>> subtasksFor(Task task) async {
     await AiConfig.load();
     final summary = task.summary.trim();
     if (summary.isEmpty) {
@@ -258,6 +317,9 @@ reminderMinutes（提前多少分钟提醒）：
     if (task.location.trim().isNotEmpty) {
       buffer.writeln('地点：${task.location.trim()}');
     }
+    if (task.isEvent) {
+      buffer.writeln('开始时间：${_fmt(task.startTime)}');
+    }
     buffer.writeln('截止时间：${_fmt(task.endTime)}');
     if (existing.isNotEmpty) {
       buffer.writeln('已有的子待办（不要重复）：${existing.join('、')}');
@@ -265,19 +327,40 @@ reminderMinutes（提前多少分钟提醒）：
 
     final json = await ModelResolver.withModelHealing(
       () => DeepSeekClient().chatJson(
-        system: _subtaskSystemPrompt,
+        system: _subtaskSystemPrompt(task),
         user: buffer.toString(),
         temperature: 0.3,
       ),
     );
-    return _parseSubtasks(json, existing);
+    final warnings = <String>[];
+    return _parseSubtasks(
+      json,
+      existing,
+      parentStart: task.isEvent ? task.startTime : null,
+      parentEnd: task.endTime,
+      warnings: warnings,
+    );
   }
 
-  static const String _subtaskSystemPrompt = '''
+  static String _subtaskSystemPrompt(Task task) => '''
 你是帮学生把一件待办拆成可执行小步骤的助手。
 
 只输出一个 json 对象，不要解释、不要 markdown 代码块。格式：
-{"subtasks": ["步骤一", "步骤二"]}
+{"subtasks": [
+  {"title": "步骤一"},
+  {"title": "步骤二", "location": "三教 403", "startTime": "2026-09-11T14:30:00", "endTime": "2026-09-11T17:30:00"}
+]}
+
+$_stepSchemaRules
+
+${task.isEvent ? '''
+这条待办是一段**有起止时间的活动**（${_fmt(task.startTime)} 到 ${_fmt(task.endTime)}）。
+如果输入里给了每一步的时间安排，**必须**把每步的 startTime / endTime 带出来，
+而且必须落在这段时间**之内**；落在范围外的时间会被丢掉。
+''' : '''
+这条待办是**交付型/单时刻**的，一般没有分步时间：
+没有明确时间就只给 title，**不要编造时间**。
+'''}
 
 规则：
 - 3~6 条，按执行顺序排列；每条不超过 30 字，尽量以动词开头
@@ -287,16 +370,123 @@ reminderMinutes（提前多少分钟提醒）：
 - 如果这件事本身没法拆（比如「给妈妈打电话」），返回 {"subtasks": []}
 - 不要编造输入里没有的人名、地点、材料''';
 
-  /// 校验模型返回的子待办（白名单式：限量、限长、去重、剔除已有）
-  static List<String> _parseSubtasks(
+  /// 子待办（步骤）的 JSON 约定 —— 上面两个提示词共用同一套。
+  static const String _stepSchemaRules = '''
+每个步骤是一个对象：
+- "title"：这一步做什么，不超过 30 字，动词开头
+- "location"：这一步的地点；原文没提就给空字符串
+- "note"：这一步的注意事项（如「带身份证」）；没有就给空字符串
+- "startTime" / "endTime"：这一步的开始/结束时刻，格式 YYYY-MM-DDTHH:mm:ss；
+  没给时间就留空字符串。**时间要写在这里，不要写进 title**
+
+原文给了整段行程（几点集合、几点到哪吃饭）时，**这是最重要的一条**：
+把每步的时间放进 startTime/endTime、地点放进 location，标题只写做什么。''';
+
+  /// 校验模型返回的子待办（白名单式：限量、限长、去重、剔除已有、时间越界即丢）
+  static List<AiStepDraft> _parseSubtasks(
     Map<String, dynamic> json,
-    List<String> existing,
-  ) {
+    List<String> existing, {
+    DateTime? parentStart,
+    DateTime? parentEnd,
+    List<String>? warnings,
+  }) {
     final raw = json['subtasks'] ?? json['steps'] ?? json['tasks'];
+    if (raw is! List) return <AiStepDraft>[];
+
     final known = existing.map((title) => title.trim()).toSet();
-    return _stringList(raw, 6, 40)
-        .where((title) => !known.contains(title))
-        .toList();
+    final steps = <AiStepDraft>[];
+    final seen = <String>{};
+
+    for (final item in raw) {
+      // 兼容老格式（模型偶尔还是只给字符串）：那就当成没时间的步骤
+      final Map<String, dynamic> source;
+      if (item is String) {
+        source = <String, dynamic>{'title': item};
+      } else if (item is Map) {
+        source = Map<String, dynamic>.from(item);
+      } else {
+        continue;
+      }
+
+      var title = _cleanString(source['title'] ?? source['summary'], 40);
+      if (title.isEmpty) continue;
+
+      // 模型有时会把时间写进标题（「14:30-17:30 嗦歌KTV」）。与其一删了之，
+      // 不如把这段时间**抢救到时间字段里** —— 那正是用户想看的信息。
+      final day = parentStart ?? parentEnd;
+      DateTime? titleStart;
+      DateTime? titleEnd;
+      final spanMatch = RegExp(
+              r'^([0-9]{1,2})[:：]([0-9]{2})\s*[-~－—到至]\s*([0-9]{1,2})[:：]([0-9]{2})\s*')
+          .firstMatch(title);
+      final momentMatch =
+          RegExp(r'^([0-9]{1,2})[:：]([0-9]{2})\s+').firstMatch(title);
+      if (spanMatch != null && day != null) {
+        titleStart = DateTime(day.year, day.month, day.day,
+            int.parse(spanMatch[1]!), int.parse(spanMatch[2]!));
+        titleEnd = DateTime(day.year, day.month, day.day,
+            int.parse(spanMatch[3]!), int.parse(spanMatch[4]!));
+        title = title.substring(spanMatch.end).trim();
+      } else if (momentMatch != null && day != null) {
+        titleStart = DateTime(day.year, day.month, day.day,
+            int.parse(momentMatch[1]!), int.parse(momentMatch[2]!));
+        title = title.substring(momentMatch.end).trim();
+      }
+      if (title.isEmpty) continue;
+      if (known.contains(title) || seen.contains(title)) continue;
+      if (titleStart != null) {
+        warnings?.add('第 ${steps.length + 1} 步的时间原本写在标题里，已挪到时间字段');
+      }
+
+      var start =
+          _parseStepTime(source['startTime'] ?? source['beginTime']) ?? titleStart;
+      var end = _parseStepTime(source['endTime']) ?? titleEnd;
+
+      if (start != null && end != null && !start.isBefore(end)) {
+        warnings?.add('第 ${steps.length + 1} 步「$title」的结束时间不晚于开始时间，这一步的时间已丢掉');
+        start = null;
+        end = null;
+      }
+      // 步骤时间必须落在父任务的时间范围内（团建的步骤不该跑到第二天）
+      if (parentEnd != null) {
+        if (start != null && start.isAfter(parentEnd)) {
+          warnings?.add('第 ${steps.length + 1} 步「$title」的时间超出了这条待办的范围，已丢掉');
+          start = null;
+          end = null;
+        } else if (end != null && end.isAfter(parentEnd)) {
+          warnings?.add('第 ${steps.length + 1} 步「$title」的结束时间超出了这条待办的范围，已丢掉结束时间');
+          end = null;
+        }
+      }
+      // 只给结束时间、没给开始时间 → 就用结束时间当那一刻
+      if (start == null && end != null && parentStart == null) {
+        // 交付型：结束时间就是这一步的截止
+      }
+
+      seen.add(title);
+      steps.add(AiStepDraft(
+        title: title,
+        note: _cleanString(source['note'] ?? source['description'], 60),
+        location: _cleanString(source['location'], 40),
+        startTime: start,
+        endTime: end,
+      ));
+      if (steps.length >= maxSubtaskCount) break;
+    }
+
+    // 按时间排序，没时间的排最后（保持模型给的先后顺序）
+    final timed = steps.where((s) => s.anchor != null).toList()
+      ..sort((a, b) => a.anchor!.compareTo(b.anchor!));
+    final timeless = steps.where((s) => s.anchor == null).toList();
+    return <AiStepDraft>[...timed, ...timeless];
+  }
+
+  static DateTime? _parseStepTime(Object? raw) {
+    if (raw is! String || raw.trim().isEmpty) return null;
+    final text = raw.trim();
+    final parsed = DateTime.tryParse(text) ??
+        DateTime.tryParse(text.replaceAll('/', '-').replaceFirst(' ', 'T'));
+    return parsed;
   }
 
   // ---------------------------------------------------- 逐字段校验（重点）
@@ -361,10 +551,6 @@ reminderMinutes（提前多少分钟提醒）：
 
     // --- tags：去空、去重、限长限量
     final tags = _stringList(source['tags'], maxTagCount, maxTagChars);
-    // --- subtasks：同上；用户关掉「自动生成子待办」时一律留空
-    final subtasks = AiConfig.autoSubtasks
-        ? _stringList(source['subtasks'], maxSubtaskCount, maxSubtaskChars)
-        : <String>[];
 
     // ===== P1：先定时间语义，它决定后面几个字段怎么校验 =====
     var kind = _validateKind(
@@ -406,6 +592,18 @@ reminderMinutes（提前多少分钟提醒）：
       warnings.add('「${taskKindName[kind]}」不需要开始时间，已忽略模型给的开始时间');
       startTime = null;
     }
+
+    // --- subtasks：结构化步骤；用户关掉「自动生成子待办」时一律留空
+    // 放在时间/类型都定好之后：步骤时间要按父任务的范围校验
+    final subtasks = AiConfig.autoSubtasks
+        ? _parseSubtasks(
+            source,
+            const <String>[],
+            parentStart: kind == TaskType.fixed ? startTime : null,
+            parentEnd: endTime,
+            warnings: warnings,
+          )
+        : <AiStepDraft>[];
 
     // --- 提醒提前量
     var reminderMinutes = _validateReminder(
@@ -659,7 +857,7 @@ reminderMinutes（提前多少分钟提醒）：
     if (location.isNotEmpty) task.location = location;
     if (subtasks.isNotEmpty) {
       task.subtasks = <SubTask>[
-        for (final title in subtasks) SubTask(title: title),
+        for (final step in subtasks) step.toSubTask(),
       ];
     }
     // 提醒：活动锚「开始」、截止锚「截止」，再按模型给的提前量往前推。

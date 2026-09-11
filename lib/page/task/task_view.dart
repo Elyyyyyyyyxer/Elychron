@@ -193,6 +193,28 @@ class TaskPage extends StatelessWidget {
     _taskController.taskList.refresh();
   }
 
+  /// 卡片上子待办那一行的文案。
+  ///
+  /// 行程型（有任何一步带时间）直接显示**下一步** —— 「下一步 17:50 探鱼吃饭」，
+  /// 比光秃秃一句「子待办 0/3」有用得多；清单型还是老样子。
+  String _subtaskSummary(Task task) {
+    final next = task.nextItineraryStep;
+    if (next != null) {
+      final anchor = next.anchorTime!;
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      final day = DateTime(anchor.year, anchor.month, anchor.day);
+      final hh = anchor.hour.toString().padLeft(2, '0');
+      final mm = anchor.minute.toString().padLeft(2, '0');
+      final prefix =
+          day == today ? '$hh:$mm' : '${anchor.month}-${anchor.day} $hh:$mm';
+      final title = next.title.isEmpty ? '(未命名)' : next.title;
+      return ' 下一步 $prefix $title';
+    }
+    final count = '${task.subtaskDoneCount}/${task.subtasks.length}';
+    return task.hasUnfinishedSubtasks ? ' 子待办 $count 没做完' : ' 子待办 $count';
+  }
+
   /// 卡片上的一行时间信息（图标 + 文案），四类语义共用同一套样式。
   Widget _cardTimeRow(BuildContext context, IconData icon, String text) {
     final baseColor =
@@ -508,19 +530,21 @@ class TaskPage extends StatelessWidget {
                                     .color!
                                     .withValues(alpha: 0.5),
                           ),
-                          Text(
-                            deadline.hasUnfinishedSubtasks
-                                ? ' 子待办 ${deadline.subtaskDoneCount}/${deadline.subtasks.length} 没做完'
-                                : ' 子待办 ${deadline.subtaskDoneCount}/${deadline.subtasks.length}',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: deadline.hasUnfinishedSubtasks
-                                  ? CupertinoColors.systemRed
-                                  : CupertinoTheme.of(context)
-                                      .textTheme
-                                      .textStyle
-                                      .color!
-                                      .withValues(alpha: 0.75),
+                          Expanded(
+                            child: Text(
+                              // ===== P2：行程型直接告诉用户「下一步」是什么 =====
+                              _subtaskSummary(deadline),
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: deadline.hasUnfinishedSubtasks
+                                    ? CupertinoColors.systemRed
+                                    : CupertinoTheme.of(context)
+                                        .textTheme
+                                        .textStyle
+                                        .color!
+                                        .withValues(alpha: 0.75),
+                              ),
                             ),
                           ),
                         ],

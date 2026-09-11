@@ -26,7 +26,11 @@ import 'package:get/get.dart';
 /// 保留原有契约：构造时传入 [Task]，pop 时返回编辑后的 Task（未保存则原样返回）。
 class TaskEditPage extends StatefulWidget {
   final Task deadline;
-  const TaskEditPage(this.deadline, {super.key});
+
+  /// ===== P2：从子待办通知点进来时，高亮是哪一步 =====
+  final String? highlightSubtaskUid;
+
+  const TaskEditPage(this.deadline, {super.key, this.highlightSubtaskUid});
 
   @override
   State<TaskEditPage> createState() => _TaskEditPageState();
@@ -512,6 +516,239 @@ class _TaskEditPageState extends State<TaskEditPage> {
   bool _subtaskOverdue(SubTask subtask) {
     final end = subtask.endTime;
     return !subtask.done && end != null && end.isBefore(DateTime.now());
+  }
+
+  // ------------------------------------------------- P2：行程型时间轴
+
+  /// 只要**有一步带时间**，这一组子待办就按「行程表」画。
+  ///
+  /// 清单型（写论文 → 查文献 / 写提纲）没有时间，仍然走老的两行式列表。
+  bool get _isItinerary => now.subtasks.any((s) => s.hasTime);
+
+  static String _hm(DateTime time) =>
+      '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
+
+  /// 时间列上的文字：`14:20` / `14:30-17:30`，不是今天就带上日期。
+  String _timelineTimeLabel(SubTask sub) {
+    final now_ = DateTime.now();
+    final today = DateTime(now_.year, now_.month, now_.day);
+    final anchor = sub.anchorTime;
+    if (anchor == null) return '';
+    final day = DateTime(anchor.year, anchor.month, anchor.day);
+    final datePrefix = day == today ? '' : '${anchor.month}-${anchor.day} ';
+    if (sub.isSpan) {
+      return '$datePrefix${_hm(sub.startTime!)}-${_hm(sub.endTime!)}';
+    }
+    return '$datePrefix${_hm(anchor)}';
+  }
+
+  /// 这一步的提醒说明：`会在 17:40 提醒` / `13:50 已提醒`。
+  String _timelineReminderHint(SubTask sub, DateTime current) {
+    final when = sub.reminderAt(_defaultLead.inMinutes);
+    if (when == null) return '';
+    if (when.isAfter(current)) return '会在 ${_hm(when)} 提醒';
+    return '${_hm(when)} 已提醒过';
+  }
+
+  /// 行程型子待办：时间列 + 竖线圆点 + 内容（进行中高亮、已过去未完成标红）
+  List<Widget> _buildSubtaskTimeline(BuildContext context) {
+    final current = DateTime.now();
+    final labelColor = CupertinoDynamicColor.resolve(
+        CupertinoColors.secondaryLabel, context);
+    final textColor = CupertinoTheme.of(context).textTheme.textStyle.color ??
+        CupertinoColors.label;
+    final separator =
+        CupertinoDynamicColor.resolve(CupertinoColors.separator, context);
+
+    final widgets = <Widget>[];
+    for (var i = 0; i < now.subtasks.length; i++) {
+      final sub = now.subtasks[i];
+      final ongoing = sub.isOngoingAt(current);
+      final missed = sub.isMissedAt(current);
+      final flagged = widget.highlightSubtaskUid == sub.uid;
+      final isLast = i == now.subtasks.length - 1;
+      final accent = ongoing
+          ? CupertinoColors.systemBlue
+          : (missed ? CupertinoColors.systemRed : labelColor);
+
+      final content = Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Text(
+                  sub.title.isEmpty ? '(未命名子待办)' : sub.title,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: ongoing ? FontWeight.w600 : FontWeight.w400,
+                    color: sub.done
+                        ? labelColor
+                        : (missed ? CupertinoColors.systemRed : textColor),
+                    decoration:
+                        sub.done ? TextDecoration.lineThrough : null,
+                  ),
+                ),
+              ),
+              if (ongoing)
+                Container(
+                  margin: const EdgeInsets.only(left: 6),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: CupertinoColors.systemBlue.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: const Text(
+                    '进行中',
+                    style: TextStyle(
+                        fontSize: 11, color: CupertinoColors.systemBlue),
+                  ),
+                ),
+            ],
+          ),
+          if (sub.description.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Text(
+                sub.description,
+                style: TextStyle(fontSize: 12, color: labelColor),
+              ),
+            ),
+          if (sub.location.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 3),
+              child: Row(
+                children: [
+                  Icon(CupertinoIcons.location_solid,
+                      size: 12, color: accent),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      sub.location,
+                      style: TextStyle(fontSize: 12, color: accent),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          if (!sub.done && _timelineReminderHint(sub, current).isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 3),
+              child: Row(
+                children: [
+                  Icon(
+                    sub.reminderAt(_defaultLead.inMinutes)!.isAfter(current)
+                        ? CupertinoIcons.bell
+                        : CupertinoIcons.bell_slash,
+                    size: 12,
+                    color: labelColor,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    _timelineReminderHint(sub, current),
+                    style: TextStyle(fontSize: 11, color: labelColor),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      );
+
+      widgets.add(
+        IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // 时间列
+              SizedBox(
+                width: 68,
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 2, right: 6),
+                  child: Text(
+                    _timelineTimeLabel(sub),
+                    textAlign: TextAlign.right,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: ongoing ? FontWeight.w600 : FontWeight.w400,
+                      color: accent,
+                    ),
+                  ),
+                ),
+              ),
+              // 竖线 + 圆点
+              SizedBox(
+                width: 18,
+                child: Column(
+                  children: [
+                    Container(
+                      width: 9,
+                      height: 9,
+                      margin: const EdgeInsets.only(top: 5),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: sub.done
+                            ? CupertinoColors.systemGreen
+                            : (ongoing ? CupertinoColors.systemBlue : separator),
+                      ),
+                    ),
+                    if (!isLast)
+                      Expanded(
+                        child: Container(width: 1.5, color: separator),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              // 内容 + 打钩
+              Expanded(
+                child: Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 8, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: ongoing || flagged
+                        ? CupertinoColors.systemBlue.withValues(alpha: 0.08)
+                        : CupertinoColors.transparent,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: () => _editSubtask(sub),
+                          child: content,
+                        ),
+                      ),
+                      CupertinoButton(
+                        padding: EdgeInsets.zero,
+                        minimumSize: const Size(32, 32),
+                        onPressed: () =>
+                            setState(() => sub.done = !sub.done),
+                        child: Icon(
+                          sub.done
+                              ? CupertinoIcons.checkmark_circle_fill
+                              : CupertinoIcons.circle,
+                          size: 20,
+                          color: sub.done
+                              ? CupertinoColors.systemGreen
+                              : CupertinoDynamicColor.resolve(
+                                  CupertinoColors.tertiaryLabel, context),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    return widgets;
   }
 
   /// 子待办行下方的概要信息（截止 / 优先级 / 标签 / 附件 / 地点）
@@ -1077,7 +1314,13 @@ class _TaskEditPageState extends State<TaskEditPage> {
                       ),
                     ),
                   ),
-                ...now.subtasks.map((subtask) {
+                // ===== P2：行程型画成时间轴，清单型保持老样子 =====
+                if (_isItinerary) ...[
+                  _divider(),
+                  const SizedBox(height: 10),
+                  ..._buildSubtaskTimeline(context),
+                ] else
+                  ...now.subtasks.map((subtask) {
                   return Column(
                     children: [
                       _divider(),

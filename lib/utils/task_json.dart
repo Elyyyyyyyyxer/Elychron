@@ -60,6 +60,9 @@ class TaskJson {
         'title': subtask.title,
         'done': subtask.done,
         'description': subtask.description,
+        // ===== P2：行程型字段（老版本的导出里没有这两个键）=====
+        'startTime': subtask.startTime?.toIso8601String(),
+        'reminderMinutes': subtask.reminderMinutes,
         'endTime': subtask.endTime?.toIso8601String(),
         'priority': subtask.priority.name,
         'tags': subtask.tags,
@@ -72,6 +75,13 @@ class TaskJson {
         title: '${json['title'] ?? ''}',
         done: json['done'] == true,
         description: '${json['description'] ?? ''}',
+        // 缺失即 null（向后兼容：老导出、老同步包都读得进来）
+        startTime: json['startTime'] is String
+            ? DateTime.tryParse(json['startTime'] as String)
+            : null,
+        reminderMinutes: json['reminderMinutes'] is int
+            ? json['reminderMinutes'] as int
+            : null,
         endTime: DateTime.tryParse('${json['endTime']}'),
         priority: _enumByName(
             TaskPriority.values, json['priority'], TaskPriority.normal),
