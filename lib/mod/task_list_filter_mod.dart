@@ -52,7 +52,7 @@ mixin TaskListFilterMod on GetxController {
   /// 当前标签页：0 待我处理 1 优先处理 2 我已处理 3 星标
   final selectedTab = 0.obs;
 
-  /// 标签筛选（多选）：空集合 = 全部分类
+  /// 标签筛选（多选）：空集合 = 不按标签筛
   final selectedTags = <String>{}.obs;
 
   /// 排序：endTime / createdAt / updatedAt / priority
@@ -68,7 +68,8 @@ mixin TaskListFilterMod on GetxController {
 
   /// ===== P1：按四种时间语义筛选（多选，空 = 全部类型）=====
   ///
-  /// 「全部分类」那一排原本只能筛标签，这里补上类型这一维：活动/截止/提醒/备忘。
+  /// 筛选行原本只有标签这一维（那枚「全部分类」chip 已按用户建议删除），
+  /// 现在补上类型：活动 / 截止 / 提醒 / 备忘。
   final filterKinds = <TaskType>{}.obs;
 
   bool get hasActiveFilters =>
