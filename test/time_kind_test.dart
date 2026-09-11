@@ -236,4 +236,96 @@ void main() {
       expect(humanDuration(const Duration(days: 2, hours: 3)), '2 天 3 小时');
     });
   });
+
+  // ===== Step 5：活动结束后自动归档 =====
+
+  group('needsAutoArchive：只有「不重复的活动结束了」才归档', () {
+    Task endedEvent() {
+      final t = moment(DateTime.now().subtract(const Duration(hours: 1)));
+      t.applyKind(TaskType.fixed);
+      t.startTime = DateTime.now().subtract(const Duration(hours: 3));
+      t.endTime = DateTime.now().subtract(const Duration(hours: 1));
+      return t;
+    }
+
+    test('不重复的活动结束之后就归档', () {
+      expect(endedEvent().needsAutoArchive, isTrue);
+    });
+
+    test('活动还没结束不归档', () {
+      final t = endedEvent();
+      t.endTime = DateTime.now().add(const Duration(hours: 1));
+      expect(t.needsAutoArchive, isFalse);
+    });
+
+    test('重复日程不归档（它会滚动到下一期）', () {
+      final t = endedEvent();
+      t.repeatType = TaskRepeatType.days;
+      t.repeatPeriod = 7;
+      expect(t.needsAutoArchive, isFalse);
+    });
+
+    test('已经打钩完成的不再动它', () {
+      final t = endedEvent();
+      t.status = TaskStatus.completed;
+      expect(t.needsAutoArchive, isFalse);
+    });
+
+    test('内部《过去日程》不归档', () {
+      final t = endedEvent();
+      t.type = TaskType.fixedlegacy;
+      expect(t.needsAutoArchive, isFalse);
+    });
+
+    test('截止过期仍留在「待我处理」，不归档', () {
+      final t = moment(DateTime.now().subtract(const Duration(hours: 1)));
+      t.applyKind(TaskType.deadline);
+      expect(t.needsAutoArchive, isFalse);
+    });
+
+    test('提醒过期不归档（只是响过一次，随手划掉）', () {
+      final t = moment(DateTime.now().subtract(const Duration(hours: 1)));
+      t.applyKind(TaskType.remind);
+      expect(t.needsAutoArchive, isFalse);
+    });
+
+    test('备忘永不过期，更不会归档', () {
+      final t = moment(DateTime.now().subtract(const Duration(days: 3)));
+      t.applyKind(TaskType.memo);
+      expect(t.needsAutoArchive, isFalse);
+    });
+  });
+
+  group('hasUnfinishedSubtasks：结束后点出没做完的步骤', () {
+    Task endedEventWith({required int total, required int done}) {
+      final t = moment(DateTime.now().subtract(const Duration(hours: 1)));
+      t.applyKind(TaskType.fixed);
+      t.startTime = DateTime.now().subtract(const Duration(hours: 3));
+      t.endTime = DateTime.now().subtract(const Duration(hours: 1));
+      for (var i = 0; i < total; i++) {
+        t.subtasks.add(SubTask(title: '第 $i 步', done: i < done));
+      }
+      return t;
+    }
+
+    test('结束了还有没做完的 → 要提示', () {
+      final t = endedEventWith(total: 3, done: 1);
+      expect(t.hasUnfinishedSubtasks, isTrue);
+      expect(t.subtasks.length - t.subtaskDoneCount, 2);
+    });
+
+    test('全做完了 → 不提示', () {
+      expect(endedEventWith(total: 2, done: 2).hasUnfinishedSubtasks, isFalse);
+    });
+
+    test('还没结束 → 不提示', () {
+      final t = endedEventWith(total: 2, done: 0);
+      t.endTime = DateTime.now().add(const Duration(hours: 1));
+      expect(t.hasUnfinishedSubtasks, isFalse);
+    });
+
+    test('没有子待办 → 不提示', () {
+      expect(endedEventWith(total: 0, done: 0).hasUnfinishedSubtasks, isFalse);
+    });
+  });
 }

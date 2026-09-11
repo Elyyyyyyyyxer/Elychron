@@ -499,21 +499,28 @@ class TaskPage extends StatelessWidget {
                           Icon(
                             CupertinoIcons.list_bullet,
                             size: 14,
-                            color: CupertinoTheme.of(context)
-                                .textTheme
-                                .textStyle
-                                .color!
-                                .withValues(alpha: 0.5),
+                            // 活动结束了还有没做完的子待办：红一下提个醒
+                            color: deadline.hasUnfinishedSubtasks
+                                ? CupertinoColors.systemRed
+                                : CupertinoTheme.of(context)
+                                    .textTheme
+                                    .textStyle
+                                    .color!
+                                    .withValues(alpha: 0.5),
                           ),
                           Text(
-                            ' 子待办 ${deadline.subtaskDoneCount}/${deadline.subtasks.length}',
+                            deadline.hasUnfinishedSubtasks
+                                ? ' 子待办 ${deadline.subtaskDoneCount}/${deadline.subtasks.length} 没做完'
+                                : ' 子待办 ${deadline.subtaskDoneCount}/${deadline.subtasks.length}',
                             style: TextStyle(
                               fontSize: 14,
-                              color: CupertinoTheme.of(context)
-                                  .textTheme
-                                  .textStyle
-                                  .color!
-                                  .withValues(alpha: 0.75),
+                              color: deadline.hasUnfinishedSubtasks
+                                  ? CupertinoColors.systemRed
+                                  : CupertinoTheme.of(context)
+                                      .textTheme
+                                      .textStyle
+                                      .color!
+                                      .withValues(alpha: 0.75),
                             ),
                           ),
                         ],
@@ -810,15 +817,8 @@ class TaskPage extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(16, 2, 16, 3),
           child: Row(
             children: [
-              _filterChip(
-                context,
-                label: '全部分类',
-                // 「全部分类」= 没有选中任何标签，点一下清空标签筛选
-                active: _taskController.selectedTags.isEmpty,
-                onTap: _taskController.selectedTags.clear,
-              ),
-              const SizedBox(width: 8),
-              // ===== P1：按四种时间语义筛选（活动/截止/提醒/备忘）=====
+              // 「全部分类」已删除：它只是「清空标签筛选」，而标签行里
+              // 再点一下选中的标签就能取消，位置又被「全部类型」取代了。
               _filterChip(
                 context,
                 label: _taskController.kindFilterLabel,
@@ -877,6 +877,19 @@ class TaskPage extends StatelessWidget {
                     },
                   ),
                 ),
+                // 选中了标签才出现：一键把标签筛选全清掉
+                // （原来这件事是「全部分类」那枚 chip 干的，它已经删掉了）
+                if (_taskController.selectedTags.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: _filterChip(
+                      context,
+                      label: '清除标签筛选',
+                      icon: CupertinoIcons.xmark_circle,
+                      active: true,
+                      onTap: _taskController.selectedTags.clear,
+                    ),
+                  ),
                 ...tags.map((tag) {
                   final active = _taskController.selectedTags.contains(tag);
                   return Padding(

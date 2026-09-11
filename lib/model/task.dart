@@ -487,6 +487,27 @@ class Task {
     return isEvent ? '结束时间' : '截止时间';
   }
 
+  /// 是否该「结束后自动归档」到「我已处理」。
+  ///
+  /// 只针对**不重复**的活动：重复日程会由 calendar/task_controller 的滚动逻辑
+  /// 推进到下一期（并留一份《过去日程》），不需要归档；
+  /// 截止型过期仍然留在「待我处理」（只是标红），提醒型过期也不归档。
+  bool get needsAutoArchive =>
+      isEvent &&
+      type != TaskType.fixedlegacy &&
+      repeatType == TaskRepeatType.norepeat &&
+      status != TaskStatus.completed &&
+      status != TaskStatus.deleted &&
+      status != TaskStatus.outdated &&
+      endTime.isBefore(DateTime.now());
+
+  /// 活动已经结束、但还有没勾完的子待办 —— 详情页会红字提示一句。
+  bool get hasUnfinishedSubtasks =>
+      isEvent &&
+      subtasks.isNotEmpty &&
+      subtaskDoneCount < subtasks.length &&
+      endTime.isBefore(DateTime.now());
+
   /// 是否是带时段的任务（显示为「开始于 / 结束于」）。
   bool get hasTimeRange => startTime.isBefore(endTime);
 

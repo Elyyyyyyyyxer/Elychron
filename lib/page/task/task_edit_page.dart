@@ -508,6 +508,12 @@ class _TaskEditPageState extends State<TaskEditPage> {
     setState(() => subtask.applyFromTask(res));
   }
 
+  /// 子待办自己的时间已经过去、又没勾完 —— 标红（行程子待办过期标红）。
+  bool _subtaskOverdue(SubTask subtask) {
+    final end = subtask.endTime;
+    return !subtask.done && end != null && end.isBefore(DateTime.now());
+  }
+
   /// 子待办行下方的概要信息（截止 / 优先级 / 标签 / 附件 / 地点）
   String _subtaskMeta(SubTask subtask) {
     final parts = <String>[];
@@ -1038,6 +1044,25 @@ class _TaskEditPageState extends State<TaskEditPage> {
                     ],
                   ),
                 ),
+                // ===== P1：活动已结束还在「我已处理」里，没做完的子待办红字点出来 =====
+                if (now.hasUnfinishedSubtasks)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 32, bottom: 6),
+                    child: Row(
+                      children: [
+                        const Icon(CupertinoIcons.exclamationmark_circle,
+                            size: 14, color: CupertinoColors.systemRed),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            '活动已结束，还有 ${now.subtasks.length - now.subtaskDoneCount} 个子待办没做完',
+                            style: const TextStyle(
+                                fontSize: 13, color: CupertinoColors.systemRed),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 if (now.subtasks.isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.only(left: 32, bottom: 8),
@@ -1095,7 +1120,9 @@ class _TaskEditPageState extends State<TaskEditPage> {
                                           fontSize: 15,
                                           color: subtask.done
                                               ? labelColor
-                                              : textColor,
+                                              : (_subtaskOverdue(subtask)
+                                                  ? CupertinoColors.systemRed
+                                                  : textColor),
                                           decoration: subtask.done
                                               ? TextDecoration.lineThrough
                                               : null,
@@ -1109,7 +1136,9 @@ class _TaskEditPageState extends State<TaskEditPage> {
                                             _subtaskMeta(subtask),
                                             style: TextStyle(
                                               fontSize: 12,
-                                              color: labelColor,
+                                              color: _subtaskOverdue(subtask)
+                                                  ? CupertinoColors.systemRed
+                                                  : labelColor,
                                             ),
                                           ),
                                         ),

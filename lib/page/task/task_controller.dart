@@ -109,6 +109,14 @@ class TaskController extends GetxController with TaskListFilterMod {
       if (deadline.status != oldStatus || deadline.endTime != oldEndTime) {
         changed = true;
       }
+
+      // ===== P1：活动结束后自动归档到「我已处理」=====
+      // 不重复的活动一旦过了 endTime 就不再挂在「待我处理」里：
+      // 没做完的子待办由详情页/卡片单独标出来（不新增存储字段）。
+      if (deadline.needsAutoArchive) {
+        deadline.status = TaskStatus.completed;
+        changed = true;
+      }
     }
     if (newDeadlineList.isNotEmpty) {
       taskList.addAll(newDeadlineList);
