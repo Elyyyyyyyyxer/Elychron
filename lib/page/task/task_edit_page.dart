@@ -528,18 +528,20 @@ class _TaskEditPageState extends State<TaskEditPage> {
   static String _hm(DateTime time) =>
       '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
 
-  /// 时间列上的文字：`14:20` / `14:30-17:30`，不是今天就带上日期。
-  String _timelineTimeLabel(SubTask sub) {
+  /// 时间列上的文字：日期单独一行（不是今天才显示），下面一行是 `14:30-17:30`。
+  ///
+  /// 分成两行是为了不让 `18:00-18:10` 在窄列里被折断成 `18:00-18:1 / 0`。
+  ({String date, String time}) _timelineLabels(SubTask sub) {
+    final anchor = sub.anchorTime;
+    if (anchor == null) return (date: '', time: '');
     final now_ = DateTime.now();
     final today = DateTime(now_.year, now_.month, now_.day);
-    final anchor = sub.anchorTime;
-    if (anchor == null) return '';
     final day = DateTime(anchor.year, anchor.month, anchor.day);
-    final datePrefix = day == today ? '' : '${anchor.month}-${anchor.day} ';
-    if (sub.isSpan) {
-      return '$datePrefix${_hm(sub.startTime!)}-${_hm(sub.endTime!)}';
-    }
-    return '$datePrefix${_hm(anchor)}';
+    final date = day == today ? '' : '${anchor.month}-${anchor.day}';
+    final time = sub.isSpan
+        ? '${_hm(sub.startTime!)}-${_hm(sub.endTime!)}'
+        : _hm(anchor);
+    return (date: date, time: time);
   }
 
   /// 这一步的提醒说明：`会在 17:40 提醒` / `13:50 已提醒`。
@@ -663,17 +665,28 @@ class _TaskEditPageState extends State<TaskEditPage> {
             children: [
               // 时间列
               SizedBox(
-                width: 68,
+                width: 74,
                 child: Padding(
-                  padding: const EdgeInsets.only(top: 2, right: 6),
-                  child: Text(
-                    _timelineTimeLabel(sub),
-                    textAlign: TextAlign.right,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: ongoing ? FontWeight.w600 : FontWeight.w400,
-                      color: accent,
-                    ),
+                  padding: const EdgeInsets.only(top: 1, right: 6),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      if (_timelineLabels(sub).date.isNotEmpty)
+                        Text(
+                          _timelineLabels(sub).date,
+                          style: TextStyle(fontSize: 10, color: labelColor),
+                        ),
+                      Text(
+                        _timelineLabels(sub).time,
+                        textAlign: TextAlign.right,
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          fontWeight:
+                              ongoing ? FontWeight.w600 : FontWeight.w400,
+                          color: accent,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
