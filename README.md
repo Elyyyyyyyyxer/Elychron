@@ -1,6 +1,6 @@
-# Telechron（Celechron 的非官方修改版）
+# Elychron（Celechron 的非官方修改版）
 
-> **Telechron 是 Celechron 的非官方修改版本（fork），不是官方发布。**
+> **Elychron 是 Celechron 的非官方修改版本（fork），不是官方发布。**
 >
 > - 上游项目：[Celechron/Celechron](https://github.com/Celechron/Celechron)（服务于浙大学生的时间管理器）
 > - 本仓库：[Elyyyyyyyyxer/celechron-mod](https://github.com/Elyyyyyyyyxer/celechron-mod)

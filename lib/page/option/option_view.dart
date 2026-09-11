@@ -78,7 +78,7 @@ class OptionPage extends StatelessWidget {
                         ? Padding(
                             padding: const EdgeInsets.only(left: 16),
                             child: Text(
-                                'Telechron 将不定期自动运行以刷新数据。请开启通知权限，且不要将 Telechron 从后台中移除。',
+                                'Elychron 将不定期自动运行以刷新数据。请开启通知权限，且不要将 Elychron 从后台中移除。',
                                 style: headerFooterTextStyle))
                         : null,
                     // ===== MOD: 改成 <Widget>，好让魔改的行（默认提前量）能混进来 =====
@@ -339,7 +339,7 @@ class OptionPage extends StatelessWidget {
                       child: Text('关于', style: headerFooterTextStyle)),
                   children: <CupertinoListTile>[
                     CupertinoListTile(
-                      title: const Text('关于 Telechron'),
+                      title: const Text('关于 Elychron'),
                       trailing: BackChervonRow(
                         child: Text(_optionController.celechronVersion,
                             style: trailingTextStyle),

@@ -33,7 +33,7 @@ class DiagnosticLogService {
   static const _contextKey = #celechronRefreshDiagnosticContext;
   static const _maxMemoryLines = 2000;
   static const _maxExportFiles = 10;
-  static const _bufferFileName = 'celechron-diagnostic-buffer.log';
+  static const _bufferFileName = 'elychron-diagnostic-buffer.log';
 
   static final DiagnosticLogService instance = DiagnosticLogService._();
 
@@ -185,7 +185,7 @@ class DiagnosticLogService {
     await _fileQueue;
     final directory = await _exportDirectory();
     final now = DateTime.now();
-    final fileName = 'celechron-test-log-${_fileTimestamp(now)}.txt';
+    final fileName = 'elychron-test-log-${_fileTimestamp(now)}.txt';
     final file = File('${directory.path}${Platform.pathSeparator}$fileName');
     final logs = await _readRecentLines();
     final bundle = const DiagnosticReportParser().parse(logs);
@@ -206,7 +206,7 @@ class DiagnosticLogService {
     await SharePlus.instance.share(
       ShareParams(
         files: [XFile(file.path, mimeType: 'text/plain')],
-        text: 'Telechron 测试日志：$fileName',
+        text: 'Elychron 测试日志：$fileName',
       ),
     );
     return fileName;
@@ -222,7 +222,7 @@ class DiagnosticLogService {
     final exportDirectory = await _exportDirectory();
     await for (final entity in exportDirectory.list()) {
       if (entity is File &&
-          entity.path.contains('celechron-test-log-') &&
+          entity.path.contains('elychron-test-log-') &&
           entity.path.endsWith('.txt')) {
         await entity.delete();
       }
@@ -267,7 +267,7 @@ class DiagnosticLogService {
   Future<Directory> _exportDirectory() async {
     final directory = await getApplicationDocumentsDirectory();
     final exportDirectory =
-        Directory('${directory.path}${Platform.pathSeparator}CelechronLogs');
+        Directory('${directory.path}${Platform.pathSeparator}ElychronLogs');
     await exportDirectory.create(recursive: true);
     return exportDirectory;
   }
@@ -286,7 +286,7 @@ class DiagnosticLogService {
         .list()
         .where((entity) =>
             entity is File &&
-            entity.path.contains('celechron-test-log-') &&
+            entity.path.contains('elychron-test-log-') &&
             entity.path.endsWith('.txt'))
         .cast<File>()
         .toList();

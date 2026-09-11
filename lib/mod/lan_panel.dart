@@ -7,7 +7,7 @@ const String lanPanelHtml = r'''<!DOCTYPE html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Telechron · 局域网同步</title>
+<title>Elychron · 局域网同步</title>
 <style>
   :root {
     --bg: #f5f5f7; --card: #ffffff; --line: #e5e5ea;
@@ -89,7 +89,7 @@ const String lanPanelHtml = r'''<!DOCTYPE html>
 </div>
 
 <header>
-  <h1>Telechron</h1>
+  <h1>Elychron</h1>
   <span id="status" class="pill">未连接</span>
   <span style="flex:1"></span>
   <button onclick="refresh()">刷新</button>
@@ -129,7 +129,9 @@ const String lanPanelHtml = r'''<!DOCTYPE html>
 <div id="toast"></div>
 
 <script>
-var token = localStorage.getItem('telechron_token') || '';
+// 旧版这个 key 叫 telechron_token：读得到就顺手迁移，免得用户重新配对一次
+var token = localStorage.getItem('elychron_token') || localStorage.getItem('telechron_token') || '';
+if (token) { localStorage.setItem('elychron_token', token); localStorage.removeItem('telechron_token'); }
 var bundle = null;
 
 function toast(msg) {
@@ -167,7 +169,7 @@ function pair() {
   }).then(function (r) { return r.json(); }).then(function (data) {
     if (!data.ok) { document.getElementById('pairErr').textContent = data.error || '配对失败'; return; }
     token = data.token;
-    localStorage.setItem('telechron_token', token);
+    localStorage.setItem('elychron_token', token);
     document.getElementById('pair').classList.add('hidden');
     refresh();
   }).catch(function (e) { document.getElementById('pairErr').textContent = '' + e; });
@@ -293,7 +295,7 @@ function downloadBundle() {
   var p = function (n) { return (n < 10 ? '0' : '') + n; };
   var d = new Date();
   a.href = url;
-  a.download = 'telechron-' + d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate()) + '-' + p(d.getHours()) + p(d.getMinutes()) + '.json';
+  a.download = 'elychron-' + d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate()) + '-' + p(d.getHours()) + p(d.getMinutes()) + '.json';
   a.click();
   URL.revokeObjectURL(url);
 }

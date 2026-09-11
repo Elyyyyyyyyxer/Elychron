@@ -1028,7 +1028,7 @@ String formatDiagnosticExport({
   final offset = utcOffset ?? now.toLocal().timeZoneOffset;
   final latest = bundle.latestReport;
   final buffer = StringBuffer()
-    ..writeln('Celechron 诊断日志')
+    ..writeln('Elychron 诊断日志')
     ..writeln('本地导出时间：${formatLocalDiagnosticTime(now, utcOffset: offset)}')
     ..writeln('UTC 导出时间：${formatUtcDiagnosticTime(now)}')
     ..writeln('App 版本：$version+$buildNumber')

@@ -11,7 +11,7 @@ enum PeriodTypeDto {
   classes, // 课程
   test, // 考试
   user, // 日程
-  flow, // 用Celechron安排的（一个DDL被分解成若干个flow来完成）
+  flow, // 用Elychron安排的（一个DDL被分解成若干个flow来完成）
 }
 
 class PeriodDto {

@@ -29,7 +29,7 @@ import 'package:celechron/model/semester.dart';
 
 class CalendarToSystemManager {
   static const String celechronCalendarName = 'Celechron课表';
-  static const String calendarDescription = '由Telechron自动同步的浙大课程表';
+  static const String calendarDescription = '由Elychron自动同步的浙大课程表';
 
   final DeviceCalendarPlugin _deviceCalendarPlugin = DeviceCalendarPlugin();
 

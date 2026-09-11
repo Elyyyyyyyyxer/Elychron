@@ -137,7 +137,7 @@ class _CreditsPageState extends State<CreditsPage> {
                       Column(
                         children: [
                           const Text(
-                            'Telechron',
+                            'Elychron',
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: 32,

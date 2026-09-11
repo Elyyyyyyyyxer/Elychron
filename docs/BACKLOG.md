@@ -184,14 +184,27 @@
 - **以后要做**：自己做一套图标（Android mipmap + iOS AppIcon + 关于页 logo）。
 - **触发条件**：正式对外分发前（GitHub Release 可以先不管，上架商店必须换）。
 
-### 14. 名字再确认一次
+### 14. 名字再确认一次 —— **已确定：Elychron**（2026-09-11）
 
-- **现状**：显示名已是 `Telechron`（包名保持 `xyz.nosig.celechron.mod` 不变）。
-- **风险**：Telechron 是 20 世纪美国时钟品牌，在「钟表」类目有历史商标注册记录。
-  App 属于不同类目、实际风险不高，但不是零历史包袱。
-- **以后要做**：如果要上架国内商店，考虑换一个毫无历史包袱的名字
-  （改名成本很低：`AndroidManifest` + `Info.plist` + 关于页 + README）。
-- **触发条件**：准备上架时。
+- **现状**：显示名已统一为 **`Elychron`**（Android `android:label`、iOS
+  `CFBundleDisplayName` / `CFBundleName`、macOS `PRODUCT_NAME`、桌面端窗口标题、
+  关于页、局域网面板、通知与诊断日志文案、README / PRIVACY 全部改过）。
+- **为什么换**：`Telechron` 是 20 世纪美国时钟品牌，在「钟表」类目有历史商标
+  注册记录；`Elychron` 是自己造的词，没有历史包袱。
+- **刻意没改的内部标识**（改了会出真问题，且用户看不到）：
+  - `applicationId xyz.nosig.celechron.mod` —— 改了等于换一个 App，
+    Hive 里的待办/成绩/设置**全部读不到**；
+  - Dart 包名 `celechron`（`package:celechron/...`）—— 改了要动 600+ 处 import，
+    而且以后跟上游合并会全线冲突；
+  - Android `android:scheme="celechron"` 深链、Kotlin MethodChannel 名、
+    Hive box 名、`api.celechron.top` 上游接口 —— 都是**接线用的身份**，不是显示名。
+- **触发条件**：已完成。
+
+### 15. 换掉 `assets/logo.png` 与图标（跟第 13 项合并跟进）
+
+- **现状**：关于页里显示的 `assets/logo.png` 还是上游那张（可能带旧名字）。
+- **以后要做**：自己做一张纯图形 logo（不带文字，或写 Elychron）。
+- **触发条件**：正式对外分发前。
 
 ### 15. 上架国内应用商店
 
