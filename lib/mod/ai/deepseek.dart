@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:celechron/mod/ai/ai_image.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
@@ -234,12 +235,14 @@ class DeepSeekClient {
   Future<Map<String, dynamic>> chatJson({
     required String system,
     required String user,
+    List<AiImagePart> images = const <AiImagePart>[],
     double temperature = 0.2,
     Duration? timeout,
   }) async {
     final text = await chat(
       system: system,
       user: user,
+      images: images,
       temperature: temperature,
       jsonMode: true,
       timeout: timeout,
@@ -255,6 +258,7 @@ class DeepSeekClient {
   Future<String> chat({
     required String system,
     required String user,
+    List<AiImagePart> images = const <AiImagePart>[],
     double temperature = 0.3,
     bool jsonMode = false,
     Duration? timeout,
@@ -274,7 +278,24 @@ class DeepSeekClient {
         'model': _model,
         'messages': [
           {'role': 'system', 'content': system},
-          {'role': 'user', 'content': user},
+          {
+            'role': 'user',
+            // 有图时 content 变成 parts 数组（官方 vision 文档的形状）
+            'content': images.isEmpty
+                ? user
+                : <Map<String, dynamic>>[
+                    {'type': 'text', 'text': user},
+                    for (final image in images)
+                      {
+                        'type': 'image_url',
+                        'image_url': {
+                          'url': image.dataUri,
+                          // 读截图里的小字必须用 high；low 会缩到 512×512 看不清
+                          'detail': 'high',
+                        },
+                      },
+                  ],
+          },
         ],
         'temperature': temperature,
         if (jsonMode) 'response_format': {'type': 'json_object'},

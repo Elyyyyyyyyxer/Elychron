@@ -12,18 +12,27 @@ import 'package:flutter/cupertino.dart';
 Future<AiTaskDraft?> showAiComposeSheet(
   BuildContext context, {
   String initialText = '',
+  List<String> imagePaths = const <String>[],
 }) {
   return showCupertinoModalPopup<AiTaskDraft>(
     context: context,
-    builder: (BuildContext context) =>
-        _AiComposeSheet(initialText: initialText),
+    builder: (BuildContext context) => _AiComposeSheet(
+      initialText: initialText,
+      imagePaths: imagePaths,
+    ),
   );
 }
 
 class _AiComposeSheet extends StatefulWidget {
-  const _AiComposeSheet({required this.initialText});
+  const _AiComposeSheet({
+    required this.initialText,
+    this.imagePaths = const <String>[],
+  });
 
   final String initialText;
+
+  /// 非空表示这次是「识别截图」模式
+  final List<String> imagePaths;
 
   @override
   State<_AiComposeSheet> createState() => _AiComposeSheetState();
@@ -59,7 +68,12 @@ class _AiComposeSheetState extends State<_AiComposeSheet> {
       _draft = null;
     });
     try {
-      final draft = await AiTaskDraft.fromText(_controller.text);
+      final draft = widget.imagePaths.isEmpty
+          ? await AiTaskDraft.fromText(_controller.text)
+          : await AiTaskDraft.fromImages(
+              widget.imagePaths,
+              hint: _controller.text,
+            );
       if (!mounted) return;
       setState(() => _draft = draft);
     } on AiException catch (error) {
@@ -168,7 +182,10 @@ class _AiComposeSheetState extends State<_AiComposeSheet> {
 
     final children = <Widget>[
       Text(
-        '把通知、群消息、邮件内容粘进来，AI 会读出标题、截止时间、地点和要做的小步骤。',
+        widget.imagePaths.isEmpty
+            ? '把通知、群消息、邮件内容粘进来，AI 会读出标题、截止时间、地点和要做的小步骤。'
+            : 'AI 会读出这张图里的文字（通知、群消息、海报、课表截图都可以），整理成待办。'
+                '图片会原样发送给模型，不压缩——截图里的小字才读得准。',
         style: TextStyle(
           fontSize: 13,
           color: CupertinoColors.secondaryLabel.resolveFrom(context),

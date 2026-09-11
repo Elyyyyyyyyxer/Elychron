@@ -1,4 +1,5 @@
 import 'package:celechron/database/database_helper.dart';
+import 'package:celechron/mod/ai/ai_image.dart';
 import 'package:celechron/mod/ai/deepseek.dart';
 import 'package:celechron/mod/ai/model_resolver.dart';
 import 'package:celechron/mod/database_mod.dart';
@@ -55,6 +56,9 @@ class AiTaskDraft {
   // ------------------------------------------------------------ 约束上限
 
   static const int maxInputChars = 4000;
+
+  /// 一次最多识别几张图（多张会显著变贵，也没必要）
+  static const int maxImages = 3;
   static const int maxSummaryChars = 60;
   static const int maxDescriptionChars = 2000;
   static const int maxTagCount = 3;
@@ -94,7 +98,17 @@ class AiTaskDraft {
     );
   }
 
-  static String _buildSystemPrompt(List<String> existingTags) {
+  /// 图片输入时额外加的一段规则（文字输入时不出现，避免把模型绕晕）
+  static const String _imageRules = '''
+这次给你的是图片（可能是教务通知、群消息、海报或课表截图）：
+- 先读出图中文字，再按下面的规则整理成待办
+- 图里看不清、或没写清的字段，一律留空并写进 uncertain，绝不靠猜补齐
+- 图里有多个通知时，只取最主要的那一条
+- 如果整张图跟「要做的事」无关（比如只是风景照、表情包），summary 给空字符串
+''';
+
+  static String _buildSystemPrompt(List<String> existingTags,
+      {bool fromImage = false}) {
     final now = DateTime.now();
     const weekdays = ['一', '二', '三', '四', '五', '六', '日'];
     final weekday = weekdays[now.weekday - 1];
@@ -104,6 +118,7 @@ class AiTaskDraft {
     final todayIso = '${now.year}-${two(now.month)}-${two(now.day)}';
 
     return '''
+${fromImage ? _imageRules : ''}
 你是帮浙大学生把通知、聊天记录、邮件整理成待办的助手。
 
 当前时间：$today。默认时区 +08:00。
@@ -158,6 +173,49 @@ ${existingTags.isEmpty ? '（现在是空的，可以新建标签）' : existing
 - 事件类：给 30（活动前半小时）；全天/半天的大型活动给 60
 - 交付类：原文强调「别忘」「记得」「务必」就给 120；不强调就给 0
 - 不需要提醒一律给 0''';
+  }
+
+  /// 从图片（截图）整理草稿。
+  ///
+  /// 走的是官方 vision 接口（content parts + image_url 的 base64 data URI），
+  /// 图片原样发送、不压缩——截图里的小字能不能读对，取决于分辨率。
+  static Future<AiTaskDraft> fromImages(
+    List<String> imagePaths, {
+    String hint = '',
+  }) async {
+    await AiConfig.load();
+    if (imagePaths.isEmpty) throw AiException('没有可识别的图片');
+
+    final parts = <AiImagePart>[];
+    for (final path in imagePaths.take(maxImages)) {
+      try {
+        parts.add(await AiImage.fromFile(path));
+      } on FormatException catch (error) {
+        throw AiException(error.message);
+      }
+    }
+    if (parts.isEmpty) throw AiException('图片读不出来');
+
+    if (AiConfig.resolvedModel.isEmpty && !AiConfig.isManualModel) {
+      await ModelResolver.resolve();
+    }
+
+    final trimmed = hint.trim();
+    final user = trimmed.isEmpty
+        ? '请读出这张图里的内容，整理成一条待办。'
+        : '请读出这张图里的内容，整理成一条待办。'
+            '图之外还有这段文字可以参考（可能不完整，以图为准）：\n$trimmed';
+
+    final existingTags = _existingTags();
+    final json = await ModelResolver.withModelHealing(
+      () => DeepSeekClient().chatJson(
+        system: _buildSystemPrompt(existingTags, fromImage: true),
+        user: user,
+        images: parts,
+        temperature: 0.1,
+      ),
+    );
+    return _fromJson(json, existingTags: existingTags);
   }
 
   // ---------------------------------------------------- 逐字段校验（重点）

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:celechron/mod/ai/ai_compose_sheet.dart';
+import 'package:celechron/mod/ai/ai_image.dart';
 import 'package:celechron/mod/ai/deepseek.dart';
 import 'package:celechron/model/task.dart';
 import 'package:celechron/page/task/task_alarm_page.dart';
@@ -63,6 +64,39 @@ class HomeModHooks {
     } catch (_) {
       // 平台不支持时静默跳过
     }
+  }
+
+  /// 分享进来的是图片时，问一句要不要交给 AI 识别图中内容
+  Future<bool> _askUseAiForImage(BuildContext context) async {
+    await AiConfig.load();
+    if (!AiConfig.isReady) return false;
+    final ok = await showCupertinoModalPopup<bool>(
+      context: context,
+      builder: (BuildContext context) => CupertinoActionSheet(
+        title: const Text('要用 AI 识别这张图吗？'),
+        message: const Text(
+          '图里的文字会发送给你配置的模型服务商（默认 DeepSeek）。\n'
+          '选「只存附件」就完全不上传，图会作为附件留在待办里。',
+          style: TextStyle(fontSize: 13),
+        ),
+        actions: [
+          CupertinoActionSheetAction(
+            isDefaultAction: true,
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('AI 识别图中内容'),
+          ),
+          CupertinoActionSheetAction(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('只存附件，不上传'),
+          ),
+        ],
+        cancelButton: CupertinoActionSheetAction(
+          onPressed: () => Navigator.of(context).pop(null),
+          child: const Text('取消'),
+        ),
+      ),
+    );
+    return ok == true;
   }
 
   /// 分享进来的是文字时，问一句要不要交给 AI 整理
@@ -134,9 +168,29 @@ class HomeModHooks {
       draft.summary = title;
       draft.attachments = attachments;
 
-      // ===== MOD: 分享进来的文字可以直接交给 AI 整理 =====
-      // 只有纯文字分享才提示（带文件时先保证文件不丢），且 AI 必须已配置好
-      if (title.length >= 12 && attachments.isEmpty) {
+      // ===== MOD: 分享进来的图片可以交给 AI 识别（截图转待办）=====
+      final imagePaths = <String>[];
+      for (final attachment in attachments) {
+        if (AiImage.looksLikeImage(attachment.path)) {
+          imagePaths.add(attachment.path);
+        }
+      }
+
+      if (imagePaths.isNotEmpty && await _askUseAiForImage(context)) {
+        final aiDraft = await showAiComposeSheet(
+          context,
+          imagePaths: imagePaths,
+          initialText: title,
+        );
+        if (aiDraft != null) {
+          aiDraft.applyTo(draft);
+          // 原文别丢：AI 没给描述时就把分享附带的文字放进描述
+          if (draft.description.trim().isEmpty && title.isNotEmpty) {
+            draft.description = title;
+          }
+        }
+      } else if (title.length >= 12 && attachments.isEmpty) {
+        // 纯文字分享：问一句要不要交给 AI 整理
         final useAi = await _askUseAi(context, title);
         if (useAi == true) {
           final aiDraft = await showAiComposeSheet(context, initialText: title);
