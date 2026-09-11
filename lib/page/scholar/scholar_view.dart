@@ -90,54 +90,82 @@ Future<void> showRefreshResultDialog(
   );
 }
 
+/// 全局错误组件（由 main 里的 ErrorWidget.builder 使用）。
+///
+/// ★ 这个类**绝对不能抛错**。它是在「build 已经出错」之后被调用的；一旦它自己
+/// 再抛错，就会变成：
+///
+///   build 出错 → 错误组件构建 → 又出错 → 错误组件构建 → …
+///
+/// 的**无限循环**，把 Dart 主 isolate 烧死 —— 表现是界面彻底冻死 + 系统 ANR，
+/// 而且因为每一轮都只是在做错误上报，日志里几乎看不到有效信息。
+///
+/// 本项目曾真实踩中：原实现有两处必然抛错 ——
+///   ① 字段初始化器 `Get.put(ScholarController())`：控制器已注册时会抛；
+///   ② build 返回 `SliverList`：ErrorWidget 位于 Box 树中，
+///      会抛 `RenderSliver cannot be child of RenderBox`。
+/// 于是「待办页某个 widget 首次构建出错」被放大成整机卡死。
 class ScholarErrorHandler extends StatelessWidget {
   final FlutterErrorDetails errorDetails;
-  final _scholarController = Get.put(ScholarController());
 
-  ScholarErrorHandler({
-    super.key,
-    required this.errorDetails,
-  });
+  const ScholarErrorHandler({super.key, required this.errorDetails});
+
+  /// 重入保护：构造错误组件期间若又出错，立刻退回最简组件，绝不递归。
+  static bool _building = false;
 
   @override
   Widget build(BuildContext context) {
-    return SliverList(
-      delegate: SliverChildListDelegate([
-        CupertinoListSection.insetGrouped(
-          header: Container(
-            padding: const EdgeInsets.only(left: 16, right: 16),
-            child: Text(
-              '获取数据时遇到问题。请检查网络连接情况，并尝试重新获取数据。\n注意：你需要完成所有的教学评价才能获取成绩信息。',
-              style: TextStyle(
-                  color: CupertinoDynamicColor.resolve(
-                      CupertinoColors.secondaryLabel, context),
-                  fontSize: 14),
-            ),
+    if (_building) return const SizedBox.shrink();
+    _building = true;
+    try {
+      return _buildContent(context);
+    } catch (_) {
+      // 错误组件自身出错：静默降级，绝不二次抛错
+      return const SizedBox.shrink();
+    } finally {
+      _building = false;
+    }
+  }
+
+  Widget _buildContent(BuildContext context) {
+    // 必须是**盒子组件**（不能返回 Sliver）
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: CupertinoListSection.insetGrouped(
+        header: Container(
+          padding: const EdgeInsets.only(left: 16, right: 16),
+          child: Text(
+            '获取数据时遇到问题。请检查网络连接情况，并尝试重新获取数据。\n注意：你需要完成所有的教学评价才能获取成绩信息。',
+            style: TextStyle(
+                color: CupertinoDynamicColor.resolve(
+                    CupertinoColors.secondaryLabel, context),
+                fontSize: 14),
           ),
-          children: [
-            CupertinoButton(
-              onPressed: () async {
-                final results = await _scholarController.fetchData();
+        ),
+        children: [
+          CupertinoButton(
+            onPressed: () async {
+              // 惰性获取控制器，且任何失败都不允许抛出去
+              try {
+                if (!Get.isRegistered<ScholarController>()) return;
+                final controller = Get.find<ScholarController>();
+                final results = await controller.fetchData();
                 if (context.mounted &&
                     results.any((result) => result != null)) {
                   await showRefreshResultDialog(context, results);
                 }
-              },
-              child: const Text('重新获取数据'),
-            ),
-          ],
-        ),
-      ]),
+              } catch (_) {}
+            },
+            child: const Text('重新获取数据'),
+          ),
+        ],
+      ),
     );
   }
 }
 
 class ScholarPage extends StatelessWidget {
-  ScholarPage({super.key}) {
-    ErrorWidget.builder = (FlutterErrorDetails errorDetails) {
-      return ScholarErrorHandler(errorDetails: errorDetails);
-    };
-  }
+  ScholarPage({super.key});
 
   final _scholarController = Get.put(ScholarController());
   final ValueNotifier<bool> _isRefreshing = ValueNotifier(false);

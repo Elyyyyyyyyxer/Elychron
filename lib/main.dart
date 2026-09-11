@@ -7,6 +7,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:celechron/page/scholar/scholar_view.dart';
 import 'package:get/get.dart';
 import 'package:celechron/model/task.dart';
 import 'package:celechron/utils/utils.dart';
@@ -25,6 +26,10 @@ import 'package:celechron/database/database_helper.dart';
 import 'package:celechron/utils/global.dart';
 
 void main() async {
+  // 全局错误组件：只设一次，且必须早于任何 widget 构建。
+  // 绝不放在 widget 构造函数里 —— 那样每次重建都会改全局状态，且已证明会引发卡死。
+  ErrorWidget.builder = (FlutterErrorDetails details) =>
+      ScholarErrorHandler(errorDetails: details);
   // 尽可能早地声明前台活跃，Workmanager isolate 会据此安全让行。
   await RefreshCoordinator.setForegroundActive(true);
 
