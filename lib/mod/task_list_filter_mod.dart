@@ -66,12 +66,18 @@ mixin TaskListFilterMod on GetxController {
   final filterRangeStart = Rxn<DateTime>();
   final filterRangeEnd = Rxn<DateTime>();
 
+  /// ===== P1：按四种时间语义筛选（多选，空 = 全部类型）=====
+  ///
+  /// 「全部分类」那一排原本只能筛标签，这里补上类型这一维：活动/截止/提醒/备忘。
+  final filterKinds = <TaskType>{}.obs;
+
   bool get hasActiveFilters =>
       filterCompleted.value != null ||
       filterPriorities.isNotEmpty ||
       filterDue.value != null ||
       filterRangeStart.value != null ||
-      filterRangeEnd.value != null;
+      filterRangeEnd.value != null ||
+      filterKinds.isNotEmpty;
 
   static bool _isDone(Task task) => task.status == TaskStatus.completed;
 
@@ -118,6 +124,15 @@ mixin TaskListFilterMod on GetxController {
     final completed = filterCompleted.value;
     if (completed != null) {
       list = list.where((t) => _isDone(t) == completed).toList();
+    }
+
+    // 四种时间语义：固定值 fixedlegacy 按「活动」算，别让它漏出筛子
+    if (filterKinds.isNotEmpty) {
+      list = list.where((t) {
+        final kind =
+            t.type == TaskType.fixedlegacy ? TaskType.fixed : t.type;
+        return filterKinds.contains(kind);
+      }).toList();
     }
 
     if (filterPriorities.isNotEmpty) {
@@ -205,5 +220,13 @@ mixin TaskListFilterMod on GetxController {
     filterDue.value = null;
     filterRangeStart.value = null;
     filterRangeEnd.value = null;
+    filterKinds.clear();
+  }
+
+  /// 当前选中的时间类型（界面上那一排 chip 的文案用）。
+  String get kindFilterLabel {
+    if (filterKinds.isEmpty) return '全部类型';
+    final names = filterKinds.map((k) => taskKindName[k] ?? '').toList()..sort();
+    return names.join('·');
   }
 }

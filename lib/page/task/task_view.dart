@@ -818,6 +818,15 @@ class TaskPage extends StatelessWidget {
                 onTap: _taskController.selectedTags.clear,
               ),
               const SizedBox(width: 8),
+              // ===== P1：按四种时间语义筛选（活动/截止/提醒/备忘）=====
+              _filterChip(
+                context,
+                label: _taskController.kindFilterLabel,
+                icon: CupertinoIcons.square_grid_2x2,
+                active: _taskController.filterKinds.isNotEmpty,
+                onTap: () => showKindFilterSheet(context, _taskController),
+              ),
+              const SizedBox(width: 8),
               _filterChip(
                 context,
                 label: taskSortLabel(_taskController.sortKey.value),

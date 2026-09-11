@@ -888,12 +888,12 @@ DerivedData/
 !**/ios/**/default.pbxuser
 !**/ios/**/default.perspectivev3
 !/packages/flutter_tools/test/data/dart_dependencies_test/**/.packages
-# ===== MOD: 调试产物 =====
+# ===== MOD: ?????? =====
 /s_*.png
 /ui.xml
 /credits.txt
 
-# 本地密钥（绝不入库）
+# ???????????????
 .local-secrets.md
 *.local-secrets.md
-COMMIT_MSG_TMP.txt
+COMMIT_MSG_*.txt

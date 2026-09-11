@@ -25,6 +25,180 @@ const Map<String, String> taskDueFilters = {
   'none': '未安排',
 };
 
+/// ===== P1：四种时间语义的筛选顺序 =====
+///
+/// 活动 / 截止 / 提醒 / 备忘 —— 就是界面上那一排的顺序，
+/// `fixedlegacy`（内部《过去日程》）不出现，筛选时按「活动」归类。
+const List<TaskType> taskKindFilterKinds = [
+  TaskType.fixed,
+  TaskType.deadline,
+  TaskType.remind,
+  TaskType.memo,
+];
+
+/// 点「类型」那一枚 chip 弹出来的小面板：只看某几种时间语义。
+Future<void> showKindFilterSheet(
+  BuildContext context,
+  TaskController controller,
+) {
+  return showCupertinoModalPopup<void>(
+    context: context,
+    builder: (BuildContext context) => _KindFilterSheet(controller: controller),
+  );
+}
+
+class _KindFilterSheet extends StatefulWidget {
+  final TaskController controller;
+
+  const _KindFilterSheet({required this.controller});
+
+  @override
+  State<_KindFilterSheet> createState() => _KindFilterSheetState();
+}
+
+class _KindFilterSheetState extends State<_KindFilterSheet> {
+  late Set<TaskType> _kinds;
+
+  @override
+  void initState() {
+    super.initState();
+    _kinds = {...widget.controller.filterKinds};
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final labelColor =
+        CupertinoDynamicColor.resolve(CupertinoColors.secondaryLabel, context);
+    final textColor = CupertinoTheme.of(context).textTheme.textStyle.color;
+
+    return _sheetShell(
+      context,
+      children: [
+        const SizedBox(height: 10),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 4, 20, 2),
+          child: Row(
+            children: [
+              Text(
+                '按时间类型筛选',
+                style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w600,
+                  color: textColor,
+                ),
+              ),
+            ],
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 6),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              '不选任何一项就是全部类型',
+              style: TextStyle(fontSize: 12, color: labelColor),
+            ),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Column(
+            children: taskKindFilterKinds.map((kind) {
+              final active = _kinds.contains(kind);
+              return GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => setState(() {
+                  if (active) {
+                    _kinds.remove(kind);
+                  } else {
+                    _kinds.add(kind);
+                  }
+                }),
+                child: Container(
+                  margin: const EdgeInsets.symmetric(vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 14, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: active
+                        ? CupertinoDynamicColor.resolve(
+                            CupertinoColors.tertiarySystemFill, context)
+                        : CupertinoColors.transparent,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              taskKindName[kind]!,
+                              style: TextStyle(
+                                fontSize: 17,
+                                fontWeight:
+                                    active ? FontWeight.w600 : FontWeight.w400,
+                                color: textColor,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              taskKindHint[kind]!,
+                              style: TextStyle(fontSize: 12, color: labelColor),
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (active)
+                        const Icon(CupertinoIcons.checkmark_alt,
+                            size: 20, color: CupertinoColors.systemBlue),
+                    ],
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+          child: Row(
+            children: [
+              Expanded(
+                child: CupertinoButton(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  color: CupertinoDynamicColor.resolve(
+                      CupertinoColors.systemFill, context),
+                  borderRadius: BorderRadius.circular(22),
+                  onPressed: () {
+                    setState(() => _kinds.clear());
+                    widget.controller.filterKinds.clear();
+                  },
+                  child: const Text('重置'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: CupertinoButton(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  color: CupertinoColors.systemBlue,
+                  borderRadius: BorderRadius.circular(22),
+                  onPressed: () {
+                    widget.controller.filterKinds
+                      ..clear()
+                      ..addAll(_kinds);
+                    Navigator.of(context).pop();
+                  },
+                  child: const Text('确定',
+                      style: TextStyle(color: CupertinoColors.white)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 Widget _sheetShell(BuildContext context, {required List<Widget> children}) {
   return Container(
     decoration: BoxDecoration(
@@ -178,6 +352,7 @@ class _FilterSheet extends StatefulWidget {
 class _FilterSheetState extends State<_FilterSheet> {
   late bool? _completed;
   late Set<TaskPriority> _priorities;
+  late Set<TaskType> _kinds;
   late String? _due;
   late DateTime? _start;
   late DateTime? _end;
@@ -187,6 +362,7 @@ class _FilterSheetState extends State<_FilterSheet> {
     super.initState();
     _completed = widget.controller.filterCompleted.value;
     _priorities = {...widget.controller.filterPriorities};
+    _kinds = {...widget.controller.filterKinds};
     _due = widget.controller.filterDue.value;
     _start = widget.controller.filterRangeStart.value;
     _end = widget.controller.filterRangeEnd.value;
@@ -320,6 +496,25 @@ class _FilterSheetState extends State<_FilterSheet> {
                               _completed = _completed == true ? null : true)),
                     ],
                   ),
+                  // ===== P1：按四种时间语义筛选 =====
+                  _sectionTitle(context, '时间类型'),
+                  Wrap(
+                    children: taskKindFilterKinds.map((k) {
+                      final active = _kinds.contains(k);
+                      return _chip(
+                        context,
+                        label: taskKindName[k]!,
+                        active: active,
+                        onTap: () => setState(() {
+                          if (active) {
+                            _kinds.remove(k);
+                          } else {
+                            _kinds.add(k);
+                          }
+                        }),
+                      );
+                    }).toList(),
+                  ),
                   _sectionTitle(context, '优先级'),
                   Wrap(
                     children: TaskPriority.values.reversed.map((p) {
@@ -448,6 +643,7 @@ class _FilterSheetState extends State<_FilterSheet> {
                         setState(() {
                           _completed = null;
                           _priorities = {};
+                          _kinds = {};
                           _due = null;
                           _start = null;
                           _end = null;
@@ -468,6 +664,9 @@ class _FilterSheetState extends State<_FilterSheet> {
                         widget.controller.filterPriorities
                           ..clear()
                           ..addAll(_priorities);
+                        widget.controller.filterKinds
+                          ..clear()
+                          ..addAll(_kinds);
                         widget.controller.filterDue.value = _due;
                         widget.controller.filterRangeStart.value = _start;
                         widget.controller.filterRangeEnd.value = _end;
