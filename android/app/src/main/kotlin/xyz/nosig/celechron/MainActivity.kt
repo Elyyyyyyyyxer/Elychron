@@ -1,5 +1,8 @@
 package xyz.nosig.celechron
 
+import android.app.NotificationManager
+import android.os.Build
+import android.os.PowerManager
 import android.content.Intent
 import android.media.AudioAttributes
 import android.media.MediaPlayer
@@ -83,12 +86,82 @@ class MainActivity: FlutterActivity() {
                         stopAlarmSound()
                         result.success(null)
                     }
+                    // 闹钟可靠性：Android 14+ 全屏通知要单独授权，否则锁屏时不弹全屏
+                    "canUseFullScreenIntent" -> result.success(canUseFullScreenIntent())
+                    "openFullScreenIntentSettings" -> {
+                        openFullScreenIntentSettings()
+                        result.success(null)
+                    }
+                    "isIgnoringBatteryOptimizations" -> result.success(isIgnoringBatteryOptimizations())
+                    "openBatterySettings" -> {
+                        openBatterySettings()
+                        result.success(null)
+                    }
                     else -> result.notImplemented()
                 }
             }
     }
 
     private var alarmPlayer: MediaPlayer? = null
+
+    /** Android 14+ 需要单独授予「全屏通知」权限，否则闹钟只弹通知不弹全屏 */
+    private fun canUseFullScreenIntent(): Boolean {
+        return if (Build.VERSION.SDK_INT >= 34) {
+            val manager = getSystemService(NotificationManager::class.java)
+            manager?.canUseFullScreenIntent() ?: false
+        } else {
+            true
+        }
+    }
+
+    private fun openFullScreenIntentSettings() {
+        try {
+            if (Build.VERSION.SDK_INT >= 34) {
+                startActivity(
+                    Intent("android.settings.MANAGE_APP_USE_FULL_SCREEN_INTENT")
+                        .setData(Uri.parse("package:" + packageName))
+                )
+            } else {
+                openAppNotificationSettings()
+            }
+        } catch (e: Exception) {
+            openAppNotificationSettings()
+        }
+    }
+
+    private fun openAppNotificationSettings() {
+        try {
+            startActivity(
+                Intent("android.settings.APP_NOTIFICATION_SETTINGS")
+                    .putExtra("android.provider.extra.APP_PACKAGE", packageName)
+            )
+        } catch (e: Exception) {
+            android.util.Log.e("CelechronAlarm", "open settings failed", e)
+        }
+    }
+
+    /** 国产 ROM（华为/小米等）常把后台闹钟掐掉，电池优化白名单能显著提升可靠性 */
+    private fun isIgnoringBatteryOptimizations(): Boolean {
+        return try {
+            val manager = getSystemService(PowerManager::class.java)
+            manager?.isIgnoringBatteryOptimizations(packageName) ?: false
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    private fun openBatterySettings() {
+        try {
+            startActivity(Intent("android.settings.IGNORE_BATTERY_OPTIMIZATION_SETTINGS"))
+        } catch (e: Exception) {
+            try {
+                startActivity(Intent("android.settings.APPLICATION_DETAILS_SETTINGS")
+                    .setData(Uri.parse("package:" + packageName)))
+            } catch (e2: Exception) {
+                android.util.Log.e("CelechronAlarm", "open battery settings failed", e2)
+            }
+        }
+    }
 
     private fun startAlarmSound() {
         if (alarmPlayer != null) return

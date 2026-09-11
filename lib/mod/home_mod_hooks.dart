@@ -33,6 +33,11 @@ class HomeModHooks {
   void start() {
     TaskAlarmCenter.current.addListener(_onAlarm);
     _listenShares();
+    // 冷启动场景：闹钟可能在监听挂上之前就已被触发（全屏通知拉起 App）。
+    // ValueNotifier 不会补发旧值，所以这里主动看一眼当前值。
+    if (TaskAlarmCenter.current.value != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _onAlarm());
+    }
   }
 
   void dispose() {

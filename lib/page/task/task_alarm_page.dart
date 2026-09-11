@@ -6,7 +6,9 @@ import 'package:celechron/database/database_helper.dart';
 import 'package:celechron/mod/database_mod.dart';
 import 'package:celechron/model/task.dart';
 import 'package:celechron/utils/alarm_player.dart';
+import 'package:celechron/page/task/task_controller.dart';
 import 'package:celechron/utils/task_alarm_center.dart';
+import 'package:get/get.dart';
 import 'package:celechron/utils/task_reminder.dart';
 import 'package:celechron/utils/time_helper.dart';
 import 'package:flutter/cupertino.dart';
@@ -68,6 +70,10 @@ class _TaskAlarmPageState extends State<TaskAlarmPage> {
     if (_handled) return;
     _handled = true;
     await TaskReminder.snooze(widget.task, const Duration(minutes: 10));
+    // 提醒时间已经往后挪，立刻落盘 —— 这样即使马上被系统杀掉也不会再弹旧的
+    if (Get.isRegistered<TaskController>()) {
+      await Get.find<TaskController>().saveDeadlineListToDb();
+    }
     _close();
   }
 

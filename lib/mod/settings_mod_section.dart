@@ -1,3 +1,4 @@
+import 'package:celechron/design/alarm_reliability.dart';
 import 'package:celechron/design/alarm_theme_picker.dart';
 import 'package:celechron/mod/ai/ai_settings_page.dart';
 import 'package:celechron/mod/ai/deepseek.dart';
@@ -38,6 +39,12 @@ List<CupertinoListTile> modReminderTiles(
                 }
               },
             )),
+      ),
+      CupertinoListTile(
+        title: const Text('闹钟可靠性'),
+        subtitle: const Text('全屏闹钟授权、锁屏弹出、电池白名单，一项项查'),
+        trailing: const BackChervonRow(),
+        onTap: () => showAlarmReliabilityDialog(context),
       ),
       CupertinoListTile(
         title: const Text('闹钟配色'),

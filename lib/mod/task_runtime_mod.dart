@@ -34,6 +34,10 @@ class TaskAlarmCoordinator {
           task.status != TaskStatus.suspended) {
         continue;
       }
+      // 刚点过「延迟提醒」：延后时间之前不再弹（否则延迟完立刻又响）
+      final snoozedUntil = TaskReminder.snoozedUntil(task.uid);
+      if (snoozedUntil != null && snoozedUntil.isAfter(now)) continue;
+
       final fireAt = task.reminderTargetTime;
       if (fireAt.isAfter(now)) continue;
       if (now.difference(fireAt).inMinutes >= 1) continue;

@@ -96,6 +96,22 @@ class TaskReminder {
       final android = _plugin.resolvePlatformSpecificImplementation<
           AndroidFlutterLocalNotificationsPlugin>();
       await android?.requestNotificationsPermission();
+
+      // 冷启动路径：App 是被闹钟通知（全屏 Intent）拉起来的。
+      // 这种情况 **不会** 走 onDidReceiveNotificationResponse，必须读这个接口，
+      // 否则用户必须先手动打开 App 才会响 —— 这正是「不像系统闹钟」的原因。
+      try {
+        final launch = await _plugin.getNotificationAppLaunchDetails();
+        final response = launch?.notificationResponse;
+        if ((launch?.didNotificationLaunchApp ?? false) && response != null) {
+          // 等首页把闹钟监听挂上（首页 initState 在启动后一小会儿才跑）
+          Future<void>.delayed(const Duration(milliseconds: 900), () {
+            _onResponse(response);
+          });
+        }
+      } catch (_) {
+        // 拿不到就算了，不影响正常提醒
+      }
     } catch (_) {
       // 通知不可用时静默降级，不影响任务本身。
     }
@@ -238,10 +254,21 @@ class TaskReminder {
   }
 
   /// 延迟提醒：推迟 [delay] 后再响一次。
+  /// 是否处于「已延迟」状态（前台每秒检查要用它，否则刚延迟完又会立刻弹）
+  static DateTime? snoozedUntil(String uid) => _snoozed[uid];
+
   static Future<void> snooze(Task task, Duration delay) async {
     await _ensureInit();
-    _snoozed[task.uid] = DateTime.now().add(delay);
+    final until = DateTime.now().add(delay);
+    _snoozed[task.uid] = until;
     _synced.remove(task.uid);
+    // 关键：把待办**真实的提醒时间**也往后挪。
+    // 原来只改了通知调度，Task.reminderTargetTime 还停在过去，
+    // 于是闹钟页一关（前台去重集合被清空）下一秒就立刻再弹一次。
+    // 改字段之后：前台检查、通知调度、下次启动三处看到的是同一个未来时间。
+    task.reminderEnabled = true;
+    task.reminderTime = until;
+    task.updatedAt = DateTime.now();
     try {
       await _plugin.cancel(_idOf(task.uid));
     } catch (_) {}
