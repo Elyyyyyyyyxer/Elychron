@@ -28,8 +28,8 @@ class TaskAlarmCoordinator {
 
     final now = DateTime.now();
     for (final task in taskList) {
-      if (!task.reminderEnabled) continue;
-      if (task.type != TaskType.deadline) continue;
+      // ===== P1：活动 / 截止 / 提醒 都要能在闹钟模式下弹出来（备忘不调度）=====
+      if (!task.schedulesReminder) continue;
       if (task.status != TaskStatus.running &&
           task.status != TaskStatus.suspended) {
         continue;

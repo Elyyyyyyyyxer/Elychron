@@ -154,11 +154,11 @@ class TaskController extends GetxController with TaskListFilterMod {
   }
 
   void removeCompletedDeadline(context) {
+    // ===== P1：待办 / 提醒 / 备忘 完成后都能一键清掉（活动日程不算）=====
     TaskTombstoneStore.remove(
         taskList,
         taskList.where((element) =>
-            element.type == TaskType.deadline &&
-            element.status == TaskStatus.completed));
+            !element.isEvent && element.status == TaskStatus.completed));
     saveDeadlineListToDb();
   }
 

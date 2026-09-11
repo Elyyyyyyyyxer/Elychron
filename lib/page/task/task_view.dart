@@ -31,7 +31,7 @@ class TaskPage extends StatelessWidget {
       builder: (BuildContext context) {
         return CupertinoAlertDialog(
           title: Text(
-            '${deadline.summary}：${deadline.type == TaskType.deadline ? deadlineStatusName[deadline.status]! : deadline.type == TaskType.fixed ? deadlineTypeName[TaskType.fixed] : ''}',
+            '${deadline.summary}：${deadline.type == TaskType.deadline ? deadlineStatusName[deadline.status]! : (taskKindName[deadline.type] ?? '')}',
             style: const TextStyle(fontWeight: FontWeight.bold),
           ),
           content: SizedBox(
@@ -41,7 +41,8 @@ class TaskPage extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  if (deadline.type == TaskType.fixed) ...[
+                  // ===== P1：时间行随类型变化 =====
+                  if (deadline.isEvent) ...[
                     Text(
                       '开始于 ${toStringHumanReadable(deadline.startTime)}',
                     ),
@@ -49,10 +50,18 @@ class TaskPage extends StatelessWidget {
                       '结束于 ${toStringHumanReadable(deadline.endTime)}',
                     ),
                   ],
+                  if (deadline.isRemind) ...[
+                    Text(
+                      '提醒于 ${toStringHumanReadable(deadline.reminderTargetTime)}',
+                    ),
+                  ],
                   if (deadline.type == TaskType.deadline) ...[
                     Text(
-                      '截止于 ${toStringHumanReadable(deadline.endTime)}${deadline.endTime.isBefore(DateTime.now()) ? ' - 已过期' : ''}',
+                      '截止于 ${toStringHumanReadable(deadline.endTime)}${deadline.isOverdue ? ' - 已过期' : ''}',
                     ),
+                  ],
+                  if (deadline.isMemo) ...[
+                    const Text('备忘：没有时间，也不会过期'),
                   ],
                   if (deadline.location.isNotEmpty) ...[
                     Text(
@@ -73,7 +82,8 @@ class TaskPage extends StatelessWidget {
               onPressed: () => Navigator.of(context).pop(),
               child: const Text('返回'),
             ),
-            if (deadline.type == TaskType.deadline)
+            // 待办 / 提醒 / 备忘 都能标记完成；活动（日程）不按"完成"算
+            if (!deadline.isEvent)
               CupertinoDialogAction(
                 onPressed: () async {
                   if (deadline.status != TaskStatus.completed) {
@@ -107,8 +117,8 @@ class TaskPage extends StatelessWidget {
                 child:
                     Text(deadline.status == TaskStatus.running ? '暂停' : '继续'),
               ),
-            if (deadline.type == TaskType.deadline ||
-                deadline.type == TaskType.fixed)
+            // 四类都进得了详情页（只有内部的《过去日程》不进）
+            if (deadline.type != TaskType.fixedlegacy)
               CupertinoDialogAction(
                 onPressed: () async {
                   Navigator.of(context).pop();
@@ -180,8 +190,33 @@ class TaskPage extends StatelessWidget {
     }
     _taskController.updateDeadlineList();
     _taskController.updateDeadlineListTime();
-    final now = DateTime.now();
     _taskController.taskList.refresh();
+  }
+
+  /// 卡片上的一行时间信息（图标 + 文案），四类语义共用同一套样式。
+  Widget _cardTimeRow(BuildContext context, IconData icon, String text) {
+    final baseColor =
+        CupertinoTheme.of(context).textTheme.textStyle.color ?? CupertinoColors.label;
+    return Row(
+      children: [
+        Icon(
+          icon,
+          size: 14,
+          color: baseColor.withValues(alpha: 0.5),
+        ),
+        Expanded(
+          child: Text(
+            text,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.normal,
+              color: baseColor.withValues(alpha: 0.75),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ),
+      ],
+    );
   }
 
   Widget createCard(context, Task deadline, Color color, String? title) {
@@ -192,7 +227,7 @@ class TaskPage extends StatelessWidget {
             : SubtitleRow(subtitle: title),
         Dismissible(
           key: Key(deadline.uid),
-          direction: deadline.type == TaskType.deadline
+          direction: !deadline.isEvent
               ? DismissDirection.horizontal
               : DismissDirection.endToStart,
           movementDuration: const Duration(milliseconds: 300),
@@ -202,7 +237,7 @@ class TaskPage extends StatelessWidget {
             DismissDirection.endToStart: 0.25,
           },
           crossAxisEndOffset: 0.0,
-          background: deadline.type == TaskType.deadline
+          background: !deadline.isEvent
               ? Container(
                   alignment: Alignment.centerLeft,
                   padding: const EdgeInsets.only(left: 16),
@@ -253,7 +288,8 @@ class TaskPage extends StatelessWidget {
           confirmDismiss: (direction) async {
             if (direction == DismissDirection.startToEnd) {
               // 向右滑（从左到右）：完成 - 不真正 dismiss，只更新状态
-              if (deadline.type == TaskType.deadline) {
+              // 待办 / 提醒 / 备忘 都能滑；活动（日程）不算"完成"
+              if (!deadline.isEvent) {
                 if (deadline.status == TaskStatus.completed) {
                   // 如果已完成，恢复为未完成状态
                   deadline.status = TaskStatus.running;
@@ -348,17 +384,29 @@ class TaskPage extends StatelessWidget {
                                     overflow: TextOverflow.ellipsis,
                                   ))),
                       const Spacer(),
-                      // 固定日程的状态随时间翻转；taskList 不再每秒通知，改由 timeNow 驱动
+                      // ===== P1：状态文案随类型变化 =====
+                      // 截止看状态；活动看时间轴；提醒型只是"响过没有"；备忘不显示
                       Obx(() {
                         final now = _flowController.timeNow.value;
+                        final String label;
+                        if (deadline.type == TaskType.deadline) {
+                          label = deadlineStatusName[deadline.status]!;
+                        } else if (deadline.isRemind) {
+                          label =
+                              now.isBefore(deadline.endTime) ? '待提醒' : '已提醒';
+                        } else if (deadline.isMemo) {
+                          label = deadline.status == TaskStatus.completed
+                              ? '完成'
+                              : '备忘';
+                        } else {
+                          label = now.isBefore(deadline.startTime)
+                              ? '未开始'
+                              : (!now.isBefore(deadline.endTime)
+                                  ? '已结束'
+                                  : '进行中');
+                        }
                         return Text(
-                            deadline.type == TaskType.deadline
-                                ? deadlineStatusName[deadline.status]!
-                                : (now.isBefore(deadline.startTime)
-                                    ? '未开始'
-                                    : (!now.isBefore(deadline.endTime)
-                                        ? '已结束'
-                                        : '进行中')),
+                            label,
                             style: CupertinoTheme.of(context)
                                 .textTheme
                                 .textStyle
@@ -371,65 +419,35 @@ class TaskPage extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 8.0),
-                  Row(
-                    children: [
-                      Icon(
-                        CupertinoIcons.time_solid,
-                        size: 14,
-                        color: CupertinoTheme.of(context)
-                            .textTheme
-                            .textStyle
-                            .color!
-                            .withValues(alpha: 0.5),
-                      ),
-                      Expanded(
-                        child: Text(
-                          deadline.type == TaskType.fixed
-                              ? ' 开始于：${toStringHumanReadable(deadline.startTime)}'
-                              : ' 截止于：${toStringHumanReadable(deadline.endTime)}${deadline.endTime.isBefore(DateTime.now()) ? ' - 已过期' : ''}',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.normal,
-                            color: CupertinoTheme.of(context)
-                                .textTheme
-                                .textStyle
-                                .color!
-                                .withValues(alpha: 0.75),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  if (deadline.type == TaskType.fixed) ...[
-                    Row(
-                      children: [
-                        Icon(
-                          CupertinoIcons.time,
-                          size: 14,
-                          color: CupertinoTheme.of(context)
-                              .textTheme
-                              .textStyle
-                              .color!
-                              .withValues(alpha: 0.5),
-                        ),
-                        Expanded(
-                          child: Text(
-                            ' 结束于：${toStringHumanReadable(deadline.endTime)}',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.normal,
-                              color: CupertinoTheme.of(context)
-                                  .textTheme
-                                  .textStyle
-                                  .color!
-                                  .withValues(alpha: 0.75),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ),
-                      ],
+                  // ===== P1：时间行随类型变化 =====
+                  // 活动两行（开始/结束）、截止一行、提醒一行、备忘一行都不显示
+                  if (deadline.isRemind) ...[
+                    _cardTimeRow(
+                      context,
+                      CupertinoIcons.bell,
+                      ' 提醒于：${toStringHumanReadable(deadline.reminderTargetTime)}',
                     ),
+                  ] else if (!deadline.isMemo) ...[
+                    _cardTimeRow(
+                      context,
+                      CupertinoIcons.time_solid,
+                      deadline.isEvent
+                          ? ' 开始于：${toStringHumanReadable(deadline.startTime)}'
+                          : ' 截止于：${toStringHumanReadable(deadline.endTime)}${deadline.isOverdue ? ' - 已过期' : ''}',
+                    ),
+                    if (deadline.isEvent)
+                      _cardTimeRow(
+                        context,
+                        CupertinoIcons.time,
+                        ' 结束于：${toStringHumanReadable(deadline.endTime)}',
+                      ),
+                    // 设过提醒就把提醒时刻也写出来（活动锚开始、截止锚截止）
+                    if (deadline.schedulesReminder)
+                      _cardTimeRow(
+                        context,
+                        CupertinoIcons.bell_fill,
+                        ' 提醒：${toStringHumanReadable(deadline.reminderTargetTime)}',
+                      ),
                   ],
                   if (deadline.location.isNotEmpty) ...[
                     Row(children: [
