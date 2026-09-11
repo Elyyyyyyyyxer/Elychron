@@ -151,6 +151,8 @@ class _CelechronAppState extends State<CelechronApp>
                 : brightnessMode.value == BrightnessMode.dark
                     ? Brightness.dark
                     : Brightness.light,
+            primaryColor: const Color(0xFFFF699A), // 爱莉希雅粉
+            primaryContrastingColor: CupertinoColors.white,
             scaffoldBackgroundColor: CupertinoColors.systemBackground,
             barBackgroundColor: CupertinoColors.systemBackground,
           ),
