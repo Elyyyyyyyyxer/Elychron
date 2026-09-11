@@ -1,4 +1,6 @@
 import 'package:celechron/model/task.dart';
+// ===== MOD: 循环保护（防卡死）=====
+import 'package:celechron/mod/loop_guard.dart';
 import 'package:celechron/model/period.dart';
 
 class TimeAssignSet {
@@ -47,7 +49,12 @@ TimeAssignSet findSolution(Duration workTime, Duration targetRestTime,
     if (targetRestTime <= Duration.zero) cur.isBreakable = false;
     bool isStarting = cur.isBreakable;
 
+    final guard = LoopGuard('排程 findSolution');
     while (cur.timeSpent < cur.timeNeeded) {
+      if (guard.tick()) {
+        ans.isValid = false;
+        return ans;
+      }
       if (ableList.isEmpty) {
         ans.isValid = false;
         return ans;
@@ -67,6 +74,18 @@ TimeAssignSet findSolution(Duration workTime, Duration targetRestTime,
       Duration thisCut = curLength < nowLength ? curLength : nowLength;
       if (cur.isBreakable) {
         thisCut = thisCut < workTime ? thisCut : workTime;
+      }
+
+      // ===== MOD: 防止界面卡死 =====
+      // 这个 while 靠「timeSpent 增长 + ableList 变短」来终止。但当下面的
+      // thisCut 为 0（工作时长设成 0）或为负（时段数据 endTime <= startTime）时，
+      // timeSpent 不增长、now.startTime 不移动，而第 94 行又把这段剩余时段加回
+      // ableList —— 同一段被反复取出塞回，形成**死循环**，表现就是"用着用着突然
+      // 卡死只能重启"（该函数由「接下来」页每秒重算排程时调用）。
+      // 这里直接判为无解返回，让界面显示"排不下"，而不是卡死。
+      if (thisCut <= Duration.zero) {
+        ans.isValid = false;
+        return ans;
       }
       if (now.startTime.add(thisCut).isAfter(cur.endTime)) {
         ans.isValid = false;

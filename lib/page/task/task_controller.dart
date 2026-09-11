@@ -5,6 +5,7 @@ import 'package:celechron/database/database_helper.dart';
 import 'package:celechron/mod/task_list_filter_mod.dart';
 import 'package:celechron/model/task.dart';
 // ===== MOD: 魔改逻辑集中在 lib/mod/ 下，本文件只留调用点 =====
+import 'package:celechron/mod/loop_guard.dart';
 import 'package:celechron/mod/task_runtime_mod.dart';
 import 'package:celechron/utils/utils.dart';
 
@@ -15,6 +16,8 @@ class TaskController extends GetxController with TaskListFilterMod {
   final taskListLastUpdate = Get.find<Rx<DateTime>>(tag: 'taskListLastUpdate');
   final _db = Get.find<DatabaseHelper>(tag: 'db');
   Timer? _timer;
+  // 上一次 tick 还没跑完就跳过这一次，避免堆积把界面拖死
+  bool _ticking = false;
 
   /// 未完成的待办（含带时段的任务），先按优先级从高到低，再按截止时间从近到远。
 
@@ -22,8 +25,18 @@ class TaskController extends GetxController with TaskListFilterMod {
   void onInit() {
     updateDeadlineList();
     _timer = Timer.periodic(const Duration(seconds: 1), (Timer t) {
-      updateDeadlineList();
-      TaskAlarmCoordinator.tick(taskList);
+      // 上一次还没跑完就跳过，避免堆积把界面拖死
+      if (_ticking) return;
+      _ticking = true;
+      final watch = SlowWatch('每秒 tick', thresholdMs: 300);
+      watch.start();
+      try {
+        updateDeadlineList();
+        TaskAlarmCoordinator.tick(taskList);
+      } finally {
+        watch.stop(detail: '任务数 ${taskList.length}');
+        _ticking = false;
+      }
     });
     super.onInit();
   }
@@ -74,7 +87,9 @@ class TaskController extends GetxController with TaskListFilterMod {
       } else if (deadline.type == TaskType.fixed) {
         deadline.refreshStatus();
         existingUid.add(deadline.uid);
+        final rollGuard = LoopGuard('日程滚动生成过去日程');
         while (deadline.endTime.isBefore(DateTime.now()) &&
+            !rollGuard.tick() &&
             deadline.status != TaskStatus.outdated &&
             deadline.status != TaskStatus.completed) {
           Task temp = deadline.copyWith(

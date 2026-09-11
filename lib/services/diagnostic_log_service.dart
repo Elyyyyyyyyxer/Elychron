@@ -206,7 +206,7 @@ class DiagnosticLogService {
     await SharePlus.instance.share(
       ShareParams(
         files: [XFile(file.path, mimeType: 'text/plain')],
-        text: 'Celechron 测试日志：$fileName',
+        text: 'Telechron 测试日志：$fileName',
       ),
     );
     return fileName;

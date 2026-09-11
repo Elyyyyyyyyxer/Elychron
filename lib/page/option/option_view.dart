@@ -79,7 +79,7 @@ class OptionPage extends StatelessWidget {
                         ? Padding(
                             padding: const EdgeInsets.only(left: 16),
                             child: Text(
-                                'Celechron 将不定期自动运行以刷新数据。请开启通知权限，且不要将 Celechron 从后台中移除。',
+                                'Telechron 将不定期自动运行以刷新数据。请开启通知权限，且不要将 Telechron 从后台中移除。',
                                 style: headerFooterTextStyle))
                         : null,
                     children: <CupertinoListTile>[

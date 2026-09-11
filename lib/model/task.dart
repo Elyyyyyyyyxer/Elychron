@@ -1,5 +1,7 @@
 import 'package:celechron/model/period.dart';
 import 'package:celechron/utils/utils.dart';
+// ===== MOD: 循环保护（防卡死）=====
+import 'package:celechron/mod/loop_guard.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:uuid/uuid.dart';
 import 'package:hive/hive.dart';
@@ -534,6 +536,7 @@ class Task {
 
     if (repeatType == TaskRepeatType.days) {
       if (repeatPeriod < 1) repeatPeriod = 1;
+      if (repeatPeriod > 400) repeatPeriod = 400;
       startTime = startTime.add(Duration(days: repeatPeriod));
       endTime = endTime.add(Duration(days: repeatPeriod));
     } else if (repeatType == TaskRepeatType.weekday) {
@@ -547,7 +550,8 @@ class Task {
       startTime = next;
       endTime = endTime.add(difference);
     } else if (repeatType == TaskRepeatType.month) {
-      final months = repeatPeriod < 1 ? 1 : repeatPeriod;
+      final months =
+          repeatPeriod < 1 ? 1 : (repeatPeriod > 120 ? 120 : repeatPeriod);
       DateTime nex = DateTime(startTime.year, startTime.month + months, 1);
       while (daysInMonth(nex.year, nex.month) < startTime.day) {
         nex = DateTime(nex.year, nex.month + months, 1);
@@ -558,7 +562,8 @@ class Task {
       startTime = startTime.add(Duration(days: difference));
       endTime = endTime.add(Duration(days: difference));
     } else if (repeatType == TaskRepeatType.year) {
-      final years = repeatPeriod < 1 ? 1 : repeatPeriod;
+      final years =
+          repeatPeriod < 1 ? 1 : (repeatPeriod > 50 ? 50 : repeatPeriod);
       DateTime nex = DateTime(startTime.year + years, startTime.month, 1);
       while (daysInMonth(nex.year, nex.month) < startTime.day) {
         nex = DateTime(nex.year + years, nex.month, 1);
@@ -623,8 +628,10 @@ class Task {
       return null;
     } else {
       Task dummy = copyWith();
+      final predictGuard = LoopGuard('预测下一次日程');
       while ((predicting || !dummy.startTime.isAfter(refTime)) &&
           dummy.status != TaskStatus.outdated) {
+        if (predictGuard.tick()) return null;
         if (!dummy.endTime.isBefore(refTime)) {
           return period.copyWith(
               startTime: dummy.startTime.copyWith(),
@@ -671,8 +678,10 @@ class Task {
       }
     } else {
       Task dummy = copyWith();
+      final dayGuard = LoopGuard('按日拆解日程');
       while (!dateOnly(dummy.startTime).isAfter(date) &&
           dummy.status != TaskStatus.outdated) {
+        if (dayGuard.tick()) break;
         if (!dateOnly(dummy.endTime).isBefore(date)) {
           pair = chopDatePeriod(dummy.startTime, dummy.endTime, date);
           if (pair != null) {

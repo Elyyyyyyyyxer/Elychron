@@ -24,7 +24,7 @@ Future<void> modExportData(BuildContext context) async {
     final file = await DataBackup.writeExportFile(db, taskList);
     await SharePlus.instance.share(ShareParams(
       files: [XFile(file.path)],
-      subject: 'Celechron 备份',
+      subject: 'Telechron 备份',
       sharePositionOrigin:
           box == null ? null : box.localToGlobal(Offset.zero) & box.size,
     ));
@@ -54,7 +54,7 @@ Future<void> modImportData(BuildContext context) async {
   }
   if (bundle == null) {
     if (context.mounted) {
-      modAlert(context, '无法导入', '这个文件不是 Celechron 导出的备份，或者内容已损坏。');
+      modAlert(context, '无法导入', '这个文件不是 Telechron 导出的备份，或者内容已损坏。');
     }
     return;
   }
