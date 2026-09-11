@@ -463,10 +463,17 @@ class CalendarPage extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 4.0),
-                  Text(
-                    '截止 ${toStringHumanReadable(task.endTime)}',
-                    style: TextStyle(fontSize: 14, color: labelColor),
-                  ),
+                  // ===== P1：时间行随类型变化（备忘不显示；只有截止型过期才标红）=====
+                  if (_taskTimeLine(task) != null)
+                    Text(
+                      _taskTimeLine(task)!,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: task.timeStatus?.urgent == true
+                            ? CupertinoColors.systemRed
+                            : labelColor,
+                      ),
+                    ),
                   if (task.location.isNotEmpty)
                     Text(
                       '地点 ${task.location}',
@@ -484,6 +491,20 @@ class CalendarPage extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  /// 日程页卡片上的那一行时间（四类语义各说各的）。
+  ///
+  /// 备忘返回 null = 这一行不显示（它本来就没有时间）。
+  String? _taskTimeLine(Task task) {
+    if (task.isEvent) {
+      return '${toStringHumanReadable(task.startTime)} - ${toStringHumanReadable(task.endTime)}';
+    }
+    if (task.isRemind) {
+      return '提醒 ${toStringHumanReadable(task.reminderTargetTime)}';
+    }
+    if (task.isMemo) return null;
+    return '截止 ${toStringHumanReadable(task.endTime)}${task.isOverdue ? ' - 已过期' : ''}';
   }
 
   Widget createCard(context, Period period) {

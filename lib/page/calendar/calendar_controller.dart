@@ -84,12 +84,15 @@ class CalendarController extends GetxController {
     return eventsOfDay;
   }
 
-  /// 当天到期的待办（DDL）：让待办也出现在日历里。
+  /// 当天到期的待办：**截止型与提醒型**都进日历，备忘型不进（它没有时间）。
+  ///
+  /// 活动型（有起止）走的是 getEventsForDay 的 Period 分支，不在这里重复出现。
   List<Task> getDeadlinesForDay(DateTime day) {
     final target = dateOnly(day);
     final result = taskList
         .where((task) =>
-            task.type == TaskType.deadline &&
+            task.showsInCalendar &&
+            !task.isEvent &&
             task.status != TaskStatus.deleted &&
             dateOnly(task.endTime) == target)
         .toList();
