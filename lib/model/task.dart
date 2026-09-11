@@ -645,29 +645,6 @@ class Task {
     return true;
   }
 
-  double getProgress() {
-    double progress = 0;
-    if (type == TaskType.fixed) {
-      if (DateTime.now().isBefore(startTime)) {
-        progress = 0;
-      } else if (DateTime.now().isAfter(endTime)) {
-        progress = 1;
-      } else {
-        progress = (DateTime.now().difference(startTime).inSeconds) /
-            (endTime.difference(startTime).inSeconds);
-      }
-    } else if (type == TaskType.deadline) {
-      progress = timeSpent.inSeconds / timeNeeded.inSeconds;
-    }
-    if (progress > 1) {
-      progress = 1;
-    }
-    if (progress < 0) {
-      progress = 0;
-    }
-    return progress;
-  }
-
   void refreshStatus() {
     if (type == TaskType.deadline) {
       // 完成只由「打钩」决定（界面已移除时间安排，不再按用时自动完成）

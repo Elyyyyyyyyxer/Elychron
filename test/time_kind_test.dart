@@ -1,4 +1,5 @@
 import 'package:celechron/model/task.dart';
+import 'package:celechron/mod/task_runtime_mod.dart' show normalizeLegacyTask;
 import 'package:flutter_test/flutter_test.dart';
 
 /// P1「四种时间语义」的数据层测试。
@@ -326,6 +327,48 @@ void main() {
 
     test('没有子待办 → 不提示', () {
       expect(endedEventWith(total: 0, done: 0).hasUnfinishedSubtasks, isFalse);
+    });
+  });
+
+  // ===== Step 8：老数据兼容 =====
+
+  group('老数据：旧字段不会被新语义弄坏', () {
+    test('早期版本把 DDL 写成「截止前 1 分钟」，仍会被抹平', () {
+      final t = moment(DateTime(2026, 9, 11, 23, 59));
+      t.startTime = DateTime(2026, 9, 11, 23, 58); // 老版本的脏数据
+      expect(normalizeLegacyTask(t), isTrue);
+      expect(t.startTime, t.endTime);
+      expect(t.type, TaskType.deadline);
+    });
+
+    test('干净的老待办不会被改动（changed 必须是 false）', () {
+      final t = moment(DateTime(2026, 9, 11, 23, 59));
+      expect(normalizeLegacyTask(t), isFalse);
+    });
+
+    test('老的活动（日程）不会被当成待办抹平开始时间', () {
+      final t = moment(DateTime(2026, 9, 12, 14, 10));
+      t.type = TaskType.fixed;
+      t.startTime = DateTime(2026, 9, 12, 13, 30);
+      expect(normalizeLegacyTask(t), isFalse);
+      expect(t.hasTimeRange, isTrue);
+    });
+
+    test('老数据的提醒锚点：活动从「结束」改锚「开始」（这是 P1 要修的错位）', () {
+      final t = moment(DateTime(2026, 9, 12, 14, 10));
+      t.type = TaskType.fixed;
+      t.startTime = DateTime(2026, 9, 12, 13, 30);
+      t.reminderEnabled = true;
+      t.reminderTime = null; // 老数据常见：只开了开关、没存时刻
+      expect(t.reminderAnchor, DateTime(2026, 9, 12, 13, 30));
+    });
+
+    test('老数据里没有 remind / memo —— 序号追加不影响已有三条', () {
+      // 这是 Hive 按序号读写的关键保证：0/1/2 的含义永远不变
+      expect(TaskType.values.length >= 5, isTrue);
+      expect(TaskType.values[0], TaskType.deadline);
+      expect(TaskType.values[1], TaskType.fixed);
+      expect(TaskType.values[2], TaskType.fixedlegacy);
     });
   });
 }

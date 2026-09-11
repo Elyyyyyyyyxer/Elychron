@@ -160,7 +160,8 @@ class _TaskCreatePageState extends State<TaskCreatePage> {
     }
     final repeat = RepeatSetting.fromTask(now).label;
     if (repeat != '不重复') parts.add(repeat);
-    if (now.schedulesReminder) {
+    // 提醒型上面那句已经是「… 提醒」，不再重复一遍
+    if (now.schedulesReminder && !now.isRemind) {
       parts.add('提醒 ${TimeHelper.chineseDateTime(now.reminderTargetTime)}');
     }
     return parts.join(' · ');
