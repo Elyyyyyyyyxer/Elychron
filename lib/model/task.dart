@@ -7,10 +7,16 @@ import 'package:uuid/uuid.dart';
 import 'package:hive/hive.dart';
 import 'package:quiver/time.dart';
 
+/// 任务的时间语义。前三个是历史值（内含一个内部值），后两个是 P1 新增。
+///
+/// ⚠️ 这个枚举以**序号**存进 Hive，所以只能往后追加，绝不能插入或调序，
+/// 否则会读错用户已有数据。
 enum TaskType {
-  deadline, // 只有结束时间固定的《真DDL》
-  fixed, // 开始和结束时间都固定的《日程》
-  fixedlegacy // 已过的《日程》
+  deadline, // 0 截止：只有截止时间
+  fixed, // 1 活动：开始与结束都固定
+  fixedlegacy, // 2 内部用：《过去日程》副本，界面上不暴露
+  remind, // 3 提醒：单个时刻，到点响一次，过期不标红
+  memo, // 4 备忘：不设时间、不提醒、永不逾期、不进日历
 }
 
 enum TaskStatus { running, suspended, completed, failed, deleted, outdated }
@@ -21,6 +27,8 @@ const Map<TaskType, String> deadlineTypeName = {
   TaskType.deadline: 'DDL',
   TaskType.fixed: '日程',
   TaskType.fixedlegacy: '过去日程',
+  TaskType.remind: '提醒',
+  TaskType.memo: '备忘',
 };
 
 const Map<TaskStatus, String> deadlineStatusName = {
@@ -314,16 +322,50 @@ class Task {
   /// 排序用的更新时间
   DateTime get sortableUpdatedAt => updatedAt ?? sortableCreatedAt;
 
-  /// 提醒触发时间：没单独设过就用截止时间。
-  DateTime get reminderTargetTime => reminderTime ?? endTime;
+  // ===== P1：四种时间语义 =====
+  // 活动（fixed，有起止）/ 截止（deadline，只要截止）/ 提醒（remind，单时刻）/
+  // 备忘（memo，不设时间）。全部由 type 映射得到，**不新增存储字段**。
+
+  /// 是否「活动」：有开始与结束时间。
+  bool get isEvent => type == TaskType.fixed || type == TaskType.fixedlegacy;
+
+  /// 是否「提醒」：单时刻，到点响一次。
+  bool get isRemind => type == TaskType.remind;
+
+  /// 是否「备忘」：不提醒、永不逾期、不进日历。
+  bool get isMemo => type == TaskType.memo;
+
+  /// 是否进日历：活动 / 截止 / 提醒都进，备忘不进。
+  bool get showsInCalendar => !isMemo;
+
+  /// 是否需要调度提醒（备忘永不调度）。
+  bool get schedulesReminder => reminderEnabled && !isMemo;
+
+  /// 提醒锚点：活动锚「开始」，截止与提醒锚「那一刻」（截止即 endTime）。
+  DateTime get reminderAnchor => isEvent ? startTime : endTime;
+
+  /// 提醒触发时间：显式设过就用它，否则用锚点。
+  ///
+  /// 注意这里是**锚点本身**，不含「提前量」；提前量由设置里的
+  /// 默认值或用户显式设置的 reminderTime 决定。
+  DateTime get reminderTargetTime => reminderTime ?? reminderAnchor;
 
   /// 距离截止的剩余时间，已过期则为负。
   Duration get remainingTime => endTime.difference(DateTime.now());
 
-  /// 统一的「待办」：显式设了开始时间（早于截止时间）就按带时段的任务处理，
-  /// 否则就是只有截止时间的普通待办。界面不再暴露类型选择。
+  /// 是否已过期：备忘型永不逾期。
+  bool get isOverdue => !isMemo && endTime.isBefore(DateTime.now());
+
+  /// 依据起止时间在「活动 / 截止」之间推断类型。
+  ///
+  /// 提醒型与备忘型是用户的显式选择，**不参与自动翻转**；
+  /// fixedlegacy 是内部值，同样不动。
   void normalizeType() {
-    if (type == TaskType.fixedlegacy) return;
+    if (type == TaskType.fixedlegacy ||
+        type == TaskType.remind ||
+        type == TaskType.memo) {
+      return;
+    }
     type = startTime.isBefore(endTime) ? TaskType.fixed : TaskType.deadline;
   }
 
