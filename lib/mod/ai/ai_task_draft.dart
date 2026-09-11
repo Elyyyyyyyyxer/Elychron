@@ -149,6 +149,8 @@ ${existingTags.isEmpty ? '（现在是空的，可以新建标签）' : existing
 - 把你判断「原文没写清楚」的字段名列进 uncertain 数组，最多 5 个
 - 唯一不能留空的是 endTime：完全没提到时间时用今天 23:59，并把「截止时间」列进 uncertain
 
+${AiConfig.autoSubtasks ? '' : '注意：用户已关闭「自动生成子待办」，subtasks 一律给空数组。'}
+
 时间换算的硬规则：
 1. 今天日期是 $todayIso。所有相对时间（今天/明天/后天/本周五/下周三/月底/三天后）必须换算成绝对日期。
 2. 只给了日期没给时间 → 用那天的 23:59:00。
@@ -215,7 +217,72 @@ ${existingTags.isEmpty ? '（现在是空的，可以新建标签）' : existing
         temperature: 0.1,
       ),
     );
-    return _fromJson(json, existingTags: existingTags);
+    return _fromJson(json, existingTags: existingTags, fromImage: true);
+  }
+
+  // ------------------------------------------------ AI 拆子待办（单项功能）
+
+  /// 把一条待办拆成几条可执行的子待办，只返回标题列表（写回由调用方决定）。
+  static Future<List<String>> subtasksFor(Task task) async {
+    await AiConfig.load();
+    final summary = task.summary.trim();
+    if (summary.isEmpty) {
+      throw AiException('这条待办还没有标题，先写上标题再拆');
+    }
+    if (AiConfig.resolvedModel.isEmpty && !AiConfig.isManualModel) {
+      await ModelResolver.resolve();
+    }
+
+    final existing = task.subtasks
+        .map((subtask) => subtask.title.trim())
+        .where((title) => title.isNotEmpty)
+        .toList();
+    final buffer = StringBuffer()..writeln('待办标题：$summary');
+    if (task.description.trim().isNotEmpty) {
+      buffer.writeln('补充说明：${task.description.trim()}');
+    }
+    if (task.location.trim().isNotEmpty) {
+      buffer.writeln('地点：${task.location.trim()}');
+    }
+    buffer.writeln('截止时间：${_fmt(task.endTime)}');
+    if (existing.isNotEmpty) {
+      buffer.writeln('已有的子待办（不要重复）：${existing.join('、')}');
+    }
+
+    final json = await ModelResolver.withModelHealing(
+      () => DeepSeekClient().chatJson(
+        system: _subtaskSystemPrompt,
+        user: buffer.toString(),
+        temperature: 0.3,
+      ),
+    );
+    return _parseSubtasks(json, existing);
+  }
+
+  static const String _subtaskSystemPrompt = '''
+你是帮学生把一件待办拆成可执行小步骤的助手。
+
+只输出一个 json 对象，不要解释、不要 markdown 代码块。格式：
+{"subtasks": ["步骤一", "步骤二"]}
+
+规则：
+- 3~6 条，按执行顺序排列；每条不超过 30 字，尽量以动词开头
+- 每条都要是能直接动手做的事（写、查、问、交、打印、预约…），
+  不要写「认真准备」「努力完成」这类空话
+- 不要重复输入里已经列出的子待办
+- 如果这件事本身没法拆（比如「给妈妈打电话」），返回 {"subtasks": []}
+- 不要编造输入里没有的人名、地点、材料''';
+
+  /// 校验模型返回的子待办（白名单式：限量、限长、去重、剔除已有）
+  static List<String> _parseSubtasks(
+    Map<String, dynamic> json,
+    List<String> existing,
+  ) {
+    final raw = json['subtasks'] ?? json['steps'] ?? json['tasks'];
+    final known = existing.map((title) => title.trim()).toSet();
+    return _stringList(raw, 6, 40)
+        .where((title) => !known.contains(title))
+        .toList();
   }
 
   // ---------------------------------------------------- 逐字段校验（重点）
@@ -224,6 +291,7 @@ ${existingTags.isEmpty ? '（现在是空的，可以新建标签）' : existing
     Map<String, dynamic> json, {
     List<String> existingTags = const <String>[],
     bool clippedTooLong = false,
+    bool fromImage = false,
   }) {
     final warnings = <String>[];
     if (clippedTooLong) {
@@ -246,7 +314,11 @@ ${existingTags.isEmpty ? '（现在是空的，可以新建标签）' : existing
       summary = _cleanString(source['title'], maxSummaryChars);
     }
     if (summary.isEmpty) {
-      throw AiException('模型没给出标题，换一段更清楚的话再试');
+      // 图里 / 文字里没有可做成的待办时不要直接报错：留空让用户自己补，
+      // 已经读出来的时间、地点等字段仍然有用。这是"用户反馈感"的关键一步。
+      warnings.add(fromImage
+          ? '这张图里没读出明确要做的事，标题先留空了，你可以自己补上'
+          : '这段文字里没读出明确要做的事，标题先留空了，你可以自己补上');
     }
 
     // --- description
@@ -268,9 +340,10 @@ ${existingTags.isEmpty ? '（现在是空的，可以新建标签）' : existing
 
     // --- tags：去空、去重、限长限量
     final tags = _stringList(source['tags'], maxTagCount, maxTagChars);
-    // --- subtasks：同上
-    final subtasks =
-        _stringList(source['subtasks'], maxSubtaskCount, maxSubtaskChars);
+    // --- subtasks：同上；用户关掉「自动生成子待办」时一律留空
+    final subtasks = AiConfig.autoSubtasks
+        ? _stringList(source['subtasks'], maxSubtaskCount, maxSubtaskChars)
+        : <String>[];
 
     // --- endTime：最需要把关的字段
     final endTime = _validateEndTime(

@@ -273,6 +273,28 @@ class _AiSettingsPageState extends State<AiSettingsPage> {
                 ],
               ),
               CupertinoListSection.insetGrouped(
+                header: const Text('行为'),
+                footer: const Text(
+                  '关掉之后，AI 整理出的待办不会再自动带上子待办（有些通知本来就没必要拆步骤）。'
+                  '待办详情页里的「AI 拆成子待办」不受影响，随时可以手动用。',
+                ),
+                children: [
+                  CupertinoListTile(
+                    title: const Text('自动生成子待办'),
+                    subtitle: Text(
+                      AiConfig.autoSubtasks
+                          ? '开启：AI 会顺手拆出步骤'
+                          : '已关闭：只填标题 / 时间 / 地点这些',
+                    ),
+                    trailing: CupertinoSwitch(
+                      value: AiConfig.autoSubtasks,
+                      onChanged: (bool value) =>
+                          AiConfig.setAutoSubtasks(value),
+                    ),
+                  ),
+                ],
+              ),
+              CupertinoListSection.insetGrouped(
                 header: const Text('模型'),
                 footer: Text(
                   AiConfig.isManualModel

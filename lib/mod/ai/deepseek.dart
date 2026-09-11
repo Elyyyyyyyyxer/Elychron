@@ -74,6 +74,7 @@ class AiConfig {
   static const _kResolvedModel = 'ai_resolved_model';
   static const _kModelList = 'ai_model_list';
   static const _kModelListAt = 'ai_model_list_at';
+  static const _kAutoSubtasks = 'ai_auto_subtasks';
 
   /// 每次改动都会 bump，界面用它触发刷新（避免把 Rx 依赖带进这个纯工具类）
   static final ValueNotifier<int> revision = ValueNotifier<int>(0);
@@ -92,6 +93,9 @@ class AiConfig {
   static List<String> _availableModels = <String>[];
   static DateTime? _modelsFetchedAt;
   static bool _loaded = false;
+
+  /// 解析待办时是否自动生成子待办（用户可在设置里关掉）
+  static bool _autoSubtasks = true;
 
   static bool get enabled => _enabled;
   static String get apiKey => _apiKey;
@@ -139,6 +143,13 @@ class AiConfig {
 
   static bool get isReady => _enabled && _apiKey.isNotEmpty;
 
+  static bool get autoSubtasks => _autoSubtasks;
+
+  static Future<void> setAutoSubtasks(bool value) async {
+    _autoSubtasks = value;
+    await _write(_kAutoSubtasks, value ? 'true' : 'false');
+  }
+
   /// key 打码显示：sk-abc…xyz
   static String get maskedKey {
     if (_apiKey.isEmpty) return '';
@@ -150,6 +161,7 @@ class AiConfig {
     if (_loaded) return;
     try {
       _enabled = (await _storage.read(key: _kEnabled)) == 'true';
+      _autoSubtasks = (await _storage.read(key: _kAutoSubtasks)) != 'false';
       _apiKey = (await _storage.read(key: _kApiKey)) ?? '';
       _baseUrl = (await _storage.read(key: _kBaseUrl)) ?? defaultBaseUrl;
       _manualModel = (await _storage.read(key: _kModel)) ?? '';

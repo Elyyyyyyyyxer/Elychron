@@ -19,6 +19,8 @@ class DingTalkMenuItem {
 Future<void> showDingTalkMenu(
   BuildContext context, {
   required List<DingTalkMenuItem> items,
+  String? title,
+  String? message,
 }) {
   final labelColor =
       CupertinoDynamicColor.resolve(CupertinoColors.secondaryLabel, context);
@@ -41,6 +43,40 @@ Future<void> showDingTalkMenu(
     context: context,
     builder: (BuildContext context) {
       final rows = <Widget>[];
+      if (title != null || message != null) {
+        rows.add(Padding(
+          padding: const EdgeInsets.fromLTRB(20, 18, 20, 14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (title != null)
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: textColor,
+                  ),
+                ),
+              if (message != null)
+                Padding(
+                  padding: EdgeInsets.only(top: title == null ? 0 : 6),
+                  child: Text(
+                    message,
+                    style: TextStyle(fontSize: 13, color: labelColor),
+                  ),
+                ),
+            ],
+          ),
+        ));
+        rows.add(Container(
+          height: 0.5,
+          margin: const EdgeInsets.symmetric(horizontal: 20),
+          color:
+              CupertinoDynamicColor.resolve(CupertinoColors.separator, context),
+        ));
+      }
       for (var i = 0; i < items.length; i++) {
         final item = items[i];
         if (i > 0) {

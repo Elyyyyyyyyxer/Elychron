@@ -6,9 +6,11 @@ import 'package:celechron/design/image_preview.dart';
 import 'package:celechron/design/repeat_sheet.dart';
 import 'package:celechron/design/tag_picker.dart';
 import 'package:celechron/design/task_priority_color.dart';
+import 'package:celechron/mod/ai/ai_subtasks_ui.dart';
 import 'package:celechron/model/task.dart';
 import 'package:celechron/page/task/task_controller.dart';
 import 'package:celechron/page/task/task_create_page.dart';
+import 'package:flutter/material.dart' show Icons;
 import 'package:celechron/utils/attachment_helper.dart';
 import 'package:celechron/utils/time_helper.dart';
 import 'package:celechron/utils/task_complete.dart';
@@ -150,6 +152,15 @@ class _TaskEditPageState extends State<TaskEditPage> {
     await showDingTalkMenu(
       context,
       items: [
+        DingTalkMenuItem(
+          label: 'AI 拆成子待办',
+          icon: Icons.auto_awesome,
+          onTap: () => runAiSubtasks(
+            context,
+            now,
+            onChanged: () => setState(() {}),
+          ),
+        ),
         DingTalkMenuItem(
           label: now.starred ? '取消星标' : '星标',
           icon: now.starred ? CupertinoIcons.star_fill : CupertinoIcons.star,

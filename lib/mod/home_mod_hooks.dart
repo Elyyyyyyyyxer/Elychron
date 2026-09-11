@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:celechron/design/dingtalk_menu.dart';
 import 'package:celechron/mod/ai/ai_compose_sheet.dart';
 import 'package:celechron/mod/ai/ai_image.dart';
 import 'package:celechron/mod/ai/deepseek.dart';
@@ -12,6 +13,7 @@ import 'package:celechron/utils/share_receiver.dart';
 import 'package:celechron/utils/task_alarm_center.dart';
 import 'package:celechron/utils/utils.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart' show Icons;
 import 'package:get/get.dart';
 
 /// ============ 首页的魔改钩子：分享接收 + 闹钟弹出 ============
@@ -67,67 +69,56 @@ class HomeModHooks {
   }
 
   /// 分享进来的是图片时，问一句要不要交给 AI 识别图中内容
+  /// 分享进来的是图片时，问一句要不要交给 AI 识别图中内容（钉钉风格菜单）
   Future<bool> _askUseAiForImage(BuildContext context) async {
     await AiConfig.load();
     if (!AiConfig.isReady) return false;
-    final ok = await showCupertinoModalPopup<bool>(
-      context: context,
-      builder: (BuildContext context) => CupertinoActionSheet(
-        title: const Text('要用 AI 识别这张图吗？'),
-        message: const Text(
-          '图里的文字会发送给你配置的模型服务商（默认 DeepSeek）。\n'
+    bool? picked;
+    await showDingTalkMenu(
+      context,
+      title: '要用 AI 识别这张图吗？',
+      message: '图里的文字会发送给你配置的模型服务商（默认 DeepSeek）。\n'
           '选「只存附件」就完全不上传，图会作为附件留在待办里。',
-          style: TextStyle(fontSize: 13),
+      items: [
+        DingTalkMenuItem(
+          label: 'AI 识别图中内容',
+          icon: Icons.auto_awesome,
+          onTap: () => picked = true,
         ),
-        actions: [
-          CupertinoActionSheetAction(
-            isDefaultAction: true,
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('AI 识别图中内容'),
-          ),
-          CupertinoActionSheetAction(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('只存附件，不上传'),
-          ),
-        ],
-        cancelButton: CupertinoActionSheetAction(
-          onPressed: () => Navigator.of(context).pop(null),
-          child: const Text('取消'),
+        DingTalkMenuItem(
+          label: '只存附件，不上传',
+          icon: CupertinoIcons.paperclip,
+          onTap: () => picked = false,
         ),
-      ),
+      ],
     );
-    return ok == true;
+    return picked == true;
   }
 
   /// 分享进来的是文字时，问一句要不要交给 AI 整理
+  /// 分享进来的是文字时，问一句要不要交给 AI 整理（钉钉风格菜单）
   Future<bool?> _askUseAi(BuildContext context, String text) async {
     await AiConfig.load();
     if (!AiConfig.isReady) return null;
-    return showCupertinoModalPopup<bool>(
-      context: context,
-      builder: (BuildContext context) => CupertinoActionSheet(
-        title: const Text('要用 AI 整理这条分享吗？'),
-        message: Text(
-          text.length > 60 ? '${text.substring(0, 60)}…' : text,
-          style: const TextStyle(fontSize: 13),
+    bool? picked;
+    await showDingTalkMenu(
+      context,
+      title: '要用 AI 整理这条分享吗？',
+      message: text.length > 60 ? '${text.substring(0, 60)}…' : text,
+      items: [
+        DingTalkMenuItem(
+          label: 'AI 整理成待办',
+          icon: Icons.auto_awesome,
+          onTap: () => picked = true,
         ),
-        actions: [
-          CupertinoActionSheetAction(
-            isDefaultAction: true,
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('AI 整理成待办'),
-          ),
-          CupertinoActionSheetAction(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('直接新建'),
-          ),
-        ],
-        cancelButton: CupertinoActionSheetAction(
-          onPressed: () => Navigator.of(context).pop(null),
-          child: const Text('取消'),
+        DingTalkMenuItem(
+          label: '直接新建',
+          icon: CupertinoIcons.pencil,
+          onTap: () => picked = false,
         ),
-      ),
+      ],
     );
+    return picked;
   }
 
   Future<void> _handleShared(List<SharedItem> items) async {

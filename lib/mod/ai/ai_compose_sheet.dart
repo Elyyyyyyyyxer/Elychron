@@ -1,7 +1,11 @@
+import 'dart:io';
+
+import 'package:celechron/mod/ai/ai_image.dart';
 import 'package:celechron/mod/ai/ai_settings_page.dart';
 import 'package:celechron/mod/ai/ai_task_draft.dart';
 import 'package:celechron/mod/ai/deepseek.dart';
 import 'package:celechron/model/task.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/cupertino.dart';
 
 /// 粘贴一段文字 → AI 整理成待办草稿 → 用户确认后填入新建页。
@@ -46,6 +50,9 @@ class _AiComposeSheetState extends State<_AiComposeSheet> {
   String? _error;
   AiTaskDraft? _draft;
 
+  /// 这次要识别的图片（分享进来 + 手动添加的都在这）
+  late final List<String> _images = List<String>.of(widget.imagePaths);
+
   @override
   void initState() {
     super.initState();
@@ -68,12 +75,9 @@ class _AiComposeSheetState extends State<_AiComposeSheet> {
       _draft = null;
     });
     try {
-      final draft = widget.imagePaths.isEmpty
+      final draft = _images.isEmpty
           ? await AiTaskDraft.fromText(_controller.text)
-          : await AiTaskDraft.fromImages(
-              widget.imagePaths,
-              hint: _controller.text,
-            );
+          : await AiTaskDraft.fromImages(_images, hint: _controller.text);
       if (!mounted) return;
       setState(() => _draft = draft);
     } on AiException catch (error) {
@@ -84,6 +88,33 @@ class _AiComposeSheetState extends State<_AiComposeSheet> {
       setState(() => _error = '$error');
     } finally {
       if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  /// 手动挑图：从相册/文件里选截图，识别前能先确认图片对不对
+  Future<void> _pickImages() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.image,
+        allowMultiple: true,
+      );
+      if (result == null) return;
+      final paths = result.paths
+          .whereType<String>()
+          .where(AiImage.looksLikeImage)
+          .toList();
+      if (paths.isEmpty) return;
+      if (!mounted) return;
+      setState(() {
+        for (final path in paths) {
+          if (_images.length >= AiTaskDraft.maxImages) break;
+          if (!_images.contains(path)) _images.add(path);
+        }
+        _draft = null;
+        _error = null;
+      });
+    } catch (error) {
+      if (mounted) setState(() => _error = '选图失败：$error');
     }
   }
 
@@ -182,13 +213,101 @@ class _AiComposeSheetState extends State<_AiComposeSheet> {
 
     final children = <Widget>[
       Text(
-        widget.imagePaths.isEmpty
+        _images.isEmpty
             ? '把通知、群消息、邮件内容粘进来，AI 会读出标题、截止时间、地点和要做的小步骤。'
-            : 'AI 会读出这张图里的文字（通知、群消息、海报、课表截图都可以），整理成待办。'
-                '图片会原样发送给模型，不压缩——截图里的小字才读得准。',
+            : 'AI 会读出图里的文字（通知、群消息、海报、课表截图都行），整理成待办。',
         style: TextStyle(
           fontSize: 13,
           color: CupertinoColors.secondaryLabel.resolveFrom(context),
+        ),
+      ),
+      const SizedBox(height: 12),
+      // ===== 图片区：缩略图 + 手动添加（让用户一眼确认图片有没有进来）=====
+      if (_images.isNotEmpty)
+        SizedBox(
+          height: 92,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: _images.length,
+            separatorBuilder: (BuildContext context, int index) =>
+                const SizedBox(width: 8),
+            itemBuilder: (BuildContext context, int index) => Stack(
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: Image.file(
+                    File(_images[index]),
+                    width: 92,
+                    height: 92,
+                    fit: BoxFit.cover,
+                    errorBuilder: (
+                      BuildContext context,
+                      Object error,
+                      StackTrace? stackTrace,
+                    ) =>
+                        Container(
+                      width: 92,
+                      height: 92,
+                      alignment: Alignment.center,
+                      color: CupertinoColors.systemGrey5.resolveFrom(context),
+                      child: const Icon(CupertinoIcons.photo, size: 22),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  right: 2,
+                  top: 2,
+                  child: GestureDetector(
+                    onTap: () => setState(() => _images.removeAt(index)),
+                    child: Container(
+                      padding: const EdgeInsets.all(3),
+                      decoration: const BoxDecoration(
+                        color: CupertinoColors.black,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        CupertinoIcons.xmark,
+                        size: 11,
+                        color: CupertinoColors.white,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: _pickImages,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Row(
+            children: [
+              const Icon(
+                CupertinoIcons.add_circled,
+                size: 19,
+                color: CupertinoColors.activeBlue,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                _images.isEmpty ? '添加图片（截图也能识别）' : '再加一张',
+                style: const TextStyle(
+                  fontSize: 14.5,
+                  color: CupertinoColors.activeBlue,
+                ),
+              ),
+              const Spacer(),
+              if (_images.isNotEmpty)
+                Text(
+                  '已选 ${_images.length} 张 · 最多 ${AiTaskDraft.maxImages} 张',
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    color: CupertinoColors.secondaryLabel.resolveFrom(context),
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
       const SizedBox(height: 10),
@@ -225,7 +344,7 @@ class _AiComposeSheetState extends State<_AiComposeSheet> {
                 width: 18,
                 child: CupertinoActivityIndicator(color: CupertinoColors.white),
               )
-            : const Text('开始整理'),
+            : Text(_images.isEmpty ? '开始整理' : '识别图中内容'),
       ),
     ];
 
