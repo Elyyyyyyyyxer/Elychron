@@ -16,7 +16,9 @@ import 'package:celechron/utils/utils.dart';
 import 'package:celechron/design/round_rectangle_card.dart';
 import 'package:celechron/design/custom_colors.dart';
 import 'package:celechron/page/scholar/course_detail/course_detail_view.dart';
+import 'package:celechron/model/upcoming.dart';
 import 'package:celechron/page/calendar/schedule_view.dart';
+import 'package:celechron/page/calendar/upcoming_view.dart';
 import 'calendar_controller.dart';
 
 class CalendarPage extends StatelessWidget {
@@ -33,11 +35,18 @@ class CalendarPage extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Obx(
-              () => SubtitleRow(
-                subtitle: _calendarController.viewMode.value ==
-                        CalendarViewMode.calendar
-                    ? '${_calendarController.focusedDay.value.year} 年 ${_calendarController.focusedDay.value.month} 月'
-                    : _calendarController.getCurrentSemesterDisplayName(),
+              () => Stack(
+                alignment: Alignment.center,
+                children: [
+                  SubtitleRow(
+                subtitle: switch (_calendarController.viewMode.value) {
+                  // 「接下来」模式下别显示学期/月份那串信息，直接说这是什么页面
+                  CalendarViewMode.upcoming => '接下来',
+                  CalendarViewMode.calendar =>
+                    '${_calendarController.focusedDay.value.year} 年 ${_calendarController.focusedDay.value.month} 月',
+                  CalendarViewMode.schedule =>
+                    _calendarController.getCurrentSemesterDisplayName(),
+                },
                 right: Row(
                   children: [
                     if (_calendarController.viewMode.value ==
@@ -94,15 +103,73 @@ class CalendarPage extends StatelessWidget {
                 ),
                 padHorizontal: 18,
               ),
+                  // ===== 顶部居中的小空心圆：点它翻转「接下来」⇄ 日历 =====
+                  // （空心态 = 正在看「接下来」；圆心有点 = 正在看日历，点回「接下来」）
+                  Positioned(
+                    top: 0,
+                    bottom: 0,
+                    child: Center(
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: _calendarController.toggleUpcoming,
+                        child: SizedBox(
+                          width: 44,
+                          height: 44,
+                          child: Center(
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
+                              width: 20,
+                              height: 20,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  width: 1.6,
+                                  color: _calendarController.viewMode.value ==
+                                          CalendarViewMode.upcoming
+                                      ? const Color(0xFFFF699A)
+                                      : CupertinoDynamicColor.resolve(
+                                          CupertinoColors.secondaryLabel, context),
+                                ),
+                              ),
+                              child: _calendarController.viewMode.value ==
+                                      CalendarViewMode.calendar
+                                  ? Center(
+                                      child: Container(
+                                        width: 7,
+                                        height: 7,
+                                        decoration: BoxDecoration(
+                                          shape: BoxShape.circle,
+                                          color: CupertinoDynamicColor.resolve(
+                                              CupertinoColors.secondaryLabel,
+                                              context),
+                                        ),
+                                      ),
+                                    )
+                                  : null,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
             Expanded(
               child: Obx(
                 () {
-                  if (_calendarController.viewMode.value ==
-                      CalendarViewMode.schedule) {
-                    return ScheduleView(controller: _calendarController);
-                  }
-                  return Column(
+                  final mode = _calendarController.viewMode.value;
+                  final Widget body;
+                  if (mode == CalendarViewMode.schedule) {
+                    body = ScheduleView(controller: _calendarController);
+                  } else if (mode == CalendarViewMode.upcoming) {
+                    // ===== 「接下来」：最近的一条大字号 =====
+                    body = UpcomingView(
+                      items: _upcomingItems(),
+                      onAddTask: () => newDeadline(context, time: DateTime.now()),
+                    );
+                  } else {
+                    body = Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Padding(
@@ -227,6 +294,19 @@ class CalendarPage extends StatelessWidget {
                         ),
                       ),
                     ],
+                  );
+                  }
+                  // ===== 换视图时翻一下卡片（Y 轴 3D 翻转）=====
+                  return AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 320),
+                    switchInCurve: Curves.easeOutCubic,
+                    switchOutCurve: Curves.easeInCubic,
+                    transitionBuilder: (Widget child, Animation<double> anim) =>
+                        _FlipTransition(animation: anim, child: child),
+                    child: KeyedSubtree(
+                      key: ValueKey<CalendarViewMode>(mode),
+                      child: body,
+                    ),
                   );
                 },
               ),
@@ -655,6 +735,15 @@ class CalendarPage extends StatelessWidget {
     );
   }
 
+  /// 「接下来」的条目：课程/考试/日程按开始时间、非备忘待办按提醒时间。
+  /// 排序与过滤逻辑在 `model/upcoming.dart`（有单测），这里只负责把数据喂进去。
+  List<UpcomingItem> _upcomingItems() {
+    return buildUpcoming(
+      periods: _calendarController.scholar.value.periods,
+      tasks: deadlineList.toList(),
+      now: DateTime.now(),
+    );
+  }
   static Widget singleMarkerBuilder(context, day, Object event) {
     if (event is Task) {
       return Container(
@@ -696,6 +785,35 @@ class CalendarPage extends StatelessWidget {
         color: color,
         shape: periodTypeShape[period.type]!,
       ),
+    );
+  }
+}
+
+/// 换视图时的卡片翻转：绕 Y 轴转 90°，转过一半时换上新的那一面（不会穿帮）。
+class _FlipTransition extends StatelessWidget {
+  final Animation<double> animation;
+  final Widget child;
+
+  const _FlipTransition({required this.animation, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    final rotate = Tween<double>(begin: 1, end: 0).animate(
+      CurvedAnimation(parent: animation, curve: Curves.easeOutCubic),
+    );
+    return AnimatedBuilder(
+      animation: rotate,
+      builder: (BuildContext context, Widget? inner) {
+        final angle = rotate.value * (3.141592653589793 / 2);
+        return Transform(
+          alignment: Alignment.center,
+          transform: Matrix4.identity()
+            ..setEntry(3, 2, 0.0015)
+            ..rotateY(angle),
+          child: rotate.value < 0.5 ? inner : const SizedBox.shrink(),
+        );
+      },
+      child: child,
     );
   }
 }

@@ -9,6 +9,9 @@ import 'package:celechron/model/semester.dart';
 enum CalendarViewMode {
   calendar,
   schedule,
+
+  /// 「接下来」：课程/考试/日程按开始时间、非备忘待办按提醒时间排序
+  upcoming,
 }
 
 class CalendarController extends GetxController {
@@ -18,7 +21,8 @@ class CalendarController extends GetxController {
   final events = <DateTime, List<Period>>{}.obs;
   final scholar = Get.find<Rx<Scholar>>(tag: 'scholar');
   final taskList = Get.find<RxList<Task>>(tag: 'taskList');
-  final viewMode = CalendarViewMode.calendar.obs;
+  /// 默认进「接下来」（用户要求：打开日程页先看接下来要做什么）
+  final viewMode = CalendarViewMode.upcoming.obs;
 
   static List<String> numToChinese = ['一', '二', '三', '四', '五', '六', '七', '八'];
 
@@ -113,6 +117,13 @@ class CalendarController extends GetxController {
     viewMode.value = viewMode.value == CalendarViewMode.calendar
         ? CalendarViewMode.schedule
         : CalendarViewMode.calendar;
+  }
+
+  /// 顶部那个空心圆：在「接下来」与「日历」之间翻转
+  void toggleUpcoming() {
+    viewMode.value = viewMode.value == CalendarViewMode.upcoming
+        ? CalendarViewMode.calendar
+        : CalendarViewMode.upcoming;
   }
 
   Semester? getCurrentSemester() {
