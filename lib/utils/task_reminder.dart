@@ -411,6 +411,50 @@ class TaskReminder {
     }
   }
 
+  /// ===== P3：专注休息提示 =====
+  ///
+  /// 工作段走完、进入休息时弹一条普通通知，提醒起来走走。
+  /// 刻意**不走闹钟那套**（休息提示不该像闹钟一样炸），也刻意不走
+  /// 「待办提醒」渠道 —— 它是另一件事，用户想单独静音也方便。
+  static Future<void> showFocusRestNotice({String? label}) async {
+    try {
+      await _ensureInit();
+      const id = 0x5f0c5; // 固定 id：新的休息提示覆盖旧的，不堆一屏
+      final body = (label == null || label.trim().isEmpty)
+          ? '这一轮工作了 ${_focusWorkLabel()}，起来走走、喝口水。'
+          : '「${label.trim()}」这一轮结束了，起来走走、喝口水。';
+      await _plugin.show(
+        id,
+        '该休息了',
+        body,
+        const NotificationDetails(
+          android: AndroidNotificationDetails(
+            'focus_rest_v1',
+            '专注休息提醒',
+            channelDescription: '专注计时进入休息时提醒起来走走',
+            importance: Importance.high,
+            priority: Priority.high,
+            category: AndroidNotificationCategory.reminder,
+          ),
+          iOS: DarwinNotificationDetails(),
+        ),
+      );
+    } catch (_) {
+      // 通知不可用时静默降级：专注本身照常计时
+    }
+  }
+
+  static String _focusWorkLabel() {
+    try {
+      if (Get.isRegistered<DatabaseHelper>(tag: 'db')) {
+        final minutes = Get.find<DatabaseHelper>(tag: 'db').getFocusWorkMinutes();
+        if (minutes % 60 == 0) return '${minutes ~/ 60} 小时';
+        return '$minutes 分钟';
+      }
+    } catch (_) {}
+    return '一段时间';
+  }
+
   /// 延迟提醒：推迟 [delay] 后再响一次。
   /// 是否处于「已延迟」状态（前台每秒检查要用它，否则刚延迟完又会立刻弹）
   static DateTime? snoozedUntil(String uid) => _snoozed[uid];

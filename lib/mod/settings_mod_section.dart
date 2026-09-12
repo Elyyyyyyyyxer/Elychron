@@ -44,6 +44,9 @@ List<Widget> modReminderTiles(
       // ===== P1：默认提醒提前量 =====
       // 活动锚「开始」、截止锚「截止」，各自再提前这么多；提醒型就是那一刻。
       const _ReminderLeadTile(),
+      // ===== P3：专注参数 + 休息提醒 =====
+      const _FocusParamTile(),
+      const _FocusRestNotifyTile(),
       CupertinoListTile(
         title: const Text('闹钟可靠性'),
         subtitle: const Text('全屏闹钟授权、锁屏弹出、电池白名单，一项项查'),
@@ -162,6 +165,125 @@ Widget modDataSection(
             onTap: () => modImportData(context),
           ),
         ]));
+
+/// ===== P3：专注参数（工作 / 休息分钟数）=====
+///
+/// 默认 60 / 15（用户拍板）。改动只影响**下一次**开始专注，
+/// 正在跑的那次会保留它自己的参数。
+class _FocusParamTile extends StatefulWidget {
+  const _FocusParamTile();
+
+  @override
+  State<_FocusParamTile> createState() => _FocusParamTileState();
+}
+
+class _FocusParamTileState extends State<_FocusParamTile> {
+  static const List<int> _workOptions = [15, 25, 30, 45, 60, 90, 120];
+  static const List<int> _restOptions = [0, 5, 10, 15, 20, 30];
+
+  DatabaseHelper? get _db {
+    if (!Get.isRegistered<DatabaseHelper>(tag: 'db')) return null;
+    return Get.find<DatabaseHelper>(tag: 'db');
+  }
+
+  int get _work => _db?.getFocusWorkMinutes() ?? 60;
+  int get _rest => _db?.getFocusRestMinutes() ?? 15;
+
+  static String label(int minutes) {
+    if (minutes <= 0) return '不休息';
+    if (minutes % 60 == 0) return '${minutes ~/ 60} 小时';
+    return '$minutes 分钟';
+  }
+
+  Future<void> _pick({required bool isWork}) async {
+    final options = isWork ? _workOptions : _restOptions;
+    await showCupertinoModalPopup<void>(
+      context: context,
+      builder: (BuildContext context) => CupertinoActionSheet(
+        title: Text(isWork ? '一段专注多久' : '每轮休息多久'),
+        message: Text(isWork
+            ? '默认 60 分钟。到点会自动进入休息。'
+            : '默认 15 分钟。想连着干可以把休息设成「不休息」。'),
+        actions: options
+            .map((minutes) => CupertinoActionSheetAction(
+                  onPressed: () {
+                    if (isWork) {
+                      _db?.setFocusWorkMinutes(minutes);
+                    } else {
+                      _db?.setFocusRestMinutes(minutes);
+                    }
+                    Navigator.of(context).pop();
+                    if (mounted) setState(() {});
+                  },
+                  child: Text(label(minutes)),
+                ))
+            .toList(),
+        cancelButton: CupertinoActionSheetAction(
+          isDefaultAction: true,
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('取消'),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return CupertinoListTile(
+      title: const Text('专注时长'),
+      subtitle: const Text('到点自动在工作 / 休息之间交替；下一次专注生效'),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          CupertinoButton(
+            padding: EdgeInsets.zero,
+            minimumSize: const Size(48, 36),
+            onPressed: () => _pick(isWork: true),
+            child: Text(label(_work)),
+          ),
+          const Text(' / ', style: TextStyle(fontSize: 14)),
+          CupertinoButton(
+            padding: EdgeInsets.zero,
+            minimumSize: const Size(48, 36),
+            onPressed: () => _pick(isWork: false),
+            child: Text(label(_rest)),
+          ),
+        ],
+      ),
+      onTap: () => _pick(isWork: true),
+    );
+  }
+}
+
+/// ===== P3：休息开始时提醒一句（默认开）=====
+class _FocusRestNotifyTile extends StatefulWidget {
+  const _FocusRestNotifyTile();
+
+  @override
+  State<_FocusRestNotifyTile> createState() => _FocusRestNotifyTileState();
+}
+
+class _FocusRestNotifyTileState extends State<_FocusRestNotifyTile> {
+  DatabaseHelper? get _db {
+    if (!Get.isRegistered<DatabaseHelper>(tag: 'db')) return null;
+    return Get.find<DatabaseHelper>(tag: 'db');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return CupertinoListTile(
+      title: const Text('休息时提醒我'),
+      subtitle: const Text('工作段走完时弹一条通知，提醒起来走走'),
+      trailing: CupertinoSwitch(
+        value: _db?.getFocusRestNotify() ?? true,
+        onChanged: (value) {
+          _db?.setFocusRestNotify(value);
+          setState(() {});
+        },
+      ),
+    );
+  }
+}
 
 /// AI 智能助手（配置 API key / 模型 / 测试连接）
 Widget modAiSection(

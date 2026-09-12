@@ -72,6 +72,8 @@ class CalendarController extends GetxController {
       }
     }
     for (var deadline in taskList) {
+      // ===== 已完成的待办不在日程页露面（用户要求）=====
+      if (deadline.status == TaskStatus.completed) continue;
       if (deadline.type == TaskType.fixed ||
           deadline.type == TaskType.fixedlegacy) {
         List<Period> periods = deadline.getPeriodOfDay(dateOnly(day));
@@ -87,6 +89,7 @@ class CalendarController extends GetxController {
   /// 当天到期的待办：**截止型与提醒型**都进日历，备忘型不进（它没有时间）。
   ///
   /// 活动型（有起止）走的是 getEventsForDay 的 Period 分支，不在这里重复出现。
+  /// **已完成的也不显示** —— 日程页看的是「还要做什么」。
   List<Task> getDeadlinesForDay(DateTime day) {
     final target = dateOnly(day);
     final result = taskList
@@ -94,6 +97,7 @@ class CalendarController extends GetxController {
             task.showsInCalendar &&
             !task.isEvent &&
             task.status != TaskStatus.deleted &&
+            task.status != TaskStatus.completed &&
             dateOnly(task.endTime) == target)
         .toList();
     result.sort((a, b) => a.endTime.compareTo(b.endTime));

@@ -8,6 +8,7 @@ import 'package:celechron/design/tag_picker.dart';
 import 'package:celechron/design/task_priority_color.dart';
 import 'package:celechron/design/task_kind_selector.dart';
 import 'package:celechron/mod/ai/ai_subtasks_ui.dart';
+import 'package:celechron/page/focus/focus_entry.dart';
 import 'package:celechron/model/task.dart';
 import 'package:celechron/database/database_helper.dart';
 import 'package:celechron/page/task/task_controller.dart';
@@ -512,6 +513,26 @@ class _TaskEditPageState extends State<TaskEditPage> {
     setState(() => subtask.applyFromTask(res));
   }
 
+  /// ===== P3：专注累计时长的短写（`1 小时 20 分`）=====
+  static String _humanSpent(Duration d) {
+    final hours = d.inHours;
+    final minutes = d.inMinutes % 60;
+    if (hours > 0) return minutes > 0 ? '$hours 小时 $minutes 分' : '$hours 小时';
+    if (minutes > 0) return '$minutes 分';
+    return '${d.inSeconds} 秒';
+  }
+
+  /// 从任务列表里取同 uid 的那条（详情页手上是副本，要拿它的最新字段）
+  Task? _taskFromList(String uid) {
+    try {
+      final list = Get.find<RxList<Task>>(tag: 'taskList');
+      for (final task in list) {
+        if (task.uid == uid) return task;
+      }
+    } catch (_) {}
+    return null;
+  }
+
   /// 子待办自己的时间已经过去、又没勾完 —— 标红（行程子待办过期标红）。
   bool _subtaskOverdue(SubTask subtask) {
     final end = subtask.endTime;
@@ -1004,39 +1025,73 @@ class _TaskEditPageState extends State<TaskEditPage> {
         child: ListView(
           padding: const EdgeInsets.only(top: 8, bottom: 40),
           children: [
-            // 完成待办
+            // 完成待办 + 开始专注
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: _chip(
-                  onTap: _toggleCompleted,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        _isCompleted
-                            ? CupertinoIcons.checkmark_circle_fill
-                            : CupertinoIcons.circle,
-                        size: 18,
-                        color: _isCompleted
-                            ? CupertinoColors.systemGreen
-                            : CupertinoColors.systemBlue,
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        _isCompleted ? '已完成' : '完成待办',
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w500,
+              child: Row(
+                children: [
+                  _chip(
+                    onTap: _toggleCompleted,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          _isCompleted
+                              ? CupertinoIcons.checkmark_circle_fill
+                              : CupertinoIcons.circle,
+                          size: 18,
                           color: _isCompleted
                               ? CupertinoColors.systemGreen
                               : CupertinoColors.systemBlue,
                         ),
-                      ),
-                    ],
+                        const SizedBox(width: 6),
+                        Text(
+                          _isCompleted ? '已完成' : '完成待办',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w500,
+                            color: _isCompleted
+                                ? CupertinoColors.systemGreen
+                                : CupertinoColors.systemBlue,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
+                  const SizedBox(width: 10),
+                  // ===== P3：拿这条待办去专注（时长会累加进 timeSpent）=====
+                  _chip(
+                    onTap: () async {
+                      await startFocusFor(context, task: now);
+                      if (!mounted) return;
+                      // 专注时长是累加到**任务列表里那条**上的，详情页手上这份是副本。
+                      // 不把新值取回来，用户接着按「√」保存就会用旧的 timeSpent
+                      // 把刚记下的专注时长覆盖掉。
+                      final fresh = _taskFromList(now.uid);
+                      setState(() {
+                        if (fresh != null) now.timeSpent = fresh.timeSpent;
+                      });
+                    },
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(CupertinoIcons.timer,
+                            size: 18, color: Color(0xFFFF699A)),
+                        const SizedBox(width: 6),
+                        Text(
+                          now.timeSpent > Duration.zero
+                              ? '开始专注 · 已记 ${_humanSpent(now.timeSpent)}'
+                              : '开始专注',
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w500,
+                            color: Color(0xFFFF699A),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
 

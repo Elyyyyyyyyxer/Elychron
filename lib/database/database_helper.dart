@@ -11,10 +11,12 @@ import 'package:celechron/model/option.dart';
 import 'package:celechron/utils/utils.dart';
 import 'adapters/duration_adapter.dart';
 import 'adapters/scholar_adapter.dart';
+import 'package:celechron/model/focus_session.dart';
 import 'adapters/deadline_adapter.dart';
 import 'adapters/period_adapter.dart';
 import 'adapters/fuse_adapter.dart';
 import 'adapters/course_id_map_adapter.dart';
+import 'adapters/focus_adapter.dart';
 
 class DatabaseHelper {
   late final Box optionsBox;
@@ -25,6 +27,7 @@ class DatabaseHelper {
   late final Box fuseBox;
   late final Box customGpaBox;
   late final Box tombstoneBox;
+  late final Box focusBox;
   late final FlutterSecureStorage secureStorage;
 
   Future<void> init() async {
@@ -42,6 +45,7 @@ class DatabaseHelper {
     Hive.registerAdapter(PeriodAdapter());
     Hive.registerAdapter(FuseAdapter());
     Hive.registerAdapter(CourseIdMapAdapter());
+    Hive.registerAdapter(FocusSessionAdapter());
     optionsBox = await Hive.openBox(dbOptions);
     scholarBox = await Hive.openBox(dbScholar);
     taskBox = await Hive.openBox(dbTask);
@@ -50,6 +54,7 @@ class DatabaseHelper {
     fuseBox = await Hive.openBox(dbFuse);
     customGpaBox = await Hive.openBox(dbCustomGpa);
     tombstoneBox = await Hive.openBox(dbTombstones);
+    focusBox = await Hive.openBox(dbFocus);
     secureStorage = const FlutterSecureStorage();
     // Migrate all items without groupID
     var secureStorageItems = await secureStorage.readAll(
@@ -72,6 +77,14 @@ class DatabaseHelper {
 
   /// 删除墓碑：同步合并时用来判断"这条是被删掉的"
   final String dbTombstones = 'dbTombstones';
+
+  /// ===== P3：专注会话记录 =====
+  final String dbFocus = 'dbFocus';
+
+  /// 专注参数：工作 / 休息分钟数 + 休息时是否提醒（用户拍板默认 60 / 15）
+  final String kFocusWorkMinutes = 'focusWorkMinutes';
+  final String kFocusRestMinutes = 'focusRestMinutes';
+  final String kFocusRestNotify = 'focusRestNotify';
   final String kGpaStrategy = 'gpaStrategy';
   final String kPushOnGradeChange = 'pushOnGradeChange';
   final String kPushOnDdlReminder = 'pushOnDdlReminder';
@@ -105,6 +118,65 @@ class DatabaseHelper {
 
   void setReminderLeadMinutes(int minutes) {
     optionsBox.put(kReminderLeadMinutes, minutes);
+  }
+
+  // ------------------------------------------------------------ P3：专注
+
+  /// 工作时长（分钟），默认 60
+  int getFocusWorkMinutes() {
+    if (optionsBox.get(kFocusWorkMinutes) == null) {
+      optionsBox.put(kFocusWorkMinutes, 60);
+    }
+    return optionsBox.get(kFocusWorkMinutes);
+  }
+
+  void setFocusWorkMinutes(int minutes) {
+    optionsBox.put(kFocusWorkMinutes, minutes);
+  }
+
+  /// 休息时长（分钟），默认 15
+  int getFocusRestMinutes() {
+    if (optionsBox.get(kFocusRestMinutes) == null) {
+      optionsBox.put(kFocusRestMinutes, 15);
+    }
+    return optionsBox.get(kFocusRestMinutes);
+  }
+
+  void setFocusRestMinutes(int minutes) {
+    optionsBox.put(kFocusRestMinutes, minutes);
+  }
+
+  /// 休息开始时是否弹一条通知提醒你起来走走（默认开）
+  bool getFocusRestNotify() {
+    if (optionsBox.get(kFocusRestNotify) == null) {
+      optionsBox.put(kFocusRestNotify, true);
+    }
+    return optionsBox.get(kFocusRestNotify);
+  }
+
+  void setFocusRestNotify(bool value) {
+    optionsBox.put(kFocusRestNotify, value);
+  }
+
+  /// 全部专注会话（按开始时间倒序）
+  List<FocusSession> getFocusSessions() {
+    final list = focusBox.values
+        .whereType<FocusSession>()
+        .toList()
+      ..sort((a, b) => b.startedAt.compareTo(a.startedAt));
+    return list;
+  }
+
+  /// 还没正常结束的会话（App 被杀掉时留下的），正常情况最多一条
+  List<FocusSession> getUnfinishedFocusSessions() =>
+      getFocusSessions().where((s) => s.isRunning).toList();
+
+  Future<void> saveFocusSession(FocusSession session) async {
+    await focusBox.put(session.uid, session);
+  }
+
+  Future<void> deleteFocusSession(String uid) async {
+    await focusBox.delete(uid);
   }
 
   GpaStrategy getGpaStrategy() {
