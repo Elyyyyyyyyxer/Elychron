@@ -35,7 +35,8 @@ const String lanPanelHtml = r'''<!DOCTYPE html>
     padding: 16px; margin-bottom: 16px;
   }
   .card h2 { font-size: 14px; margin: 0 0 12px; color: var(--muted); font-weight: 600; letter-spacing: .02em; }
-  .row { display: flex; align-items: flex-start; gap: 12px; padding: 10px 0; border-top: 1px solid var(--line); }
+  .row { display: flex; align-items: flex-start; gap: 12px; padding: 10px 0; border-top: 1px solid var(--line); cursor:pointer; transition:background .18s ease, transform .18s ease; }
+  .row:hover { background:rgba(255,107,154,.06); transform:translateX(2px); }
   .row:first-of-type { border-top: none; }
   .row input[type=checkbox] { width: 20px; height: 20px; margin-top: 2px; accent-color: var(--accent); cursor: pointer; flex: none; }
   .row .body { flex: 1; min-width: 0; }
@@ -59,6 +60,19 @@ const String lanPanelHtml = r'''<!DOCTYPE html>
   .grid { display: grid; gap: 8px; grid-template-columns: 1fr 170px auto; align-items: center; }
   @media (max-width: 620px) { .grid { grid-template-columns: 1fr; } }
   .hint { font-size: 12.5px; color: var(--muted); }
+  #editor {
+    position: fixed; inset: 0; z-index: 35; display:flex; align-items:center; justify-content:center;
+    background: rgba(20,20,28,.22); backdrop-filter: blur(8px);
+  }
+  #editor .box { width:min(560px, calc(100vw - 32px)); max-height:calc(100vh - 40px); overflow:auto;
+    background:var(--card); border:1px solid var(--line); border-radius:18px; padding:22px;
+    box-shadow:0 24px 80px rgba(20,20,28,.24); animation:editorIn .24s cubic-bezier(.2,.8,.2,1); }
+  @keyframes editorIn { from { opacity:0; transform:translateY(12px) scale(.98); } to { opacity:1; transform:none; } }
+  #editor h2 { margin:0 0 16px; font-size:20px; }
+  #editor label { display:block; color:var(--muted); font-size:12px; margin:12px 0 5px; }
+  #editor textarea { width:100%; min-height:90px; resize:vertical; font:inherit; padding:9px 10px;
+    border:1px solid var(--line); border-radius:9px; color:var(--text); }
+  #editor .actions { display:flex; justify-content:flex-end; gap:8px; margin-top:18px; }
   #toast {
     position: fixed; right: 22px; bottom: 22px; width: min(380px, calc(100vw - 32px));
     background: rgba(32,32,39,.96); color: #fff; padding: 13px 16px;
@@ -121,6 +135,7 @@ const String lanPanelHtml = r'''<!DOCTYPE html>
       <input id="newReminder" type="datetime-local" aria-label="提醒时间">
     </div>
     <div class="hint" style="margin-top:8px;">截止时间默认今天 23:59；提醒时间可选，保存后由手机负责实际通知。</div>
+    <button style="margin-top:10px" onclick="enableBrowserReminders()">开启电脑提醒</button>
   </div>
 
   <div class="card">
@@ -143,6 +158,20 @@ const String lanPanelHtml = r'''<!DOCTYPE html>
 </main>
 
 <div id="toast"></div>
+<div id="editor" class="hidden">
+  <div class="box">
+    <h2 id="editorTitle">编辑待办</h2>
+    <label for="editSummary">标题</label><input id="editSummary" type="text">
+    <label for="editDescription">描述</label><textarea id="editDescription"></textarea>
+    <label for="editLocation">地点</label><input id="editLocation" type="text">
+    <label for="editPriority">优先级</label>
+    <select id="editPriority"><option value="low">低</option><option value="normal">普通</option><option value="high">高</option><option value="urgent">紧急</option></select>
+    <label><input id="editStarred" type="checkbox"> 加入星标</label>
+    <label><input id="editReminderEnabled" type="checkbox"> 开启提醒</label>
+    <label for="editReminder">提醒时间</label><input id="editReminder" type="datetime-local">
+    <div class="actions"><button onclick="closeEditor()">取消</button><button class="primary" onclick="saveEditor()">保存修改</button></div>
+  </div>
+</div>
 
 <script>
 // 旧版这个 key 叫 telechron_token：读得到就顺手迁移，免得用户重新配对一次
@@ -207,6 +236,27 @@ function pair() {
   }).catch(function (e) { document.getElementById('pairErr').textContent = '' + e; });
 }
 
+var browserReminders = false;
+function enableBrowserReminders() {
+  if (!('Notification' in window)) { notify('当前浏览器不支持电脑提醒', 'err'); return; }
+  Notification.requestPermission().then(function (permission) {
+    browserReminders = permission === 'granted';
+    notify(browserReminders ? '电脑提醒已开启' : '未获得提醒权限', browserReminders ? 'ok' : 'err');
+    if (browserReminders) scheduleBrowserReminders();
+  });
+}
+function scheduleBrowserReminders() {
+  if (!browserReminders || !bundle) return;
+  (bundle.tasks || []).forEach(function (t) {
+    if (!t.reminderEnabled || !t.reminderTime || t.status === 'completed' || t.status === 'deleted') return;
+    var when = new Date(t.reminderTime).getTime() - Date.now();
+    if (when >= 0 && when < 2147483647) {
+      setTimeout(function () {
+        new Notification('Elychron 提醒', { body: t.summary || '有一项待办' });
+      }, when);
+    }
+  });
+}
 function fmt(iso) {
   if (!iso) return '';
   var d = new Date(iso);
@@ -232,14 +282,14 @@ function renderRow(t) {
     meta.push('<span>子待办 ' + dn + '/' + t.subtasks.length + '</span>');
   }
   (t.tags || []).forEach(function (tag) { meta.push('<span class="tag">' + esc(tag) + '</span>'); });
-  return '<div class="row">' +
-    '<input type="checkbox" ' + (done ? 'checked' : '') + ' onchange="toggleDone(\'' + t.uid + '\', this.checked)">' +
+  return '<div class="row" onclick="openEditor(\'' + t.uid + '\')">' +
+    '<input type="checkbox" onclick="event.stopPropagation()" ' + (done ? 'checked' : '') + ' onchange="toggleDone(\'' + t.uid + '\', this.checked)">' +
     '<div class="body">' +
       '<div class="title' + (done ? ' done' : '') + '">' + esc(t.summary || '(无标题)') + '</div>' +
       '<div class="meta">' + meta.join('') + '</div>' +
       (t.description ? '<div class="meta">' + esc(t.description) + '</div>' : '') +
     '</div>' +
-    '<button class="danger" onclick="removeTask(\'' + t.uid + '\')">删除</button>' +
+    '<button class="danger" onclick="event.stopPropagation(); removeTask(\'' + t.uid + '\')">删除</button>' +
   '</div>';
 }
 
@@ -269,6 +319,7 @@ function refresh() {
     bundle = data;
     render();
     setStatus('已连接 · ' + (data.tasks || []).length + ' 条待办', 'ok');
+    scheduleBrowserReminders();
   }).catch(function (e) {
     if (('' + e).indexOf('unauthorized') < 0 && ('' + e).indexOf('配对') < 0) {
       setStatus('连接失败', 'err');
@@ -308,6 +359,40 @@ function push(summary) {
 function findTask(uid) {
   for (var i = 0; i < bundle.tasks.length; i++) { if (bundle.tasks[i].uid === uid) return bundle.tasks[i]; }
   return null;
+}
+var editingUid = null;
+function toInputDate(iso) {
+  if (!iso) return '';
+  var d = new Date(iso); if (isNaN(d)) return '';
+  var p = function (n) { return (n < 10 ? '0' : '') + n; };
+  return d.getFullYear() + '-' + p(d.getMonth()+1) + '-' + p(d.getDate()) + 'T' + p(d.getHours()) + ':' + p(d.getMinutes());
+}
+function openEditor(uid) {
+  var t = findTask(uid); if (!t) return;
+  editingUid = uid;
+  document.getElementById('editSummary').value = t.summary || '';
+  document.getElementById('editDescription').value = t.description || '';
+  document.getElementById('editLocation').value = t.location || '';
+  document.getElementById('editPriority').value = t.priority || 'normal';
+  document.getElementById('editStarred').checked = !!t.starred;
+  document.getElementById('editReminderEnabled').checked = !!t.reminderEnabled;
+  document.getElementById('editReminder').value = toInputDate(t.reminderTime);
+  document.getElementById('editorTitle').textContent = '编辑待办 · ' + (t.reminderEnabled ? '已设提醒' : '未设提醒');
+  document.getElementById('editor').classList.remove('hidden');
+}
+function closeEditor() { editingUid = null; document.getElementById('editor').classList.add('hidden'); }
+function saveEditor() {
+  var t = findTask(editingUid); if (!t) return closeEditor();
+  t.summary = document.getElementById('editSummary').value.trim() || '(无标题)';
+  t.description = document.getElementById('editDescription').value;
+  t.location = document.getElementById('editLocation').value;
+  t.priority = document.getElementById('editPriority').value;
+  t.starred = document.getElementById('editStarred').checked;
+  t.reminderEnabled = document.getElementById('editReminderEnabled').checked;
+  var reminder = document.getElementById('editReminder').value;
+  t.reminderTime = reminder ? new Date(reminder).toISOString() : null;
+  t.updatedAt = new Date().toISOString();
+  closeEditor(); render(); push('已保存修改');
 }
 function toggleDone(uid, checked) {
   var t = findTask(uid);
