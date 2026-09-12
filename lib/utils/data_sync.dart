@@ -81,7 +81,8 @@ class DataBundle {
   final bool focusRestNotify;
   final int reminderLeadMinutes;
   final int brightnessMode;
-  final List<String> courseIdMapping;
+  /// 课程代码自定义映射（用户在设置里手配的，所以要同步）。用 CourseIdMap 的 JSON 形式。
+  final List<Map<String, dynamic>> courseIdMapping;
 
   /// 白名单内的密钥（见 [SyncSecrets]）。**用户可关掉密钥同步**，关掉时这里是空的。
   final Map<String, String> secrets;
@@ -101,7 +102,7 @@ class DataBundle {
     this.focusRestNotify = true,
     this.reminderLeadMinutes = 30,
     this.brightnessMode = 0,
-    this.courseIdMapping = const <String>[],
+    this.courseIdMapping = const <Map<String, dynamic>>[],
     this.secrets = const <String, String>{},
   });
 
@@ -210,10 +211,12 @@ class DataBundle {
         ? Map<String, dynamic>.from(json['settings'] as Map)
         : <String, dynamic>{};
 
-    final courseIdMapping = <String>[];
+    final courseIdMapping = <Map<String, dynamic>>[];
     final rawMapping = settings['courseIdMapping'];
     if (rawMapping is List) {
-      courseIdMapping.addAll(rawMapping.whereType<String>());
+      for (final item in rawMapping) {
+        if (item is Map) courseIdMapping.add(Map<String, dynamic>.from(item));
+      }
     }
 
     return DataBundle(

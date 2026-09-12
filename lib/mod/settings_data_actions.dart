@@ -64,6 +64,9 @@ Future<void> modImportData(BuildContext context) async {
     local: taskList.toList(),
     localTombstones: db.getTombstones(),
     incoming: bundle,
+    // 文件导入是用户显式的「恢复」动作，专注记录也要跟着合，
+    // 并且设置以文件里的为准（不传 localExportedAt）
+    localFocusSessions: db.getFocusSessions(),
   );
 
   if (!context.mounted) return;

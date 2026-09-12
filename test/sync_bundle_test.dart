@@ -60,7 +60,7 @@ void main() {
         focusRestNotify: false,
         reminderLeadMinutes: 15,
         brightnessMode: 2,
-        courseIdMapping: ['CS101=算法'],
+        courseIdMapping: [<String, dynamic>{'id1': 'A', 'id2': 'B', 'comment': '算法'}],
       );
 
       final back = DataBundle.decode(bundle.encode())!;
@@ -72,7 +72,7 @@ void main() {
       expect(back.focusRestNotify, isFalse);
       expect(back.reminderLeadMinutes, 15);
       expect(back.brightnessMode, 2);
-      expect(back.courseIdMapping, ['CS101=算法']);
+      expect(back.courseIdMapping.single['comment'], '算法');
       expect(back.tags, ['作业']);
       expect(back.tagColors['作业'], 3);
       expect(back.alarmTheme, 'elysia');

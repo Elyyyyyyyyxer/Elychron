@@ -41,6 +41,16 @@ class LanSyncServer {
 
   /// 最近一次同步的时间与结果摘要（用于界面展示）
   DateTime? lastSyncAt;
+
+  /// 最近一次把本机数据交出去（面板拉取）的时刻。
+  ///
+  /// 用途：判断对方推回来的那份是不是比「我们给出去的」更新 —— 设置项整组取舍要用
+  /// （见 DataMerge.merge 的 localExportedAt）。从没拉过（null）就按「对方更新」处理，
+  /// 也就是首次同步以对方为准。
+  DateTime? lastPullAt;
+
+  /// 最近一次推送给我们的数据来自哪台设备（面板上显示「最后同步来自 X」）
+  String lastSyncDeviceId = '';
   String lastSyncSummary = '';
 
   bool get isRunning => _server != null;
@@ -176,7 +186,8 @@ class LanSyncServer {
   /// 拉取：把手机上的整份数据给电脑
   Future<void> _sendBundle(HttpResponse response) async {
     final db = Get.find<DatabaseHelper>(tag: 'db');
-    final bundle = DataBackup.currentBundle(db, _tasks());
+    final bundle = await DataBackup.currentBundle(db, _tasks());
+    lastPullAt = DateTime.now();
     return _json(response, HttpStatus.ok, bundle.toJson());
   }
 
@@ -197,6 +208,8 @@ class LanSyncServer {
       local: taskList.toList(),
       localTombstones: db.getTombstones(),
       incoming: incoming,
+      localFocusSessions: db.getFocusSessions(),
+      localExportedAt: lastPullAt,
     );
     await DataBackup.applyMerge(db, taskList, result, bundle: incoming);
     taskList.refresh();
@@ -210,9 +223,12 @@ class LanSyncServer {
 
     lastSyncAt = DateTime.now();
     lastSyncSummary = result.summary;
+    lastSyncDeviceId = incoming.deviceId;
     return _json(request.response, HttpStatus.ok, {
       'ok': true,
       'summary': result.summary,
+      'device': incoming.deviceId,
+      'conflicts': result.conflictUids.length,
     });
   }
 

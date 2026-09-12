@@ -12,6 +12,9 @@ import 'package:celechron/utils/utils.dart';
 import 'adapters/duration_adapter.dart';
 import 'adapters/scholar_adapter.dart';
 import 'package:celechron/model/focus_session.dart';
+import 'package:celechron/utils/data_sync.dart';
+import 'package:celechron/mod/ai/deepseek.dart';
+import 'package:uuid/uuid.dart';
 import 'adapters/deadline_adapter.dart';
 import 'adapters/period_adapter.dart';
 import 'adapters/fuse_adapter.dart';
@@ -100,6 +103,8 @@ class DatabaseHelper {
   // P1：默认提醒提前量（分钟）。活动与截止用它；提醒型就是那一刻本身。
   final String kReminderLeadMinutes = 'reminderLeadMinutes';
   final String kBrightnessMode = 'brightnessMode';
+  /// S1：设备身份（首次读取时生成一次，之后固定）
+  final String kDeviceId = 'deviceId';
   final String kCourseIdMappingList = 'courseIdMappingList';
   final String kHideHomeGpa = 'hideHomeGpa';
   final String kAsyncRefresh = 'asyncRefresh';
@@ -127,6 +132,78 @@ class DatabaseHelper {
 
   void setReminderLeadMinutes(int minutes) {
     optionsBox.put(kReminderLeadMinutes, minutes);
+  }
+
+  // ============================================== S1：多端同步要用的东西
+
+  /// ===== 设备身份 =====
+  ///
+  /// 首次读取时生成一次、之后固定。用途：同步时告诉对方「这份数据来自哪台设备」，
+  /// 面板上显示「最后同步来自 X」，以后排查「谁把我这条改了」也有据可依。
+  /// 只存本地，**不会**被对方的 deviceId 覆盖（见 DataMerge 的调用方）。
+  String getDeviceId() {
+    final existing = optionsBox.get(kDeviceId);
+    if (existing is String && existing.isNotEmpty) return existing;
+    final generated = const Uuid().v4();
+    optionsBox.put(kDeviceId, generated);
+    return generated;
+  }
+
+  /// ===== 密钥（只走白名单，见 data_sync.dart 的 SyncSecrets）=====
+  ///
+  /// 存系统密钥库（`FlutterSecureStorage`），与 AI key 同一套设施。
+  /// 命名空间前缀 `sync:` 避免与别的键撞车。
+  static const String _syncSecretPrefix = 'sync:';
+
+  Future<String> getSyncSecret(String key) async {
+    if (!SyncSecrets.allowed.contains(key)) return '';
+    try {
+      return await secureStorage.read(key: '$_syncSecretPrefix$key') ?? '';
+    } catch (_) {
+      return '';
+    }
+  }
+
+  Future<void> setSyncSecret(String key, String value) async {
+    if (!SyncSecrets.allowed.contains(key)) return; // 机制上挡住非白名单键
+    try {
+      if (value.isEmpty) {
+        await secureStorage.delete(key: '$_syncSecretPrefix$key');
+      } else {
+        await secureStorage.write(key: '$_syncSecretPrefix$key', value: value);
+      }
+    } catch (_) {}
+  }
+
+  /// 收集要同步出去的密钥（AI key 从 AiConfig 读，其余从密钥库读）
+  Future<Map<String, String>> getSyncSecrets() async {
+    final result = <String, String>{};
+    try {
+      if (AiConfig.apiKey.isNotEmpty) {
+        result[SyncSecrets.aiApiKey] = AiConfig.apiKey;
+      }
+    } catch (_) {}
+    for (final key in SyncSecrets.allowed) {
+      if (key == SyncSecrets.aiApiKey) continue;
+      final value = await getSyncSecret(key);
+      if (value.isNotEmpty) result[key] = value;
+    }
+    return SyncSecrets.filter(result);
+  }
+
+  /// 应用对方同步过来的密钥（只认白名单 ✓）
+  Future<void> applySyncSecrets(Map<String, String> secrets) async {
+    final allowed = SyncSecrets.filter(secrets);
+    for (final entry in allowed.entries) {
+      if (entry.key == SyncSecrets.aiApiKey) {
+        // AI key 写进 AiConfig 自己的存储，这样 AI 功能立刻能用
+        try {
+          await AiConfig.setApiKey(entry.value);
+        } catch (_) {}
+      } else {
+        await setSyncSecret(entry.key, entry.value);
+      }
+    }
   }
 
   // ------------------------------------------------------------ P3：专注
