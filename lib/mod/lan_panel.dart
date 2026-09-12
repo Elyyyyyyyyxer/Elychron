@@ -170,10 +170,20 @@ function api(path, options, attempt) {
   if (controller) { options.signal = controller.signal; setTimeout(function () { controller.abort(); }, 9000); }
   return fetch(path, options).then(function (res) {
     return res.json().then(function (data) {
-      if (res.status === 401) { showPair('配对已失效，请重新输入配对码'); throw new Error(data.error || 'unauthorized'); }
+      if (res.status === 401) {
+        token = ''; localStorage.removeItem('elychron_token');
+        showPair('配对已失效，请重新输入配对码');
+        throw new Error(data.error || 'unauthorized');
+      }
       if (!res.ok) { throw new Error(data.error || ('HTTP ' + res.status)); }
       return data;
     });
+  }).catch(function (error) {
+    var safeToRetry = (!options.method || options.method === 'GET') && attempt < 2 && token;
+    if (!safeToRetry) throw error;
+    setStatus('正在重连…', 'err');
+    return new Promise(function (resolve) { setTimeout(resolve, 500 * (attempt + 1)); })
+      .then(function () { return api(path, options, attempt + 1); });
   });
 }
 function showPair(msg) {
@@ -261,8 +271,20 @@ function refresh() {
 }
 
 function push(summary) {
-  // 写入前重新拉取一次，避免把网页打开后的旧快照覆盖回手机。
+  // 写入前重新拉取；把本次网页编辑合并到新快照，避免覆盖手机刚产生的改动。
+  var edited = JSON.parse(JSON.stringify(bundle));
   return api('/bundle').then(function (fresh) {
+    var byUid = {};
+    (edited.tasks || []).forEach(function (t) { byUid[t.uid] = t; });
+    (fresh.tasks || []).forEach(function (t, i) {
+      var local = byUid[t.uid];
+      if (local && String(local.updatedAt || '') >= String(t.updatedAt || '')) {
+        fresh.tasks[i] = local;
+      }
+    });
+    (edited.tasks || []).forEach(function (t) {
+      if (!(fresh.tasks || []).some(function (x) { return x.uid === t.uid; })) fresh.tasks.push(t);
+    });
     bundle = fresh;
     render();
     return api('/bundle', {
