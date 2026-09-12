@@ -196,9 +196,13 @@ function api(path, options, attempt) {
   options = options || {};
   attempt = attempt || 0;
   options.headers = Object.assign({ 'X-Lan-Token': token }, options.headers || {});
+  // 每次重试都创建新的 options 和 AbortController；已 abort 的 signal 不能复用。
+  var requestOptions = Object.assign({}, options);
+  var requestHeaders = Object.assign({}, options.headers || {});
+  requestOptions.headers = requestHeaders;
   var controller = window.AbortController ? new AbortController() : null;
-  if (controller) { options.signal = controller.signal; setTimeout(function () { controller.abort(); }, 9000); }
-  return fetch(path, options).then(function (res) {
+  if (controller) { requestOptions.signal = controller.signal; setTimeout(function () { controller.abort(); }, 9000); }
+  return fetch(path, requestOptions).then(function (res) {
     return res.json().then(function (data) {
       if (res.status === 401) {
         token = ''; localStorage.removeItem('elychron_token');
@@ -237,6 +241,7 @@ function pair() {
 }
 
 var browserReminders = false;
+var browserReminderTimers = {};
 function enableBrowserReminders() {
   if (!('Notification' in window)) { notify('当前浏览器不支持电脑提醒', 'err'); return; }
   Notification.requestPermission().then(function (permission) {
@@ -247,14 +252,22 @@ function enableBrowserReminders() {
 }
 function scheduleBrowserReminders() {
   if (!browserReminders || !bundle) return;
+  var active = {};
   (bundle.tasks || []).forEach(function (t) {
     if (!t.reminderEnabled || !t.reminderTime || t.status === 'completed' || t.status === 'deleted') return;
+    var key = t.uid + '|' + t.reminderTime;
+    active[key] = true;
+    if (browserReminderTimers[key]) return;
     var when = new Date(t.reminderTime).getTime() - Date.now();
     if (when >= 0 && when < 2147483647) {
-      setTimeout(function () {
+      browserReminderTimers[key] = setTimeout(function () {
+        delete browserReminderTimers[key];
         new Notification('Elychron 提醒', { body: t.summary || '有一项待办' });
       }, when);
     }
+  });
+  Object.keys(browserReminderTimers).forEach(function (key) {
+    if (!active[key]) { clearTimeout(browserReminderTimers[key]); delete browserReminderTimers[key]; }
   });
 }
 function fmt(iso) {
