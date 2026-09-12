@@ -80,11 +80,15 @@
 - **完整清单在 [`RELEASE.md`](RELEASE.md)**，这里只记状态：
   - **P0（不发不行）**：① 更新检查还指着 `api.celechron.top` ✗
     ② release 用的是 **debug 签名** ✗ ③ 图标与 `assets/logo.png` 还是上游美术 ✗
-    ④ 仓库私有 → GPLv3 要求源码可获取 ✗
-  - **P1（建议）**：版本号改 `1.4.0-elychron.1`、修「专注锁屏提醒」、README + 截图、
-    真机回归、PRIVACY 复核
+    ④ ~~仓库私有 → GPLv3 要求源码可获取~~ ✅ **已完成**：新仓库
+    [Elyyyyyyyyxer/Elychron](https://github.com/Elyyyyyyyyxer/Elychron) 已建（public），
+    历史里的旧身份已用 `git filter-repo` 全量切割（元数据 65 个提交 + 内容 3 个提交），
+    旧仓库待仓库主删除
+  - **P1（建议）**：版本号改 `1.4.0-elychron.1`、~~修「专注锁屏提醒」~~ ✅（已排进系统并
+    用 `dumpsys alarm` 验证）、README + 截图、真机回归、PRIVACY 复核
   - **P2**：发布后再说
-- **只有仓库主能做的两件**：生成并**备份** keystore、把仓库改 public。
+- **只有仓库主能做的两件**：删除旧仓库；生成并**备份** keystore
+  （⚠️ 证书 DN 用中性信息，别填真实姓名/学校邮箱 —— 它写进 APK 后谁都能看到）。
 - **为什么值得现在做**：Elychron 与上游的区分度已经足够（名字、四类语义、专注、
   AI、电脑端），再拖只会让「发行收尾」越积越多。
 - **触发条件**：想发的时候 —— 按 `RELEASE.md` 第九节的 checklist 走一遍即可。

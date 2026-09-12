@@ -62,11 +62,19 @@
   `assets/logo.png`（关于页那张）。
 - 好消息：`assets/logo.png` **不含任何文字**，不存在「新名字配旧字样」的尴尬。
 
-### P0-4 让源码可获取（GPLv3 义务）
+### P0-4 让源码可获取（GPLv3 义务）—— ✅ 已完成（2026-09-12）
 
-- 发 APK 给别人 = 分发目标代码 → GPLv3 §6 要求**能拿到对应源码**。
-- **最省事**：把 `Elyyyyyyyyxer/Elychron` 改成 **public**。
-- 顺带好处：CC98 上「代码可查、没人偷你密码」是最有力的信任凭证。
+- 新仓库：**https://github.com/Elyyyyyyyyxer/Elychron**（public，已推 main + 全部 tag）
+- 旧仓库由仓库主自行删除 —— 删掉之后，旧提交与旧名字就不再挂在 GitHub 上了
+- **历史已做彻底切割**（`git filter-repo`）：
+  - 65 个提交的**作者/提交者元数据**（旧名字 + 旧 noreply 邮箱）→ 全部改成新身份
+  - 3 个提交**内容里**出现过旧名字的 blob → 全历史替换
+  - README / PRIVACY / 关于页 / 本文档里的旧仓库链接 → 改成新仓库
+  - 核验：`git log --all --format='%an%ae%cn%ce'`、`git log --all -S<旧名>`、
+    工作区 `git grep` 全部为空 ✓
+- ⚠️ **不要改** `lib/utils/data_sync.dart` 里的 `format = 'celechron-mod'`：
+  它是**备份/同步文件里的格式标识**，改了会让用户已有的备份文件与旧客户端同步包
+  全部被拒绝。它只是「上游项目名 + mod」，**不含任何账号信息**。
 
 ---
 
@@ -102,6 +110,10 @@ keytool -genkeypair -v `
   -storetype JKS -keyalg RSA -keysize 2048 -validity 10000 `
   -alias elychron
 ```
+
+> ⚠️ **证书里的身份信息（DN）要中性**：`CN` / `O` 一律填 `Elychron`（或直接回车跳过），
+> **不要填真实姓名、学校邮箱或任何与本人相关的信息**。这个 DN 会写进 APK 的签名证书，
+> 任何人用 `apksigner verify --print-certs` 或 `keytool -printcert` 都能看到 —— 它是公开信息。
 
 ### 2. 写 `android/key.properties`（**这个文件已在 .gitignore，不入库**）
 
@@ -248,12 +260,12 @@ Elychron —— Celechron 的非官方改版（四种时间语义 / 子待办行
 ## 九、发布前最后一跳（把这份文档当 checklist 用）
 
 ```
-[ ] P0-1 更新检查改掉/关掉
-[ ] P0-2 keystore 生成 + 签名接上 + apksigner 验证 + 备份
+[ ] P0-1 更新检查改掉/关掉（**还没做**，仍指着 api.celechron.top）
+[ ] P0-2 keystore 生成（DN 用中性信息）+ 签名接上 + apksigner 验证 + 备份
 [ ] P0-3 图标与 logo 换成自己的
-[ ] P0-4 仓库改 public
+[x] P0-4 新仓库 Elychron 已建 + 历史身份已切割（旧仓库由仓库主删除）
 [ ] P1-1 版本号 1.4.0-elychron.1
-[ ] P1-2 专注锁屏提醒修掉
+[x] P1-2 专注锁屏提醒修掉（已排进系统，dumpsys alarm 验证过）
 [ ] P1-3 README 重写 + 截图
 [ ] P1-4 真机回归（含覆盖安装升级）
 [ ] P1-5 PRIVACY.md 复核
