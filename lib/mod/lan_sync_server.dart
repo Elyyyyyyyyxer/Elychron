@@ -152,6 +152,21 @@ class LanSyncServer {
         if (request.method == 'GET') return await _sendBundle(response);
         if (request.method == 'POST') return await _receiveBundle(request);
       }
+      if (path == '/meta' && request.method == 'GET') {
+        if (!_authorized(request)) {
+          return _json(response, HttpStatus.unauthorized,
+              {'ok': false, 'error': '未配对或配对已失效，请重新输入配对码'});
+        }
+        final db = Get.find<DatabaseHelper>(tag: 'db');
+        return _json(response, HttpStatus.ok, {
+          'ok': true,
+          'device': await db.getDeviceId(),
+          'lastSyncAt': lastSyncAt?.toIso8601String(),
+          'lastSyncDeviceId': lastSyncDeviceId,
+          'reminderMode': db.getReminderMode(),
+          'reminderLeadMinutes': db.getReminderLeadMinutes(),
+        });
+      }
       return _text(response, HttpStatus.notFound, 'not found');
     } on FormatException {
       // 请求体不是合法 JSON：明确回 400，而不是含混的 500

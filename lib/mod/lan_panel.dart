@@ -266,9 +266,11 @@ function pair() {
 
 var browserReminders = false;
 var browserReminderTimers = {};
+var browserReminderPermission = 'default';
 function enableBrowserReminders() {
   if (!('Notification' in window)) { notify('当前浏览器不支持电脑提醒', 'err'); return; }
   Notification.requestPermission().then(function (permission) {
+    browserReminderPermission = permission;
     browserReminders = permission === 'granted';
     notify(browserReminders ? '电脑提醒已开启' : '未获得提醒权限', browserReminders ? 'ok' : 'err');
     if (browserReminders) scheduleBrowserReminders();
@@ -277,6 +279,7 @@ function enableBrowserReminders() {
 function scheduleBrowserReminders() {
   if (!browserReminders || !bundle) return;
   var active = {};
+  notify('电脑提醒已根据最新任务安排', 'info');
   (bundle.tasks || []).forEach(function (t) {
     if (!t.reminderEnabled || !t.reminderTime || t.status === 'completed' || t.status === 'deleted') return;
     var key = t.uid + '|' + t.reminderTime;
@@ -313,6 +316,7 @@ function renderRow(t) {
   var meta = [];
   meta.push('<span>' + (done ? '已完成' : '截止 ') + esc(fmt(t.endTime)) + '</span>');
   if (t.location) meta.push('<span>📍' + esc(t.location) + '</span>');
+  if (t.reminderEnabled && t.reminderTime) meta.push('<span>⏰ 提醒 ' + esc(fmt(t.reminderTime)) + '</span>');
   if (PRIO[t.priority]) meta.push('<span class="prio-' + t.priority + '">' + PRIO[t.priority] + '</span>');
   if (t.subtasks && t.subtasks.length) {
     var dn = t.subtasks.filter(function (s) { return s.done; }).length;
