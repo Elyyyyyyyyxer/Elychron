@@ -18,28 +18,35 @@
 |---|---|---|
 | applicationId | `xyz.nosig.celechron.mod` | 与上游 `xyz.nosig.celechron` **不同** → 两个 App 可共存 ✓ |
 | 签名 | `signingConfig signingConfigs.debug` | ✗ **必须换**（见 P0-2）|
-| 更新检查 | `https://api.celechron.top/checkUpdate` | ✗ **必须改**（见 P0-1）|
-| 版本号 | `1.3.0-mod.1+3` | 建议改（见 P1-1）|
-| 图标 / `assets/logo.png` | 上游美术 | ✗ 商标与观感问题（见 P0-3）|
+| 更新检查 | 已改为自己的 GitHub Releases API | ✅ 见 P0-1 |
+| 版本号 | `1.4.0-elychron.1+4` | ✅ 见 P1-1 |
+| 图标 / `assets/logo.png` | 自己的（爱莉希雅粉，`ed00918`）| ✅ 见 P0-3 |
 | LICENSE | GPLv3 | 有义务，见「三、合规」|
-| 仓库可见性 | 私有 | ✗ GPLv3 要求能拿到源码（见 P0-4）|
+| 仓库 | `Elyyyyyyyyxer/Elychron`（public）| ✅ 见 P0-4 |
 | minSdk | 28（Android 9+）| 校园机型覆盖率够 ✓ |
 
 ---
 
 ## 一、P0：不做不能发
 
-### P0-1 改掉/关掉上游更新检查
+### P0-1 改掉上游更新检查 —— ✅ 已完成（2026-09-12）
 
-- **位置**：`lib/worker/fuse.dart`（`checkUpdate()` 里三个 `api.celechron.top/checkUpdate`）
-- **为什么必须改**：
-  1. 上游发版后，你的用户会看到「有新版本」，点「访问网站」跳到 **celechron.top**
-     —— 等于给自己用户做上游导流；
-  2. 他们从那下到的是**官方 Celechron**（包名不同）→ 装出第二个 App，用户困惑；
-  3. 频繁请求别人的服务器本身不合适。
-- **怎么做**（第一版最省事）：**去掉更新弹窗**，帖子与 README 里写「更新看 GitHub Release」。
-  更好的做法：指向自己的 GitHub Releases API（`/repos/<owner>/<repo>/releases/latest`），
-  比较 tag 里的版本号。**注意别再引入任何上游域名**。
+- **原来是**：`lib/worker/fuse.dart` 里三个 `api.celechron.top/checkUpdate`，
+  更新弹窗的「访问网站」指向 `celechron.top`（上游官网）；设置页还有一行
+  「前往项目网站」也指向那里。
+- **为什么必须改**：上游发版后我们的用户会看到「有新版本」并被引到上游官网 ——
+  等于给自己用户做导流；他们从那下到的是**官方包**（包名不同）→ 手机上多出
+  第二个应用；而且频繁请求别人的服务器本身不合适。
+- **现在**：只认我们自己的仓库 ——
+  `https://api.github.com/repos/Elyyyyyyyyxer/Elychron/releases/latest`，
+  解析 `tag_name` 与 `body`（说明第一行做摘要）；弹窗按钮改为「去下载」并指向
+  Release 页；**没有 Release 时 GitHub 返回 404 → 当作「无更新」安静跳过**；
+  设置页那行改成「检查更新 / 项目主页」，同样指向我们的 Release 页。
+  仍然一天最多查一次，任何异常都静默（不影响本地功能）。
+- 顺带发现并处理：`lib/http/calendar_config_parser.dart` 的
+  `calendar.celechron.top` 是**上游的公开校历配置接口**，这是唯一还依赖上游的
+  地方 —— 只读、不含用户数据、失败会多级降级（缓存 → 本地推算）。
+  已在代码里写明，并写进隐私说明与风险表。
 
 ### P0-2 用自己的签名
 
@@ -235,7 +242,11 @@ Elychron —— Celechron 的非官方改版（四种时间语义 / 子待办行
    - 教务网账号密码只存本地系统密钥库，直连学校服务器
    - AI **默认关闭**，开启后用**你自己填的** API key 直连服务商
    - 局域网同步只在同一 Wi-Fi 内直连，不经过任何中转
-   - 源码公开可查
+   - 校历/考试周/假期这份配置来自上游 Celechron 的公开接口
+     `calendar.celechron.top`（只读公开校历，不含任何个人信息；
+     连不上会自动用缓存或本地推算）
+   - 更新检查只请求我们自己的 GitHub Releases
+   - 源码公开可查（链接）
 
 6. **免责**
    非官方，与学校及上游项目无关；免费且无广告；使用风险自负。
@@ -253,6 +264,7 @@ Elychron —— Celechron 的非官方改版（四种时间语义 / 子待办行
 | 用户数据丢失投诉 | 首次发布就定签名；README 教用户「导出数据」做备份（设置 → 数据 → 导出）|
 | 新版引入回归 | tag 之前跑全量单测 + 真机回归；Release notes 写清已知问题 |
 | 校园网/接口变更导致抓取失败 | 应用本身有诊断日志（设置 → 诊断与测试），先教用户导出日志再排查 |
+| **依赖上游的校历配置接口** (`calendar.celechron.top`) | 这是唯一还依赖上游的地方：只读、不含用户数据、失败会降级到缓存/本地推算。若上游关停或明确反对，改 `calendar_config_parser.dart` 里那一个常量即可（自建或随包内置）|
 | 被当成「官方」 | 关于页 + 帖子里双重声明「非官方」；不要在标题写「浙大官方」等字样 |
 
 ---
@@ -260,16 +272,16 @@ Elychron —— Celechron 的非官方改版（四种时间语义 / 子待办行
 ## 九、发布前最后一跳（把这份文档当 checklist 用）
 
 ```
-[ ] P0-1 更新检查改掉/关掉（**还没做**，仍指着 api.celechron.top）
+[x] P0-1 更新检查改指向自己的 GitHub Releases（弹窗与设置页都不再指上游）
 [ ] P0-2 keystore 生成（DN 用中性信息）+ 签名接上 + apksigner 验证 + 备份
-[ ] P0-3 图标与 logo 换成自己的
+[x] P0-3 图标与 logo 换成自己的（2026-09-11 `ed00918` 爱莉希雅粉，已确认与上游不同）
 [x] P0-4 新仓库 Elychron 已建 + 历史身份已切割（旧仓库由仓库主删除）
-[ ] P1-1 版本号 1.4.0-elychron.1
+[x] P1-1 版本号 1.4.0-elychron.1（pubspec + `Fuse.appVersionName`/`version` 三处同步）
 [x] P1-2 专注锁屏提醒修掉（已排进系统，dumpsys alarm 验证过）
 [ ] P1-3 README 重写 + 截图
 [ ] P1-4 真机回归（含覆盖安装升级）
 [ ] P1-5 PRIVACY.md 复核
 [ ] P1-6 关于页版本号复核
-[ ] 打 tag + GitHub Release（附 APK）
+[ ] 打 tag v1.4.0-elychron.1 + GitHub Release（附 APK）
 [ ] CC98 发帖
 ```

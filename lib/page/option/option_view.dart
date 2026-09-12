@@ -1,4 +1,5 @@
 import 'package:celechron/utils/platform_features.dart';
+import 'package:celechron/worker/fuse.dart';
 import 'package:celechron/design/alarm_theme_picker.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -362,8 +363,10 @@ class OptionPage extends StatelessWidget {
                                     const CustomLicensePage()));
                       },
                     ),
+                    // ===== MOD：这一行原来叫「前往项目网站」并指向上游 celechron.top，
+                    // 会把用户送错地方（那是上游官网）。改成我们自己的 Release 页。=====
                     CupertinoListTile(
-                      title: const Text('前往项目网站'),
+                      title: const Text('检查更新 / 项目主页'),
                       trailing: BackChervonRow(
                         child: Obx(() {
                           if (_optionController.hasNewVersion) {
@@ -385,7 +388,7 @@ class OptionPage extends StatelessWidget {
                       ),
                       onTap: () async {
                         await launchUrlString(
-                          'https://celechron.top',
+                          Fuse.releasePageUrl,
                           mode: LaunchMode.externalApplication,
                         );
                       },

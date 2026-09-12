@@ -184,10 +184,11 @@ class _HomePageState extends State<HomePage> {
                   },
                 ),
                 CupertinoDialogAction(
-                  child: const Text('访问网站'),
+                  child: const Text('去下载'),
                   onPressed: () async {
+                    // 指向我们自己的 Release 页，别把用户送到上游站点
                     await launchUrlString(
-                      'https://celechron.top',
+                      Fuse.releasePageUrl,
                       mode: LaunchMode.externalApplication,
                     );
                   },

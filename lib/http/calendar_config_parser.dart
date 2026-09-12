@@ -4,6 +4,13 @@ import 'package:celechron/http/zjuServices/response_utils.dart';
 import 'package:celechron/model/semester.dart';
 import 'package:flutter/foundation.dart';
 
+/// 校历配置（每学期的开学/结束日期、节次时间、考试周与假期）的**上游公开接口**。
+///
+/// ⚠️ 这是本应用唯一还依赖上游的地方，公开分发前请知悉：
+/// - 它由上游 Celechron 提供，只读、只含公开的校历信息，**不含任何用户数据**；
+/// - 抓不到时 [TimeConfigService] 会依次退回「同学期缓存 → 本地推算」，
+///   所以上游关停也**不会让功能坏掉**，只是假期/考试周标注可能不准；
+/// - 如果要彻底摆脱上游，把这份 JSON 自建或随包内置即可（改这一个常量）。
 const calendarConfigBaseUrl = 'http://calendar.celechron.top/';
 
 /// 返回日期所属学年的起始年份；九月是学年边界，不代表课表开放时间。
