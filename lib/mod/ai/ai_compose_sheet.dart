@@ -2,10 +2,8 @@ import 'dart:io';
 
 import 'package:celechron/mod/ai/ai_image.dart';
 import 'package:celechron/mod/ai/ai_settings_page.dart';
-import 'package:celechron/design/date_picker_sheet.dart';
 import 'package:celechron/mod/ai/ai_task_draft.dart';
 import 'package:celechron/mod/ai/deepseek.dart';
-import 'package:celechron/model/task.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/cupertino.dart';
 
@@ -49,7 +47,6 @@ class _AiComposeSheetState extends State<_AiComposeSheet> {
   bool _ready = false;
   bool _loading = false;
   String? _error;
-  AiTaskDraft? _draft;
 
   /// 这次要识别的图片（分享进来 + 手动添加的都在这）
   late final List<String> _images = List<String>.of(widget.imagePaths);
@@ -73,14 +70,15 @@ class _AiComposeSheetState extends State<_AiComposeSheet> {
     setState(() {
       _loading = true;
       _error = null;
-      _draft = null;
     });
     try {
       final draft = _images.isEmpty
           ? await AiTaskDraft.fromText(_controller.text)
           : await AiTaskDraft.fromImages(_images, hint: _controller.text);
       if (!mounted) return;
-      setState(() => _draft = draft);
+      // ===== 整理完**直接进新建页**，不再在弹窗里多来一层预览 =====
+      // 新建页能看到并改所有字段（含子待办的时间/地点），那一层预览纯属多一步。
+      Navigator.of(context).pop(draft);
     } on AiException catch (error) {
       if (!mounted) return;
       setState(() => _error = error.message);
@@ -111,7 +109,6 @@ class _AiComposeSheetState extends State<_AiComposeSheet> {
           if (_images.length >= AiTaskDraft.maxImages) break;
           if (!_images.contains(path)) _images.add(path);
         }
-        _draft = null;
         _error = null;
       });
     } catch (error) {
@@ -326,12 +323,7 @@ class _AiComposeSheetState extends State<_AiComposeSheet> {
           padding: const EdgeInsets.symmetric(vertical: 10),
           decoration: const BoxDecoration(),
           onChanged: (_) {
-            if (_draft != null || _error != null) {
-              setState(() {
-                _draft = null;
-                _error = null;
-              });
-            }
+            if (_error != null) setState(() => _error = null);
           },
         ),
       ),
@@ -356,213 +348,8 @@ class _AiComposeSheetState extends State<_AiComposeSheet> {
       ]);
     }
 
-    final draft = _draft;
-    if (draft != null) {
-      children.addAll([
-        const SizedBox(height: 16),
-        _preview(context, draft),
-        const SizedBox(height: 14),
-        CupertinoButton.filled(
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          onPressed: () => Navigator.of(context).pop(draft),
-          child: const Text('填入待办'),
-        ),
-        const SizedBox(height: 6),
-        CupertinoButton(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          onPressed: () => setState(() => _draft = null),
-          child: const Text('改改文字再试'),
-        ),
-      ]);
-    }
-
     return children;
   }
-
-  /// 预览里点某一步的时间 → 改它的起点（原本有段就保留时长，没有就当成一个时刻）
-  Future<void> _editStepTime(AiTaskDraft draft, int index) async {
-    final step = draft.subtasks[index];
-    final picked = await showDateTimeSheet(
-      context,
-      initial: step.anchor ?? draft.endTime,
-      title: '这一步的时间',
-    );
-    if (picked == null || !mounted) return;
-
-    final start = step.startTime;
-    final end = step.endTime;
-    final length = (start != null && end != null && end.isAfter(start))
-        ? end.difference(start)
-        : Duration.zero;
-
-    final next = List<AiStepDraft>.of(draft.subtasks);
-    next[index] = AiStepDraft(
-      title: step.title,
-      note: step.note,
-      location: step.location,
-      startTime: picked,
-      endTime: length > Duration.zero ? picked.add(length) : null,
-    );
-    setState(() => _draft = draft.copyWith(subtasks: next));
-  }
-
-  Widget _preview(BuildContext context, AiTaskDraft draft) {
-    final rows = <Widget>[
-      _kv(context, '标题', draft.summary),
-      // ===== P1：模型划分的时间语义（活动 / 截止 / 提醒 / 备忘）=====
-      _kv(context, '类型', taskKindName[draft.kind] ?? ''),
-      if (draft.startTime != null)
-        _kv(context, '开始', _describeTime(draft.startTime!)),
-      _kv(context, draft.kind == TaskType.memo ? '时间' : '截止',
-          draft.kind == TaskType.memo ? '备忘不设时间' : _describeTime(draft.endTime)),
-      if (draft.description.isNotEmpty) _kv(context, '描述', draft.description),
-      if (draft.location.isNotEmpty) _kv(context, '地点', draft.location),
-      if (draft.reminderMinutes > 0)
-        _kv(
-          context,
-          '提醒',
-          '提前 ${_describeMinutes(draft.reminderMinutes)}'
-              '（${_describeTime((draft.startTime ?? draft.endTime).subtract(Duration(minutes: draft.reminderMinutes)))}）',
-        ),
-      if (draft.priority != TaskPriority.normal)
-        _kv(context, '优先级', taskPriorityName[draft.priority] ?? ''),
-      if (draft.tags.isNotEmpty) _kv(context, '标签', draft.tags.join('、')),
-      // ===== P2：步骤可以在预览里直接删 / 改时间（不用先填进去再改）=====
-      if (draft.subtasks.isNotEmpty) ...[
-        Padding(
-          padding: const EdgeInsets.only(top: 10, bottom: 4),
-          child: Row(
-            children: [
-              Text('子待办',
-                  style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: CupertinoDynamicColor.resolve(CupertinoColors.secondaryLabel, context))),
-              const Spacer(),
-              if (draft.subtasks.any((s) => s.hasTime))
-                CupertinoButton(
-                  padding: EdgeInsets.zero,
-                  minimumSize: const Size(0, 28),
-                  onPressed: () => setState(() {
-                    _draft = draft.copyWith(
-                      subtasks: draft.subtasks.map((s) => s.withoutTime()).toList(),
-                    );
-                  }),
-                  child: const Text('全部不要时间', style: TextStyle(fontSize: 13)),
-                ),
-            ],
-          ),
-        ),
-        ...draft.subtasks.asMap().entries.map((entry) {
-          final index = entry.key;
-          final step = entry.value;
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 6),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // 点时间 → 改这一步的起点（时长保留）
-                GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () => _editStepTime(draft, index),
-                  child: Container(
-                    width: 78,
-                    padding: const EdgeInsets.symmetric(vertical: 2),
-                    child: Text(
-                      step.timeLabel.isEmpty ? '＋时间' : step.timeLabel,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: step.hasTime
-                            ? const Color(0xFFFF699A)
-                            : CupertinoDynamicColor.resolve(CupertinoColors.secondaryLabel, context),
-                      ),
-                    ),
-                  ),
-                ),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(step.title, style: const TextStyle(fontSize: 14)),
-                      if (step.location.isNotEmpty || step.note.isNotEmpty)
-                        Text(
-                          [
-                            if (step.location.isNotEmpty) '@${step.location}',
-                            if (step.note.isNotEmpty) step.note,
-                          ].join(' · '),
-                          style: TextStyle(
-                              fontSize: 12,
-                              color: CupertinoColors.secondaryLabel
-                                  .resolveFrom(context)),
-                        ),
-                    ],
-                  ),
-                ),
-                CupertinoButton(
-                  padding: EdgeInsets.zero,
-                  minimumSize: const Size(28, 28),
-                  onPressed: () => setState(() {
-                    final next = List<AiStepDraft>.of(draft.subtasks)
-                      ..removeAt(index);
-                    _draft = draft.copyWith(subtasks: next);
-                  }),
-                  child: Icon(CupertinoIcons.xmark_circle_fill,
-                      size: 18,
-                      color: CupertinoDynamicColor.resolve(CupertinoColors.tertiaryLabel, context)),
-                ),
-              ],
-            ),
-          );
-        }),
-      ],
-    ];
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: CupertinoColors.secondarySystemGroupedBackground
-                .resolveFrom(context),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: CupertinoColors.separator.resolveFrom(context),
-              width: 0.5,
-            ),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: rows,
-          ),
-        ),
-        if (draft.uncertain.isNotEmpty) ...[
-          const SizedBox(height: 10),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: CupertinoColors.systemGrey.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Text(
-              '原文没写清、已经留空的字段：${draft.uncertain.join("、")}\n（需要的话自己补上）',
-              style: const TextStyle(fontSize: 13),
-            ),
-          ),
-        ],
-        if (draft.warnings.isNotEmpty) ...[
-          const SizedBox(height: 10),
-          _note(
-            context,
-            draft.warnings.map((w) => '· $w').join('\n'),
-            CupertinoColors.systemOrange,
-            '我替你改了几处',
-          ),
-        ],
-      ],
-    );
-  }
-
   Widget _kv(BuildContext context, String key, String value) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 5),

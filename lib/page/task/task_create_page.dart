@@ -1,3 +1,4 @@
+import 'package:celechron/design/date_picker_sheet.dart';
 import 'package:celechron/design/repeat_sheet.dart';
 import 'package:celechron/design/image_preview.dart';
 import 'package:celechron/design/tag_picker.dart';
@@ -123,6 +124,40 @@ class _TaskCreatePageState extends State<TaskCreatePage> {
       }
       if (now.repeatType == TaskRepeatType.norepeat) {
         now.repeatEndsTime = dateOnly(newEnd);
+      }
+    });
+  }
+
+  /// 子待办时间列上的文字：时段写成 `14:30-17:30`，单时刻只写 `14:20`
+  static String _hm(DateTime t) =>
+      '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+
+  String _subtaskTimeLabel(SubTask sub) {
+    if (sub.isSpan) {
+      return '${_hm(sub.startTime!)}-${_hm(sub.endTime!)}';
+    }
+    final anchor = sub.anchorTime;
+    return anchor == null ? '' : _hm(anchor);
+  }
+
+  /// 改某一步的时间：原本是「时段」的保留时长，原本是「时刻」的还是一个时刻
+  Future<void> _editSubtaskTime(int index) async {
+    final sub = now.subtasks[index];
+    final picked = await showDateTimeSheet(
+      context,
+      initial: sub.anchorTime ?? now.endTime,
+      title: '这一步的时间',
+    );
+    if (picked == null || !mounted) return;
+    setState(() {
+      if (sub.isSpan) {
+        final length = sub.endTime!.difference(sub.startTime!);
+        sub.startTime = picked;
+        sub.endTime = picked.add(length);
+      } else {
+        // 单时刻：与 SubTask.fromTask 的约定保持一致，只放 endTime
+        sub.startTime = null;
+        sub.endTime = picked;
       }
     });
   }
@@ -670,6 +705,95 @@ class _TaskCreatePageState extends State<TaskCreatePage> {
                 ),
               ],
             ),
+
+            // ===== 子待办（AI 填进来的步骤在这里就能看/改，不用先建完再点进详情页）=====
+            if (now.subtasks.isNotEmpty)
+              _card(
+                children: [
+                  _iconRow(
+                    icon: CupertinoIcons.list_bullet,
+                    child: Row(
+                      children: [
+                        Text('子待办',
+                            style: TextStyle(fontSize: 16, color: textColor)),
+                        const Spacer(),
+                        Text('${now.subtasks.length} 步',
+                            style:
+                                TextStyle(fontSize: 14, color: labelColor)),
+                      ],
+                    ),
+                  ),
+                  ...now.subtasks.asMap().entries.map((entry) {
+                    final index = entry.key;
+                    final sub = entry.value;
+                    final meta = <String>[
+                      if (sub.location.isNotEmpty) sub.location,
+                      if (sub.description.isNotEmpty) sub.description,
+                    ];
+                    return Column(
+                      children: [
+                        _divider(),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          child: Row(
+                            children: [
+                              // 点时间改这一步（原本是时段的保留时长）
+                              GestureDetector(
+                                behavior: HitTestBehavior.opaque,
+                                onTap: () => _editSubtaskTime(index),
+                                child: SizedBox(
+                                  width: 76,
+                                  child: Text(
+                                    sub.hasTime
+                                        ? _subtaskTimeLabel(sub)
+                                        : '＋时间',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: sub.hasTime
+                                          ? const Color(0xFFFF699A)
+                                          : labelColor,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      sub.title.isEmpty ? '(未命名步骤)' : sub.title,
+                                      style: TextStyle(
+                                          fontSize: 15, color: textColor),
+                                    ),
+                                    if (meta.isNotEmpty)
+                                      Text(
+                                        meta.join(' · '),
+                                        style: TextStyle(
+                                            fontSize: 12, color: labelColor),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                              CupertinoButton(
+                                padding: EdgeInsets.zero,
+                                minimumSize: const Size(28, 28),
+                                onPressed: () =>
+                                    setState(() => now.subtasks.removeAt(index)),
+                                child: Icon(CupertinoIcons.xmark_circle_fill,
+                                    size: 18,
+                                    color: CupertinoDynamicColor.resolve(
+                                        CupertinoColors.tertiaryLabel,
+                                        context)),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    );
+                  }),
+                ],
+              ),
 
             // 标签
             _card(

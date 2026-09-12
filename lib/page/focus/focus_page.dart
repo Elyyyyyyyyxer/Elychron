@@ -239,6 +239,12 @@ class _FocusPageState extends State<FocusPage> {
     return const Color(0xFFFF699A); // 工作：主题粉
   }
 
+  /// 当前这一段的总时长（工作段就是工作分钟数，休息段就是休息分钟数）
+  Duration get _phaseTotal {
+    if (_engine.isResting) return Duration(minutes: _restMinutes);
+    return Duration(minutes: _workMinutes);
+  }
+
   String get _phaseText {
     if (_engine.isPaused) {
       return _engine.remaining == Duration.zero ? '已暂停' : '已暂停';
@@ -305,7 +311,10 @@ class _FocusPageState extends State<FocusPage> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
-                        focusClock(_engine.remaining),
+                        // 按这一段的**总时长**决定格式：工作 60 分钟就整段显示 1:00:00 → 0:00:01，
+                        // 不会中途从 1:00:00 突然变成 59:59
+                        focusClock(_engine.remaining,
+                            withHours: _phaseTotal >= const Duration(hours: 1)),
                         style: TextStyle(
                           fontSize: 46,
                           fontWeight: FontWeight.w300,

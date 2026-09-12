@@ -216,6 +216,45 @@ class TaskPage extends StatelessWidget {
   }
 
   /// 卡片上的一行时间信息（图标 + 文案），四类语义共用同一套样式。
+  /// 划过删除前的二次确认。
+  ///
+  /// 顺手把「会一起删掉什么」说清楚 —— 待办是连子待办/评论/附件一起走的，
+  /// 只说「删除待办？」用户不知道代价。
+  Future<bool> _confirmDelete(BuildContext context, Task task) async {
+    final name =
+        task.summary.trim().isEmpty ? '(未命名待办)' : task.summary.trim();
+    final extras = <String>[
+      if (task.subtasks.isNotEmpty) '${task.subtasks.length} 个子待办',
+      if (task.comments.isNotEmpty) '${task.comments.length} 条评论',
+      if (task.attachments.isNotEmpty) '${task.attachments.length} 个附件',
+    ];
+    final result = await showCupertinoDialog<bool>(
+      context: context,
+      builder: (BuildContext context) => CupertinoAlertDialog(
+        title: const Text('删除这条待办？'),
+        content: Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: Text(
+            '「$name」${extras.isEmpty ? '' : '（含 ${extras.join('、')}）'}\n删除后无法撤销。',
+            style: const TextStyle(fontSize: 14),
+          ),
+        ),
+        actions: [
+          CupertinoDialogAction(
+            child: const Text('取消'),
+            onPressed: () => Navigator.of(context).pop(false),
+          ),
+          CupertinoDialogAction(
+            isDestructiveAction: true,
+            child: const Text('删除'),
+            onPressed: () => Navigator.of(context).pop(true),
+          ),
+        ],
+      ),
+    );
+    return result ?? false;
+  }
+
   Widget _cardTimeRow(BuildContext context, IconData icon, String text) {
     final baseColor =
         CupertinoTheme.of(context).textTheme.textStyle.color ?? CupertinoColors.label;
@@ -328,8 +367,9 @@ class TaskPage extends StatelessWidget {
               }
               return false; // 阻止真正的 dismiss
             } else if (direction == DismissDirection.endToStart) {
-              // 向左滑（从右到左）：删除 - 允许 dismiss
-              return true;
+              // 向左滑（从右到左）：删除 —— **必须二次确认**，
+              // 手一抖就丢一条待办（连带它的子待办、评论、附件）太狠了
+              return await _confirmDelete(context, deadline);
             }
             return false;
           },

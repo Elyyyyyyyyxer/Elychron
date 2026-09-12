@@ -202,32 +202,44 @@ class _CelechronAppState extends State<CelechronApp>
     var brightnessMode = Get.find<Option>(tag: 'option').brightnessMode;
     var dispatcher = SchedulerBinding.instance.platformDispatcher;
 
-    ever(brightnessMode, (mode) {
-      if (mode == BrightnessMode.system) {
-        SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
-          statusBarIconBrightness:
-              dispatcher.platformBrightness == Brightness.light
-                  ? Brightness.dark
-                  : Brightness.light,
-          systemNavigationBarColor: Colors.transparent,
-        ));
-        dispatcher.onPlatformBrightnessChanged = () {
-          SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
-            statusBarIconBrightness:
-                dispatcher.platformBrightness == Brightness.light
-                    ? Brightness.dark
-                    : Brightness.light,
-            systemNavigationBarColor: Colors.transparent,
-          ));
-        };
-      } else {
-        dispatcher.onPlatformBrightnessChanged = null;
-        SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
-          statusBarIconBrightness:
-              mode == BrightnessMode.light ? Brightness.dark : Brightness.light,
-          systemNavigationBarColor: Colors.transparent,
-        ));
+    /// 系统栏样式跟着 **App 自己的明暗** 走。
+    ///
+    /// 这里原来把 `systemNavigationBarColor` 写死成 `Colors.transparent`：
+    /// 系统处于深色模式时，安卓主题（`values-night` 里的 `Theme.Black`）把窗口底色
+    /// 画成黑的，于是屏幕最下面那条导航栏（方块/圆/三角）就是一条黑边，
+    /// 跟浅色的 App 完全脱节。改成显式给一个与页面底色一致的颜色。
+    SystemUiOverlayStyle overlayFor(Brightness brightness) {
+      final light = brightness == Brightness.light;
+      return SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: light ? Brightness.dark : Brightness.light,
+        // 与 CupertinoColors.systemGroupedBackground 的浅/深两版对齐
+        systemNavigationBarColor:
+            light ? const Color(0xFFF2F2F7) : const Color(0xFF1C1C1E),
+        systemNavigationBarDividerColor: Colors.transparent,
+        systemNavigationBarIconBrightness:
+            light ? Brightness.dark : Brightness.light,
+      );
+    }
+
+    Brightness effectiveBrightness() {
+      switch (brightnessMode.value) {
+        case BrightnessMode.dark:
+          return Brightness.dark;
+        case BrightnessMode.light:
+          return Brightness.light;
+        default:
+          return dispatcher.platformBrightness;
       }
+    }
+
+    void apply() =>
+        SystemChrome.setSystemUIOverlayStyle(overlayFor(effectiveBrightness()));
+
+    ever(brightnessMode, (mode) {
+      dispatcher.onPlatformBrightnessChanged =
+          mode == BrightnessMode.system ? apply : null;
+      apply();
     });
     brightnessMode.refresh();
   }

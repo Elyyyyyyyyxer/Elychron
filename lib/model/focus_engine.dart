@@ -10,14 +10,22 @@ library;
 
 /// 专注倒计时的显示：`59:58` / `1:00:00`。
 ///
-/// 注意分钟必须**对 3600 取模**：直接写 `total ~/ 60` 的话，刚满一小时会是
-/// `1:60:00`，90 分钟会变成 `1:90:00`（这个坑真踩过）。
-String focusClock(Duration d) {
-  final total = d.inSeconds < 0 ? 0 : d.inSeconds;
+/// 三个坑都踩过，所以写在这里：
+/// 1. 分钟必须**对 3600 取模** —— 否则刚满一小时是 `1:60:00`，90 分钟是 `1:90:00`；
+/// 2. [withHours] 为 true 时**始终**带小时位 —— 否则倒计时从 `1:00:00` 走到下一秒
+///    会变成 `59:59`，位数变了看着像掉了一格。调用方按**这一段的总时长**决定，
+///    这样整段格式稳定；
+/// 3. 秒数**向上取整**（剩 59:58.7 显示 59:59）—— 定时器晚几十毫秒是常态，
+///    截断就会出现「1:00:00 → 0:59:58」这种一次跳两秒的观感。
+String focusClock(Duration d, {bool withHours = false}) {
+  final ms = d.inMilliseconds;
+  final total = ms <= 0 ? 0 : (ms / 1000).ceil();
   final hours = total ~/ 3600;
   final minutes = ((total % 3600) ~/ 60).toString().padLeft(2, '0');
   final seconds = (total % 60).toString().padLeft(2, '0');
-  return hours > 0 ? '$hours:$minutes:$seconds' : '$minutes:$seconds';
+  return (withHours || hours > 0)
+      ? '$hours:$minutes:$seconds'
+      : '$minutes:$seconds';
 }
 
 /// 专注时长的口语化写法：`1 小时 20 分` / `45 分` / `30 秒`。

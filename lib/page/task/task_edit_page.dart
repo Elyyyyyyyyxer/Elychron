@@ -567,6 +567,23 @@ class _TaskEditPageState extends State<TaskEditPage> {
     return '${_hm(when)} 已提醒过';
   }
 
+  /// 时间轴的显示顺序：**清单类（没有时间的）放最上面** —— 它们是「先要做完的
+  /// 准备」，然后才是按时间排好的行程步骤。
+  ///
+  /// 只影响显示，不改存储顺序（用户没手动排序时保持他原来的顺序）。
+  List<SubTask> _timelineOrder() {
+    final timeless = now.subtasks.where((s) => !s.hasTime).toList();
+    final timed = now.subtasks
+        .where((s) => s.hasTime && s.anchorTime != null)
+        .toList()
+      ..sort((a, b) => a.anchorTime!.compareTo(b.anchorTime!));
+    // 理论上不会有「有时间但算不出时刻」的，真有也别让它消失
+    final rest = now.subtasks
+        .where((s) => s.hasTime && s.anchorTime == null)
+        .toList();
+    return <SubTask>[...timeless, ...timed, ...rest];
+  }
+
   /// 行程型子待办：时间列 + 竖线圆点 + 内容（进行中高亮、已过去未完成标红）
   List<Widget> _buildSubtaskTimeline(BuildContext context) {
     final current = DateTime.now();
@@ -577,13 +594,40 @@ class _TaskEditPageState extends State<TaskEditPage> {
     final separator =
         CupertinoDynamicColor.resolve(CupertinoColors.separator, context);
 
+    final ordered = _timelineOrder();
     final widgets = <Widget>[];
-    for (var i = 0; i < now.subtasks.length; i++) {
-      final sub = now.subtasks[i];
+    var itineraryHeaderAdded = false;
+
+    for (var i = 0; i < ordered.length; i++) {
+      final sub = ordered[i];
+      final plain = !sub.hasTime; // 清单类：不画时间列与连线
       final ongoing = sub.isOngoingAt(current);
       final missed = sub.isMissedAt(current);
       final flagged = widget.highlightSubtaskUid == sub.uid;
-      final isLast = i == now.subtasks.length - 1;
+      // 连线只在「连续的行程步骤之间」画
+      final hasNextTimed =
+          i < ordered.length - 1 && ordered[i + 1].hasTime;
+      final isLast = !hasNextTimed;
+
+      // 第一段行程步骤之前插一句「行程」，让「上面是清单、下面是行程」看得懂
+      if (!plain && !itineraryHeaderAdded) {
+        itineraryHeaderAdded = true;
+        if (ordered.any((s) => !s.hasTime)) {
+          widgets.add(
+            Padding(
+              padding: const EdgeInsets.only(left: 2, bottom: 8),
+              child: Row(
+                children: [
+                  Icon(CupertinoIcons.time, size: 13, color: labelColor),
+                  const SizedBox(width: 4),
+                  Text('行程',
+                      style: TextStyle(fontSize: 12, color: labelColor)),
+                ],
+              ),
+            ),
+          );
+        }
+      }
       final accent = ongoing
           ? CupertinoColors.systemBlue
           : (missed ? CupertinoColors.systemRed : labelColor);
@@ -678,55 +722,63 @@ class _TaskEditPageState extends State<TaskEditPage> {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // 时间列
+              // 时间列（清单类留白，保持内容对齐）
               SizedBox(
                 width: 74,
-                child: Padding(
-                  padding: const EdgeInsets.only(top: 1, right: 6),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      if (_timelineLabels(sub).date.isNotEmpty)
-                        Text(
-                          _timelineLabels(sub).date,
-                          style: TextStyle(fontSize: 10, color: labelColor),
-                        ),
-                      Text(
-                        _timelineLabels(sub).time,
-                        textAlign: TextAlign.right,
-                        style: TextStyle(
-                          fontSize: 11.5,
-                          fontWeight:
-                              ongoing ? FontWeight.w600 : FontWeight.w400,
-                          color: accent,
+                child: plain
+                    ? null
+                    : Padding(
+                        padding: const EdgeInsets.only(top: 1, right: 6),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            if (_timelineLabels(sub).date.isNotEmpty)
+                              Text(
+                                _timelineLabels(sub).date,
+                                style:
+                                    TextStyle(fontSize: 10, color: labelColor),
+                              ),
+                            Text(
+                              _timelineLabels(sub).time,
+                              textAlign: TextAlign.right,
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: ongoing
+                                    ? FontWeight.w600
+                                    : FontWeight.w400,
+                                color: accent,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    ],
-                  ),
-                ),
               ),
-              // 竖线 + 圆点
+              // 竖线 + 圆点（清单类不画）
               SizedBox(
                 width: 18,
-                child: Column(
-                  children: [
-                    Container(
-                      width: 9,
-                      height: 9,
-                      margin: const EdgeInsets.only(top: 5),
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: sub.done
-                            ? CupertinoColors.systemGreen
-                            : (ongoing ? CupertinoColors.systemBlue : separator),
+                child: plain
+                    ? null
+                    : Column(
+                        children: [
+                          Container(
+                            width: 9,
+                            height: 9,
+                            margin: const EdgeInsets.only(top: 5),
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: sub.done
+                                  ? CupertinoColors.systemGreen
+                                  : (ongoing
+                                      ? CupertinoColors.systemBlue
+                                      : separator),
+                            ),
+                          ),
+                          if (!isLast)
+                            Expanded(
+                              child: Container(width: 1.5, color: separator),
+                            ),
+                        ],
                       ),
-                    ),
-                    if (!isLast)
-                      Expanded(
-                        child: Container(width: 1.5, color: separator),
-                      ),
-                  ],
-                ),
               ),
               const SizedBox(width: 8),
               // 内容 + 打钩
