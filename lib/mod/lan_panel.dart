@@ -78,17 +78,15 @@ const String lanPanelHtml = r'''<!DOCTYPE html>
   #editor textarea { width:100%; min-height:90px; resize:vertical; font:inherit; padding:9px 10px;
     border:1px solid var(--line); border-radius:9px; color:var(--text); }
   #editor .actions { display:flex; justify-content:flex-end; gap:8px; margin-top:18px; }
-  #toast {
-    position: fixed; right: 22px; bottom: 22px; width: min(380px, calc(100vw - 32px));
-    background: rgba(32,32,39,.96); color: #fff; padding: 13px 16px;
-    border-radius: 14px; box-shadow: 0 16px 48px rgba(20,20,28,.22);
-    font-size: 14px; opacity: 0; transform: translate3d(18px,10px,0) scale(.98);
-    transition: opacity .22s ease, transform .32s cubic-bezier(.2,.8,.2,1);
-    pointer-events: none; z-index: 40;
-  }
-  #toast.show { opacity: 1; transform: translate3d(0,0,0) scale(1); }
-  #toast.err { background: rgba(146,35,48,.97); }
-  #toast.ok { background: rgba(31,101,59,.97); }
+  #toast { position:fixed; right:22px; bottom:22px; width:min(380px,calc(100vw - 32px));
+    display:flex; flex-direction:column-reverse; gap:8px; pointer-events:none; z-index:40; }
+  .toast-item { color:#fff; padding:13px 16px; border-radius:14px; box-shadow:0 16px 48px rgba(20,20,28,.22);
+    font-size:14px; opacity:0; transform:translate3d(18px,10px,0) scale(.98);
+    animation:toastIn .32s cubic-bezier(.2,.8,.2,1) forwards; pointer-events:auto; }
+  .toast-item.info { background:rgba(32,32,39,.96); }
+  .toast-item.err { background:rgba(146,35,48,.97); }
+  .toast-item.ok { background:rgba(31,101,59,.97); }
+  @keyframes toastIn { to { opacity:1; transform:none; } }
   .reminder-fields { display:grid; grid-template-columns:170px 190px; gap:8px; margin-top:8px; }
   input[type=datetime-local], select {
     font: inherit; padding: 7px 10px; border: 1px solid var(--line);
@@ -207,11 +205,13 @@ function setStatus(text, kind) {
   el.className = 'pill' + (kind ? ' ' + kind : '');
 }
 function notify(message, kind) {
-  var el = document.getElementById('toast');
-  el.textContent = message;
-  el.className = 'show' + (kind ? ' ' + kind : '');
-  clearTimeout(window.__toastTimer);
-  window.__toastTimer = setTimeout(function () { el.className = ''; }, 3200);
+  var host = document.getElementById('toast');
+  var item = document.createElement('div');
+  item.className = 'toast-item ' + (kind || 'info');
+  item.textContent = message;
+  host.appendChild(item);
+  while (host.children.length > 3) host.removeChild(host.firstChild);
+  setTimeout(function () { if (item.parentNode) item.remove(); }, kind === 'err' ? 7000 : 3200);
 }
 function api(path, options, attempt) {
   options = options || {};
