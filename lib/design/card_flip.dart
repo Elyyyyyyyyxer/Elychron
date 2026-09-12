@@ -88,18 +88,24 @@ class _CardFlipSwitcherState extends State<CardFlipSwitcher>
       builder: (BuildContext context, Widget? _) {
         final t = _controller.value; // 0..1
         final firstHalf = t < 0.5;
-        // 前半程：旧面 0° → +90°（转出去）；后半程：新面 −90° → 0°（转回来）
+        // 每一半内部的进度 0..1
         final half = (firstHalf ? t : t - 0.5) * 2;
-        final angle = half * (math.pi / 2);
+        // ★ 一张卡片**连续转 180°**：
+        //   前半程 0° → +90°（旧面转出去）
+        //   后半程 −90° → 0°（新面转回来，接着上一个方向继续转）
+        // 两段接起来就是 0° → 180° 的同一个转动，中间不会反向、结尾也不会跳。
+        // （之前后半程写成 0° → −90°，结果是「新面从水平转出去停在侧面」，
+        //   然后控制器归零时画面跳回水平 —— 用户一眼就看出来了）
+        final angle = (firstHalf ? half : half - 1) * (math.pi / 2);
         final shown = firstHalf ? _front : (_pending ?? _front);
-        // 转到侧面时稍微缩一点，立体感更足
-        final scale = 1 - 0.07 * math.sin(half * (math.pi / 2));
+        // 越接近侧面缩得越小（|angle| 在 90° 时最大）
+        final scale = 1 - 0.07 * math.sin(angle.abs());
 
         return Transform(
           alignment: Alignment.center,
           transform: Matrix4.identity()
             ..setEntry(3, 2, 0.0012)
-            ..rotateY(firstHalf ? angle : -angle),
+            ..rotateY(angle),
           child: Transform.scale(scale: scale, child: shown),
         );
       },
