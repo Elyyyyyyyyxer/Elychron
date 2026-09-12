@@ -40,13 +40,15 @@ class CalendarPage extends StatelessWidget {
             flipKey: _calendarController.cardFace.value,
             face: _calendarController.viewMode.value,
             // 每一面都由「面」这个参数算出来 —— 旧面不会跟着 controller 变
-            faceBuilder: (Object face) => Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _header(context, face as CalendarViewMode),
-                Expanded(
-                    child: _body(context, face as CalendarViewMode)),
-              ],
+            faceBuilder: (Object face) => Obx(
+              () => Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _header(context, face as CalendarViewMode),
+                  Expanded(
+                      child: _body(context, face as CalendarViewMode)),
+                ],
+              ),
             ),
           ),
         ),
@@ -59,9 +61,8 @@ class CalendarPage extends StatelessWidget {
   /// 从 build() 里搬出来的（纯搬家，逻辑一行没改）—— 目的是让 build() 短到
   /// 可以在外面安全地套一层「整页翻转」容器。
   Widget _header(BuildContext context, CalendarViewMode mode) {
-    return Obx(
-      () => Stack(
-        alignment: Alignment.center,
+    return Stack(
+      alignment: Alignment.center,
         children: [
           SubtitleRow(
         subtitle: switch (mode) {
@@ -178,15 +179,12 @@ class CalendarPage extends StatelessWidget {
             ),
           ),
         ],
-      ),
     );
   }
 
   /// 页面主体：课表 / 接下来 / 日历 三种视图之一（同样是从 build() 搬出来的）
   Widget _body(BuildContext context, CalendarViewMode mode) {
-    return Obx(
-        () {
-          final Widget body;
+    final Widget body;
           if (mode == CalendarViewMode.schedule) {
             body = ScheduleView(controller: _calendarController);
           } else if (mode == CalendarViewMode.upcoming) {
@@ -323,10 +321,7 @@ class CalendarPage extends StatelessWidget {
             ],
           );
           }
-          // 整页翻转在外层（build 里的 CardFlipHost），这里只交出内容
-          return body;
-        },
-    );
+    return body;
   }
 
 
