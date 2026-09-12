@@ -30,4 +30,4 @@ Elychron（Celechron 的非官方修改版）**没有自己的服务器**，不�
 
 ## 联系方式
 
-有问题请提到 [本仓库 Issues](https://github.com/Elyyyyyyyyxer/celechron-mod/issues)。
+有问题请提到 [本仓库 Issues](https://github.com/Elyyyyyyyyxer/Elychron/issues)。

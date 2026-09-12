@@ -267,7 +267,7 @@ class _CreditsPageState extends State<CreditsPage> {
                     height: 4,
                   ),
                   Text(
-                    '源码：github.com/Elyyyyyyyyxer/celechron-mod',
+                    '源码：github.com/Elyyyyyyyyxer/Elychron',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 12,

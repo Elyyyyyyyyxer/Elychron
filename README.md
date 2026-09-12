@@ -3,7 +3,7 @@
 > **Elychron 是 Celechron 的非官方修改版本（fork），不是官方发布。**
 >
 > - 上游项目：[Celechron/Celechron](https://github.com/Celechron/Celechron)（服务于浙大学生的时间管理器）
-> - 本仓库：[Elyyyyyyyyxer/celechron-mod](https://github.com/Elyyyyyyyyxer/celechron-mod)
+> - 本仓库：[Elyyyyyyyyxer/Elychron](https://github.com/Elyyyyyyyyxer/Elychron)
 > - 基于上游版本：**v1.3.0**（commit `ceab2a4`），修改工作始于 2026 年 9 月
 > - 许可协议：**GPLv3**（继承上游，见 [LICENSE](LICENSE)）。本仓库即为对应源码，
 >   只要分发本程序的二进制，就有权获得这份源码。

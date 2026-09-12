@@ -65,7 +65,7 @@
 ### P0-4 让源码可获取（GPLv3 义务）
 
 - 发 APK 给别人 = 分发目标代码 → GPLv3 §6 要求**能拿到对应源码**。
-- **最省事**：把 `Elyyyyyyyyxer/celechron-mod` 改成 **public**。
+- **最省事**：把 `Elyyyyyyyyxer/Elychron` 改成 **public**。
 - 顺带好处：CC98 上「代码可查、没人偷你密码」是最有力的信任凭证。
 
 ---
@@ -159,7 +159,7 @@ android {
 
 ```powershell
 # 必须从 ASCII junction 构建（中文路径会让 Gradle 报 non-ASCII）
-cd D:\celechron-mod\Celechron
+cd D:\elychron\Elychron   # 用你自己的仓库目录（必须不含中文）
 cmd /c "D:\flutter\bin\flutter.bat build apk --release --target-platform android-arm64 --no-tree-shake-icons"
 ```
 
