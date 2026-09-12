@@ -87,7 +87,6 @@ void main() {
       expect(restored.reminderTime, task.reminderTime);
       expect(restored.createdAt, task.createdAt);
       expect(restored.updatedAt, task.updatedAt);
-      expect(restored.timeNeeded, task.timeNeeded);
       expect(restored.tags, task.tags);
       expect(restored.subtasks.length, 2);
       expect(restored.subtasks[0].title, '子任务 A');

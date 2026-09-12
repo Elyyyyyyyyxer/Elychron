@@ -56,6 +56,15 @@ class DatabaseHelper {
     tombstoneBox = await Hive.openBox(dbTombstones);
     focusBox = await Hive.openBox(dbFocus);
     secureStorage = const FlutterSecureStorage();
+
+    // ===== P5：清掉「时间规划」时代留在 optionsBox 里的三个键 =====
+    // P1 删功能时只删了访问器，值还躺在盒子里（workTime / restTime / allowTime）。
+    // 一次性、幂等：有就删，没有就算了。删掉它们不会影响任何现有功能。
+    for (final legacyKey in const ['workTime', 'restTime', 'allowTime']) {
+      if (optionsBox.containsKey(legacyKey)) {
+        await optionsBox.delete(legacyKey);
+      }
+    }
     // Migrate all items without groupID
     var secureStorageItems = await secureStorage.readAll(
         iOptions: const IOSOptions(

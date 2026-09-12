@@ -114,9 +114,6 @@ class SubTask {
   String title;
   @HiveField(2)
   bool done;
-  // ===== 以下 4 个字段（timeSpent/timeNeeded/isBreakable/blockArrangements）
-// 属于已移除的「时间规划」功能。**只保留字段，不删** —— 它们是 Hive 按序号存储的，
-// 删掉会让后面所有字段的序号前移，导致已有待办数据被读错。等数据迁移时再清理。=====
   @HiveField(3)
   String description;
   @HiveField(4)
@@ -335,21 +332,19 @@ class Task {
   TaskStatus status;
   @HiveField(2)
   String description;
-  // ===== 以下 4 个字段（timeSpent/timeNeeded/isBreakable/blockArrangements）
-// 属于已移除的「时间规划」功能。**只保留字段，不删** —— 它们是 Hive 按序号存储的，
-// 删掉会让后面所有字段的序号前移，导致已有待办数据被读错。等数据迁移时再清理。=====
+  // ===== P5：序号 4 / 8 / 14 已经废弃 =====
+  // 它们本来是「时间规划」的 timeNeeded / isBreakable / blockArrangements。
+  // Hive 的记录是**稀疏的「序号 → 值」映射**，所以只要**不再写、不再读**这几个
+  // 序号就行 —— 其余序号一个都不用动，老数据零风险（不需要迁移脚本）。
+  // 注意 timeSpent(3) 没有废弃：它现在表示**专注累计时长**（见 FocusSession）。
   @HiveField(3)
   Duration timeSpent;
-  @HiveField(4)
-  Duration timeNeeded;
   @HiveField(5)
   DateTime endTime;
   @HiveField(6)
   String location;
   @HiveField(7)
   String summary;
-  @HiveField(8)
-  bool isBreakable;
 
   @HiveField(9)
   TaskType type;
@@ -361,8 +356,6 @@ class Task {
   int repeatPeriod; // 固定日程重复的周期（单位为天）。
   @HiveField(13)
   DateTime repeatEndsTime; // 固定日程重复的截止日期（没有时间）。晚于这个日期的话就不再重复。
-  @HiveField(14)
-  bool blockArrangements;
   @HiveField(15)
   String? fromUid;
   @HiveField(16)
@@ -391,17 +384,14 @@ class Task {
     this.status = TaskStatus.running,
     this.description = '',
     this.timeSpent = const Duration(minutes: 0),
-    this.timeNeeded = const Duration(hours: 1),
     required this.endTime,
     this.location = '',
     this.summary = '',
-    this.isBreakable = false,
     this.type = TaskType.deadline,
     required this.startTime,
     this.repeatType = TaskRepeatType.norepeat,
     this.repeatPeriod = 1,
     required this.repeatEndsTime,
-    this.blockArrangements = true,
     this.fromUid,
     List<SubTask>? subtasks,
     this.priority = TaskPriority.normal,
@@ -596,20 +586,17 @@ class Task {
     status = TaskStatus.deleted;
     description = "";
     timeSpent = const Duration(minutes: 0);
-    timeNeeded = const Duration(hours: 1);
     endTime = DateTime.now();
     endTime = DateTime(
         endTime.year, endTime.month, endTime.day, endTime.hour, endTime.minute);
     location = "";
     summary = "";
-    isBreakable = true;
 
     type = TaskType.deadline;
     startTime = endTime;
     repeatType = TaskRepeatType.norepeat;
     repeatPeriod = 1;
     repeatEndsTime = DateTime(startTime.year, startTime.month, startTime.day);
-    blockArrangements = true;
     fromUid = null;
     subtasks = <SubTask>[];
     priority = TaskPriority.normal;
@@ -628,17 +615,14 @@ class Task {
     status = another.status;
     description = another.description;
     timeSpent = another.timeSpent;
-    timeNeeded = another.timeNeeded;
     endTime = another.endTime;
     location = another.location;
     summary = another.summary;
-    isBreakable = another.isBreakable;
     type = another.type;
     startTime = another.startTime;
     repeatType = another.repeatType;
     repeatPeriod = another.repeatPeriod;
     repeatEndsTime = another.repeatEndsTime;
-    blockArrangements = another.blockArrangements;
     fromUid = another.fromUid;
     subtasks = another.subtasks.map((e) => e.copyWith()).toList();
     priority = another.priority;
@@ -657,17 +641,14 @@ class Task {
     TaskStatus? status,
     String? description,
     Duration? timeSpent,
-    Duration? timeNeeded,
     DateTime? endTime,
     String? location,
     String? summary,
-    bool? isBreakable,
     TaskType? type,
     DateTime? startTime,
     TaskRepeatType? repeatType,
     int? repeatPeriod,
     DateTime? repeatEndsTime,
-    bool? blockArrangements,
     String? fromUid,
     List<SubTask>? subtasks,
     TaskPriority? priority,
@@ -685,17 +666,14 @@ class Task {
       status: status ?? this.status,
       description: description ?? this.description,
       timeSpent: timeSpent ?? this.timeSpent,
-      timeNeeded: timeNeeded ?? this.timeNeeded,
       endTime: endTime ?? this.endTime,
       location: location ?? this.location,
       summary: summary ?? this.summary,
-      isBreakable: isBreakable ?? this.isBreakable,
       type: type ?? this.type,
       startTime: startTime ?? this.startTime,
       repeatType: repeatType ?? this.repeatType,
       repeatPeriod: repeatPeriod ?? this.repeatPeriod,
       repeatEndsTime: repeatEndsTime ?? this.repeatEndsTime,
-      blockArrangements: blockArrangements ?? this.blockArrangements,
       fromUid: fromUid ?? this.fromUid,
       subtasks: subtasks ?? this.subtasks.map((e) => e.copyWith()).toList(),
       priority: priority ?? this.priority,
@@ -942,16 +920,12 @@ class Task {
   bool differentForFlow(Task another) {
     if (type != another.type ||
         timeSpent != another.timeSpent ||
-        timeNeeded != another.timeNeeded ||
         (type == TaskType.fixed && endTime != another.endTime) ||
         endTime != another.endTime ||
         status != another.status ||
-        isBreakable != another.isBreakable ||
         repeatType != another.repeatType ||
         repeatPeriod != another.repeatPeriod ||
-        repeatEndsTime != another.repeatEndsTime ||
-        (type == TaskType.fixed &&
-            blockArrangements != another.blockArrangements)) {
+        repeatEndsTime != another.repeatEndsTime) {
       return true;
     }
     return false;

@@ -276,10 +276,10 @@ function addTask() {
   var now = new Date().toISOString();
   var uid = (crypto.randomUUID ? crypto.randomUUID() : 'r' + Math.random().toString(36).slice(2) + Date.now());
   bundle.tasks.push({
-    uid: uid, status: 'running', description: '', timeSpent: 0, timeNeeded: 3600,
-    endTime: end.toISOString(), location: '', summary: title, isBreakable: false,
+    uid: uid, status: 'running', description: '', timeSpent: 0,
+    endTime: end.toISOString(), location: '', summary: title,
     type: 'deadline', startTime: end.toISOString(), repeatType: 'norepeat',
-    repeatPeriod: 1, repeatEndsTime: end.toISOString(), blockArrangements: true,
+    repeatPeriod: 1, repeatEndsTime: end.toISOString(),
     fromUid: null, subtasks: [], priority: 'normal', reminderEnabled: false,
     reminderTime: null, attachments: [], comments: [], tags: [], starred: false,
     createdAt: now, updatedAt: now
