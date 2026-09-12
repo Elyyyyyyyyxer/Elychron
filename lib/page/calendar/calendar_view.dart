@@ -36,7 +36,7 @@ class CalendarPage extends StatelessWidget {
         // 只有「接下来 ⇄ 日历」换面才翻（faceKey 只在 toggleUpcoming 里变），
         // 右上角切课表不换面，所以不会莫名其妙翻一下。
         child: Obx(
-          () => CardFlipHost(
+          () => CardFlipSwitcher(
             faceKey: _calendarController.cardFace.value,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
