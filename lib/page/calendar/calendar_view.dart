@@ -37,12 +37,15 @@ class CalendarPage extends StatelessWidget {
         // 右上角切课表不换面，所以不会莫名其妙翻一下。
         child: Obx(
           () => CardFlipSwitcher(
-            faceKey: _calendarController.cardFace.value,
-            child: Column(
+            flipKey: _calendarController.cardFace.value,
+            face: _calendarController.viewMode.value,
+            // 每一面都由「面」这个参数算出来 —— 旧面不会跟着 controller 变
+            faceBuilder: (Object face) => Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _header(context),
-                Expanded(child: _body(context)),
+                _header(context, face as CalendarViewMode),
+                Expanded(
+                    child: _body(context, face as CalendarViewMode)),
               ],
             ),
           ),
@@ -55,13 +58,13 @@ class CalendarPage extends StatelessWidget {
   ///
   /// 从 build() 里搬出来的（纯搬家，逻辑一行没改）—— 目的是让 build() 短到
   /// 可以在外面安全地套一层「整页翻转」容器。
-  Widget _header(BuildContext context) {
+  Widget _header(BuildContext context, CalendarViewMode mode) {
     return Obx(
       () => Stack(
         alignment: Alignment.center,
         children: [
           SubtitleRow(
-        subtitle: switch (_calendarController.viewMode.value) {
+        subtitle: switch (mode) {
           // 「接下来」模式下别显示学期/月份那串信息，直接说这是什么页面
           CalendarViewMode.upcoming => '接下来',
           CalendarViewMode.calendar =>
@@ -71,7 +74,7 @@ class CalendarPage extends StatelessWidget {
         },
         right: Row(
           children: [
-            if (_calendarController.viewMode.value ==
+            if (mode ==
                 CalendarViewMode.calendar) ...[
               CupertinoButton(
                 padding: EdgeInsets.zero,
@@ -111,7 +114,7 @@ class CalendarPage extends StatelessWidget {
             CupertinoButton(
               padding: EdgeInsets.zero,
               child: Icon(
-                _calendarController.viewMode.value ==
+                mode ==
                         CalendarViewMode.calendar
                     ? CupertinoIcons.calendar
                     : CupertinoIcons.list_bullet,
@@ -146,14 +149,14 @@ class CalendarPage extends StatelessWidget {
                         shape: BoxShape.circle,
                         border: Border.all(
                           width: 1.6,
-                          color: _calendarController.viewMode.value ==
+                          color: mode ==
                                   CalendarViewMode.upcoming
                               ? const Color(0xFFFF699A)
                               : CupertinoDynamicColor.resolve(
                                   CupertinoColors.secondaryLabel, context),
                         ),
                       ),
-                      child: _calendarController.viewMode.value ==
+                      child: mode ==
                               CalendarViewMode.calendar
                           ? Center(
                               child: Container(
@@ -180,10 +183,9 @@ class CalendarPage extends StatelessWidget {
   }
 
   /// 页面主体：课表 / 接下来 / 日历 三种视图之一（同样是从 build() 搬出来的）
-  Widget _body(BuildContext context) {
+  Widget _body(BuildContext context, CalendarViewMode mode) {
     return Obx(
         () {
-          final mode = _calendarController.viewMode.value;
           final Widget body;
           if (mode == CalendarViewMode.schedule) {
             body = ScheduleView(controller: _calendarController);
