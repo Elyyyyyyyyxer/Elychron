@@ -216,6 +216,40 @@ class TaskPage extends StatelessWidget {
   }
 
   /// 卡片上的一行时间信息（图标 + 文案），四类语义共用同一套样式。
+  /// 批量删除前的二次确认。
+  ///
+  /// 顺手把条数写在标题里（「删除 8 条已完成的待办？」）—— 批量操作最怕的是
+  /// 不知道自己会删掉多少。没有可删的就不问，直接什么都不做。
+  Future<bool> _confirmBulkDelete(
+    BuildContext context,
+    String what,
+    int count,
+  ) async {
+    if (count <= 0) return false;
+    final result = await showCupertinoDialog<bool>(
+      context: context,
+      builder: (BuildContext context) => CupertinoAlertDialog(
+        title: Text('删除 $count 条$what？'),
+        content: const Padding(
+          padding: EdgeInsets.only(top: 8),
+          child: Text('删除后无法撤销。', style: TextStyle(fontSize: 14)),
+        ),
+        actions: [
+          CupertinoDialogAction(
+            child: const Text('取消'),
+            onPressed: () => Navigator.of(context).pop(false),
+          ),
+          CupertinoDialogAction(
+            isDestructiveAction: true,
+            child: const Text('删除'),
+            onPressed: () => Navigator.of(context).pop(true),
+          ),
+        ],
+      ),
+    );
+    return result ?? false;
+  }
+
   /// 划过删除前的二次确认。
   ///
   /// 顺手把「会一起删掉什么」说清楚 —— 待办是连子待办/评论/附件一起走的，
@@ -650,7 +684,14 @@ class TaskPage extends StatelessWidget {
                           DingTalkMenuItem(
                             label: '删除已完成待办',
                             icon: CupertinoIcons.checkmark_circle,
-                            onTap: () {
+                            onTap: () async {
+                              // 批量删除比单条滑动更需要确认：一次可能删掉十几条
+                              final count =
+                                  _taskController.doneDeadlineList.length;
+                              if (!await _confirmBulkDelete(
+                                  context, '已完成的待办', count)) {
+                                return;
+                              }
                               _taskController.removeCompletedDeadline(context);
                               _taskController.updateDeadlineList();
                               _taskController.taskList.refresh();
@@ -659,7 +700,14 @@ class TaskPage extends StatelessWidget {
                           DingTalkMenuItem(
                             label: '删除已过期待办',
                             icon: CupertinoIcons.clock,
-                            onTap: () {
+                            onTap: () async {
+                              final count = _taskController.taskList
+                                  .where((t) => t.status == TaskStatus.failed)
+                                  .length;
+                              if (!await _confirmBulkDelete(
+                                  context, '已过期的待办', count)) {
+                                return;
+                              }
                               _taskController.removeFailedDeadline(context);
                               _taskController.updateDeadlineList();
                               _taskController.taskList.refresh();

@@ -84,6 +84,29 @@ Future<void> _refreshRestoredScholar(Rx<Scholar> scholar) async {
   }
 }
 
+/// 系统栏（状态栏 + 导航栏）的样式。
+///
+/// 关键点是那个外观位：光设 `systemNavigationBarColor` 不够 ——
+/// 系统（尤其 EMUI）会忽略它，仍按自己的默认画成黑的。
+/// 必须同时声明「导航栏用浅色外观」（`systemNavigationBarIconBrightness: dark`
+/// 对应 Android 的 `LIGHT_NAVIGATION_BAR`），底下那三条才会变白底深色。
+/// 参考实测：钉钉的窗口 `vsysui` 里就带着 `LIGHT_NAVIGATION_BAR`。
+SystemUiOverlayStyle systemOverlayStyleFor(Brightness brightness) {
+  final light = brightness == Brightness.light;
+  return SystemUiOverlayStyle(
+    statusBarColor: Colors.transparent,
+    statusBarIconBrightness: light ? Brightness.dark : Brightness.light,
+    // 与 CupertinoColors.systemGroupedBackground 的浅/深两版对齐
+    systemNavigationBarColor:
+        light ? const Color(0xFFF2F2F7) : const Color(0xFF1C1C1E),
+    systemNavigationBarDividerColor: Colors.transparent,
+    // 关掉系统「为了对比度」自动加的半透明黑底
+    systemNavigationBarContrastEnforced: false,
+    systemNavigationBarIconBrightness:
+        light ? Brightness.dark : Brightness.light,
+  );
+}
+
 class CelechronApp extends StatefulWidget {
   const CelechronApp({super.key});
 
@@ -171,10 +194,23 @@ class _CelechronAppState extends State<CelechronApp>
             Locale('en'),
           ],
           locale: const Locale('zh'),
-          builder: (context, child) => MediaQuery(
-            data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
-            child: child!,
-          ),
+          // ===== MOD：系统栏（状态栏 + 导航栏）外观 =====
+          // 用 AnnotatedRegion 而不是只调一次 SystemChrome：
+          // 它是**每帧**按当前主题亮度生效的，能可靠地带上
+          // `LIGHT_NAVIGATION_BAR`（浅底 + 深色图标）—— 实测对比过钉钉的窗口属性，
+          // 它正是靠这个外观位让底下那三条变白的。
+          builder: (context, child) {
+            // CupertinoTheme 的亮度已经反映了用户「浅色 / 深色 / 跟随系统」的设置
+            final brightness = CupertinoTheme.brightnessOf(context);
+            return AnnotatedRegion<SystemUiOverlayStyle>(
+              value: systemOverlayStyleFor(brightness),
+              child: MediaQuery(
+                data:
+                    MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
+                child: child!,
+              ),
+            );
+          },
           title: 'Elychron',
           home: const HomePage(title: 'Elychron'),
           initialRoute: '/',
@@ -202,25 +238,6 @@ class _CelechronAppState extends State<CelechronApp>
     var brightnessMode = Get.find<Option>(tag: 'option').brightnessMode;
     var dispatcher = SchedulerBinding.instance.platformDispatcher;
 
-    /// 系统栏样式跟着 **App 自己的明暗** 走。
-    ///
-    /// 这里原来把 `systemNavigationBarColor` 写死成 `Colors.transparent`：
-    /// 系统处于深色模式时，安卓主题（`values-night` 里的 `Theme.Black`）把窗口底色
-    /// 画成黑的，于是屏幕最下面那条导航栏（方块/圆/三角）就是一条黑边，
-    /// 跟浅色的 App 完全脱节。改成显式给一个与页面底色一致的颜色。
-    SystemUiOverlayStyle overlayFor(Brightness brightness) {
-      final light = brightness == Brightness.light;
-      return SystemUiOverlayStyle(
-        statusBarColor: Colors.transparent,
-        statusBarIconBrightness: light ? Brightness.dark : Brightness.light,
-        // 与 CupertinoColors.systemGroupedBackground 的浅/深两版对齐
-        systemNavigationBarColor:
-            light ? const Color(0xFFF2F2F7) : const Color(0xFF1C1C1E),
-        systemNavigationBarDividerColor: Colors.transparent,
-        systemNavigationBarIconBrightness:
-            light ? Brightness.dark : Brightness.light,
-      );
-    }
 
     Brightness effectiveBrightness() {
       switch (brightnessMode.value) {
@@ -234,7 +251,7 @@ class _CelechronAppState extends State<CelechronApp>
     }
 
     void apply() =>
-        SystemChrome.setSystemUIOverlayStyle(overlayFor(effectiveBrightness()));
+        SystemChrome.setSystemUIOverlayStyle(systemOverlayStyleFor(effectiveBrightness()));
 
     ever(brightnessMode, (mode) {
       dispatcher.onPlatformBrightnessChanged =
