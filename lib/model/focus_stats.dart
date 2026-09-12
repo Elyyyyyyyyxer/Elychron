@@ -131,4 +131,66 @@ class FocusStats {
     }
     return rounds;
   }
+
+  /// 完整走完（用户主动结束）的会话占比，0..1；没有会话时返回 null。
+  static double? completionRate(List<FocusSession> sessions) {
+    final list = _real(sessions);
+    if (list.isEmpty) return null;
+    final done = list.where((s) => s.completed).length;
+    return done / list.length;
+  }
+
+  /// 平均每轮专注时长（一轮 = 一个走完的工作段）。
+  static Duration? averageRound(List<FocusSession> sessions) {
+    final rounds = roundCount(sessions);
+    if (rounds <= 0) return null;
+    return Duration(seconds: total(sessions).inSeconds ~/ rounds);
+  }
+
+  /// 「未打标签」这一档的名字 —— 自由专注、以及关联待办没有标签的会话都归这里，
+  /// 免得它们的时长在标签视图里凭空消失。
+  static const String untaggedLabel = '未打标签';
+
+  /// 按标签聚合。
+  ///
+  /// ⚠️ 口径：一条会话会**计入它关联待办的每一个标签**，
+  /// 所以分项之和通常大于总时长（一条待办挂两个标签就贡献两次）——
+  /// 界面上必须把这句话写出来，否则用户会以为数字算错了。
+  ///
+  /// [tagsOfTask] 是 taskUid → 标签列表；查不到的（自由专注）算「未打标签」。
+  static List<FocusLabelTotal> byTag(
+    List<FocusSession> sessions, {
+    required Map<String, List<String>> tagsOfTask,
+    DateTime? from,
+  }) {
+    final buckets = <String, FocusLabelTotal>{};
+    void add(String label, Duration focused) {
+      final existing = buckets[label];
+      buckets[label] = FocusLabelTotal(
+        label: label,
+        taskUid: null,
+        focused: (existing?.focused ?? Duration.zero) + focused,
+        sessions: (existing?.sessions ?? 0) + 1,
+      );
+    }
+
+    for (final s in _real(sessions)) {
+      if (from != null && s.startedAt.isBefore(from)) continue;
+      final uid = s.taskUid;
+      final tags =
+          uid == null ? const <String>[] : (tagsOfTask[uid] ?? const <String>[]);
+      if (tags.isEmpty) {
+        add(untaggedLabel, s.focusedTime);
+        continue;
+      }
+      for (final tag in tags) {
+        final name = tag.trim();
+        add(name.isEmpty ? untaggedLabel : name, s.focusedTime);
+      }
+    }
+
+    final list = buckets.values.toList()
+      ..sort((a, b) => b.focused.compareTo(a.focused));
+    return list;
+  }
 }

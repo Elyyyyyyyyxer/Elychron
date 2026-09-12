@@ -46,6 +46,8 @@ class _FocusStatsPageState extends State<FocusStatsPage> {
     final last7 = FocusStats.daily(sessions,
         fromDay: todayStart.subtract(const Duration(days: 6)), days: 7);
     final byTask = FocusStats.byLabel(sessions, from: monthStart);
+    final byTag = FocusStats.byTag(sessions,
+        tagsOfTask: _tagsOfTasks(), from: monthStart);
     final list = sessions.where((s) => s.focusedTime > Duration.zero).toList();
 
     return CupertinoPageScaffold(
@@ -61,12 +63,155 @@ class _FocusStatsPageState extends State<FocusStatsPage> {
                 padding: const EdgeInsets.only(top: 12, bottom: 40),
                 children: [
                   _totals(context, today: today, week: week, month: month),
+                  _habit(context, sessions),
                   _weekChart(context, last7),
                   if (byTask.isNotEmpty) _byTask(context, byTask),
+                  if (byTag.isNotEmpty) _byTag(context, byTag),
                   _sessionList(context, list, all),
                 ],
               ),
       ),
+    );
+  }
+
+  /// 任务 uid → 标签，用来把专注记录按标签归类。
+  ///
+  /// 拿不到任务列表（极早期启动）就返回空表 —— 那样所有会话都会落进
+  /// 「未打标签」，数字仍然对，只是没法按标签细分。
+  Map<String, List<String>> _tagsOfTasks() {
+    final result = <String, List<String>>{};
+    try {
+      final list = Get.find<RxList<Task>>(tag: 'taskList');
+      for (final task in list) {
+        result[task.uid] = List<String>.of(task.tags);
+      }
+    } catch (_) {}
+    return result;
+  }
+
+  /// 习惯指标：完整走完占比 + 平均每轮时长 + 未正常结束次数
+  Widget _habit(BuildContext context, List<FocusSession> sessions) {
+    final rate = FocusStats.completionRate(sessions);
+    final avg = FocusStats.averageRound(sessions);
+    if (rate == null) return const SizedBox.shrink();
+    final labelColor =
+        CupertinoDynamicColor.resolve(CupertinoColors.secondaryLabel, context);
+    final interrupted = FocusStats.interruptedCount(sessions);
+    final rounds = FocusStats.roundCount(sessions);
+    return _card(
+      children: [
+        Row(
+          children: [
+            _stat(context, '完整走完', '${(rate * 100).round()}%'),
+            _stat(context, '平均每轮',
+                avg == null ? '—' : focusHuman(avg)),
+            _stat(context, '总轮数', '$rounds'),
+          ],
+        ),
+        const SizedBox(height: 6),
+        Text(
+          interrupted == 0
+              ? '每一次专注都是主动结束的 ✓'
+              : '有 $interrupted 次没有正常结束（App 被系统杀掉或中途退出），时长按最后记录结算',
+          style: TextStyle(fontSize: 11, color: labelColor),
+        ),
+      ],
+    );
+  }
+
+  Widget _stat(BuildContext context, String title, String value) {
+    final textColor = CupertinoTheme.of(context).textTheme.textStyle.color;
+    final labelColor =
+        CupertinoDynamicColor.resolve(CupertinoColors.secondaryLabel, context);
+    return Expanded(
+      child: Column(
+        children: [
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: textColor,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(title, style: TextStyle(fontSize: 11, color: labelColor)),
+        ],
+      ),
+    );
+  }
+
+  /// 按标签分布（口径要写清楚：一条会话计入它的每个标签）
+  Widget _byTag(BuildContext context, List<FocusLabelTotal> totals) {
+    final labelColor =
+        CupertinoDynamicColor.resolve(CupertinoColors.secondaryLabel, context);
+    final textColor = CupertinoTheme.of(context).textTheme.textStyle.color;
+    final shown = totals.take(6).toList();
+    final max = shown.first.focused.inMinutes;
+    final sum = totals.fold(Duration.zero, (a, b) => a + b.focused);
+
+    return _card(
+      children: [
+        const Text('本月按标签',
+            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+        const SizedBox(height: 2),
+        Text(
+          '一条待办挂多个标签时，这段专注会分别计入每个标签，'
+          '所以下面加起来（${focusHuman(sum)}）可能大于实际总时长',
+          style: TextStyle(fontSize: 11, color: labelColor),
+        ),
+        const SizedBox(height: 10),
+        ...shown.map((item) {
+          final ratio = max == 0 ? 0.0 : item.focused.inMinutes / max;
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        '#${item.label}',
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontSize: 14, color: textColor),
+                      ),
+                    ),
+                    Text(
+                      '${focusHuman(item.focused)} · ${item.sessions} 次',
+                      style: TextStyle(fontSize: 13, color: labelColor),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Stack(
+                  children: [
+                    Container(
+                      height: 6,
+                      decoration: BoxDecoration(
+                        color: CupertinoDynamicColor.resolve(
+                            CupertinoColors.systemFill, context),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                    FractionallySizedBox(
+                      widthFactor: ratio.clamp(0.02, 1.0),
+                      child: Container(
+                        height: 6,
+                        decoration: BoxDecoration(
+                          color: CupertinoColors.systemIndigo,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          );
+        }),
+      ],
     );
   }
 

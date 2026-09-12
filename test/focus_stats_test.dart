@@ -139,5 +139,94 @@ void main() {
       expect(FocusStats.roundCount(sessions), 1);
       expect(FocusStats.interruptedCount(sessions), 1);
     });
+
+    test('完整走完占比', () {
+      final sessions = [
+        session(startedAt: DateTime(2026, 9, 12, 9, 0), focusedMinutes: 60),
+        session(startedAt: DateTime(2026, 9, 12, 10, 0), focusedMinutes: 60),
+        session(
+            startedAt: DateTime(2026, 9, 12, 11, 0),
+            focusedMinutes: 30,
+            completed: false),
+        session(
+            startedAt: DateTime(2026, 9, 12, 12, 0),
+            focusedMinutes: 30,
+            completed: false),
+      ];
+      expect(FocusStats.completionRate(sessions), 0.5);
+    });
+
+    test('没有会话时占比是 null（界面显示「还没数据」而不是 0%）', () {
+      expect(FocusStats.completionRate(const []), isNull);
+      expect(FocusStats.averageRound(const []), isNull);
+    });
+
+    test('平均每轮时长 = 总专注 / 总轮数', () {
+      final sessions = [
+        session(startedAt: DateTime(2026, 9, 12, 9, 0), focusedMinutes: 50, rounds: 1),
+        session(startedAt: DateTime(2026, 9, 12, 11, 0), focusedMinutes: 70, rounds: 1),
+      ];
+      expect(FocusStats.averageRound(sessions), const Duration(minutes: 60));
+    });
+  });
+
+  group('按标签聚合（一条会话计入它的每个标签）', () {
+    final sessions = [
+      session(
+          startedAt: DateTime(2026, 9, 12, 9, 0),
+          focusedMinutes: 60,
+          label: '写报告',
+          taskUid: 't1'),
+      session(
+          startedAt: DateTime(2026, 9, 12, 14, 0),
+          focusedMinutes: 30,
+          label: '看论文',
+          taskUid: 't2'),
+      // 放在八月：这样下面「只看某个月之后」那条能把它过滤掉
+      session(startedAt: DateTime(2026, 8, 30, 9, 0), focusedMinutes: 45, label: '敲代码'),
+    ];
+    final tags = {
+      't1': ['作业', '报告'],
+      't2': ['论文'],
+    };
+
+    test('多标签的待办会重复计入，分项之和大于总时长（这是刻意的口径）', () {
+      final list = FocusStats.byTag(sessions, tagsOfTask: tags);
+      final byName = {for (final e in list) e.label: e.focused};
+      expect(byName['作业'], const Duration(minutes: 60));
+      expect(byName['报告'], const Duration(minutes: 60));
+      expect(byName['论文'], const Duration(minutes: 30));
+      expect(byName[FocusStats.untaggedLabel], const Duration(minutes: 45));
+      // 分项之和 = 195 分钟 > 总时长 135 分钟
+      final sum = list.fold(Duration.zero, (a, b) => a + b.focused);
+      expect(sum > FocusStats.total(sessions), isTrue);
+    });
+
+    test('自由专注与没标签的待办都进「未打标签」，时长不丢', () {
+      final list = FocusStats.byTag(
+        [
+          session(startedAt: DateTime(2026, 9, 12, 9, 0), focusedMinutes: 20),
+          session(
+              startedAt: DateTime(2026, 9, 12, 10, 0),
+              focusedMinutes: 10,
+              taskUid: 't3'),
+        ],
+        tagsOfTask: const {'t3': <String>[]},
+      );
+      expect(list.length, 1);
+      expect(list.single.label, FocusStats.untaggedLabel);
+      expect(list.single.focused, const Duration(minutes: 30));
+      expect(list.single.sessions, 2);
+    });
+
+    test('可以只看某个月份之后的', () {
+      final list = FocusStats.byTag(
+        sessions,
+        tagsOfTask: tags,
+        from: FocusStats.startOfMonth(DateTime(2026, 9, 12)),
+      );
+      expect(list.any((e) => e.label == FocusStats.untaggedLabel), isFalse);
+      expect(list.map((e) => e.label).toList(), ['作业', '报告', '论文']);
+    });
   });
 }
