@@ -146,4 +146,49 @@ void main() {
       expect(e.restMinutes, 0);
     });
   });
+
+  // ===== 真机反馈的那个 bug：刚满一小时显示成 1:60:00 =====
+  group('focusClock：分钟必须对 3600 取模', () {
+    test('整整一小时是 1:00:00，不是 1:60:00', () {
+      expect(focusClock(const Duration(minutes: 60)), '1:00:00');
+    });
+
+    test('90 分钟是 1:30:00，不是 1:90:00', () {
+      expect(focusClock(const Duration(minutes: 90)), '1:30:00');
+    });
+
+    test('59:58 / 59:59 这种边界', () {
+      expect(focusClock(const Duration(seconds: 3598)), '59:58');
+      expect(focusClock(const Duration(seconds: 3599)), '59:59');
+      expect(focusClock(const Duration(seconds: 3600)), '1:00:00');
+    });
+
+    test('一分钟以内与零', () {
+      expect(focusClock(const Duration(seconds: 5)), '00:05');
+      expect(focusClock(Duration.zero), '00:00');
+    });
+
+    test('负数当 0 处理（时钟异常也不显示负时长）', () {
+      expect(focusClock(const Duration(seconds: -30)), '00:00');
+    });
+
+    test('两小时以上', () {
+      expect(focusClock(const Duration(hours: 2, minutes: 5, seconds: 9)),
+          '2:05:09');
+    });
+  });
+
+  group('focusHuman：口语化时长', () {
+    test('常见写法', () {
+      expect(focusHuman(const Duration(minutes: 45)), '45 分');
+      expect(focusHuman(const Duration(hours: 1)), '1 小时');
+      expect(focusHuman(const Duration(minutes: 80)), '1 小时 20 分');
+      expect(focusHuman(const Duration(seconds: 30)), '30 秒');
+      expect(focusHuman(Duration.zero), '0 秒');
+    });
+
+    test('小时里的分钟同样要对 60 取模', () {
+      expect(focusHuman(const Duration(minutes: 150)), '2 小时 30 分');
+    });
+  });
 }

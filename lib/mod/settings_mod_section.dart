@@ -5,6 +5,7 @@ import 'package:celechron/mod/ai/ai_settings_page.dart';
 import 'package:celechron/mod/ai/deepseek.dart';
 import 'package:celechron/mod/lan_sync_page.dart';
 import 'package:celechron/mod/settings_data_actions.dart';
+import 'package:celechron/page/focus/focus_stats_page.dart';
 import 'package:celechron/page/option/option_controller.dart';
 import 'package:celechron/page/option/option_view.dart' show BackChervonRow;
 import 'package:flutter/cupertino.dart';
@@ -47,6 +48,19 @@ List<Widget> modReminderTiles(
       // ===== P3：专注参数 + 休息提醒 =====
       const _FocusParamTile(),
       const _FocusRestNotifyTile(),
+      // ===== P4：专注记录 / 统计 =====
+      CupertinoListTile(
+        title: const Text('专注记录'),
+        subtitle: const Text('今天 / 本周 / 本月时长、最近七天、按任务分布'),
+        trailing: const BackChervonRow(),
+        onTap: () async {
+          await Navigator.of(context, rootNavigator: true).push(
+            CupertinoPageRoute<void>(
+              builder: (BuildContext context) => const FocusStatsPage(),
+            ),
+          );
+        },
+      ),
       CupertinoListTile(
         title: const Text('闹钟可靠性'),
         subtitle: const Text('全屏闹钟授权、锁屏弹出、电池白名单，一项项查'),

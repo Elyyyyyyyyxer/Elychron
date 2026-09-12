@@ -132,7 +132,16 @@ class _FocusPageState extends State<FocusPage> {
   }
 
   /// 结算一次会话：写终态 + 把专注时长累加到待办的 timeSpent
+  ///
+  /// 专注不到 [minimalSessionSeconds] 的**不留记录** —— 误触、进去看一眼就退出，
+  /// 不该污染统计，也不该往 timeSpent 里塞几秒。
+  static const int minimalSessionSeconds = 10;
+
   void _settle(FocusSession session, {required bool completed}) {
+    if (session.focusedTime.inSeconds < minimalSessionSeconds) {
+      _db?.deleteFocusSession(session.uid);
+      return;
+    }
     session
       ..endedAt = DateTime.now()
       ..completed = completed;
@@ -176,7 +185,7 @@ class _FocusPageState extends State<FocusPage> {
         content: Padding(
           padding: const EdgeInsets.only(top: 8),
           child: Text(
-            '已经专注 ${_human(_engine.focused)}'
+            '已经专注 ${focusHuman(_engine.focused)}'
             '${_engine.rounds > 0 ? '（${_engine.rounds} 轮）' : ''}'
             '，结束后会计入${widget.task != null ? '这条待办' : '专注记录'}。',
             style: const TextStyle(fontSize: 14),
@@ -198,21 +207,8 @@ class _FocusPageState extends State<FocusPage> {
     return result ?? false;
   }
 
-  static String _human(Duration d) {
-    final hours = d.inHours;
-    final minutes = d.inMinutes % 60;
-    if (hours > 0) return '$hours 小时 $minutes 分';
-    if (minutes > 0) return '$minutes 分';
-    return '${d.inSeconds} 秒';
-  }
+  // 时间显示统一走 focus_engine 里的 focusClock / focusHuman（那份有单测）
 
-  static String _clock(Duration d) {
-    final total = d.inSeconds < 0 ? 0 : d.inSeconds;
-    final m = (total ~/ 60).toString().padLeft(2, '0');
-    final s = (total % 60).toString().padLeft(2, '0');
-    final h = total ~/ 3600;
-    return h > 0 ? '$h:$m:$s' : '$m:$s';
-  }
 
   // ------------------------------------------------------------------ UI
 
@@ -288,7 +284,7 @@ class _FocusPageState extends State<FocusPage> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
-                        _clock(_engine.remaining),
+                        focusClock(_engine.remaining),
                         style: TextStyle(
                           fontSize: 46,
                           fontWeight: FontWeight.w300,
@@ -323,9 +319,9 @@ class _FocusPageState extends State<FocusPage> {
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                _stat(context, '已专注', _human(_engine.focused)),
+                _stat(context, '已专注', focusHuman(_engine.focused)),
                 const SizedBox(width: 28),
-                _stat(context, '已休息', _human(_engine.rested)),
+                _stat(context, '已休息', focusHuman(_engine.rested)),
                 const SizedBox(width: 28),
                 _stat(context, '完成', '${_engine.rounds} 轮'),
               ],

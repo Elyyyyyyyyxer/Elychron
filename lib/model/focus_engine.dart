@@ -8,8 +8,29 @@
 /// 落下的时间补上，不会因为「定时器没跑」而少算。
 library;
 
-enum FocusPhase {
-  /// 还没开始 / 已经结束
+/// 专注倒计时的显示：`59:58` / `1:00:00`。
+///
+/// 注意分钟必须**对 3600 取模**：直接写 `total ~/ 60` 的话，刚满一小时会是
+/// `1:60:00`，90 分钟会变成 `1:90:00`（这个坑真踩过）。
+String focusClock(Duration d) {
+  final total = d.inSeconds < 0 ? 0 : d.inSeconds;
+  final hours = total ~/ 3600;
+  final minutes = ((total % 3600) ~/ 60).toString().padLeft(2, '0');
+  final seconds = (total % 60).toString().padLeft(2, '0');
+  return hours > 0 ? '$hours:$minutes:$seconds' : '$minutes:$seconds';
+}
+
+/// 专注时长的口语化写法：`1 小时 20 分` / `45 分` / `30 秒`。
+String focusHuman(Duration d) {
+  final total = d.isNegative ? -d : d;
+  final hours = total.inHours;
+  final minutes = total.inMinutes % 60;
+  if (hours > 0) return minutes > 0 ? '$hours 小时 $minutes 分' : '$hours 小时';
+  if (minutes > 0) return '$minutes 分';
+  return '${total.inSeconds} 秒';
+}
+
+enum FocusPhase {  /// 还没开始 / 已经结束
   idle,
 
   /// 工作段

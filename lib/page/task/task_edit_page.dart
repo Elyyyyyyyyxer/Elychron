@@ -9,6 +9,7 @@ import 'package:celechron/design/task_priority_color.dart';
 import 'package:celechron/design/task_kind_selector.dart';
 import 'package:celechron/mod/ai/ai_subtasks_ui.dart';
 import 'package:celechron/page/focus/focus_entry.dart';
+import 'package:celechron/model/focus_engine.dart';
 import 'package:celechron/model/task.dart';
 import 'package:celechron/database/database_helper.dart';
 import 'package:celechron/page/task/task_controller.dart';
@@ -513,14 +514,7 @@ class _TaskEditPageState extends State<TaskEditPage> {
     setState(() => subtask.applyFromTask(res));
   }
 
-  /// ===== P3：专注累计时长的短写（`1 小时 20 分`）=====
-  static String _humanSpent(Duration d) {
-    final hours = d.inHours;
-    final minutes = d.inMinutes % 60;
-    if (hours > 0) return minutes > 0 ? '$hours 小时 $minutes 分' : '$hours 小时';
-    if (minutes > 0) return '$minutes 分';
-    return '${d.inSeconds} 秒';
-  }
+  // 专注时长显示统一走 focus_engine 的 focusHuman（那份有单测）
 
   /// 从任务列表里取同 uid 的那条（详情页手上是副本，要拿它的最新字段）
   Task? _taskFromList(String uid) {
@@ -1080,7 +1074,7 @@ class _TaskEditPageState extends State<TaskEditPage> {
                         const SizedBox(width: 6),
                         Text(
                           now.timeSpent > Duration.zero
-                              ? '开始专注 · 已记 ${_humanSpent(now.timeSpent)}'
+                              ? '开始专注 · 已记 ${focusHuman(now.timeSpent)}'
                               : '开始专注',
                           style: const TextStyle(
                             fontSize: 15,
