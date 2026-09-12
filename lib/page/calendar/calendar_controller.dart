@@ -121,10 +121,20 @@ class CalendarController extends GetxController {
 
   /// 顶部那个空心圆：在「接下来」与「日历」之间翻转
   void toggleUpcoming() {
-    viewMode.value = viewMode.value == CalendarViewMode.upcoming
-        ? CalendarViewMode.calendar
-        : CalendarViewMode.upcoming;
+    if (viewMode.value == CalendarViewMode.upcoming) {
+      viewMode.value = CalendarViewMode.calendar;
+      cardFace.value = 'calendar';
+    } else {
+      viewMode.value = CalendarViewMode.upcoming;
+      cardFace.value = 'upcoming';
+    }
   }
+
+  /// 卡片翻转的「正反面」。
+  ///
+  /// **只有「接下来 ⇄ 日历」这一对切换才算换面** —— 右上角那个按钮切到课表
+  /// 不换面，所以不会播放翻转动画（用户反馈过：切课表也翻一下很突兀）。
+  final cardFace = 'upcoming'.obs;
 
   Semester? getCurrentSemester() {
     final now = DateTime.now();

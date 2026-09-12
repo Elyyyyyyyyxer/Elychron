@@ -1,3 +1,4 @@
+import 'package:celechron/design/card_flip.dart';
 import 'package:celechron/design/custom_decoration.dart';
 import 'package:celechron/design/sub_title.dart';
 import 'package:celechron/design/task_priority_color.dart';
@@ -28,16 +29,25 @@ class CalendarPage extends StatelessWidget {
   final deadlineList = Get.find<RxList<Task>>(tag: 'taskList');
 
   @override
-  @override
   Widget build(BuildContext context) {
     return CupertinoPageScaffold(
       child: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _header(context),
-            Expanded(child: _body(context)),
-          ],
+        // ===== 整页当成一张卡片翻：顶栏 + 内容一起转，底下垫一层衬底 =====
+        // 只有「接下来 ⇄ 日历」换面才翻（faceKey 只在 toggleUpcoming 里变），
+        // 右上角切课表不换面，所以不会莫名其妙翻一下。
+        child: Obx(
+          () => CardFlipHost(
+            faceKey: _calendarController.cardFace.value,
+            child: FlipCardSurface(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _header(context),
+                  Expanded(child: _body(context)),
+                ],
+              ),
+            ),
+          ),
         ),
       ),
     );
@@ -313,18 +323,8 @@ class CalendarPage extends StatelessWidget {
             ],
           );
           }
-          // ===== 换视图时翻一下卡片（Y 轴 3D 翻转）=====
-          return AnimatedSwitcher(
-            duration: const Duration(milliseconds: 320),
-            switchInCurve: Curves.easeOutCubic,
-            switchOutCurve: Curves.easeInCubic,
-            transitionBuilder: (Widget child, Animation<double> anim) =>
-                _FlipTransition(animation: anim, child: child),
-            child: KeyedSubtree(
-              key: ValueKey<CalendarViewMode>(mode),
-              child: body,
-            ),
-          );
+          // 整页翻转在外层（build 里的 CardFlipHost），这里只交出内容
+          return body;
         },
     );
   }
@@ -798,35 +798,6 @@ class CalendarPage extends StatelessWidget {
         color: color,
         shape: periodTypeShape[period.type]!,
       ),
-    );
-  }
-}
-
-/// 换视图时的卡片翻转：绕 Y 轴转 90°，转过一半时换上新的那一面（不会穿帮）。
-class _FlipTransition extends StatelessWidget {
-  final Animation<double> animation;
-  final Widget child;
-
-  const _FlipTransition({required this.animation, required this.child});
-
-  @override
-  Widget build(BuildContext context) {
-    final rotate = Tween<double>(begin: 1, end: 0).animate(
-      CurvedAnimation(parent: animation, curve: Curves.easeOutCubic),
-    );
-    return AnimatedBuilder(
-      animation: rotate,
-      builder: (BuildContext context, Widget? inner) {
-        final angle = rotate.value * (3.141592653589793 / 2);
-        return Transform(
-          alignment: Alignment.center,
-          transform: Matrix4.identity()
-            ..setEntry(3, 2, 0.0015)
-            ..rotateY(angle),
-          child: rotate.value < 0.5 ? inner : const SizedBox.shrink(),
-        );
-      },
-      child: child,
     );
   }
 }

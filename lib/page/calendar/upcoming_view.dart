@@ -1,6 +1,5 @@
 import 'package:celechron/design/round_rectangle_card.dart';
 import 'package:celechron/design/task_detail_nav.dart';
-import 'package:celechron/model/period.dart';
 import 'package:celechron/model/upcoming.dart';
 import 'package:celechron/utils/time_helper.dart';
 import 'package:flutter/cupertino.dart';
