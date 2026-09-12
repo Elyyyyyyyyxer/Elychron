@@ -179,6 +179,9 @@ const String lanPanelHtml = r'''<!DOCTYPE html>
     <label><input id="editStarred" type="checkbox"> 加入星标</label>
     <label><input id="editReminderEnabled" type="checkbox"> 开启提醒</label>
     <label for="editReminder">提醒时间</label><input id="editReminder" type="datetime-local">
+    <label for="editRepeatType">重复</label>
+    <select id="editRepeatType"><option value="norepeat">不重复</option><option value="daily">每天</option><option value="weekly">每周</option><option value="monthly">每月</option></select>
+    <label for="editTags">标签（用逗号分隔）</label><input id="editTags" type="text">
     <div class="actions"><button onclick="closeEditor()">取消</button><button class="primary" onclick="saveEditor()">保存修改</button></div>
   </div>
 </div>
@@ -409,6 +412,8 @@ function openEditor(uid) {
   document.getElementById('editStarred').checked = !!t.starred;
   document.getElementById('editReminderEnabled').checked = !!t.reminderEnabled;
   document.getElementById('editReminder').value = toInputDate(t.reminderTime);
+  document.getElementById('editRepeatType').value = t.repeatType || 'norepeat';
+  document.getElementById('editTags').value = (t.tags || []).join(', ');
   document.getElementById('editorTitle').textContent = '编辑待办 · ' + (t.reminderEnabled ? '已设提醒' : '未设提醒');
   document.getElementById('editor').classList.remove('hidden');
 }
@@ -423,6 +428,8 @@ function saveEditor() {
   t.reminderEnabled = document.getElementById('editReminderEnabled').checked;
   var reminder = document.getElementById('editReminder').value;
   t.reminderTime = reminder ? new Date(reminder).toISOString() : null;
+  t.repeatType = document.getElementById('editRepeatType').value;
+  t.tags = document.getElementById('editTags').value.split(',').map(function (x) { return x.trim(); }).filter(Boolean);
   t.updatedAt = new Date().toISOString();
   closeEditor(); render(); push('已保存修改');
 }
