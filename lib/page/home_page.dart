@@ -9,6 +9,7 @@ import 'package:url_launcher/url_launcher_string.dart';
 import 'package:celechron/page/scholar/scholar_view.dart';
 import 'package:celechron/page/task/task_view.dart';
 import 'package:celechron/page/calendar/calendar_view.dart';
+import 'package:celechron/page/focus/focus_home_page.dart';
 import 'package:celechron/page/option/option_view.dart';
 // ===== MOD: 分享接收 / 闹钟逻辑集中在 lib/mod/home_mod_hooks.dart =====
 import 'package:celechron/mod/home_mod_hooks.dart';
@@ -32,6 +33,8 @@ class _HomePageState extends State<HomePage> {
   late final List<Widget> _pages = [
     _KeepAlivePage(child: CalendarPage()),
     _KeepAlivePage(child: TaskPage()),
+    // ===== MOD: 专注页（待办/学业之间，插在这里不会动到 jumpToPage(1)）=====
+    _KeepAlivePage(child: FocusHomePage()),
     _KeepAlivePage(child: ScholarPage()),
     _KeepAlivePage(child: OptionPage()),
   ];
@@ -74,6 +77,10 @@ class _HomePageState extends State<HomePage> {
         BottomNavigationBarItem(
           icon: Icon(CupertinoIcons.check_mark),
           label: '待办',
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(CupertinoIcons.timer),
+          label: '专注',
         ),
         BottomNavigationBarItem(
           icon: Icon(Icons.school_rounded),

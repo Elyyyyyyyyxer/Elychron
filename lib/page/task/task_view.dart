@@ -4,7 +4,6 @@ import 'package:celechron/design/tag_manager.dart';
 import 'package:celechron/design/task_filter_sheets.dart';
 import 'package:celechron/design/task_priority_color.dart';
 import 'package:celechron/page/flow/flow_controller.dart';
-import 'package:celechron/page/focus/focus_entry.dart';
 import 'package:celechron/page/task/task_controller.dart';
 import 'package:celechron/utils/task_complete.dart';
 import 'package:celechron/utils/utils.dart';
@@ -584,15 +583,8 @@ class TaskPage extends StatelessWidget {
                   Row(
                 mainAxisSize: MainAxisSize.min,
                 children: <Widget>[
-                  // ===== P3：自由专注（不挂任务，比如「敲代码」）=====
-                  CupertinoButton(
-                    padding: EdgeInsets.zero,
-                    child: const Icon(
-                      CupertinoIcons.timer,
-                      semanticLabel: '专注',
-                    ),
-                    onPressed: () => startFreeFocus(context),
-                  ),
+                  // 专注入口已经独立成底部「专注」标签页，这里不再重复放图标
+
                   CupertinoButton(
                     padding: EdgeInsets.zero,
                     child: const Icon(
