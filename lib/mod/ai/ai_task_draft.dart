@@ -106,7 +106,25 @@ class AiTaskDraft {
   final String location;
 
   /// ===== P2：结构化的子步骤（可能带时间/地点）=====
+  ///
+  /// 预览里可以删单条 / 改时间，靠 [copyWith] 换一份新的，不改原对象。
   final List<AiStepDraft> subtasks;
+
+  /// 只用来支持「预览里改步骤」：换掉 [subtasks] 一份新的，其余字段原样带过来。
+  AiTaskDraft copyWith({List<AiStepDraft>? subtasks}) => AiTaskDraft(
+        summary: summary,
+        description: description,
+        endTime: endTime,
+        startTime: startTime,
+        kind: kind,
+        reminderMinutes: reminderMinutes,
+        priority: priority,
+        tags: tags,
+        location: location,
+        subtasks: subtasks ?? this.subtasks,
+        uncertain: uncertain,
+        warnings: warnings,
+      );
 
   /// 模型自报「原文里没写、我不确定」的字段名（如 截止时间 / 地点）。
   /// 这些字段会留空交给用户自己补，而不是靠模型猜。

@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:celechron/mod/ai/ai_image.dart';
 import 'package:celechron/mod/ai/ai_settings_page.dart';
+import 'package:celechron/design/date_picker_sheet.dart';
 import 'package:celechron/mod/ai/ai_task_draft.dart';
 import 'package:celechron/mod/ai/deepseek.dart';
 import 'package:celechron/model/task.dart';
@@ -192,7 +193,7 @@ class _AiComposeSheetState extends State<_AiComposeSheet> {
               : 'AI 功能还没打开。打开开关后即可使用。',
           style: TextStyle(
             fontSize: 14,
-            color: CupertinoColors.secondaryLabel.resolveFrom(context),
+            color: CupertinoDynamicColor.resolve(CupertinoColors.secondaryLabel, context),
           ),
         ),
         const SizedBox(height: 16),
@@ -218,7 +219,7 @@ class _AiComposeSheetState extends State<_AiComposeSheet> {
             : 'AI 会读出图里的文字（通知、群消息、海报、课表截图都行），整理成待办。',
         style: TextStyle(
           fontSize: 13,
-          color: CupertinoColors.secondaryLabel.resolveFrom(context),
+          color: CupertinoDynamicColor.resolve(CupertinoColors.secondaryLabel, context),
         ),
       ),
       const SizedBox(height: 12),
@@ -303,7 +304,7 @@ class _AiComposeSheetState extends State<_AiComposeSheet> {
                   '已选 ${_images.length} 张 · 最多 ${AiTaskDraft.maxImages} 张',
                   style: TextStyle(
                     fontSize: 12.5,
-                    color: CupertinoColors.secondaryLabel.resolveFrom(context),
+                    color: CupertinoDynamicColor.resolve(CupertinoColors.secondaryLabel, context),
                   ),
                 ),
             ],
@@ -378,6 +379,33 @@ class _AiComposeSheetState extends State<_AiComposeSheet> {
     return children;
   }
 
+  /// 预览里点某一步的时间 → 改它的起点（原本有段就保留时长，没有就当成一个时刻）
+  Future<void> _editStepTime(AiTaskDraft draft, int index) async {
+    final step = draft.subtasks[index];
+    final picked = await showDateTimeSheet(
+      context,
+      initial: step.anchor ?? draft.endTime,
+      title: '这一步的时间',
+    );
+    if (picked == null || !mounted) return;
+
+    final start = step.startTime;
+    final end = step.endTime;
+    final length = (start != null && end != null && end.isAfter(start))
+        ? end.difference(start)
+        : Duration.zero;
+
+    final next = List<AiStepDraft>.of(draft.subtasks);
+    next[index] = AiStepDraft(
+      title: step.title,
+      note: step.note,
+      location: step.location,
+      startTime: picked,
+      endTime: length > Duration.zero ? picked.add(length) : null,
+    );
+    setState(() => _draft = draft.copyWith(subtasks: next));
+  }
+
   Widget _preview(BuildContext context, AiTaskDraft draft) {
     final rows = <Widget>[
       _kv(context, '标题', draft.summary),
@@ -399,20 +427,94 @@ class _AiComposeSheetState extends State<_AiComposeSheet> {
       if (draft.priority != TaskPriority.normal)
         _kv(context, '优先级', taskPriorityName[draft.priority] ?? ''),
       if (draft.tags.isNotEmpty) _kv(context, '标签', draft.tags.join('、')),
-      if (draft.subtasks.isNotEmpty)
-        _kv(
-          context,
-          '子待办',
-          // P2：行程型的步骤带时间/地点，逐条列清楚（含注意事项）
-          draft.subtasks.map((step) {
-            final parts = <String>[];
-            if (step.timeLabel.isNotEmpty) parts.add(step.timeLabel);
-            parts.add(step.title);
-            if (step.location.isNotEmpty) parts.add('@${step.location}');
-            final line = parts.join(' ');
-            return step.note.isEmpty ? '· $line' : '· $line（${step.note}）';
-          }).join('\n'),
+      // ===== P2：步骤可以在预览里直接删 / 改时间（不用先填进去再改）=====
+      if (draft.subtasks.isNotEmpty) ...[
+        Padding(
+          padding: const EdgeInsets.only(top: 10, bottom: 4),
+          child: Row(
+            children: [
+              Text('子待办',
+                  style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: CupertinoDynamicColor.resolve(CupertinoColors.secondaryLabel, context))),
+              const Spacer(),
+              if (draft.subtasks.any((s) => s.hasTime))
+                CupertinoButton(
+                  padding: EdgeInsets.zero,
+                  minimumSize: const Size(0, 28),
+                  onPressed: () => setState(() {
+                    _draft = draft.copyWith(
+                      subtasks: draft.subtasks.map((s) => s.withoutTime()).toList(),
+                    );
+                  }),
+                  child: const Text('全部不要时间', style: TextStyle(fontSize: 13)),
+                ),
+            ],
+          ),
         ),
+        ...draft.subtasks.asMap().entries.map((entry) {
+          final index = entry.key;
+          final step = entry.value;
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 点时间 → 改这一步的起点（时长保留）
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => _editStepTime(draft, index),
+                  child: Container(
+                    width: 78,
+                    padding: const EdgeInsets.symmetric(vertical: 2),
+                    child: Text(
+                      step.timeLabel.isEmpty ? '＋时间' : step.timeLabel,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: step.hasTime
+                            ? const Color(0xFFFF699A)
+                            : CupertinoDynamicColor.resolve(CupertinoColors.secondaryLabel, context),
+                      ),
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(step.title, style: const TextStyle(fontSize: 14)),
+                      if (step.location.isNotEmpty || step.note.isNotEmpty)
+                        Text(
+                          [
+                            if (step.location.isNotEmpty) '@${step.location}',
+                            if (step.note.isNotEmpty) step.note,
+                          ].join(' · '),
+                          style: TextStyle(
+                              fontSize: 12,
+                              color: CupertinoColors.secondaryLabel
+                                  .resolveFrom(context)),
+                        ),
+                    ],
+                  ),
+                ),
+                CupertinoButton(
+                  padding: EdgeInsets.zero,
+                  minimumSize: const Size(28, 28),
+                  onPressed: () => setState(() {
+                    final next = List<AiStepDraft>.of(draft.subtasks)
+                      ..removeAt(index);
+                    _draft = draft.copyWith(subtasks: next);
+                  }),
+                  child: Icon(CupertinoIcons.xmark_circle_fill,
+                      size: 18,
+                      color: CupertinoDynamicColor.resolve(CupertinoColors.tertiaryLabel, context)),
+                ),
+              ],
+            ),
+          );
+        }),
+      ],
     ];
 
     return Column(
@@ -473,7 +575,7 @@ class _AiComposeSheetState extends State<_AiComposeSheet> {
               key,
               style: TextStyle(
                 fontSize: 13.5,
-                color: CupertinoColors.secondaryLabel.resolveFrom(context),
+                color: CupertinoDynamicColor.resolve(CupertinoColors.secondaryLabel, context),
               ),
             ),
           ),
