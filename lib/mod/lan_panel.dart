@@ -103,6 +103,7 @@ const String lanPanelHtml = r'''<!DOCTYPE html>
   <h1>Elychron</h1>
   <span id="status" class="pill">未连接</span>
   <span style="flex:1"></span>
+  <input id="searchInput" type="text" placeholder="搜索待办…" style="max-width:220px" oninput="render()">
   <button onclick="refresh()">刷新</button>
   <button onclick="downloadBundle()">导出到电脑</button>
 </header>
@@ -245,6 +246,12 @@ function renderRow(t) {
 function render() {
   if (!bundle) return;
   var tasks = bundle.tasks || [];
+  var query = (document.getElementById('searchInput') || {}).value || '';
+  query = query.trim().toLowerCase();
+  if (query) tasks = tasks.filter(function (t) {
+    return (t.summary || '').toLowerCase().indexOf(query) >= 0 ||
+      (t.description || '').toLowerCase().indexOf(query) >= 0;
+  });
   var open = tasks.filter(function (t) { return t.status !== 'completed' && t.status !== 'deleted'; });
   open.sort(function (a, b) { return (a.endTime || '').localeCompare(b.endTime || ''); });
   var done = tasks.filter(function (t) { return t.status === 'completed'; });
@@ -257,7 +264,7 @@ function render() {
 }
 
 function refresh() {
-  setStatus('同步中…');
+  setStatus(navigator.onLine === false ? '等待网络…' : '同步中…');
   api('/bundle').then(function (data) {
     bundle = data;
     render();
@@ -378,6 +385,10 @@ function importBundle(input) {
 document.getElementById('codeInput').addEventListener('keydown', function (e) {
   if (e.key === 'Enter') pair();
 });
+window.addEventListener('online', function () { notify('网络已恢复，正在同步…', 'ok'); refresh(); });
+window.addEventListener('offline', function () { setStatus('已离线', 'err'); notify('当前没有网络连接', 'err'); });
+document.addEventListener('visibilitychange', function () { if (!document.hidden && token) refresh(); });
+setInterval(function () { if (!document.hidden && token) refresh(); }, 30000);
 if (token) { refresh(); } else { showPair(); }
 </script>
 </body>
