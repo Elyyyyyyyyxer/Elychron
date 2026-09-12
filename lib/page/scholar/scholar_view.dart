@@ -105,6 +105,133 @@ Future<void> showRefreshResultDialog(
 ///   ② build 返回 `SliverList`：ErrorWidget 位于 Box 树中，
 ///      会抛 `RenderSliver cannot be child of RenderBox`。
 /// 于是「待办页某个 widget 首次构建出错」被放大成整机卡死。
+/// 全局错误日志：把构建错误**攒起来**，而不是画在页面上挡路。
+///
+/// 以前 `ErrorWidget.builder` 直接画一大块提示，会盖住出错的地方（日程页顶栏的
+/// 按钮都被盖掉过）✗ 现在页面上只留一条很矮的提示，内容是这里攒下来的，
+/// 点开才看，也可以到「设置」里查 ✓
+class AppErrorLog {
+  AppErrorLog._();
+
+  /// 最近若干条错误（新的在前）
+  static final List<FlutterErrorDetails> entries = <FlutterErrorDetails>[];
+
+  /// 条数变化时通知界面（设置里的入口用它刷新）
+  static final ValueNotifier<int> count = ValueNotifier<int>(0);
+
+  static const int maxEntries = 20;
+
+  static void record(FlutterErrorDetails details) {
+    try {
+      entries.insert(0, details);
+      while (entries.length > maxEntries) {
+        entries.removeLast();
+      }
+      count.value = entries.length;
+    } catch (_) {
+      // 记录失败绝不能再抛
+    }
+  }
+
+  static void clear() {
+    entries.clear();
+    count.value = 0;
+  }
+
+  /// 一句话摘要（给列表用）
+  static String summaryOf(FlutterErrorDetails details) {
+    final text = details.exceptionAsString().split('\n').first.trim();
+    return text.length > 80 ? '${text.substring(0, 80)}…' : text;
+  }
+}
+
+/// 出错位置留下的**一小条**提示（高度固定很矮，不会盖住内容）。
+///
+/// 点它看详情（含「重新获取数据」的动作，原来那个大卡片上的按钮挪到这里）。
+class _AppErrorChip extends StatelessWidget {
+  const _AppErrorChip();
+
+  @override
+  Widget build(BuildContext context) {
+    final labelColor = CupertinoDynamicColor.resolve(
+        CupertinoColors.secondaryLabel, context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 8),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => showAppErrorSheet(context),
+        child: Container(
+          height: 22,
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          decoration: BoxDecoration(
+            color: CupertinoColors.systemRed.withValues(alpha: 0.10),
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(CupertinoIcons.exclamationmark_triangle_fill,
+                  size: 11, color: CupertinoColors.systemRed),
+              const SizedBox(width: 4),
+              Text('界面这里出了点问题，点开查看',
+                  style: TextStyle(fontSize: 11, color: labelColor)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 错误详情面板：列出攒下来的错误 + 「重新获取数据」+「清空」
+Future<void> showAppErrorSheet(BuildContext context) {
+  return showCupertinoModalPopup<void>(
+    context: context,
+    builder: (BuildContext context) => CupertinoActionSheet(
+      title: Text('应用错误（${AppErrorLog.entries.length}）'),
+      message: AppErrorLog.entries.isEmpty
+          ? const Text('暂时没有记录到的错误。')
+          : Text(
+              AppErrorLog.entries
+                  .take(5)
+                  .map(AppErrorLog.summaryOf)
+                  .join('\n\n'),
+              style: const TextStyle(fontSize: 12),
+            ),
+      actions: [
+        CupertinoActionSheetAction(
+          onPressed: () async {
+            Navigator.of(context).pop();
+            try {
+              if (!Get.isRegistered<ScholarController>()) return;
+              final controller = Get.find<ScholarController>();
+              final results = await controller.fetchData();
+              if (context.mounted &&
+                  results.any((result) => result != null)) {
+                await showRefreshResultDialog(context, results);
+              }
+            } catch (_) {}
+          },
+          child: const Text('重新获取数据'),
+        ),
+        CupertinoActionSheetAction(
+          isDestructiveAction: true,
+          onPressed: () {
+            AppErrorLog.clear();
+            Navigator.of(context).pop();
+          },
+          child: const Text('清空错误记录'),
+        ),
+      ],
+      cancelButton: CupertinoActionSheetAction(
+        isDefaultAction: true,
+        onPressed: () => Navigator.of(context).pop(),
+        child: const Text('知道了'),
+      ),
+    ),
+  );
+}
+
 class ScholarErrorHandler extends StatelessWidget {
   final FlutterErrorDetails errorDetails;
 
@@ -128,39 +255,12 @@ class ScholarErrorHandler extends StatelessWidget {
   }
 
   Widget _buildContent(BuildContext context) {
-    // 必须是**盒子组件**（不能返回 Sliver）
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: CupertinoListSection.insetGrouped(
-        header: Container(
-          padding: const EdgeInsets.only(left: 16, right: 16),
-          child: Text(
-            '获取数据时遇到问题。请检查网络连接情况，并尝试重新获取数据。\n注意：你需要完成所有的教学评价才能获取成绩信息。',
-            style: TextStyle(
-                color: CupertinoDynamicColor.resolve(
-                    CupertinoColors.secondaryLabel, context),
-                fontSize: 14),
-          ),
-        ),
-        children: [
-          CupertinoButton(
-            onPressed: () async {
-              // 惰性获取控制器，且任何失败都不允许抛出去
-              try {
-                if (!Get.isRegistered<ScholarController>()) return;
-                final controller = Get.find<ScholarController>();
-                final results = await controller.fetchData();
-                if (context.mounted &&
-                    results.any((result) => result != null)) {
-                  await showRefreshResultDialog(context, results);
-                }
-              } catch (_) {}
-            },
-            child: const Text('重新获取数据'),
-          ),
-        ],
-      ),
-    );
+    // ★ 必须是**盒子组件**（不能返回 Sliver），而且必须**尽量不占地方**：
+    // 以前这里画一整块「获取数据时遇到问题」的卡片，会把出错位置整个盖住 ——
+    // 日程页顶栏被盖掉之后按钮都点不到（用户反馈过）✗
+    // 现在只放一条很矮的提示，详情点开才看；错误同时记进 AppErrorLog ✓
+    AppErrorLog.record(errorDetails);
+    return const _AppErrorChip();
   }
 }
 
