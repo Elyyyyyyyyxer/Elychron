@@ -35,6 +35,11 @@ const String lanPanelHtml = r'''<!DOCTYPE html>
     padding: 16px; margin-bottom: 16px;
   }
   .card h2 { font-size: 14px; margin: 0 0 12px; color: var(--muted); font-weight: 600; letter-spacing: .02em; }
+  .workbar { display:flex; gap:16px; align-items:flex-end; justify-content:space-between; flex-wrap:wrap; margin-bottom:10px; }
+  .tabs { display:flex; gap:5px; flex-wrap:wrap; }
+  .tab { border-color:transparent; background:transparent; color:var(--muted); padding:6px 8px; }
+  .tab.active { color:var(--accent); background:rgba(255,107,154,.10); }
+  .tab .pill { margin-left:3px; }
   .row { display: flex; align-items: flex-start; gap: 12px; padding: 10px 0; border-top: 1px solid var(--line); cursor:pointer; transition:background .18s ease, transform .18s ease; }
   .row:hover { background:rgba(255,107,154,.06); transform:translateX(2px); }
   .row:first-of-type { border-top: none; }
@@ -130,6 +135,8 @@ const String lanPanelHtml = r'''<!DOCTYPE html>
       <input id="newEnd" type="date">
       <button class="primary" onclick="addTask()">添加</button>
     </div>
+    <label for="newDescription">描述（可选）</label>
+    <textarea id="newDescription" style="width:100%; min-height:58px; resize:vertical; font:inherit; padding:8px; border:1px solid var(--line); border-radius:9px"></textarea>
     <div class="reminder-fields">
       <label class="hint"><input id="newReminderEnabled" type="checkbox"> 开启提醒</label>
       <input id="newReminder" type="datetime-local" aria-label="提醒时间">
@@ -139,13 +146,16 @@ const String lanPanelHtml = r'''<!DOCTYPE html>
   </div>
 
   <div class="card">
-    <h2>进行中 <span id="countOpen" class="pill">0</span></h2>
-    <div id="openList"><div class="hint">加载中…</div></div>
-  </div>
-
-  <div class="card">
-    <h2>已完成 <span id="countDone" class="pill">0</span></h2>
-    <div id="doneList"><div class="hint">—</div></div>
+    <div class="workbar">
+      <div><h2 style="margin:0">任务</h2><div class="hint">把今天要做的事放在眼前</div></div>
+      <div class="tabs" role="tablist">
+        <button class="tab active" data-filter="open" onclick="setTaskFilter('open')">待我处理 <span id="countOpen" class="pill">0</span></button>
+        <button class="tab" data-filter="priority" onclick="setTaskFilter('priority')">优先处理</button>
+        <button class="tab" data-filter="done" onclick="setTaskFilter('done')">我已处理 <span id="countDone" class="pill">0</span></button>
+        <button class="tab" data-filter="starred" onclick="setTaskFilter('starred')">星标</button>
+      </div>
+    </div>
+    <div id="taskList"><div class="hint">加载中…</div></div>
   </div>
 
   <div class="card">
@@ -178,7 +188,15 @@ const String lanPanelHtml = r'''<!DOCTYPE html>
 var token = localStorage.getItem('elychron_token') || localStorage.getItem('telechron_token') || '';
 if (token) { localStorage.setItem('elychron_token', token); localStorage.removeItem('telechron_token'); }
 var bundle = null;
+var taskFilter = 'open';
 
+function setTaskFilter(filter) {
+  taskFilter = filter;
+  document.querySelectorAll('.tab').forEach(function (el) {
+    el.classList.toggle('active', el.getAttribute('data-filter') === filter);
+  });
+  render();
+}
 function toast(msg) { notify(msg, 'err'); }
 function setStatus(text, kind) {
   var el = document.getElementById('status');
@@ -318,10 +336,11 @@ function render() {
   var open = tasks.filter(function (t) { return t.status !== 'completed' && t.status !== 'deleted'; });
   open.sort(function (a, b) { return (a.endTime || '').localeCompare(b.endTime || ''); });
   var done = tasks.filter(function (t) { return t.status === 'completed'; });
-  document.getElementById('openList').innerHTML = open.length
-    ? open.map(renderRow).join('') : '<div class="hint">没有进行中的待办 🎉</div>';
-  document.getElementById('doneList').innerHTML = done.length
-    ? done.map(renderRow).join('') : '<div class="hint">—</div>';
+  var shown = taskFilter === 'done' ? done : taskFilter === 'priority'
+    ? open.filter(function (t) { return t.priority === 'high' || t.priority === 'urgent'; })
+    : taskFilter === 'starred' ? tasks.filter(function (t) { return t.starred && t.status !== 'deleted'; }) : open;
+  document.getElementById('taskList').innerHTML = shown.length
+    ? shown.map(renderRow).join('') : '<div class="hint">这里还没有任务 🎉</div>';
   document.getElementById('countOpen').textContent = open.length;
   document.getElementById('countDone').textContent = done.length;
 }
@@ -429,7 +448,7 @@ function addTask() {
   var now = new Date().toISOString();
   var uid = (crypto.randomUUID ? crypto.randomUUID() : 'r' + Math.random().toString(36).slice(2) + Date.now());
   bundle.tasks.push({
-    uid: uid, status: 'running', description: '', timeSpent: 0,
+    uid: uid, status: 'running', description: document.getElementById('newDescription').value, timeSpent: 0,
     endTime: end.toISOString(), location: '', summary: title,
     type: 'deadline', startTime: end.toISOString(), repeatType: 'norepeat',
     repeatPeriod: 1, repeatEndsTime: end.toISOString(),
@@ -441,6 +460,7 @@ function addTask() {
     createdAt: now, updatedAt: now
   });
   document.getElementById('newTitle').value = '';
+  document.getElementById('newDescription').value = '';
   document.getElementById('newReminder').value = '';
   document.getElementById('newReminderEnabled').checked = false;
   push('已新建「' + title + '」');
