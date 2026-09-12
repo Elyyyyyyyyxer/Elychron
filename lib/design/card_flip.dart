@@ -66,9 +66,16 @@ class CardFlip extends StatelessWidget {
       parent: animation,
       curve: Curves.easeInOutCubic,
     );
+    // ⚠️ 退场与进场要用**不同的 Tween**：
+    // - 进场那面：animation 从 0→1，希望角度 +90°→0°
+    //   → Tween(begin: 1, end: 0)
+    // - 退场那面：AnimatedSwitcher 会把 animation **反向**播放（1→0），
+    //   希望角度 0°→−90° → Tween(begin: -1, end: 0)
+    //   （如果写成 Tween(0, -1)，退场卡片在动画一开始就被算成 −90°，
+    //    于是「啪」地瞬间变成竖直一条线再转回来 —— 这个 bug 踩过）
     final rotate = Tween<double>(
-      begin: incoming ? 1 : 0,
-      end: incoming ? 0 : -1,
+      begin: incoming ? 1 : -1,
+      end: 0,
     ).animate(progress);
     // 转到侧面时稍微缩一点，翻过去的立体感更足
     final scale = Tween<double>(begin: 0.93, end: 1).animate(progress);
@@ -88,44 +95,6 @@ class CardFlip extends StatelessWidget {
           ),
         );
       },
-      child: child,
-    );
-  }
-}
-
-/// 让翻转的那块内容看起来**像一张实体卡片**：圆角 + 衬底 + 投影 + 裁掉溢出。
-///
-/// 没有衬底时，翻转过程中只能看到文字在转，很虚；有了这块底，
-/// 一眼就能看出「一张卡片翻过去了」。
-class FlipCardSurface extends StatelessWidget {
-  final Widget child;
-  final EdgeInsets margin;
-
-  const FlipCardSurface({
-    super.key,
-    required this.child,
-    this.margin = const EdgeInsets.fromLTRB(10, 6, 10, 6),
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = CupertinoTheme.brightnessOf(context) == Brightness.dark;
-    return Container(
-      margin: margin,
-      clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(
-        color: CupertinoDynamicColor.resolve(
-            CupertinoColors.systemGroupedBackground, context),
-        borderRadius: BorderRadius.circular(22),
-        boxShadow: [
-          BoxShadow(
-            color:
-                CupertinoColors.black.withValues(alpha: isDark ? 0.45 : 0.08),
-            blurRadius: 18,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
       child: child,
     );
   }

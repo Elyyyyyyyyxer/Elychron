@@ -32,20 +32,18 @@ class CalendarPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return CupertinoPageScaffold(
       child: SafeArea(
-        // ===== 整页当成一张卡片翻：顶栏 + 内容一起转，底下垫一层衬底 =====
+        // ===== 整页当成一张卡片翻：顶栏 + 内容一起转 =====
         // 只有「接下来 ⇄ 日历」换面才翻（faceKey 只在 toggleUpcoming 里变），
         // 右上角切课表不换面，所以不会莫名其妙翻一下。
         child: Obx(
           () => CardFlipHost(
             faceKey: _calendarController.cardFace.value,
-            child: FlipCardSurface(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _header(context),
-                  Expanded(child: _body(context)),
-                ],
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _header(context),
+                Expanded(child: _body(context)),
+              ],
             ),
           ),
         ),
