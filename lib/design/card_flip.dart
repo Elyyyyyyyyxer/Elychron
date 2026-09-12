@@ -105,43 +105,55 @@ class _CardFlipSwitcherState extends State<CardFlipSwitcher>
         final firstHalf = t < 0.5;
         final rawHalf = (firstHalf ? t : t - 0.5) * 2;
 
-        // 速度曲线：前半程加速冲向侧面，后半程减速落定 + 轻微过冲回弹
+        // 两半使用相同的端点速度：前半加速，后半减速。
+        // easeInCubic 在终点的速度和 easeOutCubic 在起点的速度一致，
+        // 因此卡片在侧面换面时不会突然卡一下或改变速度。
         final half = firstHalf
             ? Curves.easeInCubic.transform(rawHalf)
-            : const Cubic(0.18, 1.0, 0.32, 1.06).transform(rawHalf);
+            : Curves.easeOutCubic.transform(rawHalf);
 
-        // 一张卡**连续转 180°**：前半 0° → +90°，后半 −90° → 0°（接着同方向继续）
+        // 一张卡连续转动：旧面 0° → +90°，新面 −90° → 0°。
         final angle = (firstHalf ? half : half - 1) * (math.pi / 2);
-
+        final depth = math.sin(angle.abs()).clamp(0.0, 1.0).toDouble();
         final face = firstHalf
             ? (_outgoingFace ?? _shownFace)
             : (_incomingFace ?? _shownFace);
 
-        // 越接近侧面越暗（|angle| 在 90° 时最大）
-        final shade = 0.20 * math.sin(angle.abs());
-        // 侧面时缩一点，立体感更足
-        final scale = 1 - 0.07 * math.sin(angle.abs());
-
-        // 不要用 Stack 包住 faceBuilder：整页内部有 Expanded，Stack 的非定位子项
-        // 会拿到不明确的高度约束，触发 RenderFlex 构建异常（错误提示因此盖到日程页）。
-        // ColorFiltered 不改变布局约束，只负责把转开的表面压暗。
+        // 光照：表面转向侧面时自然变暗；不用 Stack，避免破坏 Expanded 的约束。
         final faceWidget = widget.faceBuilder(face);
-        final shadedFace = shade > 0.001
+        final shadedFace = depth > 0.001
             ? ColorFiltered(
                 colorFilter: ColorFilter.mode(
-                  CupertinoColors.black.withValues(alpha: shade),
+                  CupertinoColors.black.withValues(alpha: 0.14 * depth),
                   BlendMode.darken,
                 ),
                 child: faceWidget,
               )
             : faceWidget;
 
+        // 极弱的动态投影只在翻转中出现，提供一点“卡片离开页面”的深度感，
+        // 但不添加丑陋的衬底，也不改变子树的布局约束。
+        final surface = depth > 0.001
+            ? PhysicalModel(
+                color: const Color(0x00000000),
+                shadowColor: CupertinoColors.black
+                    .withValues(alpha: 0.10 * depth),
+                elevation: 3.0 * depth,
+                borderRadius: BorderRadius.circular(18),
+                clipBehavior: Clip.none,
+                child: shadedFace,
+              )
+            : shadedFace;
+
         return Transform(
           alignment: Alignment.center,
           transform: Matrix4.identity()
-            ..setEntry(3, 2, 0.0022)
+            ..setEntry(3, 2, 0.0018)
             ..rotateY(angle),
-          child: Transform.scale(scale: scale, child: shadedFace),
+          child: Transform.scale(
+            scale: 1 - 0.035 * depth,
+            child: surface,
+          ),
         );
       },
     );
