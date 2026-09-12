@@ -131,29 +131,58 @@ class _CardFlipSwitcherState extends State<CardFlipSwitcher>
               )
             : faceWidget;
 
-        // 极弱的动态投影只在翻转中出现，提供一点“卡片离开页面”的深度感，
-        // 但不添加丑陋的衬底，也不改变子树的布局约束。
-        final surface = depth > 0.001
-            ? PhysicalModel(
-                color: const Color(0x00000000),
-                shadowColor: CupertinoColors.black
-                    .withValues(alpha: 0.10 * depth),
-                elevation: 3.0 * depth,
-                borderRadius: BorderRadius.circular(18),
-                clipBehavior: Clip.none,
-                child: shadedFace,
+        // 纸张的侧边：只在转动时露出一条很窄的“页边”。
+        // Stack 使用 expand，让 faceWidget 仍然拿到完整、明确的高度约束；
+        // 不能用默认 loose Stack，否则页面内部的 Expanded 会再次触发布局错误。
+        final paperThickness = 3.0 * depth;
+        final edge = angle >= 0 ? paperThickness : -paperThickness;
+        final paperEdge = depth > 0.02
+            ? Positioned.fill(
+                child: Transform.translate(
+                  offset: Offset(edge, 1.0 * depth),
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: CupertinoColors.systemGrey5,
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                  ),
+                ),
               )
-            : shadedFace;
+            : null;
+
+        // 阴影压低到很轻，避免产生“整张卡片下沉”的感觉。
+        final surface = PhysicalModel(
+          color: const Color(0x00000000),
+          shadowColor: CupertinoColors.black.withValues(alpha: 0.055 * depth),
+          elevation: 1.4 * depth,
+          borderRadius: BorderRadius.circular(18),
+          clipBehavior: Clip.none,
+          child: shadedFace,
+        );
+
+        // 缩放只保留 1% 左右：给侧面一点重量，但不让画面像在下沉。
+        final card = Transform.scale(
+          scale: 1 - 0.010 * depth,
+          child: surface,
+        );
 
         return Transform(
           alignment: Alignment.center,
           transform: Matrix4.identity()
             ..setEntry(3, 2, 0.0018)
             ..rotateY(angle),
-          child: Transform.scale(
-            scale: 1 - 0.035 * depth,
-            child: surface,
-          ),
+          child: depth > 0.02
+              ? ClipRect(
+                  child: Stack(
+                    fit: StackFit.expand,
+                    clipBehavior: Clip.none,
+                    children: [
+                      paperEdge!,
+                      card,
+                    ],
+                  ),
+                )
+              : card,
         );
       },
     );
