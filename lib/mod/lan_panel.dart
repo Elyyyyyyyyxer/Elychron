@@ -180,6 +180,9 @@ const String lanPanelHtml = r'''<!DOCTYPE html>
     <label for="editRepeatType">重复</label>
     <select id="editRepeatType"><option value="norepeat">不重复</option><option value="daily">每天</option><option value="weekly">每周</option><option value="monthly">每月</option></select>
     <label for="editTags">标签（用逗号分隔）</label><input id="editTags" type="text">
+    <label for="editSubtasks">子待办（每行一项）</label>
+    <textarea id="editSubtasks" placeholder="例如：准备材料&#10;提交作业"></textarea>
+    <div class="hint">已有子待办的时间、提醒和完成状态会保留；这里只编辑名称。</div>
     <div class="actions"><button onclick="closeEditor()">取消</button><button class="primary" onclick="saveEditor()">保存修改</button></div>
   </div>
 </div>
@@ -414,6 +417,7 @@ function openEditor(uid) {
   document.getElementById('editReminder').value = toInputDate(t.reminderTime);
   document.getElementById('editRepeatType').value = t.repeatType || 'norepeat';
   document.getElementById('editTags').value = (t.tags || []).join(', ');
+  document.getElementById('editSubtasks').value = (t.subtasks || []).map(function (s) { return s.title || ''; }).join('\n');
   document.getElementById('editorTitle').textContent = '编辑待办 · ' + (t.reminderEnabled ? '已设提醒' : '未设提醒');
   document.getElementById('editor').classList.remove('hidden');
 }
@@ -430,6 +434,16 @@ function saveEditor() {
   t.reminderTime = reminder ? new Date(reminder).toISOString() : null;
   t.repeatType = document.getElementById('editRepeatType').value;
   t.tags = document.getElementById('editTags').value.split(',').map(function (x) { return x.trim(); }).filter(Boolean);
+  var oldSubtasks = t.subtasks || [];
+  var newTitles = document.getElementById('editSubtasks').value.split('\n').map(function (x) { return x.trim(); }).filter(Boolean);
+  t.subtasks = newTitles.map(function (title, index) {
+    var old = oldSubtasks[index];
+    return old ? Object.assign({}, old, { title: title }) : {
+      uid: 'sub-' + Date.now() + '-' + index, title: title, done: false, description: '',
+      startTime: null, endTime: null, reminderMinutes: null, priority: 'normal', tags: [],
+      attachments: [], location: ''
+    };
+  });
   t.updatedAt = new Date().toISOString();
   closeEditor(); render(); push('已保存修改');
 }
@@ -468,6 +482,7 @@ function addTask() {
   });
   document.getElementById('newTitle').value = '';
   document.getElementById('newDescription').value = '';
+  document.getElementById('editSubtasks').value = '';
   document.getElementById('newReminder').value = '';
   document.getElementById('newReminderEnabled').checked = false;
   push('已新建「' + title + '」');
