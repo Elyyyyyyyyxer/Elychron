@@ -63,6 +63,23 @@ class AiStepDraft {
       );
 }
 
+/// 「AI 补全行程」的结果：与任务已有子待办**一一对应**的补全项 + 处理说明。
+class AiItineraryFill {
+  final List<AiStepDraft> steps;
+  final List<String> warnings;
+
+  const AiItineraryFill({required this.steps, required this.warnings});
+
+  /// 真正补出时间的步骤数（预览里用来告诉用户「几步补上了」）
+  int get timedCount => steps.where((s) => s.hasTime).length;
+
+  /// 补出地点的步骤数
+  int get locatedCount =>
+      steps.where((s) => s.location.trim().isNotEmpty).length;
+
+  bool get isEmpty => steps.isEmpty;
+}
+
 /// ============ AI 生成待办草稿 ============
 ///
 /// **核心安全原则：绝不让 AI 直接产出 Task JSON。**
@@ -407,6 +424,8 @@ ${task.isEvent ? '''
     DateTime? parentStart,
     DateTime? parentEnd,
     List<String>? warnings,
+    int? expectedCount,
+    bool keepOrder = false,
   }) {
     final raw = json['subtasks'] ?? json['steps'] ?? json['tasks'];
     if (raw is! List) return <AiStepDraft>[];
@@ -489,10 +508,14 @@ ${task.isEvent ? '''
         startTime: start,
         endTime: end,
       ));
-      if (steps.length >= maxSubtaskCount) break;
+      final cap = expectedCount ?? maxSubtaskCount;
+      if (steps.length >= cap) break;
     }
 
-    // 按时间排序，没时间的排最后（保持模型给的先后顺序）
+    // 补全模式**不能排序**：结果要跟用户已列的步骤一一对应
+    if (keepOrder) return steps;
+
+    // 拆解模式：按时间排序，没时间的排最后（保持模型给的先后顺序）
     final timed = steps.where((s) => s.anchor != null).toList()
       ..sort((a, b) => a.anchor!.compareTo(b.anchor!));
     final timeless = steps.where((s) => s.anchor == null).toList();
@@ -505,6 +528,121 @@ ${task.isEvent ? '''
     final parsed = DateTime.tryParse(text) ??
         DateTime.tryParse(text.replaceAll('/', '-').replaceFirst(' ', 'T'));
     return parsed;
+  }
+
+  // ------------------------------------------------ AI 补全行程（P2 遗留）
+
+  /// 给**已有的清单型子待办**补时间与地点（不改标题，不替换步骤）。
+  ///
+  /// 与「AI 拆成子待办」的区别：那个是**重新拆**，这个是**就地补**。
+  /// 用户已经手动列好了步骤，只是懒得给每一步填时间。
+  ///
+  /// 返回「与 [task.subtasks] **一一对应**」的补全结果（可能某项为空 = 没补出来）。
+  static Future<AiItineraryFill> fillItineraryFor(Task task) async {
+    await AiConfig.load();
+    if (task.subtasks.isEmpty) {
+      throw AiException('这条待办还没有子待办，先用「AI 拆成子待办」或手动加几步');
+    }
+    if (AiConfig.resolvedModel.isEmpty && !AiConfig.isManualModel) {
+      await ModelResolver.resolve();
+    }
+
+    final buffer = StringBuffer()
+      ..writeln('待办标题：${task.summary.trim().isEmpty ? '(未命名)' : task.summary.trim()}');
+    if (task.isEvent) {
+      buffer.writeln('这是有起止的活动：${_fmt(task.startTime)} → ${_fmt(task.endTime)}');
+    } else {
+      buffer.writeln('这是单时刻/截止型待办：${_fmt(task.endTime)}');
+    }
+    if (task.location.trim().isNotEmpty) {
+      buffer.writeln('活动地点：${task.location.trim()}');
+    }
+    if (task.description.trim().isNotEmpty) {
+      buffer.writeln('补充说明：${task.description.trim()}');
+    }
+    buffer.writeln('');
+    buffer.writeln('已有的步骤（**按顺序**，不要增删、不要改标题，只给它们补时间/地点）：');
+    for (var i = 0; i < task.subtasks.length; i++) {
+      final sub = task.subtasks[i];
+      final extra = <String>[
+        if (sub.location.trim().isNotEmpty) '地点=${sub.location.trim()}',
+        if (sub.startTime != null || sub.endTime != null) '已有时间',
+      ];
+      buffer.writeln(
+          '${i + 1}. ${sub.title.trim().isEmpty ? '(未命名)' : sub.title.trim()}'
+          '${extra.isEmpty ? '' : '（${extra.join('，')}）'}');
+    }
+
+    final json = await ModelResolver.withModelHealing(
+      () => DeepSeekClient().chatJson(
+        system: _itinerarySystemPrompt(task),
+        user: buffer.toString(),
+        temperature: 0.2,
+      ),
+    );
+
+    final warnings = <String>[];
+    final steps = _parseSubtasks(
+      json,
+      const <String>[],
+      parentStart: task.isEvent ? task.startTime : null,
+      parentEnd: task.endTime,
+      warnings: warnings,
+      // 补全模式：数量必须与已有步骤一致，且**不排序**（顺序要跟用户列的一致）
+      expectedCount: task.subtasks.length,
+      keepOrder: true,
+    );
+    return AiItineraryFill(steps: steps, warnings: warnings);
+  }
+
+  static String _itinerarySystemPrompt(Task task) => '''
+你是帮学生把「已经列好的步骤」补上时间与地点的助手。
+
+只输出一个 json 对象，不要解释、不要 markdown 代码块。格式：
+{"subtasks": [
+  {"title": "原样抄回第 1 步的标题", "location": "地点或空字符串", "note": "注意事项或空字符串", "startTime": "YYYY-MM-DDTHH:mm:ss 或空字符串", "endTime": "同上，或空字符串"}
+]}
+
+铁律（违反就等于白干）：
+- **条数、顺序、标题必须与输入的步骤完全一致**：不要合并、不要拆分、不要改写标题
+  （你自己补不出来时间的那一步，就给空字符串的时间，但标题仍要原样抄回来）
+- 输入里给了整段行程时间（几点集合、几点到哪）→ 把时间放进 startTime/endTime、
+  地点放进 location，**标题保持原样**
+- 时间必须落在${task.isEvent ? '活动的起止时间之内' : '这条待办的截止时间之前'}
+- 输入里**没有任何时间线索** → 所有时间一律留空字符串，**绝对不要编**
+- 不要编造输入里没有的地点
+
+$_stepSchemaRules''';
+
+  /// 把补全结果**就地合并**进任务已有的子待办（不改标题、不动 done、不加不减步骤）。
+  ///
+  /// 纯函数，方便单测；返回是否有任何改动。
+  static bool applyItineraryFill(Task task, AiItineraryFill fill) {
+    var changed = false;
+    final count = task.subtasks.length < fill.steps.length
+        ? task.subtasks.length
+        : fill.steps.length;
+    for (var i = 0; i < count; i++) {
+      final sub = task.subtasks[i];
+      final step = fill.steps[i];
+      // 只补**空着的**字段：用户自己填过的时间/地点/注意事项优先，绝不被覆盖。
+      // 这是「补全」而不是「重写」的语义。
+      if (!sub.hasTime && step.hasTime) {
+        sub.startTime = step.startTime;
+        sub.endTime = step.endTime;
+        changed = true;
+      }
+      if (step.location.isNotEmpty && sub.location.trim().isEmpty) {
+        sub.location = step.location;
+        changed = true;
+      }
+      if (step.note.isNotEmpty && sub.description.trim().isEmpty) {
+        sub.description = step.note;
+        changed = true;
+      }
+    }
+    if (changed) task.updatedAt = DateTime.now();
+    return changed;
   }
 
   // ---------------------------------------------------- 逐字段校验（重点）

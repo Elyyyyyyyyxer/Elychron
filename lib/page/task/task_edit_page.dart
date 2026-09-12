@@ -1479,6 +1479,23 @@ class _TaskEditPageState extends State<TaskEditPage> {
                     style: TextStyle(fontSize: 16, color: labelColor),
                   ),
                 ),
+                // ===== P2 遗留：给已有的清单型步骤补时间/地点（不增删步骤）=====
+                if (now.subtasks.any((subtask) => !subtask.hasTime)) ...[
+                  _divider(),
+                  _iconRow(
+                    icon: Icons.auto_awesome,
+                    onTap: () => runAiFillItinerary(
+                      context,
+                      now,
+                      onChanged: () => setState(() {}),
+                    ),
+                    child: const Text(
+                      'AI 补全行程',
+                      style: TextStyle(
+                          fontSize: 16, color: CupertinoColors.systemBlue),
+                    ),
+                  ),
+                ],
               ],
             ),
 

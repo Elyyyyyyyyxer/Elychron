@@ -262,4 +262,94 @@ void main() {
       expect(SubTask(title: '查文献').hasTime, isFalse);
     });
   });
+
+  // ===== P2 遗留：AI 补全行程（就地补时间/地点，不增删步骤、不改标题）=====
+
+  group('applyItineraryFill：只往已有步骤上填，绝不动结构', () {
+    Task taskWithSteps() {
+      final t = Task(
+        endTime: DateTime(2026, 9, 12, 22, 0),
+        startTime: DateTime(2026, 9, 12, 18, 0),
+        repeatEndsTime: DateTime(2026, 9, 12),
+      )..type = TaskType.fixed;
+      t.subtasks = [
+        SubTask(title: '集合'),
+        SubTask(title: '唱歌'),
+        SubTask(title: '吃饭', done: true, location: '探鱼'),
+      ];
+      return t;
+    }
+
+    AiItineraryFill fillOf(List<AiStepDraft> steps) =>
+        AiItineraryFill(steps: steps, warnings: const []);
+
+    test('补时间与地点，标题与完成状态一律不动', () {
+      final task = taskWithSteps();
+      final changed = AiTaskDraft.applyItineraryFill(
+        task,
+        fillOf([
+          AiStepDraft(
+              title: '集合',
+              location: '南出入口',
+              note: '带身份证',
+              startTime: DateTime(2026, 9, 12, 18, 0)),
+          AiStepDraft(
+              title: '唱歌',
+              startTime: DateTime(2026, 9, 12, 18, 30),
+              endTime: DateTime(2026, 9, 12, 20, 30)),
+          AiStepDraft(title: '吃饭'),
+        ]),
+      );
+
+      expect(changed, isTrue);
+      expect(task.subtasks.length, 3);
+      expect(task.subtasks[0].title, '集合');
+      expect(task.subtasks[0].startTime, DateTime(2026, 9, 12, 18, 0));
+      expect(task.subtasks[0].location, '南出入口');
+      expect(task.subtasks[0].description, '带身份证');
+      expect(task.subtasks[1].startTime, DateTime(2026, 9, 12, 18, 30));
+      expect(task.subtasks[1].endTime, DateTime(2026, 9, 12, 20, 30));
+      // 第三项 AI 没补出东西：保持原样，且 done 不能被清掉
+      expect(task.subtasks[2].done, isTrue);
+      expect(task.subtasks[2].location, '探鱼');
+      expect(task.subtasks[2].startTime, isNull);
+    });
+
+    test('已有内容不会被覆盖（用户自己填过的优先）', () {
+      final task = taskWithSteps();
+      task.subtasks[0].location = '我自己填的地点';
+      task.subtasks[0].startTime = DateTime(2026, 9, 12, 19, 0);
+      AiTaskDraft.applyItineraryFill(
+        task,
+        fillOf([
+          AiStepDraft(
+              title: '集合',
+              location: 'AI 猜的地点',
+              startTime: DateTime(2026, 9, 12, 18, 0)),
+        ]),
+      );
+      expect(task.subtasks[0].location, '我自己填的地点');
+      expect(task.subtasks[0].startTime, DateTime(2026, 9, 12, 19, 0));
+    });
+
+    test('AI 给的步骤比现有少时，多出来的步骤原样保留', () {
+      final task = taskWithSteps();
+      AiTaskDraft.applyItineraryFill(
+        task,
+        fillOf([AiStepDraft(title: '集合', startTime: DateTime(2026, 9, 12, 18, 0))]),
+      );
+      expect(task.subtasks.length, 3);
+      expect(task.subtasks[1].startTime, isNull);
+    });
+
+    test('什么都没变时返回 false（界面就不会说「补好了」）', () {
+      final task = taskWithSteps();
+      expect(AiTaskDraft.applyItineraryFill(task, fillOf(const [])), isFalse);
+      expect(
+        AiTaskDraft.applyItineraryFill(
+            task, fillOf([AiStepDraft(title: '集合')])),
+        isFalse,
+      );
+    });
+  });
 }
