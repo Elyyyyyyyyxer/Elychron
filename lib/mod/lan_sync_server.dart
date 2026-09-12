@@ -8,6 +8,7 @@ import 'package:celechron/mod/database_mod.dart';
 import 'package:celechron/mod/lan_panel.dart';
 import 'package:celechron/model/task.dart';
 import 'package:celechron/page/task/task_controller.dart';
+import 'package:celechron/mod/task_runtime_mod.dart';
 import 'package:celechron/utils/data_backup.dart';
 import 'package:celechron/utils/data_sync.dart';
 import 'package:get/get.dart';
@@ -214,11 +215,14 @@ class LanSyncServer {
     await DataBackup.applyMerge(db, taskList, result, bundle: incoming);
     taskList.refresh();
 
-    // 让待办页按新数据重算状态并落盘（没打开过该页时跳过）
+    // 合并后的远端任务必须立即重算状态并重排提醒；不能因为待办页尚未打开
+    // 就跳过，否则网页新建的提醒只会存进去，不会真正调度。
     if (Get.isRegistered<TaskController>()) {
       final controller = Get.find<TaskController>();
       controller.updateDeadlineList();
       controller.updateDeadlineListTime();
+    } else {
+      syncTaskReminders(taskList);
     }
 
     lastSyncAt = DateTime.now();

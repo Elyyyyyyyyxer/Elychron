@@ -142,7 +142,8 @@ class _CardFlipSwitcherState extends State<CardFlipSwitcher>
                   offset: Offset(edge, 1.0 * depth),
                   child: DecoratedBox(
                     decoration: BoxDecoration(
-                      color: CupertinoColors.systemGrey5,
+                      // 纸边保持接近白色，只比页面内容深一档，避免发灰。
+                      color: CupertinoColors.systemGrey6,
                       borderRadius: BorderRadius.circular(18),
                     ),
                   ),

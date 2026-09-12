@@ -10,8 +10,8 @@ const String lanPanelHtml = r'''<!DOCTYPE html>
 <title>Elychron · 局域网同步</title>
 <style>
   :root {
-    --bg: #f5f5f7; --card: #ffffff; --line: #e5e5ea;
-    --text: #1c1c1e; --muted: #8e8e93; --accent: #007aff;
+    --bg: #f8f8fb; --card: #ffffff; --line: #e8e8ef;
+    --text: #202027; --muted: #8b8b96; --accent: #ff6b9a;
     --danger: #ff3b30; --ok: #34c759; --warn: #ff9500;
   }
   * { box-sizing: border-box; }
@@ -60,11 +60,22 @@ const String lanPanelHtml = r'''<!DOCTYPE html>
   @media (max-width: 620px) { .grid { grid-template-columns: 1fr; } }
   .hint { font-size: 12.5px; color: var(--muted); }
   #toast {
-    position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%);
-    background: #1c1c1e; color: #fff; padding: 10px 18px; border-radius: 999px;
-    font-size: 14px; opacity: 0; transition: opacity .25s; pointer-events: none; z-index: 20;
+    position: fixed; right: 22px; bottom: 22px; width: min(380px, calc(100vw - 32px));
+    background: rgba(32,32,39,.96); color: #fff; padding: 13px 16px;
+    border-radius: 14px; box-shadow: 0 16px 48px rgba(20,20,28,.22);
+    font-size: 14px; opacity: 0; transform: translate3d(18px,10px,0) scale(.98);
+    transition: opacity .22s ease, transform .32s cubic-bezier(.2,.8,.2,1);
+    pointer-events: none; z-index: 40;
   }
-  #toast.show { opacity: 1; }
+  #toast.show { opacity: 1; transform: translate3d(0,0,0) scale(1); }
+  #toast.err { background: rgba(146,35,48,.97); }
+  #toast.ok { background: rgba(31,101,59,.97); }
+  .reminder-fields { display:grid; grid-template-columns:170px 190px; gap:8px; margin-top:8px; }
+  input[type=datetime-local], select {
+    font: inherit; padding: 7px 10px; border: 1px solid var(--line);
+    border-radius: 9px; background: #fff; color: var(--text); width:100%;
+  }
+  @media (max-width:620px) { .reminder-fields { grid-template-columns:1fr; } }
   #pair {
     position: fixed; inset: 0; background: var(--bg); z-index: 30;
     display: flex; align-items: center; justify-content: center;
@@ -104,7 +115,11 @@ const String lanPanelHtml = r'''<!DOCTYPE html>
       <input id="newEnd" type="date">
       <button class="primary" onclick="addTask()">添加</button>
     </div>
-    <div class="hint" style="margin-top:8px;">截止时间默认今天 23:59；新建后可回手机继续补充细节。</div>
+    <div class="reminder-fields">
+      <label class="hint"><input id="newReminderEnabled" type="checkbox"> 开启提醒</label>
+      <input id="newReminder" type="datetime-local" aria-label="提醒时间">
+    </div>
+    <div class="hint" style="margin-top:8px;">截止时间默认今天 23:59；提醒时间可选，保存后由手机负责实际通知。</div>
   </div>
 
   <div class="card">
@@ -134,19 +149,25 @@ var token = localStorage.getItem('elychron_token') || localStorage.getItem('tele
 if (token) { localStorage.setItem('elychron_token', token); localStorage.removeItem('telechron_token'); }
 var bundle = null;
 
-function toast(msg) {
-  var el = document.getElementById('toast');
-  el.textContent = msg; el.classList.add('show');
-  setTimeout(function () { el.classList.remove('show'); }, 2600);
-}
+function toast(msg) { notify(msg, 'err'); }
 function setStatus(text, kind) {
   var el = document.getElementById('status');
   el.textContent = text;
   el.className = 'pill' + (kind ? ' ' + kind : '');
 }
-function api(path, options) {
+function notify(message, kind) {
+  var el = document.getElementById('toast');
+  el.textContent = message;
+  el.className = 'show' + (kind ? ' ' + kind : '');
+  clearTimeout(window.__toastTimer);
+  window.__toastTimer = setTimeout(function () { el.className = ''; }, 3200);
+}
+function api(path, options, attempt) {
   options = options || {};
+  attempt = attempt || 0;
   options.headers = Object.assign({ 'X-Lan-Token': token }, options.headers || {});
+  var controller = window.AbortController ? new AbortController() : null;
+  if (controller) { options.signal = controller.signal; setTimeout(function () { controller.abort(); }, 9000); }
   return fetch(path, options).then(function (res) {
     return res.json().then(function (data) {
       if (res.status === 401) { showPair('配对已失效，请重新输入配对码'); throw new Error(data.error || 'unauthorized'); }
@@ -240,14 +261,19 @@ function refresh() {
 }
 
 function push(summary) {
-  return api('/bundle', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(bundle)
+  // 写入前重新拉取一次，避免把网页打开后的旧快照覆盖回手机。
+  return api('/bundle').then(function (fresh) {
+    bundle = fresh;
+    render();
+    return api('/bundle', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(bundle)
+    });
   }).then(function (data) {
-    toast((summary ? summary + '，' : '') + '已同步到手机：' + (data.summary || ''));
+    notify((summary ? summary + '，' : '') + '已同步到手机：' + (data.summary || ''), 'ok');
     return refresh();
-  }).catch(function (e) { toast('同步失败：' + e); });
+  }).catch(function (e) { notify('同步失败：' + e, 'err'); });
 }
 
 function findTask(uid) {
@@ -280,11 +306,16 @@ function addTask() {
     endTime: end.toISOString(), location: '', summary: title,
     type: 'deadline', startTime: end.toISOString(), repeatType: 'norepeat',
     repeatPeriod: 1, repeatEndsTime: end.toISOString(),
-    fromUid: null, subtasks: [], priority: 'normal', reminderEnabled: false,
-    reminderTime: null, attachments: [], comments: [], tags: [], starred: false,
+    fromUid: null, subtasks: [], priority: 'normal',
+    reminderEnabled: document.getElementById('newReminderEnabled').checked,
+    reminderTime: document.getElementById('newReminderEnabled').checked && document.getElementById('newReminder').value
+      ? new Date(document.getElementById('newReminder').value).toISOString() : null,
+    attachments: [], comments: [], tags: [], starred: false,
     createdAt: now, updatedAt: now
   });
   document.getElementById('newTitle').value = '';
+  document.getElementById('newReminder').value = '';
+  document.getElementById('newReminderEnabled').checked = false;
   push('已新建「' + title + '」');
 }
 function downloadBundle() {
