@@ -122,43 +122,26 @@ class _CardFlipSwitcherState extends State<CardFlipSwitcher>
         // 侧面时缩一点，立体感更足
         final scale = 1 - 0.07 * math.sin(angle.abs());
 
+        // 不要用 Stack 包住 faceBuilder：整页内部有 Expanded，Stack 的非定位子项
+        // 会拿到不明确的高度约束，触发 RenderFlex 构建异常（错误提示因此盖到日程页）。
+        // ColorFiltered 不改变布局约束，只负责把转开的表面压暗。
+        final faceWidget = widget.faceBuilder(face);
+        final shadedFace = shade > 0.001
+            ? ColorFiltered(
+                colorFilter: ColorFilter.mode(
+                  CupertinoColors.black.withValues(alpha: shade),
+                  BlendMode.darken,
+                ),
+                child: faceWidget,
+              )
+            : faceWidget;
+
         return Transform(
           alignment: Alignment.center,
           transform: Matrix4.identity()
             ..setEntry(3, 2, 0.0022)
             ..rotateY(angle),
-          child: Transform.scale(
-            scale: scale,
-            child: Stack(
-              children: [
-                widget.faceBuilder(face),
-                // 光照：转开的那一侧更暗（用一层横向渐变模拟）
-                if (shade > 0.001)
-                  Positioned.fill(
-                    child: IgnorePointer(
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: angle >= 0
-                                ? Alignment.centerRight
-                                : Alignment.centerLeft,
-                            end: angle >= 0
-                                ? Alignment.centerLeft
-                                : Alignment.centerRight,
-                            colors: [
-                              CupertinoColors.black
-                                  .withValues(alpha: shade),
-                              CupertinoColors.black
-                                  .withValues(alpha: shade * 0.35),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
+          child: Transform.scale(scale: scale, child: shadedFace),
         );
       },
     );

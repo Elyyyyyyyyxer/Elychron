@@ -19,6 +19,7 @@ import 'package:get/get.dart';
 import 'custom_license_page.dart';
 import 'login_page.dart';
 import 'package:celechron/mod/settings_mod_section.dart';
+import 'package:celechron/page/scholar/scholar_view.dart';
 import 'option_controller.dart';
 
 const Color _kHeaderFooterColor = CupertinoDynamicColor(
@@ -210,6 +211,19 @@ class OptionPage extends StatelessWidget {
                           },
                         ),
                       },
+                       // 构建错误不再浮在日程页顶部；在设置里集中查看和处理。
+                       ValueListenableBuilder<int>(
+                         valueListenable: AppErrorLog.count,
+                         builder: (context, count, _) {
+                           if (count == 0) return const SizedBox.shrink();
+                           return CupertinoListTile(
+                             title: Text('应用错误（$count）'),
+                             subtitle: const Text('查看最近的构建错误与重新获取数据'),
+                             trailing: const BackChervonRow(),
+                             onTap: () => showAppErrorSheet(context),
+                           );
+                         },
+                       ),
                     ],
                   ),
                 )),

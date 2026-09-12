@@ -123,6 +123,10 @@ class AppErrorLog {
 
   static void record(FlutterErrorDetails details) {
     try {
+      // ErrorWidget.builder 可能在任何页面触发；先把完整异常写入 logcat，
+      // 否则页面上的摘要不足以定位真正的构建错误。
+      debugPrint('Elychron ErrorWidget: ${details.exceptionAsString()}');
+      debugPrintStack(stackTrace: details.stack);
       entries.insert(0, details);
       while (entries.length > maxEntries) {
         entries.removeLast();
@@ -260,7 +264,8 @@ class ScholarErrorHandler extends StatelessWidget {
     // 日程页顶栏被盖掉之后按钮都点不到（用户反馈过）✗
     // 现在只放一条很矮的提示，详情点开才看；错误同时记进 AppErrorLog ✓
     AppErrorLog.record(errorDetails);
-    return const _AppErrorChip();
+    // 不在出错位置渲染任何可见内容：错误只进入设置页的错误中心。
+    return const SizedBox.shrink();
   }
 }
 
