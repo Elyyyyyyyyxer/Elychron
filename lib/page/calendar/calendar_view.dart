@@ -28,294 +28,307 @@ class CalendarPage extends StatelessWidget {
   final deadlineList = Get.find<RxList<Task>>(tag: 'taskList');
 
   @override
+  @override
   Widget build(BuildContext context) {
     return CupertinoPageScaffold(
       child: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Obx(
-              () => Stack(
-                alignment: Alignment.center,
-                children: [
-                  SubtitleRow(
-                subtitle: switch (_calendarController.viewMode.value) {
-                  // 「接下来」模式下别显示学期/月份那串信息，直接说这是什么页面
-                  CalendarViewMode.upcoming => '接下来',
-                  CalendarViewMode.calendar =>
-                    '${_calendarController.focusedDay.value.year} 年 ${_calendarController.focusedDay.value.month} 月',
-                  CalendarViewMode.schedule =>
-                    _calendarController.getCurrentSemesterDisplayName(),
-                },
-                right: Row(
-                  children: [
-                    if (_calendarController.viewMode.value ==
-                        CalendarViewMode.calendar) ...[
-                      CupertinoButton(
-                        padding: EdgeInsets.zero,
-                        child: const Icon(
-                          CupertinoIcons.add_circled,
-                          semanticLabel: 'Add',
-                        ),
-                        onPressed: () async {
-                          await newDeadline(
-                            context,
-                            time: DateTime(
-                              _calendarController.selectedDay.value.year,
-                              _calendarController.selectedDay.value.month,
-                              _calendarController.selectedDay.value.day,
-                              DateTime.now().hour,
-                              DateTime.now().minute,
-                            ),
-                          );
-                          _taskController.updateDeadlineList();
-                          _taskController.taskList.refresh();
-                        },
-                      ),
-                      CupertinoButton(
-                        padding: EdgeInsets.zero,
-                        child: Text('今天',
-                            style: TextStyle(
-                                fontSize: 18,
-                                color: CupertinoDynamicColor.resolve(
-                                    CupertinoColors.systemBlue, context))),
-                        onPressed: () {
-                          _calendarController.focusedDay.value = DateTime.now();
-                          _calendarController.selectedDay.value =
-                              DateTime.now();
-                        },
-                      ),
-                    ],
-                    CupertinoButton(
-                      padding: EdgeInsets.zero,
-                      child: Icon(
-                        _calendarController.viewMode.value ==
-                                CalendarViewMode.calendar
-                            ? CupertinoIcons.calendar
-                            : CupertinoIcons.list_bullet,
-                        semanticLabel: '切换视图',
-                      ),
-                      onPressed: () {
-                        _calendarController.toggleViewMode();
-                      },
-                    ),
-                  ],
-                ),
-                padHorizontal: 18,
-              ),
-                  // ===== 顶部居中的小空心圆：点它翻转「接下来」⇄ 日历 =====
-                  // （空心态 = 正在看「接下来」；圆心有点 = 正在看日历，点回「接下来」）
-                  Positioned(
-                    top: 0,
-                    bottom: 0,
-                    child: Center(
-                      child: GestureDetector(
-                        behavior: HitTestBehavior.opaque,
-                        onTap: _calendarController.toggleUpcoming,
-                        child: SizedBox(
-                          width: 44,
-                          height: 44,
-                          child: Center(
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 200),
-                              width: 20,
-                              height: 20,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  width: 1.6,
-                                  color: _calendarController.viewMode.value ==
-                                          CalendarViewMode.upcoming
-                                      ? const Color(0xFFFF699A)
-                                      : CupertinoDynamicColor.resolve(
-                                          CupertinoColors.secondaryLabel, context),
-                                ),
-                              ),
-                              child: _calendarController.viewMode.value ==
-                                      CalendarViewMode.calendar
-                                  ? Center(
-                                      child: Container(
-                                        width: 7,
-                                        height: 7,
-                                        decoration: BoxDecoration(
-                                          shape: BoxShape.circle,
-                                          color: CupertinoDynamicColor.resolve(
-                                              CupertinoColors.secondaryLabel,
-                                              context),
-                                        ),
-                                      ),
-                                    )
-                                  : null,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Expanded(
-              child: Obx(
-                () {
-                  final mode = _calendarController.viewMode.value;
-                  final Widget body;
-                  if (mode == CalendarViewMode.schedule) {
-                    body = ScheduleView(controller: _calendarController);
-                  } else if (mode == CalendarViewMode.upcoming) {
-                    // ===== 「接下来」：最近的一条大字号 =====
-                    body = UpcomingView(
-                      items: _upcomingItems(),
-                      onAddTask: () => newDeadline(context, time: DateTime.now()),
-                    );
-                  } else {
-                    body = Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.only(
-                            bottom: 5, left: 12, right: 12),
-                        child: TableCalendar(
-                          locale: 'zh_CN',
-                          firstDay: DateTime.utc(2022, 9, 1),
-                          lastDay: DateTime.utc(2030, 12, 31),
-                          rowHeight: 48.0,
-                          daysOfWeekHeight: 20.0,
-                          startingDayOfWeek: StartingDayOfWeek.monday,
-                          daysOfWeekStyle: DaysOfWeekStyle(
-                            dowTextFormatter: (date, locale) => <String>[
-                              '',
-                              '一',
-                              '二',
-                              '三',
-                              '四',
-                              '五',
-                              '六',
-                              '日'
-                            ][date.weekday],
-                          ),
-                          availableGestures: AvailableGestures.all,
-                          availableCalendarFormats: const {
-                            CalendarFormat.month: '显示整月',
-                            CalendarFormat.week: '显示一周',
-                          },
-                          headerVisible: false,
-                          focusedDay: _calendarController.focusedDay.value,
-                          selectedDayPredicate: (day) {
-                            return isSameDay(
-                                _calendarController.selectedDay.value, day);
-                          },
-                          calendarFormat:
-                              _calendarController.calendarFormat.value,
-                          onPageChanged: (focusedDay) {
-                            _calendarController.focusedDay.value = focusedDay;
-                          },
-                          onDaySelected: (selectedDay, focusedDay) {
-                            _calendarController.focusedDay.value = focusedDay;
-                            _calendarController.selectedDay.value = selectedDay;
-                            _calendarController.focusedDay.refresh();
-                          },
-                          onFormatChanged: (format) {
-                            _calendarController.calendarFormat.value = format;
-                          },
-                          eventLoader: (day) {
-                            // 课程 / 考试 / 日程 / 待办 都参与月视图标记
-                            return _calendarController.getMarkersForDay(day);
-                          },
-                          calendarStyle: CalendarStyle(
-                            markersAnchor: -0.1,
-                            markersMaxCount: 10,
-                            selectedDecoration: BoxDecoration(
-                              color: CupertinoDynamicColor.resolve(
-                                  CupertinoColors.activeBlue
-                                      .withValues(alpha: 0.5),
-                                  context),
-                              shape: BoxShape.circle,
-                            ),
-                            selectedTextStyle:
-                                CupertinoTheme.of(context).textTheme.textStyle,
-                            todayDecoration: BoxDecoration(
-                              color: CupertinoDynamicColor.resolve(
-                                  CupertinoColors.inactiveGray
-                                      .withValues(alpha: 0.5),
-                                  context),
-                              shape: BoxShape.circle,
-                            ),
-                            todayTextStyle:
-                                CupertinoTheme.of(context).textTheme.textStyle,
-                            defaultTextStyle:
-                                CupertinoTheme.of(context).textTheme.textStyle,
-                          ),
-                          calendarBuilders: const CalendarBuilders(
-                            singleMarkerBuilder: singleMarkerBuilder,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      Obx(
-                        () => SubSubtitleRow(
-                            padHorizontal: 24,
-                            subtitle: _calendarController.dayDescription(
-                                _calendarController.selectedDay.value
-                                    .copyWith(isUtc: false)),
-                            right: _calendarController
-                                    .scholar.value.specialDates
-                                    .containsKey(_calendarController
-                                        .selectedDay.value
-                                        .copyWith(isUtc: false))
-                                ? Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 8, vertical: 4),
-                                    decoration: BoxDecoration(
-                                        border: Border.all(
-                                            color: CustomCupertinoDynamicColors
-                                                .okGreen.darkColor,
-                                            width: 1),
-                                        borderRadius:
-                                            BorderRadius.circular(10)),
-                                    child: Text(
-                                      _calendarController
-                                              .scholar.value.specialDates[
-                                          _calendarController.selectedDay.value
-                                              .copyWith(isUtc: false)]!,
-                                      style: TextStyle(
-                                          color: CustomCupertinoDynamicColors
-                                              .okGreen.darkColor,
-                                          fontSize: 12),
-                                    ),
-                                  )
-                                : null),
-                      ),
-                      Expanded(
-                        child: Obx(
-                          () => ListView(
-                            children: _buildDayEntries(context),
-                          ),
-                        ),
-                      ),
-                    ],
-                  );
-                  }
-                  // ===== 换视图时翻一下卡片（Y 轴 3D 翻转）=====
-                  return AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 320),
-                    switchInCurve: Curves.easeOutCubic,
-                    switchOutCurve: Curves.easeInCubic,
-                    transitionBuilder: (Widget child, Animation<double> anim) =>
-                        _FlipTransition(animation: anim, child: child),
-                    child: KeyedSubtree(
-                      key: ValueKey<CalendarViewMode>(mode),
-                      child: body,
-                    ),
-                  );
-                },
-              ),
-            ),
+            _header(context),
+            Expanded(child: _body(context)),
           ],
         ),
       ),
     );
   }
+
+  /// 顶栏：标题 + 两侧按钮 + 居中的「接下来」翻转开关。
+  ///
+  /// 从 build() 里搬出来的（纯搬家，逻辑一行没改）—— 目的是让 build() 短到
+  /// 可以在外面安全地套一层「整页翻转」容器。
+  Widget _header(BuildContext context) {
+    return Obx(
+      () => Stack(
+        alignment: Alignment.center,
+        children: [
+          SubtitleRow(
+        subtitle: switch (_calendarController.viewMode.value) {
+          // 「接下来」模式下别显示学期/月份那串信息，直接说这是什么页面
+          CalendarViewMode.upcoming => '接下来',
+          CalendarViewMode.calendar =>
+            '${_calendarController.focusedDay.value.year} 年 ${_calendarController.focusedDay.value.month} 月',
+          CalendarViewMode.schedule =>
+            _calendarController.getCurrentSemesterDisplayName(),
+        },
+        right: Row(
+          children: [
+            if (_calendarController.viewMode.value ==
+                CalendarViewMode.calendar) ...[
+              CupertinoButton(
+                padding: EdgeInsets.zero,
+                child: const Icon(
+                  CupertinoIcons.add_circled,
+                  semanticLabel: 'Add',
+                ),
+                onPressed: () async {
+                  await newDeadline(
+                    context,
+                    time: DateTime(
+                      _calendarController.selectedDay.value.year,
+                      _calendarController.selectedDay.value.month,
+                      _calendarController.selectedDay.value.day,
+                      DateTime.now().hour,
+                      DateTime.now().minute,
+                    ),
+                  );
+                  _taskController.updateDeadlineList();
+                  _taskController.taskList.refresh();
+                },
+              ),
+              CupertinoButton(
+                padding: EdgeInsets.zero,
+                child: Text('今天',
+                    style: TextStyle(
+                        fontSize: 18,
+                        color: CupertinoDynamicColor.resolve(
+                            CupertinoColors.systemBlue, context))),
+                onPressed: () {
+                  _calendarController.focusedDay.value = DateTime.now();
+                  _calendarController.selectedDay.value =
+                      DateTime.now();
+                },
+              ),
+            ],
+            CupertinoButton(
+              padding: EdgeInsets.zero,
+              child: Icon(
+                _calendarController.viewMode.value ==
+                        CalendarViewMode.calendar
+                    ? CupertinoIcons.calendar
+                    : CupertinoIcons.list_bullet,
+                semanticLabel: '切换视图',
+              ),
+              onPressed: () {
+                _calendarController.toggleViewMode();
+              },
+            ),
+          ],
+        ),
+        padHorizontal: 18,
+      ),
+          // ===== 顶部居中的小空心圆：点它翻转「接下来」⇄ 日历 =====
+          // （空心态 = 正在看「接下来」；圆心有点 = 正在看日历，点回「接下来」）
+          Positioned(
+            top: 0,
+            bottom: 0,
+            child: Center(
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: _calendarController.toggleUpcoming,
+                child: SizedBox(
+                  width: 44,
+                  height: 44,
+                  child: Center(
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      width: 20,
+                      height: 20,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          width: 1.6,
+                          color: _calendarController.viewMode.value ==
+                                  CalendarViewMode.upcoming
+                              ? const Color(0xFFFF699A)
+                              : CupertinoDynamicColor.resolve(
+                                  CupertinoColors.secondaryLabel, context),
+                        ),
+                      ),
+                      child: _calendarController.viewMode.value ==
+                              CalendarViewMode.calendar
+                          ? Center(
+                              child: Container(
+                                width: 7,
+                                height: 7,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: CupertinoDynamicColor.resolve(
+                                      CupertinoColors.secondaryLabel,
+                                      context),
+                                ),
+                              ),
+                            )
+                          : null,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 页面主体：课表 / 接下来 / 日历 三种视图之一（同样是从 build() 搬出来的）
+  Widget _body(BuildContext context) {
+    return Obx(
+        () {
+          final mode = _calendarController.viewMode.value;
+          final Widget body;
+          if (mode == CalendarViewMode.schedule) {
+            body = ScheduleView(controller: _calendarController);
+          } else if (mode == CalendarViewMode.upcoming) {
+            // ===== 「接下来」：最近的一条大字号 =====
+            body = UpcomingView(
+              items: _upcomingItems(),
+              onAddTask: () => newDeadline(context, time: DateTime.now()),
+            );
+          } else {
+            body = Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(
+                    bottom: 5, left: 12, right: 12),
+                child: TableCalendar(
+                  locale: 'zh_CN',
+                  firstDay: DateTime.utc(2022, 9, 1),
+                  lastDay: DateTime.utc(2030, 12, 31),
+                  rowHeight: 48.0,
+                  daysOfWeekHeight: 20.0,
+                  startingDayOfWeek: StartingDayOfWeek.monday,
+                  daysOfWeekStyle: DaysOfWeekStyle(
+                    dowTextFormatter: (date, locale) => <String>[
+                      '',
+                      '一',
+                      '二',
+                      '三',
+                      '四',
+                      '五',
+                      '六',
+                      '日'
+                    ][date.weekday],
+                  ),
+                  availableGestures: AvailableGestures.all,
+                  availableCalendarFormats: const {
+                    CalendarFormat.month: '显示整月',
+                    CalendarFormat.week: '显示一周',
+                  },
+                  headerVisible: false,
+                  focusedDay: _calendarController.focusedDay.value,
+                  selectedDayPredicate: (day) {
+                    return isSameDay(
+                        _calendarController.selectedDay.value, day);
+                  },
+                  calendarFormat:
+                      _calendarController.calendarFormat.value,
+                  onPageChanged: (focusedDay) {
+                    _calendarController.focusedDay.value = focusedDay;
+                  },
+                  onDaySelected: (selectedDay, focusedDay) {
+                    _calendarController.focusedDay.value = focusedDay;
+                    _calendarController.selectedDay.value = selectedDay;
+                    _calendarController.focusedDay.refresh();
+                  },
+                  onFormatChanged: (format) {
+                    _calendarController.calendarFormat.value = format;
+                  },
+                  eventLoader: (day) {
+                    // 课程 / 考试 / 日程 / 待办 都参与月视图标记
+                    return _calendarController.getMarkersForDay(day);
+                  },
+                  calendarStyle: CalendarStyle(
+                    markersAnchor: -0.1,
+                    markersMaxCount: 10,
+                    selectedDecoration: BoxDecoration(
+                      color: CupertinoDynamicColor.resolve(
+                          CupertinoColors.activeBlue
+                              .withValues(alpha: 0.5),
+                          context),
+                      shape: BoxShape.circle,
+                    ),
+                    selectedTextStyle:
+                        CupertinoTheme.of(context).textTheme.textStyle,
+                    todayDecoration: BoxDecoration(
+                      color: CupertinoDynamicColor.resolve(
+                          CupertinoColors.inactiveGray
+                              .withValues(alpha: 0.5),
+                          context),
+                      shape: BoxShape.circle,
+                    ),
+                    todayTextStyle:
+                        CupertinoTheme.of(context).textTheme.textStyle,
+                    defaultTextStyle:
+                        CupertinoTheme.of(context).textTheme.textStyle,
+                  ),
+                  calendarBuilders: const CalendarBuilders(
+                    singleMarkerBuilder: singleMarkerBuilder,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Obx(
+                () => SubSubtitleRow(
+                    padHorizontal: 24,
+                    subtitle: _calendarController.dayDescription(
+                        _calendarController.selectedDay.value
+                            .copyWith(isUtc: false)),
+                    right: _calendarController
+                            .scholar.value.specialDates
+                            .containsKey(_calendarController
+                                .selectedDay.value
+                                .copyWith(isUtc: false))
+                        ? Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                                border: Border.all(
+                                    color: CustomCupertinoDynamicColors
+                                        .okGreen.darkColor,
+                                    width: 1),
+                                borderRadius:
+                                    BorderRadius.circular(10)),
+                            child: Text(
+                              _calendarController
+                                      .scholar.value.specialDates[
+                                  _calendarController.selectedDay.value
+                                      .copyWith(isUtc: false)]!,
+                              style: TextStyle(
+                                  color: CustomCupertinoDynamicColors
+                                      .okGreen.darkColor,
+                                  fontSize: 12),
+                            ),
+                          )
+                        : null),
+              ),
+              Expanded(
+                child: Obx(
+                  () => ListView(
+                    children: _buildDayEntries(context),
+                  ),
+                ),
+              ),
+            ],
+          );
+          }
+          // ===== 换视图时翻一下卡片（Y 轴 3D 翻转）=====
+          return AnimatedSwitcher(
+            duration: const Duration(milliseconds: 320),
+            switchInCurve: Curves.easeOutCubic,
+            switchOutCurve: Curves.easeInCubic,
+            transitionBuilder: (Widget child, Animation<double> anim) =>
+                _FlipTransition(animation: anim, child: child),
+            child: KeyedSubtree(
+              key: ValueKey<CalendarViewMode>(mode),
+              child: body,
+            ),
+          );
+        },
+    );
+  }
+
 
   Future<void> newDeadline(context, {required DateTime time}) async {
     Task? deadline = Task(
