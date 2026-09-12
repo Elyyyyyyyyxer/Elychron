@@ -1,0 +1,263 @@
+# 公开发布清单（Elychron）
+
+> 目标：把 Elychron 公开发布（首个场景是 CC98 分享），做到**合规、可升级、不冒犯上游**。
+>
+> 这份文档是**动手清单**，不是设计文档。每条都写清「现状 / 怎么做 / 为什么」。
+> 相关：`BACKLOG.md` 第 23 项（发行这条线）、第 13 项（图标）、第 14 项（名字）。
+
+---
+
+## 零、一句话现状
+
+功能层面**已经远超发布门槛**（四种时间语义、子待办行程表、专注计时、AI 整理、
+局域网同步都是上游没有的）。剩下的是**工程与合规的收尾**，与功能质量无关。
+
+已核实的事实（2026-09-12）：
+
+| 事实 | 值 | 影响 |
+|---|---|---|
+| applicationId | `xyz.nosig.celechron.mod` | 与上游 `xyz.nosig.celechron` **不同** → 两个 App 可共存 ✓ |
+| 签名 | `signingConfig signingConfigs.debug` | ✗ **必须换**（见 P0-2）|
+| 更新检查 | `https://api.celechron.top/checkUpdate` | ✗ **必须改**（见 P0-1）|
+| 版本号 | `1.3.0-mod.1+3` | 建议改（见 P1-1）|
+| 图标 / `assets/logo.png` | 上游美术 | ✗ 商标与观感问题（见 P0-3）|
+| LICENSE | GPLv3 | 有义务，见「三、合规」|
+| 仓库可见性 | 私有 | ✗ GPLv3 要求能拿到源码（见 P0-4）|
+| minSdk | 28（Android 9+）| 校园机型覆盖率够 ✓ |
+
+---
+
+## 一、P0：不做不能发
+
+### P0-1 改掉/关掉上游更新检查
+
+- **位置**：`lib/worker/fuse.dart`（`checkUpdate()` 里三个 `api.celechron.top/checkUpdate`）
+- **为什么必须改**：
+  1. 上游发版后，你的用户会看到「有新版本」，点「访问网站」跳到 **celechron.top**
+     —— 等于给自己用户做上游导流；
+  2. 他们从那下到的是**官方 Celechron**（包名不同）→ 装出第二个 App，用户困惑；
+  3. 频繁请求别人的服务器本身不合适。
+- **怎么做**（第一版最省事）：**去掉更新弹窗**，帖子与 README 里写「更新看 GitHub Release」。
+  更好的做法：指向自己的 GitHub Releases API（`/repos/<owner>/<repo>/releases/latest`），
+  比较 tag 里的版本号。**注意别再引入任何上游域名**。
+
+### P0-2 用自己的签名
+
+- **现状**：`android/app/build.gradle` 的 release 用 `signingConfigs.debug`。
+- **为什么必须换**：
+  - debug 签名的包**以后无法覆盖升级**（除非永远用同一台机器的 debug key）；
+  - 部分安全软件/系统会拦「调试签名」；
+  - **签名一旦发出去就换不了** —— 换签名 = 用户必须卸载重装 = **待办数据全丢**。
+- **怎么做**：见下面「四、签名步骤」。**keystore 必须备份到两处**（丢了就再也发不了升级）。
+
+### P0-3 换成自己的图标与 logo
+
+- **现状**：`android/app/src/main/res/mipmap-*/ic_launcher.png` 与 `assets/logo.png`
+  是上游美术。GPLv3 是**版权**许可，**不包含商标授权**。
+- **怎么做**（三选一）：
+  - (a) 代码生成一个原创几何图标（粉色渐变 + 计时器字形）——零成本、绝对原创；
+  - (b) 自己画 / 请人画；
+  - (c) AI 生图后规整成 mipmap 尺寸。
+- **要替换的清单**：`mipmap-mdpi/hdpi/xhdpi/xxhdpi/xxxhdpi/ic_launcher.png`、
+  `assets/logo.png`（关于页那张）。
+- 好消息：`assets/logo.png` **不含任何文字**，不存在「新名字配旧字样」的尴尬。
+
+### P0-4 让源码可获取（GPLv3 义务）
+
+- 发 APK 给别人 = 分发目标代码 → GPLv3 §6 要求**能拿到对应源码**。
+- **最省事**：把 `Elyyyyyyyyxer/celechron-mod` 改成 **public**。
+- 顺带好处：CC98 上「代码可查、没人偷你密码」是最有力的信任凭证。
+
+---
+
+## 二、P1：强烈建议发布前做
+
+| # | 事 | 说明 |
+|---|---|---|
+| P1-1 | 版本号与命名 | 建议 `1.4.0-elychron.1`（`pubspec.yaml` 的 version + `versionCode` 递增）。关于页写清「基于上游 v1.3.0」 |
+| P1-2 | 修「专注休息提醒锁屏不响」 | 见 `BACKLOG.md` 第 20 项。专注是主打功能，而它最典型的用法就是**锁屏扣在桌上** |
+| P1-3 | README 重写 + 截图 | GitHub 首页要有：这是啥 / 与上游的区别 / 怎么装 / 隐私说明 / 反馈渠道 |
+| P1-4 | 真机回归一轮 | 老数据升级（P1 已做兼容+单测）、待办页不再卡死（已修）、四种类型各点一遍、专注完整跑一轮、AI 一次 |
+| P1-5 | `PRIVACY.md` 复核 | 确认措辞覆盖：AI 可选+自带 key、局域网直连、无自建服务器 |
+| P1-6 | 关于页复核 | 现在已有「非官方修改版」声明 + GPLv3 + 源码地址 ✓ 发布前再看一眼版本号 |
+
+---
+
+## 三、P2：可以发布后再说
+
+- **BACKLOG 20**（如果 P1-2 没做）、**21**（死字段迁移）、**22**（按标签分布 / 中断率）
+- 高德导航时间计算（BACKLOG 19）—— 属于新功能，别塞进首发
+- 外观统一 / 壁纸（BACKLOG 5）、Windows 桌面端（BACKLOG 4）
+
+---
+
+## 四、签名步骤（只有仓库主本人能做）
+
+### 1. 生成 keystore
+
+```powershell
+# 选一个不在仓库里的目录存放（例如 D:\keys\），密码自己想好
+keytool -genkeypair -v `
+  -keystore D:\keys\elychron-release.jks `
+  -storetype JKS -keyalg RSA -keysize 2048 -validity 10000 `
+  -alias elychron
+```
+
+### 2. 写 `android/key.properties`（**这个文件已在 .gitignore，不入库**）
+
+```properties
+storePassword=你的store密码
+keyPassword=你的key密码
+keyAlias=elychron
+storeFile=D:/keys/elychron-release.jks
+```
+
+### 3. `android/app/build.gradle` 里接上
+
+```gradle
+def keystoreProperties = new Properties()
+def keystorePropertiesFile = rootProject.file('key.properties')
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+}
+
+android {
+    signingConfigs {
+        release {
+            if (keystorePropertiesFile.exists()) {
+                keyAlias = keystoreProperties['keyAlias']
+                keyPassword = keystoreProperties['keyPassword']
+                storeFile = file(keystoreProperties['storeFile'])
+                storePassword = keystoreProperties['storePassword']
+            }
+        }
+    }
+    buildTypes {
+        release {
+            // 有 key.properties 就用正式签名；没有就退回 debug（本地调试仍然能构建）
+            signingConfig keystorePropertiesFile.exists()
+                ? signingConfigs.release : signingConfigs.debug
+        }
+    }
+}
+```
+
+### 4. 验证签名
+
+```powershell
+# 应该看到 CN=... 而不是 Android Debug
+& "C:\Android\Sdk\build-tools\36.0.0\apksigner.bat" verify --print-certs `
+  build\app\outputs\flutter-apk\app-release.apk
+```
+
+> ⚠️ **keystore + 密码必须备份两处**（比如私有网盘 + 移动硬盘）。
+> 丢了 = 老用户永远无法覆盖升级，只能卸载重装（数据丢失）。
+
+---
+
+## 五、构建与产物
+
+```powershell
+# 必须从 ASCII junction 构建（中文路径会让 Gradle 报 non-ASCII）
+cd D:\celechron-mod\Celechron
+cmd /c "D:\flutter\bin\flutter.bat build apk --release --target-platform android-arm64 --no-tree-shake-icons"
+```
+
+- 产物：`build\app\outputs\flutter-apk\app-release.apk`（约 25 MB）
+- 只出 arm64：校园机型覆盖率足够；如果要给老机型，再加 `android-arm`
+- 发布**不要**用 `--split-per-abi`（一个包最省事）
+- 单测与静态检查必须全绿再发：`flutter analyze`（0 error）+ `flutter test`
+
+---
+
+## 六、发布步骤
+
+1. **打 tag**：`git tag v1.4.0-elychron.1 && git push origin v1.4.0-elychron.1`
+2. **GitHub Release**：附上 APK，写清「与上游的区别」「已知问题」「安装方法」
+3. **检查清单**（每次发版都过一遍）：
+   - [ ] `flutter analyze` 0 error
+   - [ ] `flutter test` 全绿
+   - [ ] 版本号已递增（`pubspec.yaml` 的 version + versionCode）
+   - [ ] APK 用**自己的签名**（`apksigner verify --print-certs` 看过）
+   - [ ] 关于页显示的版本号与实际一致
+   - [ ] 更新检查不指向任何上游域名
+   - [ ] 真机装一次、升级装一次（旧版本 → 新版本，数据还在）
+4. **发布后**：帖子里只放 GitHub Release 链接，不要在论坛收 bug（会沉）。
+
+---
+
+## 七、CC98 发帖模板
+
+> **先看板规**：确认该板是否允许发外链 / 直接发 APK（有的板要求走附件或网盘）。
+
+**标题**
+```
+Elychron —— Celechron 的非官方改版（四种时间语义 / 子待办行程表 / 专注计时 / AI 整理）
+```
+
+**正文结构**
+
+1. **一句话定位**
+   非官方修改版，重点解决三个痛点：**备忘天天过期**、**活动提醒错位**、
+   **敲代码没法计入时间**。永久免费、无广告、无自建服务器。
+
+2. **和官方的区别**（表格）
+   | 维度 | Elychron | 官方 Celechron |
+   |---|---|---|
+   | 时间语义 | 活动 / 截止 / **提醒** / **备忘** 四类，各有独立提醒锚点 | 只有 DDL + 日程 |
+   | 子待办 | **行程表**：带时间地点、每步单独提醒、时间轴 | 勾选清单 |
+   | 专注计时 | 60/15 可调、落库、统计页 | 无 |
+   | AI | 分享消息/截图→待办、划分类型、拆带时间的行程 | 无 |
+   | 电脑端 | 局域网同步 + 浏览器面板 | 无 |
+
+3. **截图**：5~8 张（日程 / 待办卡片 / 详情页四胶囊 / 子待办时间轴 / 专注大圆 /
+   专注记录 / AI 整理预览）
+
+4. **安装**
+   - 下载 APK → 允许「未知来源」安装
+   - ⚠️ **包名与官方不同，可以和官方版同时装在一台手机上**，数据互不影响，
+     先装着对比，不喜欢直接卸载
+
+5. **隐私与安全**（一定会被问，先说）
+   - **没有自己的服务器**，不上传任何数据
+   - 教务网账号密码只存本地系统密钥库，直连学校服务器
+   - AI **默认关闭**，开启后用**你自己填的** API key 直连服务商
+   - 局域网同步只在同一 Wi-Fi 内直连，不经过任何中转
+   - 源码公开可查
+
+6. **免责**
+   非官方，与学校及上游项目无关；免费且无广告；使用风险自负。
+
+7. **反馈**：GitHub Issues（附链接）
+
+---
+
+## 八、已知风险与对策
+
+| 风险 | 对策 |
+|---|---|
+| **会被问「会不会封号」** | 说明只做只读抓取 + 与官方客户端相同的登录方式；不代替用户做任何写操作（除非教务网本身支持）；帖子里给源码位置让人自查 |
+| 上游要求改名/下架 | 名字已与上游无冲突（Elychron）、声明非官方、源码合规；保留随时改名的余地 |
+| 用户数据丢失投诉 | 首次发布就定签名；README 教用户「导出数据」做备份（设置 → 数据 → 导出）|
+| 新版引入回归 | tag 之前跑全量单测 + 真机回归；Release notes 写清已知问题 |
+| 校园网/接口变更导致抓取失败 | 应用本身有诊断日志（设置 → 诊断与测试），先教用户导出日志再排查 |
+| 被当成「官方」 | 关于页 + 帖子里双重声明「非官方」；不要在标题写「浙大官方」等字样 |
+
+---
+
+## 九、发布前最后一跳（把这份文档当 checklist 用）
+
+```
+[ ] P0-1 更新检查改掉/关掉
+[ ] P0-2 keystore 生成 + 签名接上 + apksigner 验证 + 备份
+[ ] P0-3 图标与 logo 换成自己的
+[ ] P0-4 仓库改 public
+[ ] P1-1 版本号 1.4.0-elychron.1
+[ ] P1-2 专注锁屏提醒修掉
+[ ] P1-3 README 重写 + 截图
+[ ] P1-4 真机回归（含覆盖安装升级）
+[ ] P1-5 PRIVACY.md 复核
+[ ] P1-6 关于页版本号复核
+[ ] 打 tag + GitHub Release（附 APK）
+[ ] CC98 发帖
+```

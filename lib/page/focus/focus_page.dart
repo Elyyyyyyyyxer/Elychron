@@ -66,6 +66,8 @@ class _FocusPageState extends State<FocusPage> {
     );
     _engine.start(DateTime.now());
     _lastPhase = _engine.phase;
+    // 一开始就把「该休息了」排进系统（锁屏也响）
+    _syncRestNotice();
 
     _session = FocusSession(
       taskUid: widget.task?.uid,
@@ -84,6 +86,8 @@ class _FocusPageState extends State<FocusPage> {
   @override
   void dispose() {
     _ticker?.cancel();
+    // 离开页面就把还没到点的「该休息了」撤掉，别让它半夜响
+    TaskReminder.cancelFocusRestNotice();
     super.dispose();
   }
 
@@ -109,18 +113,33 @@ class _FocusPageState extends State<FocusPage> {
     _engine.tick(now);
     _ticks++;
 
-    // 工作段走完 → 进入休息：可选提醒一句
+    // 段切换（工作→休息 / 休息→工作）时同步「该休息了」的系统排程
     if (_engine.phase != _lastPhase) {
-      if (_engine.phase == FocusPhase.resting && _restNotify) {
-        TaskReminder.showFocusRestNotice(label: _label);
-      }
       _lastPhase = _engine.phase;
+      _syncRestNotice();
     }
 
     // 每 10 秒落一次库：App 被系统杀掉时最多损失 10 秒
     if (_ticks % 10 == 0) _flush();
 
     setState(() {});
+  }
+
+  /// 把「该休息了」按当前状态同步到**系统通知排程**。
+  ///
+  /// 只在「进入工作段」时排一条，时间 = 现在 + 这一段还剩多久；
+  /// 不在工作段（休息中 / 暂停 / 已结束）就撤销它。
+  ///
+  /// 只在段切换或用户操作时调用 —— 每秒都调会把通知反复取消重排。
+  void _syncRestNotice() {
+    if (!_restNotify || !_engine.isWorking) {
+      TaskReminder.cancelFocusRestNotice();
+      return;
+    }
+    TaskReminder.scheduleFocusRestNotice(
+      at: DateTime.now().add(_engine.remaining),
+      label: _label,
+    );
   }
 
   void _flush() {
@@ -170,6 +189,8 @@ class _FocusPageState extends State<FocusPage> {
   Future<void> _finish() async {
     _ticker?.cancel();
     _engine.stop();
+    // 结束后不该再弹「该休息了」
+    TaskReminder.cancelFocusRestNotice();
     _flush();
     _settle(_session, completed: true);
     if (mounted) Navigator.of(context).pop(true);
@@ -352,6 +373,8 @@ class _FocusPageState extends State<FocusPage> {
                             _engine.pause();
                           }
                         });
+                        _lastPhase = _engine.phase;
+                        _syncRestNotice(); // 暂停要撤掉排程，继续要重排
                       },
                       child: Text(_engine.isPaused ? '继续' : '暂停'),
                     ),
@@ -365,7 +388,11 @@ class _FocusPageState extends State<FocusPage> {
                           : CupertinoColors.systemBlue,
                       borderRadius: BorderRadius.circular(24),
                       onPressed: _engine.isResting
-                          ? () => setState(() => _engine.skipRest())
+                          ? () {
+                              setState(() => _engine.skipRest());
+                              _lastPhase = _engine.phase;
+                              _syncRestNotice(); // 回到工作段：重排下一次休息提示
+                            }
                           : () => setState(() {}),
                       child: Text(
                         _engine.isResting ? '跳过休息' : '再来一轮',

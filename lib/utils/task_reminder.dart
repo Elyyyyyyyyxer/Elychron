@@ -416,29 +416,88 @@ class TaskReminder {
   /// 工作段走完、进入休息时弹一条普通通知，提醒起来走走。
   /// 刻意**不走闹钟那套**（休息提示不该像闹钟一样炸），也刻意不走
   /// 「待办提醒」渠道 —— 它是另一件事，用户想单独静音也方便。
-  static Future<void> showFocusRestNotice({String? label}) async {
+  static const NotificationDetails _focusDetails = NotificationDetails(
+    android: AndroidNotificationDetails(
+      'focus_rest_v1',
+      '专注休息提醒',
+      channelDescription: '专注计时进入休息时提醒起来走走',
+      importance: Importance.high,
+      priority: Priority.high,
+      category: AndroidNotificationCategory.reminder,
+    ),
+    iOS: DarwinNotificationDetails(),
+  );
+
+  /// 休息提示的固定通知 id：一次专注只该有一条，新的覆盖旧的、不堆一屏
+  static const int focusRestNoticeId = 0x5f0c5;
+
+  /// **预先把「该休息了」排进系统**（专注页进入工作段时调用）。
+  ///
+  /// 为什么不能「等页面 tick 到点再弹」：锁屏 / 切后台之后 Dart 定时器会被
+  /// 系统挂起，那一秒根本不会到来 —— 等用户回到前台才补弹，已经错过时机。
+  /// 而专注最典型的用法恰好就是**扣在桌上锁屏**。
+  ///
+  /// [at] 已经过去（比如剩余不到一秒）时就直接弹一条。
+  static Future<void> scheduleFocusRestNotice({
+    required DateTime at,
+    String? label,
+  }) async {
     try {
       await _ensureInit();
-      const id = 0x5f0c5; // 固定 id：新的休息提示覆盖旧的，不堆一屏
+      await _plugin.cancel(focusRestNoticeId);
       final body = (label == null || label.trim().isEmpty)
           ? '这一轮工作了 ${_focusWorkLabel()}，起来走走、喝口水。'
           : '「${label.trim()}」这一轮结束了，起来走走、喝口水。';
-      await _plugin.show(
-        id,
-        '该休息了',
-        body,
-        const NotificationDetails(
-          android: AndroidNotificationDetails(
-            'focus_rest_v1',
-            '专注休息提醒',
-            channelDescription: '专注计时进入休息时提醒起来走走',
-            importance: Importance.high,
-            priority: Priority.high,
-            category: AndroidNotificationCategory.reminder,
-          ),
-          iOS: DarwinNotificationDetails(),
-        ),
-      );
+      if (!at.isAfter(DateTime.now())) {
+        await _plugin.show(focusRestNoticeId, '该休息了', body, _focusDetails);
+        return;
+      }
+      await _requestExactAlarmOnce();
+      final fireAt = tz.TZDateTime.from(at, tz.local);
+      try {
+        await _plugin.zonedSchedule(
+          focusRestNoticeId,
+          '该休息了',
+          body,
+          fireAt,
+          _focusDetails,
+          androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+          uiLocalNotificationDateInterpretation:
+              UILocalNotificationDateInterpretation.absoluteTime,
+        );
+      } catch (_) {
+        await _plugin.zonedSchedule(
+          focusRestNoticeId,
+          '该休息了',
+          body,
+          fireAt,
+          _focusDetails,
+          androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+          uiLocalNotificationDateInterpretation:
+              UILocalNotificationDateInterpretation.absoluteTime,
+        );
+      }
+    } catch (_) {
+      // 通知不可用时静默降级：专注本身照常计时
+    }
+  }
+
+  /// 撤销还没到点的「该休息了」（暂停 / 跳过休息 / 提前结束 / 离开页面时用）
+  static Future<void> cancelFocusRestNotice() async {
+    try {
+      await _ensureInit();
+      await _plugin.cancel(focusRestNoticeId);
+    } catch (_) {}
+  }
+
+  /// 立刻弹一条休息提示（排程不可用时的兜底）
+  static Future<void> showFocusRestNotice({String? label}) async {
+    try {
+      await _ensureInit();
+      final body = (label == null || label.trim().isEmpty)
+          ? '这一轮工作了 ${_focusWorkLabel()}，起来走走、喝口水。'
+          : '「${label.trim()}」这一轮结束了，起来走走、喝口水。';
+      await _plugin.show(focusRestNoticeId, '该休息了', body, _focusDetails);
     } catch (_) {
       // 通知不可用时静默降级：专注本身照常计时
     }
