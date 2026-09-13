@@ -11,6 +11,8 @@ void main() {
     expect(lanPanelHtml, contains('visibilitychange'));
     expect(lanPanelHtml, contains('editReminderEnabled'));
     expect(lanPanelHtml, contains('setTaskFilter'));
+    expect(lanPanelHtml, contains("X-Lan-Token"));
+    expect(lanPanelHtml, isNot(contains("?token=")));
     // A literal closing script tag is required for the HTML document, but no
     // script text may accidentally terminate the embedded JavaScript early.
     expect(lanPanelHtml.split('<script>').length, 2);

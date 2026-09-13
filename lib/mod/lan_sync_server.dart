@@ -210,8 +210,8 @@ class LanSyncServer {
   }
 
   bool _authorized(HttpRequest request) {
-    final token = request.headers.value('X-Lan-Token') ??
-        request.uri.queryParameters['token'];
+    // Token 只允许通过请求头传递，避免出现在浏览器历史、代理日志和 Referer 中。
+    final token = request.headers.value('X-Lan-Token');
     return token != null && token.isNotEmpty && _tokens.contains(token);
   }
 
