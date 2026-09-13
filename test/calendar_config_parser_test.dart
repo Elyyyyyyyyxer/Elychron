@@ -82,6 +82,72 @@ void main() {
     expect(semester.sessions.single.time, [3, 4]);
   });
 
+  test('半学期字段缺失时用请求参数兜底（否则整张课表会被滤空）', () {
+    // 教务的 xxq 并不总是给「秋/冬/春/夏」：实测会缺失或只给数字码。
+    // 一旦如此，firstHalf / secondHalf 会一起留在 false，课表把它整个滤掉，
+    // 现象就是「课程列表有课、课时 0.0、课表空白」。
+    Map<String, dynamic> row([Object? xxq]) => {
+          'kcb': '虚构课程<br>虚构教学班<br>虚构教师<br>虚构教室zwf',
+          'sfqd': '1',
+          'xqj': 2,
+          'dsz': '2',
+          if (xxq != null) 'xxq': xxq,
+          'djj': 3,
+          'skcd': 2,
+        };
+
+    // 1. 行内没有 xxq → 用请求参数：秋学期查询 → 上半学期
+    final autumn = Session.fromZdbk(row(), requestedSeason: '1|秋');
+    expect(autumn.firstHalf, isTrue);
+    expect(autumn.secondHalf, isFalse);
+
+    // 2. 冬学期查询 → 下半学期
+    final winter = Session.fromZdbk(row(), requestedSeason: '1|冬');
+    expect(winter.secondHalf, isTrue);
+    expect(winter.firstHalf, isFalse);
+
+    // 3. xxq 只给了数字码（读不出半学期）→ 同样回落
+    final numeric = Session.fromZdbk(row('1'), requestedSeason: '2|春');
+    expect(numeric.firstHalf, isTrue);
+    expect(numeric.secondHalf, isFalse);
+
+    // 4. 行内说得清楚时以它为准（不要被请求参数带偏）
+    final fromRow = Session.fromZdbk(row('冬'), requestedSeason: '1|秋');
+    expect(fromRow.secondHalf, isTrue);
+    expect(fromRow.firstHalf, isFalse);
+
+    // 5. 两边都没有 → 保持原样（不能凭空猜）
+    final unknown = Session.fromZdbk(row());
+    expect(unknown.firstHalf, isFalse);
+    expect(unknown.secondHalf, isFalse);
+  });
+
+  test('兜底之后课次真的能进课表', () {
+    // 这是上面那个 bug 的端到端形态：修复前这里会是空列表。
+    final semester = Semester('2026-2027秋冬');
+    applyCalendarConfig(
+      buildSafeDefaultCalendarConfig('2026-2027-1'),
+      semester,
+      <DateTime, String>{},
+      context: '虚构学期',
+    );
+    semester.addSession(
+      Session.fromZdbk({
+        'kcb': '虚构课程<br>虚构教学班<br>虚构教师<br>虚构教室zwf',
+        'sfqd': '1',
+        'xqj': 2,
+        'dsz': '2',
+        'djj': 3,
+        'skcd': 2,
+      }, requestedSeason: '1|秋'),
+      '2026-2027-1',
+    );
+
+    expect(semester.firstHalfTimetable[2], hasLength(1));
+    expect(semester.firstHalfSessionCount, greaterThan(0));
+    expect(semester.secondHalfSessionCount, 0);
+  });
+
   test('diagnostic text removes credentials and URL query values', () {
     final sanitized = DiagnosticLogService.sanitizeForDiagnostic(
       'password=secret | Cookie: session=abc | '

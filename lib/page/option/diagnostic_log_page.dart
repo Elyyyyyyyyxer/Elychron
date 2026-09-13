@@ -405,6 +405,18 @@ class _DiagnosticLogPageState extends State<DiagnosticLogPage> {
           ),
           const SizedBox(height: 5),
           Text(module.reason),
+          if (module.detail != null) ...[
+            const SizedBox(height: 3),
+            Text(
+              module.detail!,
+              style: TextStyle(
+                color: CupertinoDynamicColor.resolve(
+                  CupertinoColors.secondaryLabel,
+                  context,
+                ),
+              ),
+            ),
+          ],
           const SizedBox(height: 6),
           Wrap(
             spacing: 10,

@@ -143,6 +143,28 @@ class CalendarController extends GetxController {
     );
   }
 
+  /// 还没开始、但课表已经能看的学期。
+  ///
+  /// 开学前一天打开课表是很常见的场景（学期 9-14 开始，今天 9-13）：这时
+  /// [getCurrentSemester] 是 null，课表却已经抓到了，不该给一张写着
+  /// 「当前不在学期内」的白纸。
+  Semester? getUpcomingSemester() {
+    final now = DateTime.now();
+    final upcoming = scholar.value.semesters
+        .where((e) => e.firstDay.isAfter(now))
+        .toList()
+      ..sort((a, b) => a.firstDay.compareTo(b.firstDay));
+    return upcoming.isEmpty ? null : upcoming.first;
+  }
+
+  /// 课表实际展示的学期：优先本学期，其次即将开学的那个。
+  Semester? getDisplayedSemester() =>
+      getCurrentSemester() ?? getUpcomingSemester();
+
+  /// 该学期是否还没开学（页面上据此给一句提示）。
+  bool isBeforeSemester(Semester semester) =>
+      DateTime.now().isBefore(semester.firstDay);
+
   bool isFirstHalfSemester(Semester semester) {
     final now = DateTime.now();
     final toFirstWeek = now.difference(semester.firstDay).inDays ~/ 7;
@@ -150,7 +172,7 @@ class CalendarController extends GetxController {
   }
 
   String getCurrentSemesterDisplayName() {
-    final semester = getCurrentSemester();
+    final semester = getDisplayedSemester();
     if (semester == null) return '无学期信息';
 
     final isFirstHalf = isFirstHalfSemester(semester);
@@ -158,6 +180,8 @@ class CalendarController extends GetxController {
         '${semester.name.substring(2, 5)}${semester.name.substring(7, 11)}';
     final halfName =
         isFirstHalf ? semester.firstHalfName : semester.secondHalfName;
-    return '$semesterName $halfName学期';
+    // 还没开学就说清楚，免得以为课表坏了
+    final prefix = isBeforeSemester(semester) ? '未开学 · ' : '';
+    return '$prefix$semesterName $halfName学期';
   }
 }

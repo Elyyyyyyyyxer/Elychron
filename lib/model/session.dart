@@ -61,7 +61,25 @@ class Session {
     }
   }*/
 
-  factory Session.fromZdbk(Map<String, dynamic> json) {
+  /// 从文本里读出「上/下半学期」。
+  ///
+  /// 教务返回的半学期字段（`xxq`）并不可靠：可能是「秋/冬/春/夏」，也可能缺失或
+  /// 只给数字码。所以除了它，还接受本次请求用的学期参数（形如 `1|秋`）。
+  static ({bool first, bool second}) _halfFlagsFrom(Object? text) {
+    final value = text?.toString() ?? '';
+    return (
+      first: value.contains('秋') || value.contains('春'),
+      second: value.contains('冬') || value.contains('夏'),
+    );
+  }
+
+  /// 解析一条教务课表条目。
+  ///
+  /// [requestedSeason] 是本次查询用的学期参数（`1|秋` / `1|冬` / `2|春` / `2|夏`）。
+  /// **行内 `xxq` 说不清半学期时必须回落到它** —— 否则 firstHalf / secondHalf 会一起
+  /// 留在 false，这节课就被 `firstHalfTimetable` / `secondHalfTimetable` 整个滤掉：
+  /// 课程列表里有课、课时却是 0.0、课表空白，就是这个症状。
+  factory Session.fromZdbk(Map<String, dynamic> json, {String? requestedSeason}) {
     // kcb 将课程名、教学班、教师和地点编码在 HTML 换行块中；
     // xxq 表示半学期，djj/skcd 分别提供起始节次和连续节数。
     final session = Session.empty()
@@ -89,11 +107,15 @@ class Session {
             : nameTeacherPosition.group(4);
       }
     }
-    // 短学期 or 长学期
-    final semester = asString(json['xxq']);
-    if (semester != null) {
-      session.firstHalf = semester.contains("秋") || semester.contains("春");
-      session.secondHalf = semester.contains("冬") || semester.contains("夏");
+    // 短学期 or 长学期：行内字段优先，它说不清时用本次请求的学期兜底
+    final fromRow = _halfFlagsFrom(json['xxq']);
+    if (fromRow.first || fromRow.second) {
+      session.firstHalf = fromRow.first;
+      session.secondHalf = fromRow.second;
+    } else {
+      final fromRequest = _halfFlagsFrom(requestedSeason);
+      session.firstHalf = fromRequest.first;
+      session.secondHalf = fromRequest.second;
     }
     // 第几节
     final initial = asInt(json['djj']);

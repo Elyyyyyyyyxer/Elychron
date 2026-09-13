@@ -310,8 +310,18 @@ class Zdbk {
     return grades;
   }
 
-  List<Session> _parseSessions(Object? raw, String context) {
+  /// 本轮刷新里，教务课表接口一共返回了多少**行原始数据**（仅供诊断）。
+  ///
+  /// 和「解析出多少条」放一起看，才能分清两种完全不同的故障：
+  /// 学校压根没给数据（原始 0 行），还是 App 解析不了（原始很多行、解析 0 条）。
+  int timetableRawRowsForDiagnostics = 0;
+
+  /// [requestedSeason] 是本次查询的学期参数（`1|秋` 等），交给 [Session.fromZdbk]
+  /// 作为半学期的兜底来源。
+  List<Session> _parseSessions(Object? raw, String context,
+      {String? requestedSeason}) {
     final items = asDynamicList(raw) ?? const [];
+    timetableRawRowsForDiagnostics += items.length;
     final sessions = <Session>[];
     for (var index = 0; index < items.length; index++) {
       final item = asStringMap(items[index]);
@@ -321,7 +331,8 @@ class Zdbk {
         continue;
       }
       try {
-        sessions.add(Session.fromZdbk(item));
+        sessions.add(
+            Session.fromZdbk(item, requestedSeason: requestedSeason));
       } on Object catch (error, stackTrace) {
         if (kDebugMode) {
           debugPrint(
@@ -329,6 +340,16 @@ class Zdbk {
         }
       }
     }
+    // 只记条数，不记课程内容；出问题时一眼能看出是「没抓到」还是「抓到了被过滤掉」。
+    final confirmed = sessions.where((e) => e.confirmed).length;
+    final firstHalf = sessions.where((e) => e.firstHalf).length;
+    final secondHalf = sessions.where((e) => e.secondHalf).length;
+    DiagnosticLogService.instance.record(
+      module: '课表',
+      operation: 'parse',
+      message: '$context：原始 ${items.length} 条，解析出 ${sessions.length} 条；'
+          '已确定 $confirmed 条；上半学期 $firstHalf 条；下半学期 $secondHalf 条',
+    );
     return sessions;
   }
 
@@ -545,7 +566,8 @@ class Zdbk {
                 '$context：缺少 kbList 数组；HTTP ${response.statusCode}'
                 '；响应摘要：${responseSummary(responseText)}');
           }
-          final sessions = _parseSessions(items, context);
+          final sessions =
+              _parseSessions(items, context, requestedSeason: semester);
           _writeCache('zdbk_Timetable$year$semester', jsonEncode(items));
           return Tuple(null, sessions);
         }
@@ -563,7 +585,8 @@ class Zdbk {
             _cachedList('zdbk_Timetable$year$semester', '$context 缓存');
         return Tuple(
           _cacheAwareException(exception, cached, context),
-          _parseSessions(cached.data, '$context 缓存'),
+          _parseSessions(cached.data, '$context 缓存',
+              requestedSeason: semester),
         );
       }
     });

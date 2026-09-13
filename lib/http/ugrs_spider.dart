@@ -374,6 +374,13 @@ class UgrsSpider implements Spider {
     var calendarFallback = 0;
     var timetableFetches = <Future<String?>>[];
     var cancelTimetableFetch = false;
+    // 课表诊断：让「抓到了多少 / 能显示多少」直接出现在易读报告里 ——
+    // 排查「课程有、课时 0.0、课表空白」这类问题时，一眼就能分清是抓取、
+    // 解析还是过滤环节吃掉的，不必导出原始日志。
+    var timetableParsed = 0;
+    var timetableConfirmed = 0;
+    var timetableOnTable = 0;
+    _zdbk.timetableRawRowsForDiagnostics = 0;
 
     for (final queryAcademicYearStart
         in timetableYearPlan.yearsFrom(yearEnroll)) {
@@ -509,6 +516,25 @@ class UgrsSpider implements Spider {
           for (var e in sessions) {
             outSemesters[semesterIndexMap[semKey]!].addSession(e, semKey);
           }
+          // 「解析出来了」不等于「能显示」：课表还要求 confirmed 且属于某个半学期。
+          // 这三个数字分开记，出问题时才分得清是抓取、解析还是过滤掉的。
+          final onTimetable = sessions
+              .where((e) =>
+                  e.confirmed && (e.firstHalf || e.secondHalf) && e.showOnTimetable)
+              .length;
+          if (!isProbeYear) {
+            timetableParsed += sessions.length;
+            timetableConfirmed += sessions.where((e) => e.confirmed).length;
+            timetableOnTable += onTimetable;
+          }
+          DiagnosticLogService.instance.record(
+            module: '课表',
+            operation: 'apply',
+            message: '学期 $semKey（查询 $season）：入库 ${sessions.length} 条；'
+                '其中已确定 ${sessions.where((e) => e.confirmed).length} 条；'
+                '标了半学期 ${sessions.where((e) => e.firstHalf || e.secondHalf).length} 条；'
+                '能进课表 $onTimetable 条',
+          );
           if (isProbeYear) {
             probeSessionCount += sessions.length;
           }
@@ -816,7 +842,13 @@ class UgrsSpider implements Spider {
                 ? '$calendarLive 个远程成功'
                 : fetchSequence[i] == '作业'
                     ? '实时成功，${outTodos.length} 条'
-                    : '实时成功'
+                    : fetchSequence[i] == '课表'
+                        ? '实时成功；接口返回 '
+                            '${_zdbk.timetableRawRowsForDiagnostics} 行，'
+                            '解析入库 $timetableParsed 条'
+                            '（已确定 $timetableConfirmed 条），'
+                            '能显示 $timetableOnTable 条'
+                        : '实时成功'
             : isDegradedRefreshText(fetchErrorMessages[i])
                 ? shortErrorText(fetchErrorMessages[i])
                 : '失败：${shortErrorText(fetchErrorMessages[i])}',

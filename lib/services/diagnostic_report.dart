@@ -92,6 +92,12 @@ class DiagnosticModuleReport {
   final String? cacheUpdatedText;
   final String reason;
 
+  /// 模块自己报的那句话（例如课表的「入库 15 条（已确定 15 条），能显示 0 条」）。
+  ///
+  /// [reason] 是按状态写死的通用说明，看不出「抓到了但被过滤掉」这种细节，
+  /// 所以把模块结果原文一并带出来显示。
+  final String? detail;
+
   const DiagnosticModuleReport({
     required this.name,
     required this.state,
@@ -102,6 +108,7 @@ class DiagnosticModuleReport {
     this.durationMs,
     this.cacheUpdatedAtUtc,
     this.cacheUpdatedText,
+    this.detail,
   });
 }
 
@@ -763,6 +770,7 @@ class _ModuleBuilder {
   bool observedFailure = false;
   DateTime? cacheUpdatedAtUtc;
   String? cacheUpdatedText;
+  String? lastResultMessage;
   final Set<int> statuses = {};
   bool appParsingError = false;
 
@@ -794,6 +802,10 @@ class _ModuleBuilder {
     if (isCache) _readCacheTime(entry.message);
 
     if (entry.operation == 'result') {
+      final message = entry.message.trim();
+      // 模块自己报的最后一句话，原样带到报告里（「实时成功」这类通用词留着也没用，
+      // 真正有用的是「入库 15 条…能显示 0 条」这种带数字的）。
+      if (message.isNotEmpty) lastResultMessage = message;
       if (text.contains('使用缓存') || text.contains('缓存')) {
         terminalStates.add(DiagnosticModuleState.cache);
       } else if (text.contains('失败') || text.contains('查询出错')) {
@@ -857,7 +869,17 @@ class _ModuleBuilder {
       cacheUpdatedAtUtc: cacheUpdatedAtUtc,
       cacheUpdatedText: cacheUpdatedText,
       reason: _reason(state),
+      detail: _detail(),
     );
+  }
+
+  /// 只带出「比通用说明更有信息量」的模块结果：含数字或条数的那些。
+  String? _detail() {
+    final message = lastResultMessage;
+    if (message == null) return null;
+    final sanitized = sanitizeDiagnosticText(message);
+    if (!RegExp(r'\d').hasMatch(sanitized)) return null;
+    return sanitized;
   }
 
   String _reason(DiagnosticModuleState state) {

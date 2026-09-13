@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:celechron/utils/tuple.dart';
 import 'package:celechron/model/session.dart';
+import 'package:celechron/model/semester.dart';
 import 'package:celechron/design/round_rectangle_card.dart';
 import 'package:celechron/page/scholar/course_schedule/course_card.dart';
 import 'package:celechron/page/calendar/calendar_controller.dart';
@@ -13,22 +14,23 @@ class ScheduleView extends StatelessWidget {
 
   const ScheduleView({super.key, required this.controller});
 
+  static const List<String> _courseStartTime = [
+    "08:00",
+    "08:50",
+    "10:00",
+    "10:50",
+    "11:40",
+    "13:25",
+    "14:15",
+    "15:05",
+    "16:15",
+    "17:05",
+    "18:50",
+    "19:40",
+    "20:30"
+  ];
+
   Widget _courseSchedule(BuildContext context) {
-    const List<String> courseStartTime = [
-      "08:00",
-      "08:50",
-      "10:00",
-      "10:50",
-      "11:40",
-      "13:25",
-      "14:15",
-      "15:05",
-      "16:15",
-      "17:05",
-      "18:50",
-      "19:40",
-      "20:30"
-    ];
     return RoundRectangleCard(
       child: Column(
         children: [
@@ -126,7 +128,9 @@ class ScheduleView extends StatelessWidget {
             height: 560,
             child: Obx(
               () {
-                final semester = controller.getCurrentSemester();
+                // 开学前也把新学期课表显示出来，只是加一句提示；
+                // 完全没数据时才是真的「不在学期内」。
+                final semester = controller.getDisplayedSemester();
                 if (semester == null) {
                   return Center(
                     child: Text(
@@ -138,34 +142,66 @@ class ScheduleView extends StatelessWidget {
                     ),
                   );
                 }
+                if (controller.isBeforeSemester(semester)) {
+                  final start = semester.firstDay;
+                  return Column(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(4, 6, 4, 2),
+                        child: Text(
+                          '新学期 ${start.month} 月 ${start.day} 日开始，'
+                          '下面是它的课表',
+                          textAlign: TextAlign.center,
+                          style: CupertinoTheme.of(context)
+                              .textTheme
+                              .textStyle
+                              .copyWith(
+                                fontSize: 13,
+                                color: CupertinoColors.systemOrange,
+                              ),
+                        ),
+                      ),
+                      Expanded(child: _timetable(context, semester)),
+                    ],
+                  );
+                }
 
-                final isFirstHalf = controller.isFirstHalfSemester(semester);
-                final sessionsByDayOfWeek = isFirstHalf
-                    ? semester.firstHalfTimetable
-                    : semester.secondHalfTimetable;
+                return _timetable(context, semester);
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
-                return Row(
-                  children: [
-                    Expanded(
-                      flex: 1,
-                      child: Column(
-                        children: [
-                          for (var i = 1; i <= 13; i++)
-                            Expanded(
-                              child: Center(
-                                child: Column(
-                                  children: [
-                                    FittedBox(
-                                      fit: BoxFit.fitWidth,
-                                      child: Text(
-                                        courseStartTime[i - 1],
-                                        style: CupertinoTheme.of(context)
-                                            .textTheme
-                                            .textStyle
-                                            .copyWith(
-                                              fontSize: 10,
-                                            ),
-                                      ),
+  Widget _timetable(BuildContext context, Semester semester) {
+    final isFirstHalf = controller.isFirstHalfSemester(semester);
+    final sessionsByDayOfWeek =
+        isFirstHalf ? semester.firstHalfTimetable : semester.secondHalfTimetable;
+
+    return Row(
+      children: [
+        Expanded(
+          flex: 1,
+          child: Column(
+            children: [
+              for (var i = 1; i <= 13; i++)
+                Expanded(
+                  child: Center(
+                    child: Column(
+                      children: [
+                        FittedBox(
+                          fit: BoxFit.fitWidth,
+                          child: Text(
+                            _courseStartTime[i - 1],
+                            style: CupertinoTheme.of(context)
+                                .textTheme
+                                .textStyle
+                                .copyWith(
+                                  fontSize: 10,
+                                ),
+                          ),
                                     ),
                                     const SizedBox(
                                       height: 2,
@@ -232,12 +268,6 @@ class ScheduleView extends StatelessWidget {
                     )
                   ],
                 );
-              },
-            ),
-          ),
-        ],
-      ),
-    );
   }
 
   List<Widget> _buildCourseScheduleByDayOfWeek(
