@@ -167,7 +167,11 @@ const String lanPanelHtml = r'''<!DOCTYPE html>
     input, select, textarea { background: var(--card-2); }
   }
   input:hover, select:hover, textarea:hover { border-color: var(--line-strong); }
-  input:focus, select:focus, textarea:focus {
+  /* 日期 / 日期时间这类控件在 Chromium 里焦点落在影子节点上，只用 :focus 会漏掉，
+     所以补一份 :focus-within。 */
+  input:focus, input:focus-within,
+  select:focus, select:focus-within,
+  textarea:focus, textarea:focus-within {
     outline: none; border-color: var(--accent);
     box-shadow: 0 0 0 3.5px var(--accent-soft);
     background: var(--bg-elevated);
@@ -216,7 +220,11 @@ const String lanPanelHtml = r'''<!DOCTYPE html>
   }
   button:hover { background: var(--fill-2); }
   button:active { transform: scale(.97); }
-  button:focus-visible { outline: 3px solid var(--accent-soft); outline-offset: 1px; }
+  /* 键盘焦点环要用实色：--accent-soft 只有 12% 透明度，实际几乎看不见 */
+  button:focus-visible,
+  input:focus-visible, textarea:focus-visible, select:focus-visible {
+    outline: 2px solid var(--accent); outline-offset: 2px;
+  }
   button.primary {
     color: #fff; background: linear-gradient(180deg, #f4538a, #e0356f);
     box-shadow: 0 4px 14px rgba(224,53,111,.3);
