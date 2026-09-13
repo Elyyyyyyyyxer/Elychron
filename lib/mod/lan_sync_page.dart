@@ -174,8 +174,9 @@ class _LanSyncPageState extends State<LanSyncPage> {
                 subtitle: Text('切到后台过久可能被系统暂停监听；要连的时候回到这个页面看一眼即可'),
               ),
               CupertinoListTile(
-                title: Text('手机与电脑都不会自动同步'),
-                subtitle: Text('需要手动打开页面点「刷新」获取最新数据'),
+                title: Text('电脑端会自动同步'),
+                subtitle: Text('网页每 30 秒自动刷新，切回那个标签页也会立刻刷新；'
+                    '在电脑上保存的改动会马上写回手机'),
               ),
             ],
           ),
