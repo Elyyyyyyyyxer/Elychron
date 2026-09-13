@@ -115,11 +115,13 @@ class CalendarPage extends StatelessWidget {
             CupertinoButton(
               padding: EdgeInsets.zero,
               child: Icon(
-                mode ==
-                        CalendarViewMode.calendar
-                    ? CupertinoIcons.calendar
+                // 不在课表时：点它去看课表（列表图标）；
+                // 已在课表时：点它回到进来之前的那个面（返回图标）。
+                _calendarController.isScheduleMode
+                    ? CupertinoIcons.chevron_back
                     : CupertinoIcons.list_bullet,
-                semanticLabel: '切换视图',
+                semanticLabel:
+                    _calendarController.isScheduleMode ? '返回' : '查看课表',
               ),
               onPressed: () {
                 _calendarController.toggleViewMode();

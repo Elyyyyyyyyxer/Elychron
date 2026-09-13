@@ -1,5 +1,4 @@
 import 'package:celechron/database/database_helper.dart';
-import 'package:celechron/mod/tag_harvest.dart';
 import 'package:celechron/mod/database_mod.dart';
 import 'package:celechron/model/task.dart';
 import 'package:celechron/utils/utils.dart';
@@ -15,13 +14,10 @@ mixin TaskListFilterMod on GetxController {
 
   DatabaseHelper get _modDb => Get.find<DatabaseHelper>(tag: 'db');
 
-  @override
-  void onInit() {
-    super.onInit();
-    // 标签库自愈：AI 生成的标签、导入/同步合并进来的标签、旧数据里的标签
-    // 可能只存在于待办身上，这里补进标签库，避免「筛选器有、选择器空」。
-    TagHarvest.harvest(_tasks);
-  }
+  // 这里**故意没有**「把待办身上的标签补进标签库」的自愈（以前有）：
+  // 用户要求标签库只在真正新建（标签管理里点「添加」）时才增加，
+  // 而不是随手在待办上填一个就出现在筛选行与标签管理页里。
+  // 筛选行同样只读标签库（见 `allTags`），两边口径一致。
 
   List<Task> get todoDeadlineList {
     final list = _tasks
@@ -202,16 +198,17 @@ mixin TaskListFilterMod on GetxController {
   /// 标签库版本号：标签管理里增删改后自增，用来触发界面刷新
   final tagVersion = 0.obs;
 
-  /// 所有标签：标签库 + 任务里用过的
+  /// 所有标签 = **标签库**（唯一口径）。
+  ///
+  /// 以前这里是「标签库 ∪ 待办身上用过的标签」，结果是随手在待办上填一个标签，
+  /// 它立刻出现在筛选行里 —— 看起来像「只要填写就新建了」。现在统一以标签库为准：
+  /// 只有「标签管理」里显式点「添加」才会让一个标签出现在这里。
   List<String> get allTags {
-    final set = <String>{};
+    final list = <String>[];
     try {
-      set.addAll(_modDb.getTagLibrary());
+      list.addAll(_modDb.getTagLibrary());
     } catch (_) {}
-    for (final task in _tasks) {
-      set.addAll(task.tags);
-    }
-    final list = set.toList()..sort();
+    list.sort();
     return list;
   }
 

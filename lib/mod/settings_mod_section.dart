@@ -16,6 +16,12 @@ import 'package:get/get.dart';
 /// 上游的 `lib/page/option/option_view.dart` 一直在更新（1.3 就加了 36 行），
 /// 所以把这些声明式的设置行放在这里，那个文件里只留两处挂载（见 `// ===== MOD =====`）。
 
+/// 是否开放「局域网同步」（多端协同）入口。
+///
+/// **公开发布这版先关掉**：功能尚未完工（用户决定）。代码、网页面板与测试都保留，
+/// 把这里改回 `true` 就能恢复入口，不需要改别的地方。
+const bool kLanSyncEnabled = false;
+
 /// 待办提醒方式 / 默认提前量 / 闹钟配色
 List<Widget> modReminderTiles(
   BuildContext context,
@@ -154,18 +160,22 @@ Widget modDataSection(
                 padding: const EdgeInsets.only(left: 16),
                 child: Text('数据', style: headerStyle)),
             children: <CupertinoListTile>[
-          CupertinoListTile(
-            title: const Text('局域网同步'),
-            subtitle: const Text('同一 Wi-Fi 下用电脑浏览器看待办、改待办，无需账号'),
-            trailing: const BackChervonRow(),
-            onTap: () async {
-              await Navigator.of(context, rootNavigator: true).push(
-                CupertinoPageRoute<void>(
-                  builder: (BuildContext context) => const LanSyncPage(),
-                ),
-              );
-            },
-          ),
+          // 「局域网同步」（多端协同）尚未完工，公开发布这版先不开放入口。
+          // 代码与网页面板都还在 `lib/mod/lan_*.dart` 里，改回 true 即可恢复。
+          if (kLanSyncEnabled) ...[
+            CupertinoListTile(
+              title: const Text('局域网同步'),
+              subtitle: const Text('同一 Wi-Fi 下用电脑浏览器看待办、改待办，无需账号'),
+              trailing: const BackChervonRow(),
+              onTap: () async {
+                await Navigator.of(context, rootNavigator: true).push(
+                  CupertinoPageRoute<void>(
+                    builder: (BuildContext context) => const LanSyncPage(),
+                  ),
+                );
+              },
+            ),
+          ],
           CupertinoListTile(
             title: const Text('导出数据'),
             subtitle: const Text('导出为 JSON 文件，可自己保存或传到电脑'),

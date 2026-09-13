@@ -113,11 +113,39 @@ class CalendarController extends GetxController {
     return <Object>[...getEventsForDay(day), ...getDeadlinesForDay(day)];
   }
 
-  void toggleViewMode() {
-    viewMode.value = viewMode.value == CalendarViewMode.calendar
-        ? CalendarViewMode.schedule
-        : CalendarViewMode.calendar;
+  /// 进入课表之前是哪个面，用来「原路返回」。
+  CalendarViewMode _beforeSchedule = CalendarViewMode.upcoming;
+
+  /// 右上角那个按钮：在**课表**与「进来之前那个面」之间切换。
+  ///
+  /// 修的是一个实打实的方向错：原来是
+  /// `viewMode == calendar ? schedule : calendar`，在「接下来」时落到 else，
+  /// 于是点一下跳到**日历**——而用户点它是想看**课表**。
+  ///
+  /// 另外这里**不碰 [cardFace]**：翻转动画只属于「接下来 ⇄ 日历」这一对，
+  /// 切课表本来就不该翻。
+  /// 右上角那个按钮按下后的视图。**纯函数，便于回归测试。**
+  ///
+  /// 修的是一个实打实的方向错：原来是
+  /// `viewMode == calendar ? schedule : calendar`，在「接下来」时落到 else，
+  /// 于是点一下跳到**日历**——而用户点它是想看**课表**。
+  /// 现在：不在课表 → 去课表；已在课表 → 回「进来之前那个面」。
+  static CalendarViewMode toggledViewMode(
+      CalendarViewMode current, CalendarViewMode beforeSchedule) {
+    if (current == CalendarViewMode.schedule) return beforeSchedule;
+    return CalendarViewMode.schedule;
   }
+
+  void toggleViewMode() {
+    final next = toggledViewMode(viewMode.value, _beforeSchedule);
+    if (viewMode.value != CalendarViewMode.schedule) {
+      _beforeSchedule = viewMode.value;
+    }
+    viewMode.value = next;
+  }
+
+  /// 当前是不是在看课表（右上角按钮的图标据此切换）。
+  bool get isScheduleMode => viewMode.value == CalendarViewMode.schedule;
 
   /// 顶部那个空心圆：在「接下来」与「日历」之间翻转
   void toggleUpcoming() {
@@ -138,9 +166,9 @@ class CalendarController extends GetxController {
 
   Semester? getCurrentSemester() {
     final now = DateTime.now();
-    return scholar.value.semesters.firstWhereOrNull(
-      (e) => !now.isBefore(e.firstDay) && !now.isAfter(e.lastDay),
-    );
+    return scholar.value.semesters.firstWhereOrNull((e) =>
+        // 没套过校历的学期，firstDay/lastDay 是「现在」这个占位值，不能参与判断
+        e.hasCalendar && !now.isBefore(e.firstDay) && !now.isAfter(e.lastDay));
   }
 
   /// 还没开始、但课表已经能看的学期。
@@ -148,10 +176,14 @@ class CalendarController extends GetxController {
   /// 开学前一天打开课表是很常见的场景（学期 9-14 开始，今天 9-13）：这时
   /// [getCurrentSemester] 是 null，课表却已经抓到了，不该给一张写着
   /// 「当前不在学期内」的白纸。
+  ///
+  /// ⚠️ 必须要求 [Semester.hasCalendar]：没有校历的学期 `firstDay` 返回的是
+  /// 「求值那一刻的现在」，而 `now` 是先前捕获的 —— 那个值**必然晚于** `now`，
+  /// 于是所有没配校历的学期都会被判成「即将开学」（实测会把 25-26 春夏选出来）。
   Semester? getUpcomingSemester() {
     final now = DateTime.now();
     final upcoming = scholar.value.semesters
-        .where((e) => e.firstDay.isAfter(now))
+        .where((e) => e.hasCalendar && e.firstDay.isAfter(now))
         .toList()
       ..sort((a, b) => a.firstDay.compareTo(b.firstDay));
     return upcoming.isEmpty ? null : upcoming.first;

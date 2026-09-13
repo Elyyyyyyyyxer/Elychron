@@ -3,7 +3,6 @@ import 'package:celechron/mod/ai/ai_image.dart';
 import 'package:celechron/mod/ai/deepseek.dart';
 import 'package:celechron/mod/ai/model_resolver.dart';
 import 'package:celechron/mod/database_mod.dart';
-import 'package:celechron/mod/tag_harvest.dart';
 import 'package:get/get.dart';
 import 'package:celechron/model/task.dart';
 import 'package:celechron/utils/utils.dart';
@@ -194,18 +193,27 @@ ${fromImage ? _imageRules : ''}
 {
   "summary": "一句话动作短语，不超过 $maxSummaryChars 字，不要出现「待办」「任务」这类词",
   "kind": "活动 / 截止 / 提醒 / 备忘 之一，规则见下面",
-  "description": "原文里对完成这件事有用的补充信息（材料、要求、链接等）；没有就给空字符串，不要编造",
+  "description": "原文里对完成这件事有用的补充信息（说明、要求、链接等）；**要带的东西、着装、材料这类可打钩的清单不要写在这里**，放到 subtasks；没有就给空字符串，不要编造",
   "endTime": "截止时间，格式必须是 YYYY-MM-DDTHH:mm:ss",
   "startTime": "事件开始时间，格式同上；不是事件就留空字符串",
   "reminderMinutes": 提前多少分钟提醒；用默认值就给 0
   "priority": "只能是 low / normal / high / urgent 之一",
   "tags": ["最多 $maxTagCount 个，每个不超过 $maxTagChars 字"],
   "location": "地点；原文没提就给空字符串",
-  "subtasks": ["仅当原文确实包含多个步骤时才给，最多 $maxSubtaskCount 条；否则给空数组；格式见下"],
+  "subtasks": ["原文里的执行步骤，**以及要带的东西 / 着装 / 材料这类可打钩的清单**，最多 $maxSubtaskCount 条；都没有才给空数组。格式见下"],
   "uncertain": ["你不确定的字段名，例如 截止时间、地点；没有就给空数组"]
 }
 
 $_stepSchemaRules
+
+关于「清单类子待办」——学生最需要这一条（原文写「着装：白色院衫、带校徽、带雨伞」时，别把它挤进 description）：
+- **着装**（穿什么、戴什么）、**要带的东西**（雨衣、纸巾、校徽、笔记本）、**要准备的材料**
+  一律拆成一条条 subtasks，一条一个物件或一件事，方便到场前逐条打钩
+- 标题写具体的东西或动作：写「带雨伞」「穿白色院衫」「带校徽」，不要写「准备物品」「按要求着装」这种笼统标题
+- 这类条目**没有时间**：startTime / endTime 都留空字符串；不要为了凑格式编造时刻
+- 只从原文提取，**不要自行补充**原文没写的物品（原文没提伞就不要加伞）
+- 如果这件事既有行程步骤又有清单（例如「17:45 集合，着装：白院衫，带雨伞」），
+  两类都放进来：行程步骤带时间，清单条目不带时间
 
 用户的标签库（**优先复用**，不要另造近义词）：
 ${existingTags.isEmpty ? '（现在是空的，可以新建标签）' : existingTags.join('、')}
@@ -369,6 +377,9 @@ ${task.isEvent ? '''
 - 3~6 条，按执行顺序排列；每条不超过 30 字，尽量以动词开头
 - 每条都要是能直接动手做的事（写、查、问、交、打印、预约…），
   不要写「认真准备」「努力完成」这类空话
+- **要带的东西 / 着装 / 材料也算步骤**：原文写了「着装：白院衫，带雨伞」就拆成
+  「穿白色院衫」「带雨伞」两条，**不带时间**；标题写具体物件，
+  不要写「准备物品」这种笼统说法
 - 不要重复输入里已经列出的子待办
 - 如果这件事本身没法拆（比如「给妈妈打电话」），返回 {"subtasks": []}
 - 不要编造输入里没有的人名、地点、材料''';
@@ -378,12 +389,18 @@ ${task.isEvent ? '''
 每个步骤是一个对象：
 - "title"：这一步做什么，不超过 30 字，动词开头
 - "location"：这一步的地点；原文没提就给空字符串
-- "note"：这一步的注意事项（如「带身份证」）；没有就给空字符串
+- "note"：这一步的注意事项；没有就给空字符串
 - "startTime" / "endTime"：这一步的开始/结束时刻，格式 YYYY-MM-DDTHH:mm:ss；
   没给时间就留空字符串。**时间要写在这里，不要写进 title**
 
-原文给了整段行程（几点集合、几点到哪吃饭）时，**这是最重要的一条**：
-把每步的时间放进 startTime/endTime、地点放进 location，标题只写做什么。''';
+两种步骤都要会用：
+
+1. **行程型**（原文给了整段行程：几点集合、几点到哪吃饭）——把每步的时间放进
+   startTime/endTime、地点放进 location，标题只写做什么。
+2. **清单型**（要带的东西 / 着装 / 材料，原文常写成「着装：…」「需携带：…」
+   「请带好…」）——一条一个物件或一件事，**时间一律留空**，标题直接写
+   「带雨伞」「穿白色院衫」「带校徽」这类能打钩的内容。
+   不要写成「准备物品」「按要求着装」这种笼统标题，也不要编造时刻。''';
 
   /// 校验模型返回的子待办（白名单式：限量、限长、去重、剔除已有、时间越界即丢）
   static List<AiStepDraft> _parseSubtasks(
@@ -854,8 +871,9 @@ ${task.isEvent ? '''
     task.priority = priority;
     if (tags.isNotEmpty) {
       task.tags = <String>[...tags];
-      // 记住 AI 用过的标签，下次它就能复用这些写法（也让标签库不再是空的）
-      TagHarvest.remember(tags);
+      // 注意：**不把 AI 生成的标签写进标签库**。
+      // 标签库只由「标签管理」里显式新建来增加（用户要求），AI 写上去的标签
+      // 和手填的一样，只属于这条待办本身。
     }
     if (location.isNotEmpty) task.location = location;
     if (subtasks.isNotEmpty) {

@@ -398,6 +398,20 @@ class Semester {
       return DateTime.now();
     }
   }
+  /// 是否已经套用过校历（也就是 [firstDay] / [lastDay] 是真实日期）。
+  ///
+  /// ⚠️ 没套过校历的学期，[firstDay] 会**退化成「现在」**这个占位值。
+  /// 判断「今天在哪个学期」或「哪个学期即将开学」之前必须先用它排除掉，
+  /// 否则这种学期会被当成「正好现在开始」——实测就出现过「未开学 · 25-26春夏」
+  /// 这种张冠李戴的标题。
+  bool get hasCalendar {
+    try {
+      return _dayOfWeekToDays.first.first[1].isNotEmpty &&
+          _dayOfWeekToDays.last.last[7].isNotEmpty;
+    } catch (_) {
+      return false;
+    }
+  }
 
   DateTime get lastDay {
     try {

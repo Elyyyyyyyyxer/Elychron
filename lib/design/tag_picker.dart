@@ -3,9 +3,13 @@ import 'package:celechron/mod/database_mod.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:get/get.dart';
 
-/// 从标签库里挑一个标签，或新建一个（新建的会写进标签库，下次可直接复用）。
+/// 从标签库里挑一个标签，或在待办上临时写一个。
 ///
-/// 返回选中的标签；用户取消时返回 null。
+/// **写进来的新标签只挂在这条待办上，不进标签库** —— 标签库只由
+/// 「标签管理」里显式点「添加」来增加（用户明确要求：真正新建了才出现，
+/// 而不是随便填一个就出现在标签管理页和筛选行里）。
+///
+/// 返回用户选的/写的标签；用户取消时返回 null。
 Future<String?> pickTagFromLibrary(
   BuildContext context, {
   required List<String> selected,
@@ -13,20 +17,11 @@ Future<String?> pickTagFromLibrary(
   final db = Get.find<DatabaseHelper>(tag: 'db');
   final library = db.getTagLibrary();
 
-  final tag = await showCupertinoModalPopup<String>(
+  return showCupertinoModalPopup<String>(
     context: context,
     builder: (BuildContext context) =>
         _TagPickerSheet(library: library, selected: selected),
   );
-
-  if (tag != null && tag.isNotEmpty) {
-    // 重新读一次再合并，避免用旧快照覆盖标签库
-    final current = db.getTagLibrary();
-    if (!current.contains(tag)) {
-      await db.setTagLibrary([...current, tag]);
-    }
-  }
-  return tag;
 }
 
 class _TagPickerSheet extends StatefulWidget {
