@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/gestures.dart' show PointerDeviceKind;
 import 'package:flutter/material.dart' show Icons;
+import 'package:flutter/services.dart' show SystemNavigator;
 import 'package:get/get.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
@@ -166,37 +167,56 @@ class _HomePageState extends State<HomePage> {
   Future<void> initFuse() async {
     await Future.delayed(const Duration(seconds: 1));
     var fuse = Get.find<Rx<Fuse>>(tag: 'fuse');
-    var response =
+    var update =
         await fuse.value.checkUpdate().whenComplete(() => fuse.refresh());
-    if (response != null) {
-      if (!mounted) return;
-      showCupertinoDialog(
-          context: context,
-          builder: (context) {
-            return CupertinoAlertDialog(
-              title: const Text('更新可用'),
-              content: Text(response),
-              actions: [
+    if (update == null) return;
+    if (!mounted) return;
+
+    // 大版本 → 强制更新：没有「忽略」，只能去下载（或退出应用）。
+    // 小版本 → 普通提醒，可忽略；同一个版本只提醒一次（由 Fuse 记录）。
+    showCupertinoDialog(
+        context: context,
+        barrierDismissible: !update.forced,
+        builder: (context) {
+          return CupertinoAlertDialog(
+            title: Text(update.forced ? '需要更新后才能继续使用' : '更新可用'),
+            content: Text(
+              update.forced
+                  ? '当前版本 ${Fuse.appVersionName} 已经太旧，'
+                      '请更新到 ${update.tag}。\n\n${update.summary}'
+                  : update.message,
+            ),
+            actions: [
+              if (!update.forced)
                 CupertinoDialogAction(
                   child: const Text('忽略'),
                   onPressed: () async {
                     Navigator.of(context).pop();
                   },
                 ),
+              if (update.forced)
                 CupertinoDialogAction(
-                  child: const Text('去下载'),
-                  onPressed: () async {
-                    // 指向我们自己的 Release 页，别把用户送到上游站点
-                    await launchUrlString(
-                      Fuse.releasePageUrl,
-                      mode: LaunchMode.externalApplication,
-                    );
-                  },
+                  child: const Text('退出'),
+                  onPressed: () => SystemNavigator.pop(),
                 ),
-              ],
-            );
-          });
-    }
+              CupertinoDialogAction(
+                isDefaultAction: true,
+                child: const Text('去下载'),
+                onPressed: () async {
+                  // 指向我们自己的 Release 页，别把用户送到上游站点
+                  await launchUrlString(
+                    Fuse.releasePageUrl,
+                    mode: LaunchMode.externalApplication,
+                  );
+                  // 强制更新时对话框留着，装完新版本自然会消失
+                  if (!update.forced && context.mounted) {
+                    Navigator.of(context).pop();
+                  }
+                },
+              ),
+            ],
+          );
+        });
   }
 }
 

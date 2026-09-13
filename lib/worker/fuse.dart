@@ -4,6 +4,27 @@ import 'package:get/get.dart';
 
 import 'package:celechron/database/database_helper.dart';
 
+/// 一次更新检查的结论。
+class UpdateInfo {
+  /// 远端 release 的 tag，例如 `v1.4.0-elychron.1`
+  final String tag;
+
+  /// Release 说明的第一行（做摘要）
+  final String summary;
+
+  /// 主版本号变化 → **强制更新**：对话框不可忽略，只能去下载或退出应用。
+  final bool forced;
+
+  const UpdateInfo({
+    required this.tag,
+    required this.summary,
+    required this.forced,
+  });
+
+  String get message =>
+      summary.isEmpty ? '有新版本可用：$tag' : '有新版本可用：$tag\n$summary';
+}
+
 class Fuse {
   late DateTime lastUpdateTime;
 
@@ -34,6 +55,62 @@ class Fuse {
   List<int>? remoteVersion;
   int? remoteBuild;
   bool hasNewVersion = false;
+
+  /// 上次**已经提醒过**的版本 tag。
+  ///
+  /// 用途：小版本更新只提醒一次 —— 否则每天检查一次就会天天弹同一个框。
+  /// 大版本（强制更新）不看它，每次启动都提醒。
+  String? lastPromptedTag;
+
+  /// 远端主版本号比本机高 → 强制更新。
+  ///
+  /// 判据是用户定的：**小版本不强制，大版本变化强制**。
+  /// 例：1.4.0 → 1.5.0 只提醒；1.4.0 → 2.0.0 必须更新后才能用。
+  bool get isMajorUpdate {
+    final remote = remoteVersion;
+    if (remote == null) return false;
+    return isMajorBump(remote, version);
+  }
+
+  /// 远端比本机新（纯函数，便于单测）
+  static bool isNewer(
+    List<int> remote,
+    List<int> local, {
+    int? remoteBuild,
+    int? localBuild,
+  }) {
+    for (var i = 0; i < 3; i++) {
+      final r = i < remote.length ? remote[i] : 0;
+      final l = i < local.length ? local[i] : 0;
+      if (r != l) return r > l;
+    }
+    if (remoteBuild != null && localBuild != null && remoteBuild != localBuild) {
+      return remoteBuild > localBuild;
+    }
+    return false;
+  }
+
+  /// 主版本号（第一段）是否变大
+  static bool isMajorBump(List<int> remote, List<int> local) {
+    if (remote.isEmpty || local.isEmpty) return false;
+    return remote[0] > local[0];
+  }
+
+  /// 这次要不要打扰用户（纯函数，便于单测）
+  ///
+  /// - 没更新 → 不打扰
+  /// - 强制更新 → 每次都提醒
+  /// - 小版本 → 同一个 tag 只提醒一次
+  static bool shouldPrompt({
+    required bool hasNew,
+    required bool forced,
+    required String tag,
+    required String? lastPromptedTag,
+  }) {
+    if (!hasNew) return false;
+    if (forced) return true;
+    return lastPromptedTag != tag;
+  }
 
   final HttpClient _httpClient = HttpClient();
   final DatabaseHelper _db = Get.find<DatabaseHelper>(tag: 'db');
@@ -66,7 +143,7 @@ class Fuse {
     return '';
   }
 
-  Future<String?> checkUpdate() async {
+  Future<UpdateInfo?> checkUpdate() async {
     try {
       if (lastUpdateTime
           .isAfter(DateTime.now().subtract(const Duration(days: 1)))) {
@@ -93,11 +170,31 @@ class Fuse {
       remoteBuild = build;
       hasNewVersion = _compareVersion(false);
       lastUpdateTime = DateTime.now();
+
+      if (!hasNewVersion) {
+        await _db.setFuse(this);
+        return null;
+      }
+
+      final forced = isMajorUpdate;
+      // 小版本只提醒一次：同一个 tag 已经提醒过就不再弹，否则每天都会烦一次
+      if (!shouldPrompt(
+        hasNew: true,
+        forced: forced,
+        tag: tag,
+        lastPromptedTag: lastPromptedTag,
+      )) {
+        await _db.setFuse(this);
+        return null;
+      }
+      if (!forced) lastPromptedTag = tag;
       await _db.setFuse(this);
 
-      if (!hasNewVersion) return null;
-      final summary = _firstLineOf(json['body']);
-      return summary.isEmpty ? '有新版本可用：$tag' : '有新版本可用：$tag\n$summary';
+      return UpdateInfo(
+        tag: tag,
+        summary: _firstLineOf(json['body']),
+        forced: forced,
+      );
     } catch (e) {
       // 网络不通、JSON 结构变了、被限流……一律安静跳过，不影响任何本地功能
       return null;
@@ -132,9 +229,12 @@ class Fuse {
 
   Map<String, dynamic> toJson() => {
         'lastUpdateTime': lastUpdateTime.toIso8601String(),
+        // 小版本「只提醒一次」要跨启动保持，所以得存下来
+        'lastPromptedTag': lastPromptedTag,
       };
 
   Fuse.fromJson(Map<String, dynamic> json) {
     lastUpdateTime = DateTime.parse(json['lastUpdateTime']);
+    lastPromptedTag = json['lastPromptedTag'] as String?;
   }
 }
