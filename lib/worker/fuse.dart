@@ -15,7 +15,7 @@ class Fuse {
   /// - [version]（用来跟远端 tag 比较）
   static const String appVersionName = '1.4.0-elychron.1';
   final version = [1, 4, 0];
-  final build = 4;
+  final build = 5;
 
   /// ===== 更新检查：只认我们自己的仓库 =====
   ///
