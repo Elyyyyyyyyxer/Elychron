@@ -149,6 +149,14 @@ class LanSyncServer {
       if (request.method == 'GET' && (path == '/' || path == '/index.html')) {
         return _html(response, lanPanelHtml);
       }
+      // 浏览器会自动请求 favicon；明确返回空响应，避免无意义的 404
+      // 干扰网页端控制台和连接诊断。
+      if (request.method == 'GET' && path == '/favicon.ico') {
+        response.statusCode = HttpStatus.noContent;
+        response.headers.set('Cache-Control', 'no-store');
+        await response.close();
+        return;
+      }
       if (request.method == 'POST' && path == '/pair') {
         return await _pair(request);
       }
