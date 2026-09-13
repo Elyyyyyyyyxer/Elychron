@@ -36,7 +36,10 @@ const String lanPanelHtml = r'''<!DOCTYPE html>
   .pill { font-size: 12px; padding: 2px 8px; border-radius: 999px; background: var(--line); color: var(--muted); }
   .pill.ok { background: rgba(52,199,89,.15); color: #1a7f37; }
   .pill.err { background: rgba(255,59,48,.15); color: #b3261e; }
-  main { max-width: 860px; margin: 0 auto; padding: 20px; }
+  main { max-width: 1180px; margin: 0 auto; padding: 24px; display:grid; grid-template-columns:minmax(320px, .82fr) minmax(0, 1.5fr); gap:16px; align-items:start; }
+  main > .card:nth-child(2) { grid-column:2; grid-row:1 / span 2; }
+  main > .card:nth-child(3) { grid-column:1; }
+  @media (max-width:860px) { main { max-width:860px; display:block; padding:20px; } main > .card { margin-bottom:16px; } }
   .card {
     background: var(--card); border: 1px solid var(--line); border-radius: 14px;
     padding: 16px; margin-bottom: 16px;
