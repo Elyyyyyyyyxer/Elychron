@@ -9,216 +9,497 @@ const String lanPanelHtml = r'''<!DOCTYPE html>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Elychron · 局域网同步</title>
 <style>
+  /* ============================================================
+     视觉基准完全对齐手机端：
+       · 强调色 #FF699A（手机 CupertinoThemeData.primaryColor）
+       · 分组背景 #F2F2F7 / #1C1C1E（手机 systemGroupedBackground）
+       · 卡片 #FFFFFF / #2C2C2E（手机 secondarySystemGroupedBackground）
+       · SF Pro 字体栈、iOS 分隔线、行高与圆角沿用 iOS 观感
+     ============================================================ */
   :root {
-    --bg: #f8f8fb; --card: #ffffff; --line: #e8e8ef;
-    --text: #202027; --muted: #8b8b96; --accent: #ff6b9a;
-    --danger: #ff3b30; --ok: #34c759; --warn: #ff9500;
+    --bg: #f2f2f7;
+    --bg-elevated: #ffffff;
+    --card: #ffffff;
+    --card-2: #f7f7fa;
+    --line: rgba(60,60,67,.14);
+    --line-strong: rgba(60,60,67,.24);
+    --text: #000000;
+    --text-2: rgba(60,60,67,.62);
+    --text-3: rgba(60,60,67,.4);
+    --accent: #ff699a;
+    --accent-strong: #ff4d86;
+    --accent-soft: rgba(255,105,154,.12);
+    --accent-line: rgba(255,105,154,.3);
+    --fill: rgba(118,118,128,.10);
+    --fill-2: rgba(118,118,128,.16);
+    --blue: #007aff;
+    --danger: #ff3b30;
+    --ok: #34c759;
+    --warn: #ff9500;
+    --shadow-card: 0 1px 2px rgba(0,0,0,.04), 0 8px 24px rgba(0,0,0,.05);
+    --shadow-pop: 0 12px 40px rgba(0,0,0,.16);
   }
   @media (prefers-color-scheme: dark) {
-    :root { --bg:#17171c; --card:#24242b; --line:#3a3a44; --text:#f5f5f7; --muted:#a4a4ad; --accent:#ff7da8; }
-    header { background:rgba(23,23,28,.88); }
-    input, textarea, select { background:#2c2c34 !important; color:var(--text) !important; }
-    #editSubtasks .sub-row { background:#2b2b33; }
-    button { background:var(--card); color:var(--text); }
+    :root {
+      --bg: #1c1c1e;
+      --bg-elevated: #2c2c2e;
+      --card: #2c2c2e;
+      --card-2: #242426;
+      --line: rgba(84,84,88,.42);
+      --line-strong: rgba(120,120,128,.6);
+      --text: #ffffff;
+      --text-2: rgba(235,235,245,.62);
+      --text-3: rgba(235,235,245,.36);
+      --accent: #ff7da8;
+      --accent-strong: #ff699a;
+      --accent-soft: rgba(255,125,168,.16);
+      --accent-line: rgba(255,125,168,.34);
+      --fill: rgba(118,118,128,.22);
+      --fill-2: rgba(118,118,128,.32);
+      --shadow-card: 0 1px 2px rgba(0,0,0,.3);
+      --shadow-pop: 0 16px 48px rgba(0,0,0,.55);
+    }
+    header { background: rgba(28,28,30,.78); }
   }
+
   * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
   body {
-    margin: 0; background: var(--bg); color: var(--text);
-    font: 15px/1.5 -apple-system, "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    margin: 0; min-height: 100vh;
+    background: var(--bg); color: var(--text);
+    font: 15px/1.5 -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC",
+      "Hiragino Sans GB", "Microsoft YaHei", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
   }
+
+  /* ---------------------------------------------------------- 顶栏 */
   header {
-    position: sticky; top: 0; z-index: 5; background: rgba(245,245,247,.92);
-    backdrop-filter: saturate(180%) blur(20px);
-    border-bottom: 1px solid var(--line); padding: 14px 20px;
+    position: sticky; top: 0; z-index: 20;
     display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    padding: 12px max(20px, calc((100vw - 1080px) / 2));
+    background: rgba(242,242,247,.78);
+    backdrop-filter: saturate(180%) blur(24px);
+    -webkit-backdrop-filter: saturate(180%) blur(24px);
+    border-bottom: 1px solid var(--line);
   }
-  header h1 { font-size: 17px; margin: 0; font-weight: 600; }
-  .pill { font-size: 12px; padding: 2px 8px; border-radius: 999px; background: var(--line); color: var(--muted); }
-  .pill.ok { background: rgba(52,199,89,.15); color: #1a7f37; }
-  .pill.err { background: rgba(255,59,48,.15); color: #b3261e; }
-  main { max-width: 1180px; margin: 0 auto; padding: 24px; display:grid; grid-template-columns:minmax(320px, .82fr) minmax(0, 1.5fr); gap:16px; align-items:start; }
-  main > .card:nth-child(2) { grid-column:2; grid-row:1 / span 2; }
-  main > .card:nth-child(3) { grid-column:1; }
-  @media (max-width:860px) { main { max-width:860px; display:block; padding:20px; } main > .card { margin-bottom:16px; } }
+  .brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .brand-mark {
+    width: 32px; height: 32px; flex: none; border-radius: 10px;
+    display: grid; place-items: center;
+    background: linear-gradient(160deg, #ff8fb4, var(--accent));
+    box-shadow: 0 4px 12px rgba(255,105,154,.3);
+    color: #fff; font-size: 16px; font-weight: 700;
+  }
+  header h1 { font-size: 17px; margin: 0; font-weight: 650; letter-spacing: -.02em; }
+  .subtitle { font-size: 11px; color: var(--text-3); margin-top: -1px; }
+
+  .pill {
+    font-size: 11px; font-weight: 500; padding: 3px 9px; border-radius: 999px;
+    background: var(--fill); color: var(--text-2); white-space: nowrap;
+    transition: background .2s ease, color .2s ease;
+  }
+  .pill.ok { background: rgba(52,199,89,.14); color: #248a45; }
+  .pill.err { background: rgba(255,59,48,.14); color: #d0362d; }
+  @media (prefers-color-scheme: dark) {
+    .pill.ok { color: #4cd964; }
+    .pill.err { color: #ff6961; }
+  }
+
+  .spacer { flex: 1 1 auto; }
+  .header-search { max-width: 200px; }
+
+  /* ---------------------------------------------------------- 主体 */
+  main {
+    max-width: 1080px; margin: 0 auto; padding: 20px;
+    display: grid; gap: 18px;
+    grid-template-columns: minmax(0, 340px) minmax(0, 1fr);
+    align-items: start;
+  }
+  main > .col { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+  @media (max-width: 900px) {
+    main { grid-template-columns: 1fr; padding: 16px; gap: 14px; }
+    header { padding: 10px 16px; }
+  }
+
+  /* ---------------------------------------------------------- 卡片 */
   .card {
-    background: var(--card); border: 1px solid var(--line); border-radius: 14px;
-    padding: 16px; margin-bottom: 16px;
+    background: var(--card); border-radius: 16px; padding: 18px;
+    box-shadow: var(--shadow-card);
+    border: 1px solid transparent;
   }
-  .card h2 { font-size: 14px; margin: 0 0 12px; color: var(--muted); font-weight: 600; letter-spacing: .02em; }
-  .workbar { display:flex; gap:16px; align-items:flex-end; justify-content:space-between; flex-wrap:wrap; margin-bottom:10px; }
-  .tabs { display:flex; gap:5px; flex-wrap:wrap; }
-  .tab { border-color:transparent; background:transparent; color:var(--muted); padding:6px 8px; }
-  .tab.active { color:var(--accent); background:rgba(255,107,154,.10); }
-  .tab .pill { margin-left:3px; }
-  .row { display: flex; align-items: flex-start; gap: 12px; padding: 10px 0; border-top: 1px solid var(--line); cursor:pointer; transition:background .18s ease, transform .18s ease; }
-  .row:hover { background:rgba(255,107,154,.06); transform:translateX(2px); }
-  .row:first-of-type { border-top: none; }
-  .row input[type=checkbox] { width: 20px; height: 20px; margin-top: 2px; accent-color: var(--accent); cursor: pointer; flex: none; }
-  .row .body { flex: 1; min-width: 0; }
-  .row .title { font-weight: 500; word-break: break-word; }
-  .row .title.done { color: var(--muted); text-decoration: line-through; }
-  .meta { font-size: 12.5px; color: var(--muted); margin-top: 2px; display: flex; gap: 8px; flex-wrap: wrap; }
-  .tag { background: var(--line); border-radius: 6px; padding: 0 6px; font-size: 12px; }
-  .prio-high { color: var(--warn); } .prio-urgent { color: var(--danger); }
+  @media (prefers-color-scheme: dark) { .card { border-color: var(--line); } }
+  .card h2 {
+    font-size: 13px; margin: 0 0 14px; color: var(--text-2);
+    font-weight: 600; letter-spacing: .04em;
+  }
+  .card-title-row { display: flex; align-items: baseline; gap: 8px; margin-bottom: 14px; }
+  .card-title-row h2 { margin: 0; }
+  .card-title-row .hint { margin-left: auto; }
+
+  /* ---------------------------------------------------------- 表单 */
+  label { color: var(--text-2); font-size: 13px; }
+  input[type=text], input[type=date], input[type=number],
+  input[type=datetime-local], select, textarea {
+    font: inherit; width: 100%; color: var(--text);
+    padding: 9px 12px; border-radius: 10px;
+    border: 1px solid var(--line);
+    background: var(--card-2);
+    transition: border-color .18s ease, background .18s ease, box-shadow .18s ease;
+    -webkit-appearance: none; appearance: none;
+  }
+  @media (prefers-color-scheme: dark) {
+    input, select, textarea { background: var(--card-2); }
+  }
+  input:hover, select:hover, textarea:hover { border-color: var(--line-strong); }
+  input:focus, select:focus, textarea:focus {
+    outline: none; border-color: var(--accent);
+    box-shadow: 0 0 0 3.5px var(--accent-soft);
+    background: var(--bg-elevated);
+  }
+  textarea { min-height: 72px; resize: vertical; line-height: 1.5; }
+  select {
+    background-image:
+      linear-gradient(45deg, transparent 50%, var(--text-3) 50%),
+      linear-gradient(135deg, var(--text-3) 50%, transparent 50%);
+    background-position: calc(100% - 17px) 50%, calc(100% - 12px) 50%;
+    background-size: 5px 5px, 5px 5px; background-repeat: no-repeat;
+    padding-right: 32px;
+  }
+  .field { margin-top: 12px; }
+  .field > label { display: block; margin-bottom: 6px; }
+  input[type=file] { font-size: 13px; color: var(--text-2); width: 100%; }
+  input[type=file]::file-selector-button {
+    font: inherit; font-weight: 500; color: var(--text);
+    background: var(--fill); border: none; border-radius: 9px;
+    padding: 7px 12px; margin-right: 10px; cursor: pointer;
+  }
+  input[type=file]::file-selector-button:hover { background: var(--fill-2); }
+  .grid { display: grid; gap: 8px; grid-template-columns: minmax(0,1fr) auto; align-items: center; }
+  .grid .span-all { grid-column: 1 / -1; }
+  @media (max-width: 520px) { .grid { grid-template-columns: 1fr; } }
+
+  .switch-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 12px; border-radius: 11px; background: var(--card-2);
+    border: 1px solid var(--line); cursor: pointer; user-select: none;
+  }
+  .switch-row:hover { border-color: var(--line-strong); }
+  .switch-row input[type=checkbox] {
+    width: 18px; height: 18px; flex: none; margin: 0;
+    accent-color: var(--accent); cursor: pointer;
+  }
+  .switch-row span { font-size: 14px; color: var(--text); }
+
+  /* ---------------------------------------------------------- 按钮 */
   button {
-    font: inherit; border: 1px solid var(--line); background: var(--card);
-    color: var(--text); border-radius: 9px; padding: 6px 12px; cursor: pointer;
+    font: inherit; font-weight: 500; cursor: pointer;
+    color: var(--text); background: var(--fill);
+    border: none; border-radius: 10px; padding: 7px 13px;
+    transition: transform .14s ease, background .16s ease, opacity .16s ease;
+    white-space: nowrap;
   }
-  button:hover { background: #fafafa; }
-  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button:hover { background: var(--fill-2); }
+  button:active { transform: scale(.97); }
+  button:focus-visible { outline: 3px solid var(--accent-soft); outline-offset: 1px; }
+  button.primary {
+    color: #fff; background: linear-gradient(180deg, #ff7ea8, var(--accent));
+    box-shadow: 0 4px 14px rgba(255,105,154,.3);
+  }
+  button.primary:hover { background: linear-gradient(180deg, #ff719f, var(--accent-strong)); }
   button.danger { color: var(--danger); }
-  button:disabled { opacity: .5; cursor: default; }
-  input[type=text], input[type=date], input[type=number] {
-    font: inherit; padding: 7px 10px; border: 1px solid var(--line);
-    border-radius: 9px; background: #fff; color: var(--text); width: 100%;
+  button.danger:hover { background: rgba(255,59,48,.12); }
+  button.ghost { background: transparent; color: var(--text-2); }
+  button.ghost:hover { background: var(--fill); color: var(--text); }
+  button:disabled { opacity: .45; cursor: default; transform: none; }
+  .hint { font-size: 12.5px; color: var(--text-2); line-height: 1.5; }
+
+  /* ---------------------------------------------------------- 分类（对齐手机端下划线式标签） */
+  .workbar {
+    display: flex; align-items: flex-start; justify-content: space-between;
+    gap: 14px; flex-wrap: wrap; margin-bottom: 6px;
   }
-  .grid { display: grid; gap: 8px; grid-template-columns: 1fr 170px auto; align-items: center; }
-  @media (max-width: 620px) { .grid { grid-template-columns: 1fr; } }
-  .hint { font-size: 12.5px; color: var(--muted); }
-  #editor {
-    position: fixed; inset: 0; z-index: 35; display:flex; align-items:center; justify-content:center;
-    background: rgba(20,20,28,.22); backdrop-filter: blur(8px);
+  .tabs { display: flex; gap: 18px; flex-wrap: wrap; }
+  .tab {
+    position: relative; border: none; background: transparent;
+    padding: 4px 0 9px; color: var(--text-2); font-size: 15px; font-weight: 400;
+    border-radius: 0;
   }
-  #editor .box { width:min(560px, calc(100vw - 32px)); max-height:calc(100vh - 40px); overflow:auto;
-    background:var(--card); border:1px solid var(--line); border-radius:18px; padding:22px;
-    box-shadow:0 24px 80px rgba(20,20,28,.24); animation:editorIn .24s cubic-bezier(.2,.8,.2,1); }
-  @keyframes editorIn { from { opacity:0; transform:translateY(12px) scale(.98); } to { opacity:1; transform:none; } }
-  #editor h2 { margin:0 0 16px; font-size:20px; }
-  #editor label { display:block; color:var(--muted); font-size:12px; margin:12px 0 5px; }
-  #editor textarea { width:100%; min-height:90px; resize:vertical; font:inherit; padding:9px 10px;
-    border:1px solid var(--line); border-radius:9px; color:var(--text); }
-  #editor .actions { display:flex; justify-content:flex-end; gap:8px; margin-top:18px; }
-  #toast { position:fixed; right:22px; bottom:22px; width:min(380px,calc(100vw - 32px));
-    display:flex; flex-direction:column-reverse; gap:8px; pointer-events:none; z-index:40; }
-  .toast-item { color:#fff; padding:13px 16px; border-radius:14px; box-shadow:0 16px 48px rgba(20,20,28,.22);
-    font-size:14px; opacity:0; transform:translate3d(18px,10px,0) scale(.98);
-    animation:toastIn .32s cubic-bezier(.2,.8,.2,1) forwards; pointer-events:auto; }
-  .toast-item.info { background:rgba(32,32,39,.96); }
-  .toast-item.err { background:rgba(146,35,48,.97); }
-  .toast-item.ok { background:rgba(31,101,59,.97); }
-  @keyframes toastIn { to { opacity:1; transform:none; } }
-  .reminder-fields { display:grid; grid-template-columns:170px 190px; gap:8px; margin-top:8px; }
-  input[type=datetime-local], select {
-    font: inherit; padding: 7px 10px; border: 1px solid var(--line);
-    border-radius: 9px; background: #fff; color: var(--text); width:100%;
+  .tab:hover { background: transparent; color: var(--text); }
+  .tab.active { color: var(--text); font-weight: 650; }
+  .tab::after {
+    content: ''; position: absolute; left: 50%; bottom: 2px;
+    width: 0; height: 3px; border-radius: 2px; background: var(--accent);
+    transform: translateX(-50%); transition: width .22s cubic-bezier(.2,.8,.2,1);
   }
-  @media (max-width:620px) { .reminder-fields { grid-template-columns:1fr; } }
-  /* ===== 子待办：任务行里的清单 + 行程（时间 / 提醒）===== */
-  .sub-list { margin-top: 8px; }
-  .sub-item { display: flex; align-items: flex-start; gap: 8px; padding: 4px 0; font-size: 13px; border-top: 1px dashed var(--line); }
-  .sub-item:first-child { border-top: none; }
-  .sub-item input[type=checkbox] { width: 16px; height: 16px; margin-top: 1px; flex: none; }
-  .sub-item .sub-title { flex: 1; min-width: 0; word-break: break-word; }
-  .sub-item .sub-time { flex: none; color: var(--muted); font-variant-numeric: tabular-nums; }
-  .sub-item .sub-hint { flex: none; color: var(--muted); font-size: 12px; }
-  .sub-item.done .sub-title { color: var(--muted); text-decoration: line-through; }
-  .sub-item.ongoing .sub-title, .sub-item.ongoing .sub-time { color: #0a84ff; font-weight: 600; }
-  .sub-item.missed .sub-title, .sub-item.missed .sub-time { color: var(--danger); }
-  .sub-item .sub-state { flex: none; font-size: 12px; }
-  /* ===== 编辑器里的子待办行 ===== */
-  #editSubtasks { margin-top: 6px; }
-  #editSubtasks .sub-row { border: 1px solid var(--line); border-radius: 12px; padding: 10px; margin-bottom: 8px; background: #fcfcfe; }
-  #editSubtasks .sub-row-head { display: flex; align-items: center; gap: 8px; }
-  #editSubtasks .sub-row-head input[type=checkbox] { width: 18px; height: 18px; flex: none; accent-color: var(--accent); }
-  #editSubtasks .sub-row-head input[type=text] { flex: 1; min-width: 0; }
-  #editSubtasks .sub-row-times { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)) 130px; gap: 8px; margin-top: 8px; }
-  #editSubtasks .sub-row-times label { display: block; color: var(--muted); font-size: 12px; margin-bottom: 4px; }
-  #editSubtasks .sub-row-hint { margin-top: 6px; font-size: 12px; color: var(--muted); }
-  #editSubtasks .empty { font-size: 13px; color: var(--muted); padding: 4px 0 8px; }
-  #editSubtasks .add-row { margin-top: 2px; }
-  @media (max-width:620px) { #editSubtasks .sub-row-times { grid-template-columns:1fr; } }
-  #pair {
-    position: fixed; inset: 0; background: var(--bg); z-index: 30;
+  .tab.active::after { width: 22px; }
+  .tab .pill { margin-left: 5px; vertical-align: 1px; }
+
+  /* ---------------------------------------------------------- 任务行（iOS 列表） */
+  .row {
+    display: flex; align-items: flex-start; gap: 12px;
+    padding: 12px 4px; border-top: 1px solid var(--line);
+    cursor: pointer; border-radius: 12px;
+    transition: background .18s ease, transform .18s ease;
+  }
+  .row:first-of-type { border-top: none; }
+  .row:hover { background: var(--accent-soft); transform: translateX(2px); }
+  .row input[type=checkbox] {
+    width: 21px; height: 21px; flex: none; margin: 1px 0 0;
+    accent-color: var(--accent); cursor: pointer;
+  }
+  .row .body { flex: 1; min-width: 0; }
+  .row .title { font-size: 15px; font-weight: 500; word-break: break-word; letter-spacing: -.01em; }
+  .row .title.done { color: var(--text-2); text-decoration: line-through; }
+  .meta {
+    display: flex; flex-wrap: wrap; gap: 4px 9px; margin-top: 5px;
+    font-size: 12.5px; color: var(--text-2);
+  }
+  .meta .due-soon { color: var(--warn); font-weight: 500; }
+  .meta .overdue { color: var(--danger); font-weight: 500; }
+  .tag {
+    font-size: 11px; padding: 1px 8px; border-radius: 999px;
+    background: var(--accent-soft); color: var(--accent-strong);
+  }
+  @media (prefers-color-scheme: dark) { .tag { color: var(--accent); } }
+  .prio-high { color: var(--warn); }
+  .prio-urgent { color: var(--danger); }
+  .empty-state { text-align: center; padding: 34px 16px; color: var(--text-2); }
+  .empty-state .emoji { font-size: 30px; display: block; margin-bottom: 8px; }
+
+  /* ---------------------------------------------------------- 弹层 */
+  .overlay {
+    position: fixed; inset: 0; z-index: 40;
     display: flex; align-items: center; justify-content: center;
+    padding: 20px; background: rgba(0,0,0,.28);
+    backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+    animation: fadeIn .2s ease;
   }
-  #pair .box { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 24px; width: 320px; text-align: center; }
-  #pair h2 { margin: 0 0 6px; font-size: 18px; color: var(--text); }
-  #pair p { font-size: 13px; color: var(--muted); margin: 0 0 16px; }
-  #pair input { text-align: center; font-size: 22px; letter-spacing: 6px; margin-bottom: 12px; }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  .sheet {
+    width: min(560px, 100%); max-height: calc(100vh - 40px); overflow: auto;
+    background: var(--bg-elevated); border-radius: 18px; padding: 22px;
+    box-shadow: var(--shadow-pop);
+    animation: sheetIn .28s cubic-bezier(.2,.85,.25,1);
+  }
+  @keyframes sheetIn {
+    from { opacity: 0; transform: translateY(14px) scale(.97); }
+    to { opacity: 1; transform: none; }
+  }
+  .sheet h2 { margin: 0 0 4px; font-size: 20px; font-weight: 700; letter-spacing: -.02em; }
+  .sheet .sheet-sub { font-size: 13px; color: var(--text-2); margin: 0 0 18px; }
+  .sheet .actions {
+    display: flex; justify-content: flex-end; gap: 8px;
+    margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--line);
+  }
+
+  /* ---------------------------------------------------------- 配对 */
+  #pair { background: var(--bg); }
+  #pair .sheet { width: min(360px, 100%); text-align: center; padding: 28px 24px; }
+  #pair h2 { font-size: 19px; margin-bottom: 6px; }
+  #pair p { font-size: 13px; color: var(--text-2); margin: 0 0 18px; line-height: 1.5; }
+  #pair input {
+    text-align: center; font-size: 24px; font-weight: 600;
+    letter-spacing: .38em; text-indent: .38em; padding: 12px;
+    font-variant-numeric: tabular-nums;
+  }
+  #pair button.primary { width: 100%; padding: 11px; font-size: 16px; margin-top: 4px; }
+
+  /* ---------------------------------------------------------- 子待办（只读列表） */
+  .sub-list { margin-top: 9px; display: flex; flex-direction: column; gap: 5px; }
+  .sub-item {
+    display: flex; align-items: flex-start; gap: 8px;
+    padding: 6px 10px; border-radius: 9px; background: var(--card-2);
+    font-size: 13px;
+  }
+  .sub-item input[type=checkbox] {
+    width: 16px; height: 16px; flex: none; margin: 1px 0 0; accent-color: var(--accent);
+  }
+  .sub-item .sub-title { flex: 1; min-width: 0; word-break: break-word; }
+  .sub-item .sub-time, .sub-item .sub-hint, .sub-item .sub-state {
+    flex: none; color: var(--text-2); font-size: 12px;
+    font-variant-numeric: tabular-nums;
+  }
+  .sub-item.done .sub-title { color: var(--text-2); text-decoration: line-through; }
+  .sub-item.ongoing { background: rgba(0,122,255,.1); }
+  .sub-item.ongoing .sub-title, .sub-item.ongoing .sub-time { color: var(--blue); font-weight: 600; }
+  .sub-item.ongoing .sub-state { color: var(--blue); font-weight: 600; }
+  .sub-item.missed .sub-title, .sub-item.missed .sub-time, .sub-item.missed .sub-state { color: var(--danger); }
+
+  /* ---------------------------------------------------------- 编辑器内的子待办行 */
+  #editSubtasks { display: flex; flex-direction: column; gap: 9px; }
+  #editSubtasks .sub-row {
+    border: 1px solid var(--line); border-radius: 12px; padding: 11px;
+    background: var(--card-2);
+  }
+  #editSubtasks .sub-row-head { display: flex; align-items: center; gap: 9px; }
+  #editSubtasks .sub-row-head input[type=checkbox] {
+    width: 18px; height: 18px; flex: none; margin: 0; accent-color: var(--accent);
+  }
+  #editSubtasks .sub-row-head input[type=text] { flex: 1; min-width: 0; }
+  #editSubtasks .sub-row-times {
+    display: grid; gap: 8px; margin-top: 9px;
+    grid-template-columns: repeat(2, minmax(0,1fr)) 118px;
+  }
+  #editSubtasks .sub-row-times label { display: block; font-size: 12px; margin-bottom: 4px; }
+  #editSubtasks .sub-row-hint { margin-top: 7px; font-size: 12px; color: var(--text-2); }
+  #editSubtasks .empty { font-size: 13px; color: var(--text-2); padding: 2px 0 4px; }
+  @media (max-width: 560px) { #editSubtasks .sub-row-times { grid-template-columns: 1fr; } }
+
+  /* ---------------------------------------------------------- 通知（整屏右下角） */
+  #toast {
+    position: fixed; right: 24px; bottom: 24px; z-index: 60;
+    width: min(370px, calc(100vw - 32px));
+    display: flex; flex-direction: column-reverse; gap: 9px;
+    pointer-events: none;
+  }
+  .toast-item {
+    pointer-events: auto; color: #fff; font-size: 14px; line-height: 1.45;
+    padding: 12px 15px; border-radius: 14px;
+    background: rgba(28,28,30,.94);
+    backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+    box-shadow: var(--shadow-pop);
+    opacity: 0; transform: translate3d(20px, 12px, 0) scale(.97);
+    animation: toastIn .34s cubic-bezier(.2,.85,.25,1) forwards;
+  }
+  .toast-item.ok { background: rgba(28,120,62,.96); }
+  .toast-item.err { background: rgba(178,42,36,.96); }
+  @keyframes toastIn { to { opacity: 1; transform: none; } }
+  .toast-item.leaving { animation: toastOut .22s ease forwards; }
+  @keyframes toastOut { to { opacity: 0; transform: translate3d(14px, 6px, 0) scale(.98); } }
+  @media (max-width: 560px) { #toast { right: 12px; bottom: 12px; } }
+
+  /* ---------------------------------------------------------- 无障碍 / 动效偏好 */
   .hidden { display: none !important; }
+  .visually-hidden {
+    position: absolute; width: 1px; height: 1px; overflow: hidden;
+    clip: rect(0 0 0 0); white-space: nowrap;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: .001ms !important; animation-iteration-count: 1 !important;
+      transition-duration: .001ms !important;
+    }
+    .row:hover { transform: none; }
+  }
 </style>
 </head>
 <body>
 
-<div id="pair">
-  <div class="box">
-    <h2>输入配对码</h2>
-    <p>配对码显示在手机的「局域网同步」页面上</p>
-    <input id="codeInput" type="text" inputmode="numeric" maxlength="6" placeholder="000000" autocomplete="off">
-    <div id="pairErr" class="hint" style="color:var(--danger); min-height:18px;"></div>
-    <button class="primary" style="width:100%; padding:10px;" onclick="pair()">连接</button>
+<div id="pair" class="overlay">
+  <div class="sheet">
+    <h2>配对这台电脑</h2>
+    <p>配对码显示在手机「局域网同步」页面上，输一次就会记住。</p>
+    <input id="codeInput" type="text" inputmode="numeric" maxlength="6" placeholder="000000" autocomplete="off" aria-label="六位配对码">
+    <div id="pairErr" class="hint" style="color:var(--danger); min-height:18px; margin-top:8px;"></div>
+    <button class="primary" onclick="pair()">连接手机</button>
   </div>
 </div>
 
 <header>
-  <h1>Elychron</h1>
+  <div class="brand">
+    <span class="brand-mark">E</span>
+    <div>
+      <h1>Elychron</h1>
+      <div class="subtitle">局域网同步</div>
+    </div>
+  </div>
   <span id="status" class="pill">未连接</span>
-  <span style="flex:1"></span>
-  <input id="searchInput" type="text" placeholder="搜索待办…" style="max-width:220px" oninput="render()">
-  <button onclick="refresh()">刷新</button>
-  <button onclick="downloadBundle()">导出到电脑</button>
+  <span class="spacer"></span>
+  <input id="searchInput" class="header-search" type="text" placeholder="搜索待办…" aria-label="搜索待办" oninput="render()">
+  <button class="ghost" onclick="refresh()">刷新</button>
+  <button class="ghost" onclick="downloadBundle()">导出备份</button>
 </header>
 
 <main>
-  <div class="card">
-    <h2>新建待办</h2>
-    <div class="grid">
-      <input id="newTitle" type="text" placeholder="要做的事…">
-      <input id="newEnd" type="date">
-      <button class="primary" onclick="addTask()">添加</button>
-    </div>
-    <label for="newDescription">描述（可选）</label>
-    <textarea id="newDescription" style="width:100%; min-height:58px; resize:vertical; font:inherit; padding:8px; border:1px solid var(--line); border-radius:9px"></textarea>
-    <div class="reminder-fields">
-      <label class="hint"><input id="newReminderEnabled" type="checkbox"> 开启提醒</label>
-      <input id="newReminder" type="datetime-local" aria-label="提醒时间">
-    </div>
-    <div class="hint" style="margin-top:8px;">截止时间默认今天 23:59；提醒时间可选，保存后由手机负责实际通知。</div>
-    <button style="margin-top:10px" onclick="enableBrowserReminders()">开启电脑提醒</button>
-  </div>
-
-  <div class="card">
-    <div class="workbar">
-      <div><h2 style="margin:0">任务</h2><div class="hint">把今天要做的事放在眼前</div></div>
-      <div class="tabs" role="tablist">
-        <button class="tab active" data-filter="open" onclick="setTaskFilter('open')">待我处理 <span id="countOpen" class="pill">0</span></button>
-        <button class="tab" data-filter="priority" onclick="setTaskFilter('priority')">优先处理</button>
-        <button class="tab" data-filter="done" onclick="setTaskFilter('done')">我已处理 <span id="countDone" class="pill">0</span></button>
-        <button class="tab" data-filter="starred" onclick="setTaskFilter('starred')">星标</button>
+  <div class="col">
+    <section class="card">
+      <div class="card-title-row"><h2>新建待办</h2></div>
+      <div class="grid">
+        <input id="newTitle" class="span-all" type="text" placeholder="要做的事…" aria-label="标题">
+        <input id="newEnd" type="date" aria-label="截止日期">
+        <button class="primary" onclick="addTask()">添加</button>
       </div>
-    </div>
-    <div id="taskList"><div class="hint">加载中…</div></div>
+      <div class="field">
+        <label for="newDescription">描述</label>
+        <textarea id="newDescription" placeholder="补充说明（可选）"></textarea>
+      </div>
+      <div class="field">
+        <label class="switch-row" for="newReminderEnabled">
+          <input id="newReminderEnabled" type="checkbox">
+          <span>到点提醒我</span>
+        </label>
+      </div>
+      <div class="field">
+        <label for="newReminder">提醒时间</label>
+        <input id="newReminder" type="datetime-local">
+      </div>
+      <p class="hint" style="margin:12px 0 0;">
+        截止日期留空就按今天 23:59。提醒交给手机来响，这台电脑也能单独开启通知。
+      </p>
+      <button style="margin-top:12px;" onclick="enableBrowserReminders()">开启电脑提醒</button>
+    </section>
+
+    <section class="card">
+      <div class="card-title-row"><h2>导入备份</h2></div>
+      <input id="importFile" type="file" accept="application/json,.json" onchange="importBundle(this)">
+      <p class="hint" style="margin:12px 0 0;">
+        按 uid 和更新时间合并，不会盖掉较新的数据。删除会留墓碑，能在设备之间正确传播。
+      </p>
+    </section>
   </div>
 
-  <div class="card">
-    <h2>导入电脑上的备份</h2>
-    <input id="importFile" type="file" accept="application/json,.json" onchange="importBundle(this)">
-    <div class="hint" style="margin-top:8px;">
-      按 uid + 更新时间合并，不会覆盖较新的数据；删除会记墓碑，能在手机之间正确传播。
-    </div>
+  <div class="col">
+    <section class="card">
+      <div class="workbar">
+        <div class="tabs" role="tablist">
+          <button class="tab active" data-filter="open" onclick="setTaskFilter('open')">待我处理 <span id="countOpen" class="pill">0</span></button>
+          <button class="tab" data-filter="priority" onclick="setTaskFilter('priority')">优先处理</button>
+          <button class="tab" data-filter="done" onclick="setTaskFilter('done')">我已处理 <span id="countDone" class="pill">0</span></button>
+          <button class="tab" data-filter="starred" onclick="setTaskFilter('starred')">星标</button>
+        </div>
+      </div>
+      <div id="taskList"><p class="hint">加载中…</p></div>
+    </section>
   </div>
 </main>
 
-<div id="toast"></div>
-<div id="editor" class="hidden">
-  <div class="box">
+<div id="toast" role="status" aria-live="polite"></div>
+
+<div id="editor" class="overlay hidden">
+  <div class="sheet">
     <h2 id="editorTitle">编辑待办</h2>
-    <label for="editSummary">标题</label><input id="editSummary" type="text">
-    <label for="editDescription">描述</label><textarea id="editDescription"></textarea>
-    <label for="editLocation">地点</label><input id="editLocation" type="text">
-    <label for="editPriority">优先级</label>
-    <select id="editPriority"><option value="low">低</option><option value="normal">普通</option><option value="high">高</option><option value="urgent">紧急</option></select>
-    <label><input id="editStarred" type="checkbox"> 加入星标</label>
-    <label><input id="editReminderEnabled" type="checkbox"> 开启提醒</label>
-    <label for="editReminder">提醒时间</label><input id="editReminder" type="datetime-local">
-    <label for="editRepeatType">重复</label>
-    <select id="editRepeatType"><option value="norepeat">不重复</option><option value="daily">每天</option><option value="weekly">每周</option><option value="monthly">每月</option></select>
-    <label for="editTags">标签（用逗号分隔）</label><input id="editTags" type="text">
-    <label>子待办</label>
-    <div id="editSubtasks"></div>
-    <button type="button" class="add-row" onclick="addSubtaskRow()">+ 添加步骤</button>
-    <div class="hint">每一步都能单独设开始 / 结束时间、完成状态和提前提醒分钟数；提前量留空表示沿用设置里的默认值。没有时间的步骤就是普通清单项。</div>
-    <div class="actions"><button onclick="closeEditor()">取消</button><button class="primary" onclick="saveEditor()">保存修改</button></div>
+    <p class="sheet-sub">改动会在保存后合并回手机，较新的一侧说了算。</p>
+    <div class="field"><label for="editSummary">标题</label><input id="editSummary" type="text"></div>
+    <div class="field"><label for="editDescription">描述</label><textarea id="editDescription"></textarea></div>
+    <div class="field"><label for="editLocation">地点</label><input id="editLocation" type="text"></div>
+    <div class="field">
+      <label for="editPriority">优先级</label>
+      <select id="editPriority"><option value="low">低</option><option value="normal">普通</option><option value="high">高</option><option value="urgent">紧急</option></select>
+    </div>
+    <div class="field">
+      <label class="switch-row" for="editStarred"><input id="editStarred" type="checkbox"><span>加入星标</span></label>
+    </div>
+    <div class="field">
+      <label class="switch-row" for="editReminderEnabled"><input id="editReminderEnabled" type="checkbox"><span>到点提醒我</span></label>
+    </div>
+    <div class="field"><label for="editReminder">提醒时间</label><input id="editReminder" type="datetime-local"></div>
+    <div class="field">
+      <label for="editRepeatType">重复</label>
+      <select id="editRepeatType"><option value="norepeat">不重复</option><option value="daily">每天</option><option value="weekly">每周</option><option value="monthly">每月</option></select>
+    </div>
+    <div class="field"><label for="editTags">标签</label><input id="editTags" type="text" placeholder="用逗号分隔"></div>
+    <div class="field">
+      <label>子待办</label>
+      <div id="editSubtasks"></div>
+      <button type="button" class="add-row" style="margin-top:9px;" onclick="addSubtaskRow()">添加步骤</button>
+      <p class="hint" style="margin:9px 0 0;">
+        每一步都能单独设开始、结束时间和提前提醒分钟数。提前量留空就沿用设置里的默认值；没有时间的步骤只是普通清单项。
+      </p>
+    </div>
+    <div class="actions">
+      <button onclick="closeEditor()">取消</button>
+      <button class="primary" onclick="saveEditor()">保存修改</button>
+    </div>
   </div>
 </div>
 
@@ -511,8 +792,8 @@ function renderSubtaskLines(task) {
       (time ? '<span class="sub-time">' + esc(time) + '</span>' : '') +
       '<span class="sub-title">' + esc(sub.title || '(未命名步骤)') + '</span>' +
       (when ? '<span class="sub-hint">⏰ ' + esc(reminderText(when)) + '</span>' : '') +
-      (ongoing ? '<span class="sub-state" style="color:#0a84ff">进行中</span>'
-        : (missed ? '<span class="sub-state" style="color:var(--danger)">已超时</span>' : '')) +
+      (ongoing ? '<span class="sub-state">进行中</span>'
+        : (missed ? '<span class="sub-state">已超时</span>' : '')) +
       '</div>';
   });
   return '<div class="sub-list">' + lines.join('') + '</div>';
@@ -521,7 +802,16 @@ function renderSubtaskLines(task) {
 function renderRow(t) {
   var done = t.status === 'completed';
   var meta = [];
-  meta.push('<span>' + (done ? '已完成' : '截止 ') + esc(fmt(t.endTime)) + '</span>');
+  // 截止时间按紧迫程度着色，和手机端一样：过期红、今天橙，其余保持次要文字色。
+  var endMs = stampMs(t.endTime);
+  var now = new Date();
+  var endAt = endMs ? new Date(endMs) : null;
+  var dueClass = '';
+  if (!done && endAt) {
+    if (endMs < now.getTime()) dueClass = ' class="overdue"';
+    else if (sameDay(endAt, now)) dueClass = ' class="due-soon"';
+  }
+  meta.push('<span' + dueClass + '>' + (done ? '已完成 ' : '截止 ') + esc(fmt(t.endTime)) + '</span>');
   if (t.location) meta.push('<span>📍' + esc(t.location) + '</span>');
   if (t.reminderEnabled && t.reminderTime) meta.push('<span>⏰ 提醒 ' + esc(fmt(t.reminderTime)) + '</span>');
   if (PRIO[t.priority]) meta.push('<span class="prio-' + t.priority + '">' + PRIO[t.priority] + '</span>');
@@ -560,7 +850,8 @@ function render() {
     ? open.filter(function (t) { return t.priority === 'high' || t.priority === 'urgent'; })
     : taskFilter === 'starred' ? tasks.filter(function (t) { return t.starred && t.status !== 'deleted'; }) : open;
   document.getElementById('taskList').innerHTML = shown.length
-    ? shown.map(renderRow).join('') : '<div class="hint">这里还没有任务 🎉</div>';
+    ? shown.map(renderRow).join('')
+    : '<div class="empty-state"><span class="emoji">🎉</span>这里还没有任务</div>';
   document.getElementById('countOpen').textContent = open.length;
   document.getElementById('countDone').textContent = done.length;
 }

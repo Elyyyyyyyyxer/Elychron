@@ -5,7 +5,8 @@ void main() {
   test('LAN panel keeps its critical routes and safety hooks', () {
     expect(lanPanelHtml, contains("fetch('/pair'"));
     expect(lanPanelHtml, contains("api('/bundle'"));
-    expect(lanPanelHtml, contains('position:fixed; right:22px'));
+    // 通知钉在整个浏览器视口的右下角，而不是跟着卡片滚动
+    expect(lanPanelHtml, contains('position: fixed; right: 24px; bottom: 24px;'));
     expect(lanPanelHtml, contains('Notification.requestPermission'));
     expect(lanPanelHtml, contains('AbortController'));
     expect(lanPanelHtml, contains('visibilitychange'));
@@ -56,5 +57,26 @@ void main() {
     expect(lanPanelHtml, contains('function isoLocal('));
     expect(lanPanelHtml, isNot(contains('.toISOString()')));
     expect(lanPanelHtml, contains('stampMs(local.updatedAt) >= stampMs(t.updatedAt)'));
+  });
+
+  test('网页端配色与手机端一致', () {
+    // 强调色必须是手机上那支爱莉希雅粉（main.dart 的 primaryColor: 0xFFFF699A），
+    // 分组背景也要对上 systemGroupedBackground 的浅色 / 深色两版，
+    // 否则网页和手机会像两个 App。
+    expect(lanPanelHtml, contains('--accent: #ff699a'));
+    expect(lanPanelHtml, contains('#f2f2f7'));
+    expect(lanPanelHtml, contains('#1c1c1e'));
+    // 深色模式要跟着系统走，而不是自己另定一套
+    expect(lanPanelHtml, contains('prefers-color-scheme: dark'));
+    // 动效偏好要尊重系统设置
+    expect(lanPanelHtml, contains('prefers-reduced-motion: reduce'));
+  });
+
+  test('网页端保留宽屏工作台与窄屏单栏两种布局', () {
+    expect(lanPanelHtml, contains('grid-template-columns: minmax(0, 340px) minmax(0, 1fr)'));
+    expect(lanPanelHtml, contains('@media (max-width: 900px)'));
+    // 弹层复用一个 sheet 容器，配对与编辑不再各写一套样式
+    expect(lanPanelHtml, contains('class="overlay"'));
+    expect(lanPanelHtml, contains('class="sheet"'));
   });
 }
