@@ -1,5 +1,7 @@
 import 'package:celechron/model/task.dart';
+import 'package:celechron/services/diagnostic_log_service.dart';
 import 'package:flutter/services.dart';
+import 'package:get/get.dart';
 
 /// 把一条待办**交给系统时钟**（而不是我们自己的通知/全屏闹钟）。
 ///
@@ -28,18 +30,40 @@ class SystemAlarm {
   }
 
   /// 让系统时钟在 [at] 响一次。返回是否提交成功。
+  ///
+  /// 结果写进诊断日志：这个功能一旦"没反应"，用户只能看到什么都没发生，
+  /// 有日志才能区分「设备没有处理程序」「系统拒绝了」「提交成功但没响」。
   static Future<bool> set({required DateTime at, required String label}) async {
     try {
-      return await _channel.invokeMethod<bool>('setSystemAlarm', {
-        'hour': at.hour,
-        'minutes': at.minute,
-        'label': label,
-      }) ??
+      final ok = await _channel.invokeMethod<bool>('setSystemAlarm', {
+            'hour': at.hour,
+            'minutes': at.minute,
+            'label': label,
+          }) ??
           false;
-    } on Object {
+      _log(ok, at, ok ? '已提交给系统时钟' : '系统时钟拒绝了这次请求');
+      return ok;
+    } on Object catch (error) {
+      _log(false, at, '调用系统闹钟失败：$error');
       return false;
     }
   }
+
+  static void _log(bool ok, DateTime at, String message) {
+    try {
+      if (!Get.isRegistered<DiagnosticLogService>()) return;
+      Get.find<DiagnosticLogService>().record(
+        level: ok ? CelechronLogLevel.info : CelechronLogLevel.warning,
+        module: '系统闹钟',
+        operation: 'setSystemAlarm',
+        message: '${_two(at.hour)}:${_two(at.minute)} $message',
+      );
+    } catch (_) {
+      // 日志本身不该影响功能
+    }
+  }
+
+  static String _two(int value) => value.toString().padLeft(2, '0');
 }
 
 /// 某条待办交给系统时钟时应该定在几点。返回 null 表示它不适合（不显示在列表里）。
