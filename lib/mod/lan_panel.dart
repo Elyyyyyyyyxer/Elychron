@@ -234,6 +234,7 @@ function setTaskFilter(filter) {
   render();
 }
 function toast(msg) { notify(msg, 'err'); }
+var pendingMutation = null;
 function setStatus(text, kind) {
   var el = document.getElementById('status');
   el.textContent = text;
@@ -279,6 +280,7 @@ function api(path, options, attempt) {
 function showPair(msg) {
   document.getElementById('pair').classList.remove('hidden');
   document.getElementById('pairErr').textContent = msg || '';
+  if (pendingMutation) notify('重新配对后会继续刚才的保存操作', 'info');
 }
 function pair() {
   var code = document.getElementById('codeInput').value.trim();
@@ -293,6 +295,11 @@ function pair() {
     localStorage.setItem('elychron_token', token);
     document.getElementById('pair').classList.add('hidden');
     refresh();
+    if (pendingMutation) {
+      var retry = pendingMutation;
+      pendingMutation = null;
+      setTimeout(retry, 0);
+    }
   }).catch(function (e) { document.getElementById('pairErr').textContent = '' + e; });
 }
 
@@ -571,6 +578,8 @@ function refresh() {
 }
 
 function push(summary) {
+  // 若会话过期，保存动作暂存到重新配对后继续，避免用户修改丢失。
+  pendingMutation = function () { push(summary); };
   // 写入前重新拉取；把本次网页编辑合并到新快照，避免覆盖手机刚产生的改动。
   var edited = JSON.parse(JSON.stringify(bundle));
   return api('/bundle').then(function (fresh) {
@@ -595,6 +604,7 @@ function push(summary) {
       body: JSON.stringify(bundle)
     });
   }).then(function (data) {
+    pendingMutation = null;
     notify((summary ? summary + '，' : '') + '已同步到手机：' + (data.summary || ''), 'ok');
     return refresh();
   }).catch(function (e) { notify('同步失败：' + e, 'err'); });
