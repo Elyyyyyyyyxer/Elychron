@@ -9,6 +9,32 @@ import 'exam.dart';
 import 'grade.dart';
 import 'session.dart';
 
+/// 把「上一次的课程安排」补回本次返回空课表的学期。
+///
+/// 教务的课表接口会**成功但返回空**（选课/排课期间很常见）。这属于没拿到新数据，
+/// 不能拿空课表覆盖已有安排 —— 否则就会出现「上午还有课、刷新一下课表全没了」。
+/// 只会增不会删，所以拿旧数据补进来是安全的。
+///
+/// 返回被补回的学期名，便于调用方记诊断日志。
+List<String> carryOverTimetablesFrom(
+  List<Semester> incoming,
+  List<Semester> previous,
+) {
+  final byName = <String, Semester>{
+    for (final semester in previous) semester.name: semester,
+  };
+  final carried = <String>[];
+  for (final semester in incoming) {
+    final old = byName[semester.name];
+    if (old == null || old.sessions.isEmpty || semester.sessions.isNotEmpty) {
+      continue;
+    }
+    semester.mergePartialFrom(old);
+    carried.add(semester.name);
+  }
+  return carried;
+}
+
 class Semester {
   // 学期名称
   final String name;

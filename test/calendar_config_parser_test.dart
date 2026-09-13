@@ -148,6 +148,78 @@ void main() {
     expect(semester.secondHalfSessionCount, 0);
   });
 
+  test('教务返回空课表时沿用上一次的课程安排（不清空）', () {
+    // 实测故障形态：一次刷新里 8 个学期查询全部返回 0 行，App 把空的学期对象
+    // 整体替换进去，课表就「凭空消失」了（课程列表还在，因为那是别的字段）。
+    Semester withCourse(String name, String id) {
+      final semester = Semester(name);
+      applyCalendarConfig(
+        buildSafeDefaultCalendarConfig(id),
+        semester,
+        <DateTime, String>{},
+        context: '虚构学期',
+      );
+      semester.addSession(
+        Session.fromZdbk({
+          'kcb': '虚构课程<br>虚构教学班<br>虚构教师<br>虚构教室zwf',
+          'sfqd': '1',
+          'xqj': 2,
+          'dsz': '2',
+          'djj': 3,
+          'skcd': 2,
+        }, requestedSeason: '1|秋'),
+        id,
+      );
+      return semester;
+    }
+
+    final previous = [withCourse('2026-2027秋冬', '2026-2027-1')];
+    final incomingEmpty = [Semester('2026-2027秋冬')];
+
+    final carried = carryOverTimetablesFrom(incomingEmpty, previous);
+
+    expect(carried, ['2026-2027秋冬']);
+    expect(incomingEmpty.single.sessions, hasLength(1));
+    expect(incomingEmpty.single.firstHalfSessionCount, greaterThan(0));
+  });
+
+  test('真的没有旧数据时不会被凭空造出课表', () {
+    final incoming = [Semester('2026-2027秋冬')];
+    expect(carryOverTimetablesFrom(incoming, [Semester('2026-2027秋冬')]), isEmpty);
+    expect(incoming.single.sessions, isEmpty);
+  });
+
+  test('非空的新课表照常生效，不会被旧数据顶掉', () {
+    Semester withCourse(String name, String id, int initial) {
+      final semester = Semester(name);
+      applyCalendarConfig(
+        buildSafeDefaultCalendarConfig(id),
+        semester,
+        <DateTime, String>{},
+        context: '虚构学期',
+      );
+      semester.addSession(
+        Session.fromZdbk({
+          'kcb': '虚构课程<br>虚构教学班<br>虚构教师<br>虚构教室zwf',
+          'sfqd': '1',
+          'xqj': 2,
+          'dsz': '2',
+          'djj': initial,
+          'skcd': 2,
+        }, requestedSeason: '1|秋'),
+        id,
+      );
+      return semester;
+    }
+
+    final previous = [withCourse('2026-2027秋冬', '2026-2027-1', 3)];
+    final incoming = [withCourse('2026-2027秋冬', '2026-2027-1', 5)];
+
+    expect(carryOverTimetablesFrom(incoming, previous), isEmpty);
+    expect(incoming.single.sessions, hasLength(1));
+    expect(incoming.single.sessions.single.time, [5, 6]);
+  });
+
   test('diagnostic text removes credentials and URL query values', () {
     final sanitized = DiagnosticLogService.sanitizeForDiagnostic(
       'password=secret | Cookie: session=abc | '

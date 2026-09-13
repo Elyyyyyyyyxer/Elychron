@@ -568,7 +568,19 @@ class Zdbk {
           }
           final sessions =
               _parseSessions(items, context, requestedSeason: semester);
-          _writeCache('zdbk_Timetable$year$semester', jsonEncode(items));
+          // 只缓存**非空**响应：这份原始报文是请求失败时唯一的兜底来源，
+          // 拿一次「成功但 0 行」把它覆盖掉，就等于把上一次好数据也弄没了。
+          if (items.isNotEmpty) {
+            _writeCache('zdbk_Timetable$year$semester', jsonEncode(items));
+          } else {
+            DiagnosticLogService.instance.record(
+              level: CelechronLogLevel.warning,
+              module: '课表',
+              operation: 'emptyResponse',
+              cacheUsed: true,
+              message: '$context：返回 0 行，保留上一次的非空缓存作为兜底',
+            );
+          }
           return Tuple(null, sessions);
         }
         throw ExceptionWithMessage("验证码识别失败");

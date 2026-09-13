@@ -458,6 +458,19 @@ class Scholar {
       majorGpaAndCredit = tempMajorGpaAndCredit;
     }
     if (errorResult[2] == false && tempSemesters.isNotEmpty) {
+      // 教务的课表接口会「成功但返回空」——选课/排课期间相当常见（实测 2026-09-13
+      // 一次刷新里 8 个学期查询全部返回 0 行）。这属于**没拿到新数据**，不能拿空课表
+      // 覆盖已有的课程安排，否则就会出现「上午还有课、刷新一下课表全没了」。
+      final carried = carryOverTimetablesFrom(tempSemesters, semesters);
+      for (final name in carried) {
+        DiagnosticLogService.instance.record(
+          level: CelechronLogLevel.warning,
+          module: '课表',
+          operation: 'cacheFallback',
+          cacheUsed: true,
+          message: '教务本次返回空课表，已沿用上一次的课程安排：$name',
+        );
+      }
       semesters = tempSemesters;
     } else if (tempSemesters.isNotEmpty) {
       // 降级刷新只合并可用片段，避免不完整新对象覆盖已有课表明细。
