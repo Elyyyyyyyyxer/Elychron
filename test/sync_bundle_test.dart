@@ -151,7 +151,7 @@ void main() {
         'tagColors': <String, int>{},
         'secrets': {
           'zju.password': '我的教务网密码',
-          'zju.username': '3260100000',
+          'zju.username': '3200000000',
           SyncSecrets.aiApiKey: 'sk-ok',
         },
         'settings': <String, Object>{},
