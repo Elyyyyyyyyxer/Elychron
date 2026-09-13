@@ -70,6 +70,12 @@ void main() {
     expect(lanPanelHtml, contains('prefers-color-scheme: dark'));
     // 动效偏好要尊重系统设置
     expect(lanPanelHtml, contains('prefers-reduced-motion: reduce'));
+    // 正文用的「深一档」语义色：系统橙 / 系统红 / 强调粉直接当文字用对比度不够
+    // （实测 #ff9500 在白底只有 2.2:1、#ff699a 上压白字只有 2.7:1），
+    // 所以这几处必须走 *-text 令牌，别退回原始色。
+    expect(lanPanelHtml, contains('--warn-text'));
+    expect(lanPanelHtml, contains('--danger-text'));
+    expect(lanPanelHtml, contains('--accent-text'));
   });
 
   test('网页端保留宽屏工作台与窄屏单栏两种布局', () {

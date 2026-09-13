@@ -24,10 +24,15 @@ const String lanPanelHtml = r'''<!DOCTYPE html>
     --line: rgba(60,60,67,.14);
     --line-strong: rgba(60,60,67,.24);
     --text: #000000;
-    --text-2: rgba(60,60,67,.62);
-    --text-3: rgba(60,60,67,.4);
+    --text-2: #6b6b73;
+    --text-3: #6f6f78;
     --accent: #ff699a;
     --accent-strong: #ff4d86;
+    /* 文字专用的深一档颜色：系统橙 / 系统红 / 强调粉直接当正文用对比度不够
+       （#ff9500 在白底只有 2.2:1），这几个值都在 5:1 上下。 */
+    --accent-text: #b8285c;
+    --warn-text: #a85c00;
+    --danger-text: #c92f26;
     --accent-soft: rgba(255,105,154,.12);
     --accent-line: rgba(255,105,154,.3);
     --fill: rgba(118,118,128,.10);
@@ -49,10 +54,13 @@ const String lanPanelHtml = r'''<!DOCTYPE html>
       --line: rgba(84,84,88,.42);
       --line-strong: rgba(120,120,128,.6);
       --text: #ffffff;
-      --text-2: rgba(235,235,245,.62);
-      --text-3: rgba(235,235,245,.36);
+      --text-2: rgba(235,235,245,.68);
+      --text-3: rgba(235,235,245,.58);
       --accent: #ff7da8;
       --accent-strong: #ff699a;
+      --accent-text: #ff9dbe;
+      --warn-text: #ffb340;
+      --danger-text: #ff7b72;
       --accent-soft: rgba(255,125,168,.16);
       --accent-line: rgba(255,125,168,.34);
       --fill: rgba(118,118,128,.22);
@@ -99,11 +107,11 @@ const String lanPanelHtml = r'''<!DOCTYPE html>
     background: var(--fill); color: var(--text-2); white-space: nowrap;
     transition: background .2s ease, color .2s ease;
   }
-  .pill.ok { background: rgba(52,199,89,.14); color: #248a45; }
-  .pill.err { background: rgba(255,59,48,.14); color: #d0362d; }
+  .pill.ok { background: rgba(52,199,89,.14); color: #1a7a3a; }
+  .pill.err { background: rgba(255,59,48,.14); color: #b3261e; }
   @media (prefers-color-scheme: dark) {
     .pill.ok { color: #4cd964; }
-    .pill.err { color: #ff6961; }
+    .pill.err { color: #ff7b72; }
   }
 
   .spacer { flex: 1 1 auto; }
@@ -210,11 +218,11 @@ const String lanPanelHtml = r'''<!DOCTYPE html>
   button:active { transform: scale(.97); }
   button:focus-visible { outline: 3px solid var(--accent-soft); outline-offset: 1px; }
   button.primary {
-    color: #fff; background: linear-gradient(180deg, #ff7ea8, var(--accent));
-    box-shadow: 0 4px 14px rgba(255,105,154,.3);
+    color: #fff; background: linear-gradient(180deg, #f4538a, #e0356f);
+    box-shadow: 0 4px 14px rgba(224,53,111,.3);
   }
-  button.primary:hover { background: linear-gradient(180deg, #ff719f, var(--accent-strong)); }
-  button.danger { color: var(--danger); }
+  button.primary:hover { background: linear-gradient(180deg, #ec437c, #d02a60); }
+  button.danger { color: var(--danger-text); }
   button.danger:hover { background: rgba(255,59,48,.12); }
   button.ghost { background: transparent; color: var(--text-2); }
   button.ghost:hover { background: var(--fill); color: var(--text); }
@@ -262,15 +270,14 @@ const String lanPanelHtml = r'''<!DOCTYPE html>
     display: flex; flex-wrap: wrap; gap: 4px 9px; margin-top: 5px;
     font-size: 12.5px; color: var(--text-2);
   }
-  .meta .due-soon { color: var(--warn); font-weight: 500; }
-  .meta .overdue { color: var(--danger); font-weight: 500; }
+  .meta .due-soon { color: var(--warn-text); font-weight: 500; }
+  .meta .overdue { color: var(--danger-text); font-weight: 600; }
   .tag {
     font-size: 11px; padding: 1px 8px; border-radius: 999px;
-    background: var(--accent-soft); color: var(--accent-strong);
+    background: var(--accent-soft); color: var(--accent-text);
   }
-  @media (prefers-color-scheme: dark) { .tag { color: var(--accent); } }
-  .prio-high { color: var(--warn); }
-  .prio-urgent { color: var(--danger); }
+  .prio-high { color: var(--warn-text); }
+  .prio-urgent { color: var(--danger-text); }
   .empty-state { text-align: center; padding: 34px 16px; color: var(--text-2); }
   .empty-state .emoji { font-size: 30px; display: block; margin-bottom: 8px; }
 
@@ -337,7 +344,7 @@ const String lanPanelHtml = r'''<!DOCTYPE html>
   .sub-item.ongoing { background: rgba(0,122,255,.1); }
   .sub-item.ongoing .sub-title, .sub-item.ongoing .sub-time { color: var(--blue); font-weight: 600; }
   .sub-item.ongoing .sub-state { color: var(--blue); font-weight: 600; }
-  .sub-item.missed .sub-title, .sub-item.missed .sub-time, .sub-item.missed .sub-state { color: var(--danger); }
+  .sub-item.missed .sub-title, .sub-item.missed .sub-time, .sub-item.missed .sub-state { color: var(--danger-text); }
 
   /* ---------------------------------------------------------- 编辑器内的子待办行 */
   #editSubtasks { display: flex; flex-direction: column; gap: 9px; }
@@ -405,7 +412,7 @@ const String lanPanelHtml = r'''<!DOCTYPE html>
     <h2>配对这台电脑</h2>
     <p>配对码显示在手机「局域网同步」页面上，输一次就会记住。</p>
     <input id="codeInput" type="text" inputmode="numeric" maxlength="6" placeholder="000000" autocomplete="off" aria-label="六位配对码">
-    <div id="pairErr" class="hint" style="color:var(--danger); min-height:18px; margin-top:8px;"></div>
+    <div id="pairErr" class="hint" style="color:var(--danger-text); min-height:18px; margin-top:8px;"></div>
     <button class="primary" onclick="pair()">连接手机</button>
   </div>
 </div>
