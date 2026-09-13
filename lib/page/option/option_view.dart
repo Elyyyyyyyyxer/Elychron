@@ -88,7 +88,13 @@ class OptionPage extends StatelessWidget {
                       if (_optionController.scholar.value.isLogan) ...{
                         CupertinoListTile(
                             title: Text(
-                                '已登录: ${_optionController.scholar.value.username}'),
+                                // username 偶尔会是空的（CAS 登录成功但资料没取回来），
+                                // 直接插值会显示成「已登录: null」，很难看。空就只说已登录。
+                                _optionController.scholar.value.username == null ||
+                                        _optionController
+                                            .scholar.value.username!.isEmpty
+                                    ? '已登录'
+                                    : '已登录: ${_optionController.scholar.value.username}'),
                             trailing: BackChervonRow(
                                 child: Text('退出',
                                     style: TextStyle(
