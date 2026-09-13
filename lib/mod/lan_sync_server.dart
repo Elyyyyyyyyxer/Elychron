@@ -129,6 +129,14 @@ class LanSyncServer {
 
   Future<void> _handle(HttpRequest request) async {
     final response = request.response;
+    if (request.method == 'OPTIONS') {
+      response.statusCode = HttpStatus.noContent;
+      response.headers.set('Access-Control-Allow-Origin', '*');
+      response.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+      response.headers.set('Access-Control-Allow-Headers', 'Content-Type, X-Lan-Token');
+      await response.close();
+      return;
+    }
 
     // 只服务同网段的设备：外网/公网地址一律拒绝
     final remote = request.connectionInfo?.remoteAddress;
@@ -271,6 +279,9 @@ class LanSyncServer {
     response.statusCode = status;
     response.headers.contentType =
         ContentType('application', 'json', charset: 'utf-8');
+    response.headers.set('Cache-Control', 'no-store');
+    response.headers.set('Access-Control-Allow-Origin', '*');
+    response.headers.set('Access-Control-Allow-Headers', 'Content-Type, X-Lan-Token');
     response.write(jsonEncode(data));
     await response.close();
   }
@@ -278,6 +289,7 @@ class LanSyncServer {
   Future<void> _text(HttpResponse response, int status, String text) async {
     response.statusCode = status;
     response.headers.contentType = ContentType.text;
+    response.headers.set('Cache-Control', 'no-store');
     response.write(text);
     await response.close();
   }
