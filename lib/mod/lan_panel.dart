@@ -14,6 +14,13 @@ const String lanPanelHtml = r'''<!DOCTYPE html>
     --text: #202027; --muted: #8b8b96; --accent: #ff6b9a;
     --danger: #ff3b30; --ok: #34c759; --warn: #ff9500;
   }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#17171c; --card:#24242b; --line:#3a3a44; --text:#f5f5f7; --muted:#a4a4ad; --accent:#ff7da8; }
+    header { background:rgba(23,23,28,.88); }
+    input, textarea, select { background:#2c2c34 !important; color:var(--text) !important; }
+    #editSubtasks .sub-row { background:#2b2b33; }
+    button { background:var(--card); color:var(--text); }
+  }
   * { box-sizing: border-box; }
   body {
     margin: 0; background: var(--bg); color: var(--text);
