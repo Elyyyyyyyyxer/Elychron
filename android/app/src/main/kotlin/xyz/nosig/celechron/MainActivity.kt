@@ -106,6 +106,16 @@ class MainActivity: FlutterActivity() {
                         openBatterySettings()
                         result.success(null)
                     }
+                    // 把一条待办交给**系统时钟**（优先级等同起床闹钟）。
+                    // 注意：系统只提供「设置」，没有「按标签删除」的接口，
+                    // 所以撤销不了 —— 界面上必须把这一点说清楚。
+                    "canSetSystemAlarm" -> result.success(canSetSystemAlarm())
+                    "setSystemAlarm" -> {
+                        val hour = call.argument<Int>("hour") ?: -1
+                        val minutes = call.argument<Int>("minutes") ?: -1
+                        val label = call.argument<String>("label") ?: "Elychron"
+                        result.success(setSystemAlarm(hour, minutes, label))
+                    }
                     else -> result.notImplemented()
                 }
             }
@@ -171,9 +181,42 @@ class MainActivity: FlutterActivity() {
         }
     }
 
-    /** 国产 ROM（华为/小米等）常把后台闹钟掐掉，电池优化白名单能显著提升可靠性 */
-    private fun isIgnoringBatteryOptimizations(): Boolean {
+    /** 设备上有没有能接收「设置闹钟」的应用（正常都有系统时钟） */
+    private fun canSetSystemAlarm(): Boolean {
         return try {
+            val intent = Intent(android.provider.AlarmClock.ACTION_SET_ALARM)
+            intent.resolveActivity(packageManager) != null
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    /**
+     * 让系统时钟在指定时刻响一个闹钟。
+     *
+     * SKIP_UI=true 表示不打开时钟界面直接设好（需要 SET_ALARM 权限，已在 manifest 声明）。
+     * 返回 false 表示这台设备不认这个请求（少数 ROM 会移掉系统时钟）。
+     */
+    private fun setSystemAlarm(hour: Int, minutes: Int, label: String): Boolean {
+        if (hour !in 0..23 || minutes !in 0..59) return false
+        return try {
+            val intent = Intent(android.provider.AlarmClock.ACTION_SET_ALARM).apply {
+                putExtra(android.provider.AlarmClock.EXTRA_HOUR, hour)
+                putExtra(android.provider.AlarmClock.EXTRA_MINUTES, minutes)
+                putExtra(android.provider.AlarmClock.EXTRA_MESSAGE, label)
+                putExtra(android.provider.AlarmClock.EXTRA_SKIP_UI, true)
+            }
+            if (intent.resolveActivity(packageManager) == null) return false
+            startActivity(intent)
+            true
+        } catch (e: Exception) {
+            android.util.Log.e("CelechronAlarm", "setSystemAlarm failed", e)
+            false
+        }
+    }
+
+    /** 国产 ROM（华为/小米等）常把后台闹钟掐掉，电池优化白名单能显著提升可靠性 */
+    private fun isIgnoringBatteryOptimizations(): Boolean {        return try {
             val manager = getSystemService(PowerManager::class.java)
             manager?.isIgnoringBatteryOptimizations(packageName) ?: false
         } catch (e: Exception) {

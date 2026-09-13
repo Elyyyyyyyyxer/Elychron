@@ -11,6 +11,17 @@
    <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+    <!-- 手动把某条待办交给系统时钟（AlertClock.ACTION_SET_ALARM）：
+         这是 normal 权限，安装即授予，不需要运行时申请 -->
+   <uses-permission android:name="com.android.alarm.permission.SET_ALARM" />
+
+    <!-- Android 11+ 的包可见性：不声明这段，resolveActivity(SET_ALARM) 一律返回 null，
+         于是「没有可用的系统时钟」——真机上就是这么翻车的。声明后才能看见时钟应用。 -->
+   <queries>
+       <intent>
+           <action android:name="android.intent.action.SET_ALARM" />
+       </intent>
+   </queries>
    <application android:label="Elychron" android:name="${applicationName}" android:icon="@mipmap/ic_launcher">
         <activity android:name=".MainActivity" android:exported="true" android:launchMode="singleTop" android:showWhenLocked="true" android:turnScreenOn="true" android:theme="@style/LaunchTheme" android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode" android:hardwareAccelerated="true" android:windowSoftInputMode="adjustResize">
             <!-- Specifies an Android theme to apply to this Activity as soon as

@@ -1,3 +1,4 @@
+import 'package:celechron/design/system_alarm_picker.dart';
 import 'package:celechron/utils/alarm_player.dart';
 import 'package:flutter/cupertino.dart';
 
@@ -71,6 +72,13 @@ Future<void> showAlarmReliabilityDialog(BuildContext context) async {
                       '否则息屏后闹钟可能不响。',
               style: const TextStyle(fontSize: 13),
             ),
+            const SizedBox(height: 10),
+            const Text(
+              '如果某件事「必须叫醒你」，可以手动把它交给**系统时钟**：'
+              '优先级和起床闹钟一样。代价是系统闹钟一次性、且不会随待办删除而撤销，'
+              '所以这里只做手动入口，不做成常驻提醒方式。',
+              style: TextStyle(fontSize: 12.5),
+            ),
           ],
         ),
       ),
@@ -78,6 +86,13 @@ Future<void> showAlarmReliabilityDialog(BuildContext context) async {
         CupertinoDialogAction(
           child: const Text('关闭'),
           onPressed: () => Navigator.of(context).pop(),
+        ),
+        CupertinoDialogAction(
+          child: const Text('系统闹钟'),
+          onPressed: () {
+            Navigator.of(context).pop();
+            showSystemAlarmPicker(context);
+          },
         ),
         CupertinoDialogAction(
           child: const Text('通知设置'),
