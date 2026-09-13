@@ -38,6 +38,7 @@ const String lanPanelHtml = r'''<!DOCTYPE html>
     --warn: #ff9500;
     --shadow-card: 0 1px 2px rgba(0,0,0,.04), 0 8px 24px rgba(0,0,0,.05);
     --shadow-pop: 0 12px 40px rgba(0,0,0,.16);
+    --header-bg: rgba(242,242,247,.78);
   }
   @media (prefers-color-scheme: dark) {
     :root {
@@ -58,8 +59,8 @@ const String lanPanelHtml = r'''<!DOCTYPE html>
       --fill-2: rgba(118,118,128,.32);
       --shadow-card: 0 1px 2px rgba(0,0,0,.3);
       --shadow-pop: 0 16px 48px rgba(0,0,0,.55);
+      --header-bg: rgba(28,28,30,.78);
     }
-    header { background: rgba(28,28,30,.78); }
   }
 
   * { box-sizing: border-box; }
@@ -77,7 +78,7 @@ const String lanPanelHtml = r'''<!DOCTYPE html>
     position: sticky; top: 0; z-index: 20;
     display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
     padding: 12px max(20px, calc((100vw - 1080px) / 2));
-    background: rgba(242,242,247,.78);
+    background: var(--header-bg);
     backdrop-filter: saturate(180%) blur(24px);
     -webkit-backdrop-filter: saturate(180%) blur(24px);
     border-bottom: 1px solid var(--line);
@@ -119,6 +120,13 @@ const String lanPanelHtml = r'''<!DOCTYPE html>
   @media (max-width: 900px) {
     main { grid-template-columns: 1fr; padding: 16px; gap: 14px; }
     header { padding: 10px 16px; }
+  }
+  /* 窄屏把顶栏压成两行：品牌 + 状态，然后搜索框撑满其余空间 */
+  @media (max-width: 620px) {
+    header { gap: 8px; }
+    .spacer { display: none; }
+    .header-search { flex: 1 1 130px; max-width: none; }
+    .tabs { gap: 14px; }
   }
 
   /* ---------------------------------------------------------- 卡片 */
@@ -307,14 +315,15 @@ const String lanPanelHtml = r'''<!DOCTYPE html>
   /* ---------------------------------------------------------- 子待办（只读列表） */
   .sub-list { margin-top: 9px; display: flex; flex-direction: column; gap: 5px; }
   .sub-item {
-    display: flex; align-items: flex-start; gap: 8px;
+    display: flex; align-items: flex-start; gap: 8px; flex-wrap: wrap;
     padding: 6px 10px; border-radius: 9px; background: var(--card-2);
     font-size: 13px;
   }
   .sub-item input[type=checkbox] {
     width: 16px; height: 16px; flex: none; margin: 1px 0 0; accent-color: var(--accent);
   }
-  .sub-item .sub-title { flex: 1; min-width: 0; word-break: break-word; }
+  /* 标题留一个最小宽度：否则窄屏上会被时间和提醒挤成一行一个字 */
+  .sub-item .sub-title { flex: 1 1 7em; min-width: 7em; word-break: break-word; }
   .sub-item .sub-time, .sub-item .sub-hint, .sub-item .sub-state {
     flex: none; color: var(--text-2); font-size: 12px;
     font-variant-numeric: tabular-nums;
