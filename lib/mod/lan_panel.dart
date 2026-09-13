@@ -295,9 +295,14 @@ const String lanPanelHtml = r'''<!DOCTYPE html>
   }
   .sheet h2 { margin: 0 0 4px; font-size: 20px; font-weight: 700; letter-spacing: -.02em; }
   .sheet .sheet-sub { font-size: 13px; color: var(--text-2); margin: 0 0 18px; }
+  /* 表单很长时「保存」不能藏在滚动底部：动作条钉在弹层底部 */
   .sheet .actions {
+    position: sticky; bottom: -22px; z-index: 1;
     display: flex; justify-content: flex-end; gap: 8px;
-    margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--line);
+    margin: 20px -22px -22px; padding: 14px 22px 18px;
+    background: var(--bg-elevated);
+    border-top: 1px solid var(--line);
+    border-radius: 0 0 18px 18px;
   }
 
   /* ---------------------------------------------------------- 配对 */
