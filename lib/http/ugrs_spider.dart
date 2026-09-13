@@ -18,11 +18,13 @@ import 'package:celechron/utils/tuple.dart';
 import 'package:celechron/database/database_helper.dart';
 import 'package:celechron/model/grade.dart';
 import 'package:celechron/model/semester.dart';
+import 'package:celechron/model/session.dart';
 import 'package:flutter/foundation.dart';
 import 'package:celechron/services/diagnostic_log_service.dart';
 
 import 'zjuServices/zjuam.dart';
 import 'zjuServices/zdbk.dart';
+import 'zjuServices/eta.dart';
 import 'zjuServices/sztz.dart';
 
 /// 本科完整刷新编排器；各站点共享统一认证，但独立登录、缓存和降级。
@@ -32,6 +34,7 @@ class UgrsSpider implements Spider {
   late String _password;
   late Courses _courses;
   late Zdbk _zdbk;
+  late Eta _eta;
   late Sztz _sztz;
   late GrsNew _grsNew;
   late TimeConfigService _timeConfigService;
@@ -44,6 +47,31 @@ class UgrsSpider implements Spider {
   Future<List<String?>>? _reloginFuture;
   Future<Cookie?>? _sztzReauthFuture;
   int _loginGeneration = 0;
+
+  /// 本轮刷新里，eta 课表按学年学期缓存，避免同一个学期被重复请求。
+  Map<String, List<Session>> _etaTimetableCache = {};
+
+  /// 教务给不出课表时改问智慧研工。
+  ///
+  /// 只在 zdbk 返回空时才调用（正常路径不多打一次），并且失败一律吞掉 ——
+  /// 兜底来源不可用不该影响整次刷新。
+  Future<List<Session>> _timetableFromEta(String xnxq) async {
+    final cached = _etaTimetableCache[xnxq];
+    if (cached != null) return cached;
+    if (!_eta.isLoggedIn) {
+      _etaTimetableCache[xnxq] = const [];
+      return const [];
+    }
+    try {
+      final value = await _eta.getTimetable(_httpClient, xnxq);
+      final sessions = value.item1 == null ? value.item2 : const <Session>[];
+      _etaTimetableCache[xnxq] = sessions;
+      return sessions;
+    } on Object {
+      _etaTimetableCache[xnxq] = const [];
+      return const [];
+    }
+  }
   static const _retryableFetchErrors = <String>[
     "无法解析",
     "iplanetdirectorypro无效",
@@ -71,6 +99,7 @@ class UgrsSpider implements Spider {
     _httpClient = _createHttpClient();
     _courses = Courses();
     _zdbk = Zdbk();
+    _eta = Eta();
     _sztz = Sztz(accountScope: username);
     _grsNew = GrsNew();
     _timeConfigService = TimeConfigService();
@@ -161,6 +190,9 @@ class UgrsSpider implements Spider {
           onSuccess: () {
         fetchGrs = true;
       }, ignoreError: true),
+      // 智慧研工只是课表的兜底来源，登录失败不影响其它模块
+      captureLogin(_eta.login(candidateClient, candidateSsoCookie), "智慧研工",
+          ignoreError: true),
     ]);
     loginErrorMessages.addAll(serviceErrors);
 
@@ -380,7 +412,9 @@ class UgrsSpider implements Spider {
     var timetableParsed = 0;
     var timetableConfirmed = 0;
     var timetableOnTable = 0;
+    var timetableFromEta = 0;
     _zdbk.timetableRawRowsForDiagnostics = 0;
+    _etaTimetableCache = {};
 
     for (final queryAcademicYearStart
         in timetableYearPlan.yearsFrom(yearEnroll)) {
@@ -506,6 +540,16 @@ class UgrsSpider implements Spider {
               isExpectedTimetableProbeMiss(value.item1)) {
             return null;
           }
+          // 教务在选课/排课期间会「成功但返回空」。这种时候改问智慧研工 ——
+          // 它是同一份课表的另一个来源，实测在 zdbk 空的时候有数据。
+          var fromEta = false;
+          if (sessions.isEmpty && !isProbeYear) {
+            final fallback = await _timetableFromEta(semKey);
+            if (fallback.isNotEmpty) {
+              sessions = fallback;
+              fromEta = true;
+            }
+          }
           sessions.sort((a, b) {
             if (a.dayOfWeek != b.dayOfWeek) {
               return a.dayOfWeek.compareTo(b.dayOfWeek);
@@ -526,6 +570,7 @@ class UgrsSpider implements Spider {
             timetableParsed += sessions.length;
             timetableConfirmed += sessions.where((e) => e.confirmed).length;
             timetableOnTable += onTimetable;
+            if (fromEta) timetableFromEta += sessions.length;
           }
           DiagnosticLogService.instance.record(
             module: '课表',
@@ -848,6 +893,7 @@ class UgrsSpider implements Spider {
                             '解析入库 $timetableParsed 条'
                             '（已确定 $timetableConfirmed 条），'
                             '能显示 $timetableOnTable 条'
+                            '${timetableFromEta > 0 ? '；其中 $timetableFromEta 条来自智慧研工（教务为空时的兜底）' : ''}'
                         : '实时成功'
             : isDegradedRefreshText(fetchErrorMessages[i])
                 ? shortErrorText(fetchErrorMessages[i])
