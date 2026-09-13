@@ -4,6 +4,7 @@ import 'package:celechron/design/date_picker_sheet.dart';
 import 'package:celechron/design/dingtalk_menu.dart';
 import 'package:celechron/design/image_preview.dart';
 import 'package:celechron/design/repeat_sheet.dart';
+import 'package:celechron/design/system_alarm_picker.dart';
 import 'package:celechron/design/tag_picker.dart';
 import 'package:celechron/design/task_priority_color.dart';
 import 'package:celechron/design/task_kind_selector.dart';
@@ -159,6 +160,13 @@ class _TaskEditPageState extends State<TaskEditPage> {
           label: now.starred ? '取消星标' : '星标',
           icon: now.starred ? CupertinoIcons.star_fill : CupertinoIcons.star,
           onTap: () => setState(() => now.starred = !now.starred),
+        ),
+        // 关键事项可以直接交给系统时钟（优先级等同起床闹钟）。
+        // 放在这里而不是只藏在设置里，是因为用户找"更响的提醒"就会来这条待办的菜单。
+        DingTalkMenuItem(
+          label: '设为系统闹钟',
+          icon: CupertinoIcons.alarm,
+          onTap: () => setSystemAlarmForTask(context, now),
         ),
         DingTalkMenuItem(
           label: '删除待办',
