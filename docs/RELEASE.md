@@ -108,7 +108,22 @@
 
 ## 四、签名步骤（只有仓库主本人能做）
 
-### 1. 生成 keystore
+### 0. 记录：证书指纹（**已生成，2026-09-13**）
+
+```text
+DN       : CN=Elychron, O=Elychron, C=CN
+SHA-256  : b2cc42560a1378b9087c7660ff9904c1cef5cb89a12f5eba68faa98a93a771c8
+SHA-1    : ba4ee7956f02c57f419d3ef20836f70c9c66ba42
+keystore : D:\keys\elychron-release.jks（仓库之外，PKCS12，别名 elychron，有效期 10000 天）
+```
+
+- 以后每次发版都用 `apksigner verify --print-certs` 核对 **SHA-256 是否仍是这一串** ——
+  对不上就说明用错 keystore 了（那会导致老用户无法覆盖安装）。
+- keystore 与密码**各备份两处**：丢了 = 所有用户只能卸载重装（待办数据丢失）。
+- 生成脚本：`tools/setup_signing.ps1`（keystore + `android/key.properties` 一步到位；
+  带 `-DryRun` 只预览，支持 `-StorePass` 非交互，且 **stdin 被重定向时会直接报错而不是等输入**）。
+
+### 1. 生成 keystore（已完成，保留原始命令备查）
 
 ```powershell
 # 选一个不在仓库里的目录存放（例如 D:\keys\），密码自己想好
