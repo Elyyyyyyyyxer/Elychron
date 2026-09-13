@@ -133,7 +133,11 @@ class CalendarPage extends StatelessWidget {
       ),
           // ===== 顶部居中的小空心圆：点它翻转「接下来」⇄ 日历 =====
           // （空心态 = 正在看「接下来」；圆心有点 = 正在看日历，点回「接下来」）
-          Positioned(
+          //
+          // 课表模式下**不显示**它：那个圆只管「接下来 ⇄ 日历」这对翻转，
+          // 留在课表上既没用，又会压在标题文字上（「未开学 · 26-27秋冬 秋学期」这种长标题必撞）。
+          if (mode != CalendarViewMode.schedule)
+            Positioned(
             top: 0,
             bottom: 0,
             child: Center(

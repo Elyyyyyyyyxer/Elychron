@@ -28,7 +28,18 @@ import 'package:celechron/model/semester.dart';
 /// - 提供同步状态和统计信息
 
 class CalendarToSystemManager {
-  static const String celechronCalendarName = 'Celechron课表';
+  /// 系统日历里显示的名字。
+  ///
+  /// 历史版本叫「Celechron课表」—— 那个名字会出现在用户的日历 App 里，
+  /// 让人以为装的是官方 Celechron，所以改成本应用的品牌名。
+  static const String elychronCalendarName = 'Elychron课表';
+
+  /// 老名字：升级上来的用户日历里已经存在这一份。
+  ///
+  /// 查找时**必须认领它**（而不是另建一个新日历），否则用户手机上会出现
+  /// 两份课表日历；认领后把它删掉再用新名字重建，事件由同步逻辑重新写入。
+  static const List<String> legacyCalendarNames = ['Celechron课表'];
+
   static const String calendarDescription = '由Elychron自动同步的浙大课程表';
 
   final DeviceCalendarPlugin _deviceCalendarPlugin = DeviceCalendarPlugin();
@@ -116,21 +127,30 @@ class CalendarToSystemManager {
         }
       }
 
-      // 查找是否已存在同名日历
+      // 查找是否已存在同名日历（新名字优先）
       var calendarsResult = await _deviceCalendarPlugin.retrieveCalendars();
       if (calendarsResult.isSuccess) {
-        var existingCalendar = calendarsResult.data!
-            .firstWhereOrNull((cal) => cal.name == celechronCalendarName);
+        final calendars = calendarsResult.data!;
+        var existingCalendar = calendars
+            .firstWhereOrNull((cal) => cal.name == elychronCalendarName);
 
         if (existingCalendar != null) {
           _celechronCalendarId = existingCalendar.id;
           return existingCalendar.id;
         }
+
+        // 认领老版本留下的「Celechron课表」：删掉它（事件由同步逻辑重写），
+        // 再用新名字重建。不认领的话用户手机上会并排出现两份课表日历。
+        final legacy = calendars.firstWhereOrNull(
+            (cal) => legacyCalendarNames.contains(cal.name));
+        if (legacy != null && legacy.id != null) {
+          await _deviceCalendarPlugin.deleteCalendar(legacy.id!);
+        }
       }
 
-      // 创建新的Celechron日历
+      // 创建新的 Elychron 课表日历
       var createResult =
-          await _deviceCalendarPlugin.createCalendar(celechronCalendarName);
+          await _deviceCalendarPlugin.createCalendar(elychronCalendarName);
       if (createResult.isSuccess && createResult.data != null) {
         _celechronCalendarId = createResult.data;
         return _celechronCalendarId;
@@ -335,7 +355,7 @@ class CalendarToSystemManager {
         var calendarsResult = await _deviceCalendarPlugin.retrieveCalendars();
         if (calendarsResult.isSuccess) {
           var existingCalendar = calendarsResult.data!
-              .firstWhereOrNull((cal) => cal.name == celechronCalendarName);
+              .firstWhereOrNull((cal) => cal.name == elychronCalendarName || legacyCalendarNames.contains(cal.name));
           if (existingCalendar != null) {
             _celechronCalendarId = existingCalendar.id;
           }
@@ -373,7 +393,7 @@ class CalendarToSystemManager {
       'syncedCourseCount': _syncedCourseCount, // 课程数量
       'syncedEventCount': _syncedEventCount, // 日程数量
       'calendarId': _celechronCalendarId,
-      'calendarName': celechronCalendarName,
+      'calendarName': elychronCalendarName,
     };
   }
 
@@ -581,7 +601,7 @@ class CalendarToSystemManager {
       var calendarsResult = await _deviceCalendarPlugin.retrieveCalendars();
       if (calendarsResult.isSuccess) {
         var existingCalendar = calendarsResult.data!
-            .firstWhereOrNull((cal) => cal.name == celechronCalendarName);
+            .firstWhereOrNull((cal) => cal.name == elychronCalendarName || legacyCalendarNames.contains(cal.name));
 
         if (existingCalendar != null) {
           // 如果找到了Celechron日历，说明之前可能开启过同步

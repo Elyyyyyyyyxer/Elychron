@@ -30,7 +30,7 @@ class ScheduleView extends StatelessWidget {
     "20:30"
   ];
 
-  Widget _courseSchedule(BuildContext context) {
+  Widget _courseSchedule(BuildContext context, double gridHeight) {
     return RoundRectangleCard(
       child: Column(
         children: [
@@ -125,7 +125,9 @@ class ScheduleView extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           SizedBox(
-            height: 560,
+            // 高度由可用空间算出来（见 build 里的 LayoutBuilder），
+            // 不再写死 560：写死会在矮屏上被底部栏挡住半截，在高屏上又留一大块空白。
+            height: gridHeight,
             child: Obx(
               () {
                 // 开学前也把新学期课表显示出来，只是加一句提示；
@@ -341,11 +343,23 @@ class ScheduleView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-        child: _courseSchedule(context),
-      ),
+    // 课表要「一屏看全」：把网格高度算成可用高度减去留白，
+    // 而不是写死一个值 —— 写死的值在矮屏上会被底部栏挡住下半截。
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // 上下各 16 的页面留白 + 卡片内边距 + 星期表头 ≈ 88
+        const chrome = 88.0;
+        // 太矮时给一个下限，宁可能滚动也不要挤成一条缝
+        final available = constraints.maxHeight - chrome;
+        final gridHeight = available.clamp(380.0, 900.0);
+
+        return SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            child: _courseSchedule(context, gridHeight),
+          ),
+        );
+      },
     );
   }
 }

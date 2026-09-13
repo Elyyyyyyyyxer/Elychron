@@ -78,7 +78,12 @@ android {
 
     buildTypes {
         release {
-            // 有 key.properties 就用正式签名；没有则退回 debug（本地调试仍能构建）
+            // 有 key.properties 就用正式签名；没有则退回 debug。
+            //
+            // 开发期装机自测的用法：把 android/key.properties 临时改名（例如加 .off 后缀）
+            // 再构建，就会得到 debug 签名的包 —— 它和手机上现装的 debug 版同签名，
+            // 能直接覆盖安装而不动数据。正式签名启用后这一步很重要，否则测试只能
+            // 「卸载重装 = 丢数据」。**发布时别忘了改回来**（构建脚本里有核对提示）。
             signingConfig keystorePropertiesFile.exists()
                 ? signingConfigs.release : signingConfigs.debug
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
