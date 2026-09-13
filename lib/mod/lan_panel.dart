@@ -363,7 +363,8 @@ const String lanPanelHtml = r'''<!DOCTYPE html>
   #toast {
     position: fixed; right: 24px; bottom: 24px; z-index: 60;
     width: min(370px, calc(100vw - 32px));
-    display: flex; flex-direction: column-reverse; gap: 9px;
+    /* 从上往下排：最新的那条离屏幕右下角最近，视线不用往上找 */
+    display: flex; flex-direction: column; gap: 9px;
     pointer-events: none;
   }
   .toast-item {
