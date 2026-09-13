@@ -24,6 +24,19 @@ if (flutterVersionName == null) {
     flutterVersionName = '1.0'
 }
 
+// ===== 正式签名配置 =====
+// android/key.properties（已 gitignore）里放 keystore 路径与密码：
+//   storePassword=...  keyPassword=...  keyAlias=elychron
+//   storeFile=D:/keys/elychron-release.jks
+// 文件不存在时自动退回 debug 签名，这样没配签名的人也能正常构建。
+def keystoreProperties = new Properties()
+def keystorePropertiesFile = rootProject.file('key.properties')
+if (keystorePropertiesFile.exists()) {
+    keystorePropertiesFile.withReader('UTF-8') { reader ->
+        keystoreProperties.load(reader)
+    }
+}
+
 android {
     namespace 'xyz.nosig.celechron'
     compileSdkVersion flutter.compileSdkVersion
@@ -52,11 +65,22 @@ android {
         versionName flutterVersionName
     }
 
+    signingConfigs {
+        release {
+            if (keystorePropertiesFile.exists()) {
+                keyAlias = keystoreProperties['keyAlias']
+                keyPassword = keystoreProperties['keyPassword']
+                storeFile = file(keystoreProperties['storeFile'])
+                storePassword = keystoreProperties['storePassword']
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig signingConfigs.debug
+            // 有 key.properties 就用正式签名；没有则退回 debug（本地调试仍能构建）
+            signingConfig keystorePropertiesFile.exists()
+                ? signingConfigs.release : signingConfigs.debug
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
