@@ -18,6 +18,8 @@ import 'task_create_page.dart';
 import 'task_edit_page.dart';
 import 'dart:async';
 import 'package:get/get.dart';
+import 'package:celechron/mod/task_batch_edit.dart';
+import 'package:celechron/design/app_accent.dart';
 
 class TaskPage extends StatelessWidget {
   TaskPage({super.key});
@@ -315,6 +317,11 @@ class TaskPage extends StatelessWidget {
   }
 
   Widget createCard(context, Task deadline, Color color, String? title) {
+    // ===== MOD: 批量编辑模式下的卡片 =====
+    // ・点卡片 = 选中/取消（不再打开详情）
+    // ・屏蔽左右滑动（避免批量选的时候手滑删掉一条）
+    // ・最左边多一个勾选框
+    final batch = TaskBatchEdit.active.value;
     return Column(
       children: [
         title == null
@@ -322,9 +329,11 @@ class TaskPage extends StatelessWidget {
             : SubtitleRow(subtitle: title),
         Dismissible(
           key: Key(deadline.uid),
-          direction: !deadline.isEvent
-              ? DismissDirection.horizontal
-              : DismissDirection.endToStart,
+          direction: batch
+              ? DismissDirection.none
+              : (!deadline.isEvent
+                  ? DismissDirection.horizontal
+                  : DismissDirection.endToStart),
           movementDuration: const Duration(milliseconds: 300),
           resizeDuration: const Duration(milliseconds: 300),
           dismissThresholds: const {
@@ -419,6 +428,11 @@ class TaskPage extends StatelessWidget {
           },
           child: RoundRectangleCard(
             onTap: () async {
+              // ===== MOD: 批量模式下点卡片 = 选中/取消 =====
+              if (TaskBatchEdit.active.value) {
+                TaskBatchEdit.toggle(deadline);
+                return;
+              }
               // 直接导航到编辑页面
               Task? res = await Navigator.of(context, rootNavigator: true).push(
                 CupertinoPageRoute(
@@ -444,6 +458,22 @@ class TaskPage extends StatelessWidget {
                 children: [
                   Row(
                     children: [
+                      // ===== MOD: 批量模式下的勾选框 =====
+                      if (batch)
+                        Obx(() => Padding(
+                              padding: const EdgeInsets.only(right: 4),
+                              child: Icon(
+                                TaskBatchEdit.isSelected(deadline)
+                                    ? CupertinoIcons.checkmark_circle_fill
+                                    : CupertinoIcons.circle,
+                                size: 22,
+                                color: TaskBatchEdit.isSelected(deadline)
+                                    ? AppAccent.primary
+                                    : CupertinoDynamicColor.resolve(
+                                        CupertinoColors.tertiaryLabel,
+                                        context),
+                              ),
+                            )),
                       CupertinoButton(
                         padding: EdgeInsets.zero,
                         minimumSize: const Size(36, 36),
@@ -638,8 +668,11 @@ class TaskPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return CupertinoPageScaffold(
       child: SafeArea(
-        child: CustomScrollView(
-          slivers: [
+        // ===== MOD: 批量编辑时底部浮出操作栏（删除/完成/未完成）=====
+        child: Stack(
+          children: [
+            CustomScrollView(
+              slivers: [
             CupertinoSliverNavigationBar(
               largeTitle: const Text('待办'),
               border: null,
@@ -713,27 +746,14 @@ class TaskPage extends StatelessWidget {
                               _taskController.taskList.refresh();
                             },
                           ),
+                          // ===== MOD: 删掉「暂停所有待办 / 继续所有待办」=====
+                          // 这两个功能属于早期的"时间规划"概念，那个概念已经不存在了，
+                          // 留着只会让人困惑（用户点名要求删除）。
+                          // 换成批量编辑入口 —— 那些事（完成/删除）本来就更常用。
                           DingTalkMenuItem(
-                            label: '暂停所有待办',
-                            icon: CupertinoIcons.pause_circle,
-                            onTap: () {
-                              if (_taskController.suspendAllDeadline(context) >
-                                  0) {
-                                _taskController.updateDeadlineListTime();
-                                _taskController.taskList.refresh();
-                              }
-                            },
-                          ),
-                          DingTalkMenuItem(
-                            label: '继续所有待办',
-                            icon: CupertinoIcons.play_circle,
-                            onTap: () {
-                              if (_taskController.continueAllDeadline(context) >
-                                  0) {
-                                _taskController.updateDeadlineListTime();
-                                _taskController.taskList.refresh();
-                              }
-                            },
+                            label: '批量编辑',
+                            icon: CupertinoIcons.checkmark_alt_circle,
+                            onTap: TaskBatchEdit.enter,
                           ),
                         ],
                       );
@@ -747,6 +767,9 @@ class TaskPage extends StatelessWidget {
             Obx(
               () {
                 final list = _taskController.visibleTaskList;
+                // ===== MOD: 让这段也依赖"批量模式" =====
+                // 否则进了批量模式卡片不会重画（这个 Obx 原本只跟踪列表内容）
+                TaskBatchEdit.active.value;
                 if (list.isEmpty) {
                   return SliverToBoxAdapter(
                     child: SizedBox(
@@ -787,9 +810,19 @@ class TaskPage extends StatelessWidget {
               },
             ),
             SliverToBoxAdapter(
-              child: Container(
-                height: 100,
-              ),
+              // ===== MOD: 批量模式下给底部操作栏留出空间 =====
+              child: Obx(() => Container(
+                    height: TaskBatchEdit.active.value ? 190 : 100,
+                  )),
+            ),
+          ],
+            ),
+            // ===== MOD: 底部操作栏（批量模式下才显示）=====
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: TaskBatchEdit.bar(context, _taskController),
             ),
           ],
         ),
