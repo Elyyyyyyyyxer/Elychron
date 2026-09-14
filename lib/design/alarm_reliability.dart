@@ -1,6 +1,7 @@
 import 'package:celechron/design/system_alarm_picker.dart';
 import 'package:celechron/utils/alarm_player.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:celechron/design/bold_markdown_text.dart';
 
 /// 「闹钟可靠性」检查面板。
 ///
@@ -73,7 +74,7 @@ Future<void> showAlarmReliabilityDialog(BuildContext context) async {
               style: const TextStyle(fontSize: 13),
             ),
             const SizedBox(height: 10),
-            const Text(
+            const BoldMarkdownText(
               '如果某件事「必须叫醒你」，可以手动把它交给**系统时钟**：'
               '优先级和起床闹钟一样。代价是系统闹钟一次性、且不会随待办删除而撤销，'
               '所以这里只做手动入口，不做成常驻提醒方式。',

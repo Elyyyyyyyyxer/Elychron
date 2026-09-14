@@ -152,7 +152,7 @@ class _SystemAlarmSheet extends StatelessWidget {
                       style:
                           TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
                   const SizedBox(height: 4),
-                  Text(
+                  BoldMarkdownText(
                     '只列出还没到点、且设了提醒或时间的待办。'
                     '系统闹钟优先级等同起床闹钟，但**不会随待办撤销**。',
                     style: TextStyle(fontSize: 12.5, color: labelColor),
