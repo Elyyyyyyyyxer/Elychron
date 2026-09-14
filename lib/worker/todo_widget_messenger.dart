@@ -62,7 +62,6 @@ class TodoWidgetMessenger {
     }
   }
 
-  @visibleForTesting
   static bool markCompleted(
     Iterable<Task> tasks,
     Set<String> ids, {
