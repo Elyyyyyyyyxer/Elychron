@@ -7,6 +7,8 @@ import 'package:celechron/model/scholar.dart';
 import '../../worker/ecard_widget_messenger.dart';
 import 'option_controller.dart';
 import 'package:celechron/mod/friendly_error.dart';
+import 'package:celechron/database/database_helper.dart';
+import 'package:celechron/mod/database_mod.dart';
 
 class LoginForm extends StatelessWidget {
   final TextEditingController usernameController = TextEditingController();
@@ -14,7 +16,30 @@ class LoginForm extends StatelessWidget {
   final _optionController = Get.find<OptionController>(tag: 'optionController');
   final buttonPressed = false.obs;
 
-  LoginForm({super.key});
+  /// ===== MOD: 预填上次登录的账号密码 =====
+  ///
+  /// 用户要求：**主动退出登录之后，登录页仍要预填好账号密码**。
+  /// 退出登录会把 `username`/`password` 两个键从密钥库删掉（这是上游行为，
+  /// 我们不动它），所以我们另存了一份 `mod_last_*`，退出不删 → 这里读回来填上。
+  LoginForm({super.key}) {
+    _prefillRememberedAccount();
+  }
+
+  Future<void> _prefillRememberedAccount() async {
+    try {
+      if (!Get.isRegistered<DatabaseHelper>(tag: 'db')) return;
+      final saved =
+          await Get.find<DatabaseHelper>(tag: 'db').rememberedAccount();
+      if (saved.username.isNotEmpty) {
+        usernameController.text = saved.username;
+      }
+      if (saved.password.isNotEmpty) {
+        passwordController.text = saved.password;
+      }
+    } catch (_) {
+      // 读不到就算了，用户手打也不影响
+    }
+  }
 
   @override
   Widget build(BuildContext context) {

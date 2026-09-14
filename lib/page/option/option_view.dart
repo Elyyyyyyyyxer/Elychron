@@ -88,22 +88,43 @@ class OptionPage extends StatelessWidget {
                     children: <Widget>[
                       if (_optionController.scholar.value.isLogan) ...{
                         CupertinoListTile(
-                            title: Text(
-                                // username 偶尔会是空的（CAS 登录成功但资料没取回来），
-                                // 直接插值会显示成「已登录: null」，很难看。空就只说已登录。
-                                _optionController.scholar.value.username == null ||
+                            // ===== MOD: 登录态真的失效时要如实说 =====
+                            // 用户反馈「软件保持着登录状态，但实际上已经连不上了」。
+                            // sessionInvalid 由刷新时检测认证/会话类错误置位（见 Scholar）。
+                            title: Text(_optionController.scholar.value
+                                    .sessionInvalid
+                                ? '登录已失效'
+                                : (_optionController.scholar.value.username ==
+                                                null ||
                                         _optionController
                                             .scholar.value.username!.isEmpty
                                     ? '已登录'
-                                    : '已登录: ${_optionController.scholar.value.username}'),
+                                    : '已登录: ${_optionController.scholar.value.username}')),
+                            subtitle: _optionController
+                                    .scholar.value.sessionInvalid
+                                ? const Text('连不上学校服务器，请点右侧重新登录')
+                                : null,
                             trailing: BackChervonRow(
-                                child: Text('退出',
+                                child: Text(
+                                    _optionController
+                                            .scholar.value.sessionInvalid
+                                        ? '重新登录'
+                                        : '退出',
                                     style: TextStyle(
                                         color: CupertinoDynamicColor.resolve(
                                             CupertinoColors.secondaryLabel,
                                             context),
                                         fontSize: 16))),
                             onTap: () async {
+                              // 登录已失效：点整行直接重新登录（比"退出"更贴近用户意图）
+                              if (_optionController.scholar.value.sessionInvalid) {
+                                showCupertinoModalPopup(
+                                  context: context,
+                                  builder: (BuildContext context) =>
+                                      LoginForm(),
+                                );
+                                return;
+                              }
                               await showCupertinoDialog(
                                   context: context,
                                   builder: (BuildContext dialogContext) {

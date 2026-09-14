@@ -18,6 +18,7 @@ import 'package:celechron/http/spider.dart';
 import 'package:celechron/http/ugrs_spider.dart';
 import 'package:celechron/http/grs_spider.dart';
 import 'package:celechron/database/database_helper.dart';
+import 'package:celechron/mod/database_mod.dart';
 
 class Scholar {
   Scholar();
@@ -31,6 +32,17 @@ class Scholar {
 
   // 登录状态
   bool isLogan = false;
+
+  /// ===== MOD: 登录态是否已失效 =====
+  ///
+  /// 用户反馈：「软件保持了登录状态，但实际上已经连不上了」。
+  /// 原因是 `isLogan` 一旦为 true 就不会因为会话过期而回落，
+  /// 于是界面上一直显示「已登录」，可点进去什么都刷不出来，也没有任何提示。
+  ///
+  /// 所以刷新时如果碰到认证/会话类错误，就把这个标记打开，让界面**如实**显示
+  /// 「登录已失效 · 点这里重新登录」；下次登录成功或刷新成功会自动清掉。
+  bool sessionInvalid = false;
+
   DateTime lastUpdateTimeGrade = DateTime.parse("20010101");
   DateTime lastUpdateTimeCourse = DateTime.parse("20010101");
   DateTime lastUpdateTimeHomework = DateTime.parse("20010101");
@@ -159,6 +171,11 @@ class Scholar {
     if (LoginCriteria.succeeded(loginErrorMessage)) {
       isLogan = true;
       _db?.setScholar(this);
+      // 另存一份账号密码：退出登录时 removeScholar 会把 setScholar 存的那份删掉，
+      // 这份留着给登录页预填（用户要求「主动退出后依然能预填」）。
+      _db?.rememberAccount(username ?? '', password ?? '');
+      // 这次是真连上了，清掉「登录已失效」标记
+      sessionInvalid = false;
     }
     return loginErrorMessage;
   }
@@ -333,6 +350,19 @@ class Scholar {
 
             // 终态补发：最后完成的模块不会触发 onProgress，只能在这里定论
             emitStatuses(value.item2);
+
+            // ===== MOD: 如实记录「登录态是不是真的还能用」=====
+            //
+            // 用户反馈「软件保持了登录状态，但实际上已经连不上了」：
+            // isLogan 不会因为会话过期回落，界面就一直显示已登录。
+            // 这里看一遍这次刷新拿到的错误，是不是认证/会话类问题。
+            final sessionProblem = value.item1.any(
+                  (e) => e != null && LoginCriteria.looksLikeSessionProblem(e),
+                ) ||
+                value.item2.any(
+                  (e) => e != null && LoginCriteria.looksLikeSessionProblem(e),
+                );
+            sessionInvalid = sessionProblem;
 
             await _db?.setScholar(this);
             return value.item2;

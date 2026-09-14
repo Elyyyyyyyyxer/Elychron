@@ -53,4 +53,27 @@ void main() {
     expect(LoginCriteria.moduleNames.length, greaterThanOrEqualTo(6));
     expect(LoginCriteria.moduleNames[LoginCriteria.ssoIndex], '统一身份认证');
   });
+
+  // ===== 登录态失效识别 =====
+  //
+  // 决定界面上显示「已登录」还是「登录已失效」。用户反馈过
+  // 「软件保持着登录状态，但实际上已经连不上了」，所以要既能认出认证类问题，
+  // 又**不能**把某个模块单独抽风误判成登录失效。
+
+  test('认证/会话类错误会被认出来', () {
+    expect(LoginCriteria.looksLikeSessionProblem('未登录'), isTrue);
+    expect(LoginCriteria.looksLikeSessionProblem('未获得 CAS ticket'), isTrue);
+    expect(LoginCriteria.looksLikeSessionProblem('登录已失效，请重新登录'), isTrue);
+    expect(LoginCriteria.looksLikeSessionProblem('用户名或密码错误'), isTrue);
+    expect(LoginCriteria.looksLikeSessionProblem('HTTP 401 Unauthorized'), isTrue);
+    expect(LoginCriteria.looksLikeSessionProblem('无法登录统一身份认证'), isTrue);
+    expect(LoginCriteria.looksLikeSessionProblem('登录态已过期'), isTrue);
+  });
+
+  test('普通模块抽风不会被误判成登录失效', () {
+    expect(LoginCriteria.looksLikeSessionProblem('教务网请求超时'), isFalse);
+    expect(LoginCriteria.looksLikeSessionProblem('素质拓展平台暂时不可用'), isFalse);
+    expect(LoginCriteria.looksLikeSessionProblem('SocketException: 连接被重置'), isFalse);
+    expect(LoginCriteria.looksLikeSessionProblem('接口返回 0 行'), isFalse);
+  });
 }

@@ -29,7 +29,52 @@ const String kDndSavedFilterKey = 'dndSavedFilter';
 /// 一次性迁移的标记：避免每次启动都强行打开「异步刷新」
 const String kAsyncRefreshMigratedKey = 'asyncRefreshDefaultOnMigrated';
 
+/// 「上次登录用的账号密码」——**故意与 username/password 分开存**。
+///
+/// 为什么：退出登录走的是 `removeScholar()`，它会把 `username`/`password`
+/// 两个键从系统密钥库删掉，于是退出后登录页是空的、每次都得重打一遍。
+/// 用户要求「主动退出之后依然能预填账号密码」，所以这里另存一份：
+/// **退出登录不删它**，只有「忘记账号」时才清。
+///
+/// 存的是同一套系统密钥库（Keystore / Keychain），不落明文数据库。
+const String kLastUsernameKey = 'mod_last_username';
+const String kLastPasswordKey = 'mod_last_password';
+
 extension DatabaseModExt on DatabaseHelper {
+  // ===== 记住上次登录的账号密码（退出后仍可预填）=====
+
+  /// 登录成功时调用：把这次用的账号密码另存一份，供以后预填
+  Future<void> rememberAccount(String username, String password) async {
+    if (username.isEmpty && password.isEmpty) return;
+    try {
+      await secureStorage.write(key: kLastUsernameKey, value: username);
+      await secureStorage.write(key: kLastPasswordKey, value: password);
+    } catch (_) {
+      // 密钥库不可用时不影响登录本身
+    }
+  }
+
+  /// 读回上次登录的账号密码（拿不到就返回空串）
+  Future<({String username, String password})> rememberedAccount() async {
+    try {
+      final username =
+          await secureStorage.read(key: kLastUsernameKey) ?? '';
+      final password =
+          await secureStorage.read(key: kLastPasswordKey) ?? '';
+      return (username: username, password: password);
+    } catch (_) {
+      return (username: '', password: '');
+    }
+  }
+
+  /// 用户主动「忘记账号」时清掉（退出登录**不**调用它）
+  Future<void> forgetAccount() async {
+    try {
+      await secureStorage.delete(key: kLastUsernameKey);
+      await secureStorage.delete(key: kLastPasswordKey);
+    } catch (_) {}
+  }
+
   // ===== 一次性迁移：把「异步刷新」改成默认开启 =====
 
   /// 用户反馈：「刷新的时候很卡，都是退出重进才能刷新好，网络请求容易超时」。

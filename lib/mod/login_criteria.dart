@@ -65,4 +65,34 @@ class LoginCriteria {
     return '已登录，但${failed.join('、')}暂时连不上。'
         '这些模块的数据稍后下拉刷新会自动重试，其它功能不受影响。';
   }
+
+  /// 这条错误是不是「登录态本身出问题了」（而不是某个模块单独抽风）。
+  ///
+  /// 用来判断界面上该不该把「已登录」改成「登录已失效」：
+  /// 用户反馈过"软件保持着登录状态，但实际上已经连不上了"，
+  /// 所以只要错误里出现认证/会话相关字样，就认为登录态不可信。
+  static bool looksLikeSessionProblem(String message) {
+    final lower = message.toLowerCase();
+    for (final keyword in _sessionProblemKeywords) {
+      if (lower.contains(keyword)) return true;
+    }
+    return false;
+  }
+
+  static const List<String> _sessionProblemKeywords = <String>[
+    '未登录',
+    '需要登录',
+    '登录已失效',
+    '登录态',
+    '登录过期',
+    '重新登录',
+    'ticket',
+    'cas',
+    '统一身份认证',
+    '身份认证',
+    '用户名或密码',
+    '账号或密码',
+    'unauthorized',
+    '401',
+  ];
 }
