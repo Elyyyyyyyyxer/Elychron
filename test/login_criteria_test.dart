@@ -61,13 +61,12 @@ void main() {
   // 又**不能**把某个模块单独抽风误判成登录失效。
 
   test('认证/会话类错误会被认出来', () {
-    expect(LoginCriteria.looksLikeSessionProblem('未登录'), isTrue);
+    expect(LoginCriteria.looksLikeSessionProblem('无法登录统一身份认证'), isTrue);
     expect(LoginCriteria.looksLikeSessionProblem('未获得 CAS ticket'), isTrue);
     expect(LoginCriteria.looksLikeSessionProblem('登录已失效，请重新登录'), isTrue);
+    expect(LoginCriteria.looksLikeSessionProblem('登录态已过期'), isTrue);
     expect(LoginCriteria.looksLikeSessionProblem('用户名或密码错误'), isTrue);
     expect(LoginCriteria.looksLikeSessionProblem('HTTP 401 Unauthorized'), isTrue);
-    expect(LoginCriteria.looksLikeSessionProblem('无法登录统一身份认证'), isTrue);
-    expect(LoginCriteria.looksLikeSessionProblem('登录态已过期'), isTrue);
   });
 
   test('普通模块抽风不会被误判成登录失效', () {
@@ -75,5 +74,44 @@ void main() {
     expect(LoginCriteria.looksLikeSessionProblem('素质拓展平台暂时不可用'), isFalse);
     expect(LoginCriteria.looksLikeSessionProblem('SocketException: 连接被重置'), isFalse);
     expect(LoginCriteria.looksLikeSessionProblem('接口返回 0 行'), isFalse);
+  });
+
+  // ===== 回归：第一版判据太宽，设置页老是误报「登录已失效」 =====
+  //
+  // 下面是**真实消息原文**（来自代码，不是编的）。它们说的都是"某个子站自己的会话"，
+  // 设计上属于可容忍降级，**绝不能**让整机显示"登录已失效"。
+  group('误报回归：模块自己的会话问题不算用户登录失效', () {
+    test('学在浙大未登录（模块自己的会话）', () {
+      expect(LoginCriteria.looksLikeSessionProblem('学在浙大：未登录'), isFalse);
+    });
+
+    test('智慧研工未登录或会话已失效（模块自己的会话）', () {
+      expect(
+        LoginCriteria.looksLikeSessionProblem('智慧研工未登录或会话已失效'),
+        isFalse,
+      );
+    });
+
+    test('教务网直接抛"未登录"', () {
+      expect(LoginCriteria.looksLikeSessionProblem('未登录'), isFalse);
+    });
+
+    test('错误详情里带 CAS 登录页 URL 不算（这是第一版误报的主因）', () {
+      const withUrl =
+          '无法登录教务网：连接被重置（POST https://zjuam.zju.edu.cn/cas/login → 500）';
+      expect(LoginCriteria.looksLikeSessionProblem(withUrl), isFalse);
+    });
+
+    test('消息里出现 401 这类数字不算（短子串太容易误命中）', () {
+      expect(LoginCriteria.looksLikeSessionProblem('接口返回 401 行数据'), isFalse);
+      expect(LoginCriteria.looksLikeSessionProblem('课程号 0401 不存在'), isFalse);
+    });
+
+    test('提到"统一身份认证"但只是描述过程，不算失效', () {
+      expect(
+        LoginCriteria.looksLikeSessionProblem('已通过统一身份认证，正在获取课表'),
+        isFalse,
+      );
+    });
   });
 }

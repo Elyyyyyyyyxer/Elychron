@@ -353,16 +353,26 @@ class Scholar {
 
             // ===== MOD: 如实记录「登录态是不是真的还能用」=====
             //
-            // 用户反馈「软件保持了登录状态，但实际上已经连不上了」：
-            // isLogan 不会因为会话过期回落，界面就一直显示已登录。
-            // 这里看一遍这次刷新拿到的错误，是不是认证/会话类问题。
-            final sessionProblem = value.item1.any(
-                  (e) => e != null && LoginCriteria.looksLikeSessionProblem(e),
-                ) ||
-                value.item2.any(
-                  (e) => e != null && LoginCriteria.looksLikeSessionProblem(e),
-                );
-            sessionInvalid = sessionProblem;
+            // ⚠️ 判据**必须保守**。第一版扫的是模块错误里的"未登录 / cas / 401"，
+            // 结果设置页老是误报「登录已失效」，而用户其实好好的 —— 因为
+            // 各子站有**自己的**会话（`学在浙大：未登录`、`智慧研工未登录或会话已失效`），
+            // 那些是设计上就容忍的降级（`isDegradedRefreshText` 专门标记它们）。
+            //
+            // 现在只认两件事：
+            //   ① 统一身份认证（CAS）这一路失败 —— 身份本身出了问题；
+            //   ② 措辞明确的凭据/会话失效（见 LoginCriteria）。
+            final ssoMessage = value.item1.length > LoginCriteria.ssoIndex
+                ? value.item1[LoginCriteria.ssoIndex]
+                : null;
+            final ssoFailed =
+                ssoMessage != null && !isDegradedRefreshText(ssoMessage);
+            final credentialProblem = [...value.item1, ...value.item2].any(
+              (e) =>
+                  e != null &&
+                  !isDegradedRefreshText(e) &&
+                  LoginCriteria.looksLikeSessionProblem(e),
+            );
+            sessionInvalid = ssoFailed || credentialProblem;
 
             await _db?.setScholar(this);
             return value.item2;
