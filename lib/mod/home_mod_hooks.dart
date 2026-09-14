@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:celechron/design/dingtalk_menu.dart';
 import 'package:celechron/design/dingtalk_sheet.dart';
+import 'package:celechron/database/database_helper.dart';
+import 'package:celechron/mod/database_mod.dart';
 import 'package:celechron/mod/ai/ai_compose_sheet.dart';
 import 'package:celechron/mod/do_not_disturb.dart';
 import 'package:celechron/mod/ai/ai_image.dart';
@@ -43,6 +45,16 @@ class HomeModHooks {
     // 免打扰兜底：若上次专注期间 App 被系统杀掉，手机可能还停在静音档。
     // 这里发现「我们改过却没还原」就立刻还原（用户自己开的免打扰不会被碰）。
     DoNotDisturb.restoreIfStale();
+    // 一次性迁移：把「异步刷新」改成默认开启（老用户也会被迁移一次）。
+    _migrateOnce();
+  }
+
+  /// 启动时跑一次的一次性迁移（带标记键，幂等，失败不影响启动）
+  void _migrateOnce() {
+    try {
+      if (!Get.isRegistered<DatabaseHelper>(tag: 'db')) return;
+      Get.find<DatabaseHelper>(tag: 'db').migrateAsyncRefreshDefault();
+    } catch (_) {}
   }
 
   void dispose() {
