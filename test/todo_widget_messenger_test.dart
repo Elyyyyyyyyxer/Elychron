@@ -102,7 +102,7 @@ void main() {
 
   test('snapshot limits payload but keeps the total pending count', () {
     final tasks = List.generate(
-      8,
+      TodoWidgetMessenger.maxVisibleTasks + 2,
       (index) => task(
         id: '$index',
         title: '任务 $index',
@@ -112,10 +112,51 @@ void main() {
 
     final snapshot = TodoWidgetMessenger.buildSnapshot(tasks, now: now);
 
-    expect(snapshot['pendingCount'], 8);
+    expect(
+      snapshot['pendingCount'],
+      TodoWidgetMessenger.maxVisibleTasks + 2,
+    );
     expect(
       (snapshot['tasks']! as List<Map<String, Object>>).length,
       TodoWidgetMessenger.maxVisibleTasks,
+    );
+  });
+
+  test('queued widget completion updates the matching task and subtasks', () {
+    final target = task(id: 'target', title: '目标', time: now)
+      ..subtasks = [
+        SubTask(title: '步骤一'),
+        SubTask(title: '步骤二', done: true),
+      ];
+    final untouched = task(id: 'other', title: '其他', time: now);
+    final changed = TodoWidgetMessenger.markCompleted(
+      [target, untouched],
+      {'target', 'missing'},
+      now: now,
+    );
+
+    expect(changed, isTrue);
+    expect(target.status, TaskStatus.completed);
+    expect(target.updatedAt, now);
+    expect(target.subtasks.every((subtask) => subtask.done), isTrue);
+    expect(untouched.status, TaskStatus.running);
+  });
+
+  test('queued widget completion is idempotent', () {
+    final completed = task(
+      id: 'completed',
+      title: '已完成',
+      time: now,
+      status: TaskStatus.completed,
+    );
+
+    expect(
+      TodoWidgetMessenger.markCompleted(
+        [completed],
+        {'completed'},
+        now: now,
+      ),
+      isFalse,
     );
   });
 }

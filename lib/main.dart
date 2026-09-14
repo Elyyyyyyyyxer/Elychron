@@ -39,9 +39,12 @@ void main() async {
   var db = Get.put(DatabaseHelper(), tag: 'db');
   await db.init();
 
+  final taskList = db.getTaskList();
+  await _applyPendingTodoWidgetCompletions(db, taskList);
+
   // 注入数据观察项（相当于事件总线，更新这些变量将导致Widget重绘
   Get.put((await db.getScholar()).obs, tag: 'scholar');
-  Get.put(db.getTaskList().obs, tag: 'taskList');
+  Get.put(taskList.obs, tag: 'taskList');
   Get.put(db.getTaskListUpdateTime().obs, tag: 'taskListLastUpdate');
   Get.put(db.getFlowList().obs, tag: 'flowList');
   Get.put(db.getFlowListUpdateTime().obs, tag: 'flowListLastUpdate');
@@ -66,6 +69,27 @@ void main() async {
   } else {
     unawaited(ECardWidgetMessenger.update());
   }
+}
+
+Future<DateTime?> _applyPendingTodoWidgetCompletions(
+  DatabaseHelper db,
+  List<Task> tasks,
+) async {
+  final ids = await TodoWidgetMessenger.pendingCompletionIds();
+  if (ids.isEmpty) return null;
+
+  final completedAt = DateTime.now();
+  final changed = TodoWidgetMessenger.markCompleted(
+    tasks,
+    ids,
+    now: completedAt,
+  );
+  if (changed) {
+    await db.setTaskList(tasks);
+    await db.setTaskListUpdateTime(completedAt);
+  }
+  await TodoWidgetMessenger.acknowledgeCompletions(ids);
+  return changed ? completedAt : null;
 }
 
 Future<void> _refreshRestoredScholar(Rx<Scholar> scholar) async {
@@ -122,6 +146,7 @@ class _CelechronAppState extends State<CelechronApp>
     with WidgetsBindingObserver {
   Timer? _foregroundLeaseHeartbeat;
   StreamSubscription<Uri>? _appLinkSubscription;
+  bool _applyingWidgetCompletions = false;
 
   @override
   void initState() {
@@ -151,6 +176,7 @@ class _CelechronAppState extends State<CelechronApp>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       _startForegroundLease();
+      unawaited(_consumeTodoWidgetCompletions());
     } else if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.hidden ||
         state == AppLifecycleState.detached) {
@@ -161,6 +187,25 @@ class _CelechronAppState extends State<CelechronApp>
       unawaited(TodoWidgetMessenger.update(
         Get.find<RxList<Task>>(tag: 'taskList'),
       ));
+    }
+  }
+
+  Future<void> _consumeTodoWidgetCompletions() async {
+    if (_applyingWidgetCompletions) return;
+    _applyingWidgetCompletions = true;
+    try {
+      final tasks = Get.find<RxList<Task>>(tag: 'taskList');
+      final completedAt = await _applyPendingTodoWidgetCompletions(
+        Get.find<DatabaseHelper>(tag: 'db'),
+        tasks,
+      );
+      if (completedAt == null) return;
+
+      Get.find<Rx<DateTime>>(tag: 'taskListLastUpdate').value = completedAt;
+      tasks.refresh();
+      await TodoWidgetMessenger.update(tasks);
+    } finally {
+      _applyingWidgetCompletions = false;
     }
   }
 

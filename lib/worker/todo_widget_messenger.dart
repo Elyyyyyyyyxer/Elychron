@@ -19,7 +19,7 @@ class TodoWidgetActionCenter {
 /// Writes a compact, platform-neutral task snapshot for the Android widget.
 class TodoWidgetMessenger {
   static const _channel = MethodChannel('celechron/todoWidget');
-  static const int maxVisibleTasks = 6;
+  static const int maxVisibleTasks = 20;
 
   static Future<void> update(Iterable<Task> tasks) async {
     if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return;
@@ -31,6 +31,56 @@ class TodoWidgetMessenger {
     } on PlatformException {
       // A widget refresh must never block saving the user's task data.
     }
+  }
+
+  static Future<Set<String>> pendingCompletionIds() async {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
+      return const <String>{};
+    }
+    try {
+      final ids =
+          await _channel.invokeListMethod<String>('getPendingCompletions');
+      return ids?.toSet() ?? const <String>{};
+    } on MissingPluginException {
+      return const <String>{};
+    } on PlatformException {
+      return const <String>{};
+    }
+  }
+
+  static Future<void> acknowledgeCompletions(Iterable<String> ids) async {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return;
+    try {
+      await _channel.invokeMethod<void>(
+        'ackCompletions',
+        ids.toList(growable: false),
+      );
+    } on MissingPluginException {
+      // The next app start will retry the queued actions.
+    } on PlatformException {
+      // The next app start will retry the queued actions.
+    }
+  }
+
+  @visibleForTesting
+  static bool markCompleted(
+    Iterable<Task> tasks,
+    Set<String> ids, {
+    required DateTime now,
+  }) {
+    var changed = false;
+    for (final task in tasks) {
+      if (!ids.contains(task.uid) || task.status == TaskStatus.completed) {
+        continue;
+      }
+      task.status = TaskStatus.completed;
+      task.updatedAt = now;
+      for (final subtask in task.subtasks) {
+        subtask.done = true;
+      }
+      changed = true;
+    }
+    return changed;
   }
 
   @visibleForTesting
