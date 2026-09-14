@@ -15,14 +15,12 @@ import 'package:get/get.dart';
 class TaskAlarmCoordinator {
   TaskAlarmCoordinator._();
 
-  /// 已经弹过的待办，避免同一分钟反复弹
-  static final Set<String> _fired = <String>{};
-
-  /// 每秒调用：闹钟模式下，前台到点就弹出全屏闹钟
+  /// 每秒调用：闹钟模式下，前台到点就弹出全屏闹钟。
+  ///
+  /// ⚠️ 「弹过没弹过」由 [TaskAlarmCenter] 按**提醒时刻**记录（不在这里）。
+  /// 曾经这里有个 `_fired` 集合 + `if (current == null) _fired.clear()`，
+  /// 结果是**用户一关掉弹窗就又把记录清空 → 同一分钟内反复弹**（真实反馈 bug）。
   static void tick(List<Task> taskList) {
-    if (TaskAlarmCenter.current.value == null) {
-      _fired.clear();
-    }
     if (TaskReminder.mode != TaskReminder.modeAlarm) return;
     if (TaskAlarmCenter.current.value != null) return;
 
@@ -34,16 +32,18 @@ class TaskAlarmCoordinator {
           task.status != TaskStatus.suspended) {
         continue;
       }
-      // 刚点过「延迟提醒」：延后时间之前不再弹（否则延迟完立刻又响）
+      // 「延迟提醒」之后：以延迟到的那个时刻为准（否则原始提醒时间早就过期，
+      // 下面的"一分钟内"判断会把延迟后的闹钟永远挡掉）
       final snoozedUntil = TaskReminder.snoozedUntil(task.uid);
       if (snoozedUntil != null && snoozedUntil.isAfter(now)) continue;
+      final dueAt = snoozedUntil ?? task.reminderTargetTime;
 
-      final fireAt = task.reminderTargetTime;
-      if (fireAt.isAfter(now)) continue;
-      if (now.difference(fireAt).inMinutes >= 1) continue;
-      if (_fired.contains(task.uid)) continue;
-      _fired.add(task.uid);
-      TaskAlarmCenter.fire(task);
+      if (dueAt.isAfter(now)) continue;
+      // 错过很久的（比如 App 一直被关着）不补弹，避免一打开就炸一串
+      if (now.difference(dueAt).inMinutes >= 1) continue;
+      if (TaskAlarmCenter.hasFired(task, dueAt)) continue;
+
+      TaskAlarmCenter.fire(task, occurrenceAt: dueAt);
       return;
     }
   }

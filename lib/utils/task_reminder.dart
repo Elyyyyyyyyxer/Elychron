@@ -3,9 +3,11 @@ import 'dart:io';
 import 'package:celechron/database/database_helper.dart';
 import 'package:celechron/design/task_detail_nav.dart';
 import 'package:celechron/model/task.dart';
+import 'package:celechron/services/diagnostic_log_service.dart';
 import 'package:celechron/utils/task_alarm_center.dart';
 import 'package:celechron/utils/global.dart';
 import 'package:celechron/utils/time_helper.dart';
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:get/get.dart';
 import 'package:timezone/data/latest.dart' as tzdata;
@@ -159,7 +161,12 @@ class TaskReminder {
     if (task == null) return;
     // 闹钟模式：弹全屏闹钟；通知模式：直接进这条待办的详情页
     if (mode == modeAlarm) {
-      TaskAlarmCenter.fire(task);
+      // 与前台 tick 共用同一套「按提醒时刻去重」（见 TaskAlarmCenter），
+      // 所以点通知弹出来的这次不会被 tick 再弹一遍，反之亦然。
+      TaskAlarmCenter.fire(
+        task,
+        occurrenceAt: _snoozed[task.uid] ?? task.reminderTargetTime,
+      );
     } else {
       await _openTaskDetail(task);
     }
@@ -275,6 +282,38 @@ class TaskReminder {
     }
   }
 
+  /// 排定/取消失败是否写诊断日志。
+  ///
+  /// 只在**失败**时写（成功不写，免得日志被刷爆）——为的是下次有人反馈
+  /// 「闹钟没响」时，诊断报告里能看到到底有没有排上、失败原因是什么。
+  static bool _syncLogEnabled = true;
+
+  @visibleForTesting
+  static set syncLogEnabled(bool value) => _syncLogEnabled = value;
+
+  static void _logScheduled(
+    String what,
+    DateTime when,
+    {required bool ok, Object? error}
+  ) {
+    try {
+      if (!Get.isRegistered<DiagnosticLogService>()) return;
+      final stamp = '${when.month}/${when.day} '
+          '${when.hour.toString().padLeft(2, '0')}:'
+          '${when.minute.toString().padLeft(2, '0')}';
+      Get.find<DiagnosticLogService>().record(
+        level: ok ? CelechronLogLevel.info : CelechronLogLevel.warning,
+        module: '待办提醒',
+        operation: 'schedule',
+        message: ok
+            ? '已排定「$what」于 $stamp'
+            : '排定「$what」（$stamp）失败：$error',
+      );
+    } catch (_) {
+      // 日志本身不该影响提醒
+    }
+  }
+
   /// 把整个任务列表的提醒状态与系统通知对齐。
   static Future<void> syncAll(List<Task> tasks) async {
     if (tasks.isEmpty && _synced.isEmpty) return;
@@ -292,12 +331,17 @@ class TaskReminder {
           await _plugin.cancel(id);
           if (_shouldSchedule(task)) {
             await _requestExactAlarmOnce();
-            await _schedule(task, id, _fireTimeOf(task));
+            final when = _fireTimeOf(task);
+            await _schedule(task, id, when);
+            if (_syncLogEnabled) _logScheduled(task.summary, when, ok: true);
           }
-        } catch (_) {
-          // 失败也记下签名，避免每秒重试刷屏；数据变化或下次启动时会重新同步。
-        } finally {
+          // ⚠️ 只有成功才记签名：失败时留空，下次同步会重试。
+          // （以前放在 finally 里，一次失败就再也不重试 —— 症状就是"闹钟不响"却查不出原因）
           _synced[task.uid] = signature;
+        } catch (error) {
+          if (_syncLogEnabled) {
+            _logScheduled(task.summary, _fireTimeOf(task), ok: false, error: error);
+          }
         }
       }
 
@@ -314,11 +358,19 @@ class TaskReminder {
           if (when != null) {
             await _requestExactAlarmOnce();
             await _scheduleSubtask(task, sub, subId, when);
+            if (_syncLogEnabled) {
+              _logScheduled(sub.title.isEmpty ? task.summary : sub.title, when,
+                  ok: true);
+            }
           }
-        } catch (_) {
-          // 同上：失败也记签名，别每秒重试
-        } finally {
+          // 与任务级同理：成功才记签名，失败留下次重试
           _synced[key] = subSignature;
+        } catch (error) {
+          final when = _subFireTimeOf(task, sub);
+          if (_syncLogEnabled && when != null) {
+            _logScheduled(sub.title.isEmpty ? task.summary : sub.title, when,
+                ok: false, error: error);
+          }
         }
       }
     }
