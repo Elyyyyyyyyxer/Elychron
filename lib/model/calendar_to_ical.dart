@@ -8,6 +8,7 @@ import 'package:celechron/model/location_mapper.dart';
 import 'package:celechron/model/period.dart';
 import 'package:celechron/model/scholar.dart';
 import 'package:celechron/model/semester.dart';
+import 'package:celechron/design/dingtalk_sheet.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:get/get.dart';
 
@@ -366,31 +367,33 @@ class CalendarToIcal {
 
   /// 显示导出课程表对话框
   static void showExportDialog(BuildContext context, Scholar scholar) {
+    // ===== MOD: 换成全 App 统一的钉钉风格弹层（原来是 iOS 原生 ActionSheet）=====
     showCupertinoModalPopup(
       context: context,
-      builder: (BuildContext popupContext) => CupertinoActionSheet(
-        title: const Text('导出课程表'),
-        message: const Text('选择导出方式'),
-        actions: [
-          CupertinoActionSheetAction(
-            onPressed: () {
+      builder: (BuildContext popupContext) => DingTalkSheetShell(
+        title: '导出课程表',
+        subtitle: '选择导出方式；导出的 .ics 可以导入系统日历或其它日历应用',
+        children: [
+          DingTalkSheetRow(
+            label: '导出当前学期',
+            onTap: () {
               Navigator.pop(popupContext);
               exportIcsFile(scholar, context: popupContext);
             },
-            child: const Text('导出当前学期'),
           ),
-          CupertinoActionSheetAction(
-            onPressed: () {
+          DingTalkSheetRow(
+            label: '选择学期导出',
+            subtitle: '可以指定某一学期，或把所有学期一起导出',
+            onTap: () {
               Navigator.pop(popupContext);
               _showSemesterSelectionDialog(context, scholar);
             },
-            child: const Text('选择学期导出'),
+          ),
+          DingTalkSheetCancel(
+            label: '取消',
+            onTap: () => Navigator.pop(popupContext),
           ),
         ],
-        cancelButton: CupertinoActionSheetAction(
-          onPressed: () => Navigator.pop(popupContext),
-          child: const Text('取消'),
-        ),
       ),
     );
   }
@@ -418,32 +421,43 @@ class CalendarToIcal {
     }
 
     /// 显示学期选择对话框 （UI界面）
+    // ===== MOD: 换成钉钉风格弹层 =====
     showCupertinoModalPopup(
       context: context,
-      builder: (BuildContext popupContext) => CupertinoActionSheet(
-        title: const Text('选择学期'),
-        message: const Text('选择要导出的学期'),
-        actions: [
-          ...semesters.map((semester) => CupertinoActionSheetAction(
-                onPressed: () {
-                  Navigator.pop(popupContext);
-                  exportSpecificSemester(scholar, semester,
-                      context: popupContext);
-                },
-                child: Text(semester),
-              )),
-          CupertinoActionSheetAction(
-            onPressed: () {
-              Navigator.pop(popupContext);
-              exportAllSemesters(scholar, context: popupContext);
-            },
-            child: const Text('导出所有学期'),
+      builder: (BuildContext popupContext) => DingTalkSheetShell(
+        title: '选择学期',
+        subtitle: '选一个学期单独导出，或把所有学期一起导出',
+        children: [
+          Flexible(
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (final semester in semesters)
+                    DingTalkSheetRow(
+                      label: semester,
+                      onTap: () {
+                        Navigator.pop(popupContext);
+                        exportSpecificSemester(scholar, semester,
+                            context: popupContext);
+                      },
+                    ),
+                  DingTalkSheetRow(
+                    label: '导出所有学期',
+                    onTap: () {
+                      Navigator.pop(popupContext);
+                      exportAllSemesters(scholar, context: popupContext);
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+          DingTalkSheetCancel(
+            label: '取消',
+            onTap: () => Navigator.pop(popupContext),
           ),
         ],
-        cancelButton: CupertinoActionSheetAction(
-          onPressed: () => Navigator.pop(popupContext),
-          child: const Text('取消'),
-        ),
       ),
     );
   }

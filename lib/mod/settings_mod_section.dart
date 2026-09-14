@@ -1,5 +1,6 @@
 import 'package:celechron/design/alarm_reliability.dart';
 import 'package:celechron/design/alarm_theme_picker.dart';
+import 'package:celechron/design/dingtalk_sheet.dart';
 import 'package:celechron/database/database_helper.dart';
 import 'package:celechron/mod/database_mod.dart';
 import 'package:celechron/mod/do_not_disturb.dart';
@@ -114,28 +115,20 @@ class _ReminderLeadTileState extends State<_ReminderLeadTile> {
   }
 
   Future<void> _pick() async {
-    await showCupertinoModalPopup<void>(
+    // 钉钉风格弹层（原先是 iOS 原生 ActionSheet，风格与 App 其它弹层不一致）
+    final picked = await showDingTalkSheet<int>(
       context: context,
-      builder: (BuildContext context) => CupertinoActionSheet(
-        title: const Text('默认提前多久提醒'),
-        message: const Text('活动按「开始前」算，截止按「截止前」算；提醒型不受影响。'),
-        actions: _options
-            .map((minutes) => CupertinoActionSheetAction(
-                  onPressed: () {
-                    _db?.setReminderLeadMinutes(minutes);
-                    Navigator.of(context).pop();
-                    if (mounted) setState(() {});
-                  },
-                  child: Text(leadLabel(minutes)),
-                ))
-            .toList(),
-        cancelButton: CupertinoActionSheetAction(
-          isDefaultAction: true,
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('取消'),
-        ),
-      ),
+      title: '默认提前多久提醒',
+      subtitle: '活动按「开始前」算，截止按「截止前」算；提醒型不受影响。',
+      current: _minutes,
+      options: [
+        for (final minutes in _options)
+          DingTalkSheetOption(label: leadLabel(minutes), value: minutes),
+      ],
     );
+    if (picked == null) return;
+    _db?.setReminderLeadMinutes(picked);
+    if (mounted) setState(() {});
   }
 
   @override
@@ -232,34 +225,26 @@ class _FocusParamTileState extends State<_FocusParamTile> {
 
   Future<void> _pick({required bool isWork}) async {
     final options = isWork ? _workOptions : _restOptions;
-    await showCupertinoModalPopup<void>(
+    // 钉钉风格弹层（与「默认提醒提前量」统一）
+    final picked = await showDingTalkSheet<int>(
       context: context,
-      builder: (BuildContext context) => CupertinoActionSheet(
-        title: Text(isWork ? '一段专注多久' : '每轮休息多久'),
-        message: Text(isWork
-            ? '默认 60 分钟。到点会自动进入休息。'
-            : '默认 15 分钟。想连着干可以把休息设成「不休息」。'),
-        actions: options
-            .map((minutes) => CupertinoActionSheetAction(
-                  onPressed: () {
-                    if (isWork) {
-                      _db?.setFocusWorkMinutes(minutes);
-                    } else {
-                      _db?.setFocusRestMinutes(minutes);
-                    }
-                    Navigator.of(context).pop();
-                    if (mounted) setState(() {});
-                  },
-                  child: Text(label(minutes)),
-                ))
-            .toList(),
-        cancelButton: CupertinoActionSheetAction(
-          isDefaultAction: true,
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('取消'),
-        ),
-      ),
+      title: isWork ? '一段专注多久' : '每轮休息多久',
+      subtitle: isWork
+          ? '默认 60 分钟。到点会自动进入休息。'
+          : '默认 15 分钟。想连着干可以把休息设成「不休息」。',
+      current: isWork ? _work : _rest,
+      options: [
+        for (final minutes in options)
+          DingTalkSheetOption(label: label(minutes), value: minutes),
+      ],
     );
+    if (picked == null) return;
+    if (isWork) {
+      _db?.setFocusWorkMinutes(picked);
+    } else {
+      _db?.setFocusRestMinutes(picked);
+    }
+    if (mounted) setState(() {});
   }
 
   @override
