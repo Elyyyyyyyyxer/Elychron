@@ -21,6 +21,7 @@ import 'login_page.dart';
 import 'package:celechron/mod/settings_mod_section.dart';
 import 'package:celechron/page/scholar/scholar_view.dart';
 import 'option_controller.dart';
+import 'package:celechron/design/dingtalk_sheet.dart';
 
 const Color _kHeaderFooterColor = CupertinoDynamicColor(
   color: Color.fromRGBO(108, 108, 108, 1.0),
@@ -420,37 +421,33 @@ class OptionPage extends StatelessWidget {
   }
 
   void _showBrightnessPicker(BuildContext context) {
+    // ===== MOD: 换成钉钉风格弹层（并补上"当前选中项"的对勾）=====
     showCupertinoModalPopup(
       context: context,
       builder: (BuildContext context) {
-        return CupertinoActionSheet(
-          actions: <Widget>[
-            CupertinoActionSheetAction(
-              onPressed: () {
-                _optionController.brightnessMode = BrightnessMode.system;
-                Navigator.pop(context);
-              },
-              child: const Text('跟随系统设置'),
-            ),
-            CupertinoActionSheetAction(
-              onPressed: () {
-                _optionController.brightnessMode = BrightnessMode.light;
-                Navigator.pop(context);
-              },
-              child: const Text('亮色模式'),
-            ),
-            CupertinoActionSheetAction(
-              onPressed: () {
-                _optionController.brightnessMode = BrightnessMode.dark;
-                Navigator.pop(context);
-              },
-              child: const Text('暗色模式'),
+        final current = _optionController.brightnessMode;
+        return DingTalkSheetShell(
+          title: '外观模式',
+          subtitle: '跟随系统时会随手机的深浅色自动切换',
+          children: [
+            for (final mode in BrightnessMode.values)
+              DingTalkSheetRow(
+                label: switch (mode) {
+                  BrightnessMode.system => '跟随系统设置',
+                  BrightnessMode.light => '亮色模式',
+                  BrightnessMode.dark => '暗色模式',
+                },
+                selected: current == mode,
+                onTap: () {
+                  _optionController.brightnessMode = mode;
+                  Navigator.pop(context);
+                },
+              ),
+            DingTalkSheetCancel(
+              label: '取消',
+              onTap: () => Navigator.pop(context),
             ),
           ],
-          cancelButton: CupertinoActionSheetAction(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
-          ),
         );
       },
     );

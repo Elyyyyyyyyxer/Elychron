@@ -3,6 +3,7 @@ import 'package:celechron/model/task.dart';
 import 'package:celechron/utils/time_helper.dart';
 import 'package:celechron/utils/utils.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:celechron/design/dingtalk_sheet.dart';
 
 enum RepeatUnit { day, week, month, year }
 
@@ -396,44 +397,23 @@ class _CustomRepeatSheetState extends State<_CustomRepeatSheet> {
   }
 
   Future<void> _pickUnit() async {
-    await showCupertinoModalPopup(
+    // ===== MOD: 换成全 App 统一的钉钉风格弹层（原来是 iOS 原生 ActionSheet）=====
+    final picked = await showDingTalkSheet<RepeatUnit>(
       context: context,
-      builder: (BuildContext context) {
-        return CupertinoActionSheet(
-          title: const Text('重复单位'),
-          actions: RepeatUnit.values.map((unit) {
-            return CupertinoActionSheetAction(
-              onPressed: () {
-                setState(() {
-                  _unit = unit;
-                  final maxValue =
-                      unit == RepeatUnit.month || unit == RepeatUnit.year
-                          ? 12
-                          : 99;
-                  if (_interval > maxValue) _interval = maxValue;
-                });
-                Navigator.of(context).pop();
-              },
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  if (_unit == unit)
-                    const Icon(CupertinoIcons.checkmark_alt,
-                        size: 18, color: CupertinoColors.systemBlue),
-                  if (_unit == unit) const SizedBox(width: 6),
-                  Text(repeatUnitName[unit]!),
-                ],
-              ),
-            );
-          }).toList(),
-          cancelButton: CupertinoActionSheetAction(
-            isDefaultAction: true,
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('取消'),
-          ),
-        );
-      },
+      title: '重复单位',
+      current: _unit,
+      options: [
+        for (final unit in RepeatUnit.values)
+          DingTalkSheetOption(label: repeatUnitName[unit]!, value: unit),
+      ],
     );
+    if (picked == null || !mounted) return;
+    setState(() {
+      _unit = picked;
+      final maxValue =
+          picked == RepeatUnit.month || picked == RepeatUnit.year ? 12 : 99;
+      if (_interval > maxValue) _interval = maxValue;
+    });
   }
 
   Future<void> _pickEndsDate() async {

@@ -25,6 +25,7 @@ import 'grade_detail/grade_detail_view.dart';
 import 'practice_score/practice_score_page.dart';
 import 'scholar_controller.dart';
 import 'package:celechron/page/option/option_controller.dart';
+import 'package:celechron/design/dingtalk_sheet.dart';
 
 Future<void> showRefreshResultDialog(
     BuildContext context, List<String?> results) async {
@@ -189,50 +190,42 @@ class _AppErrorChip extends StatelessWidget {
 
 /// 错误详情面板：列出攒下来的错误 + 「重新获取数据」+「清空」
 Future<void> showAppErrorSheet(BuildContext context) {
-  return showCupertinoModalPopup<void>(
+  // ===== MOD: 换成全 App 统一的钉钉风格面板 =====
+  final entries = AppErrorLog.entries;
+  return showDingTalkPanel(
     context: context,
-    builder: (BuildContext context) => CupertinoActionSheet(
-      title: Text('应用错误（${AppErrorLog.entries.length}）'),
-      message: AppErrorLog.entries.isEmpty
-          ? const Text('暂时没有记录到的错误。')
-          : Text(
-              AppErrorLog.entries
-                  .take(5)
-                  .map(AppErrorLog.summaryOf)
-                  .join('\n\n'),
-              style: const TextStyle(fontSize: 12),
-            ),
-      actions: [
-        CupertinoActionSheetAction(
-          onPressed: () async {
-            Navigator.of(context).pop();
-            try {
-              if (!Get.isRegistered<ScholarController>()) return;
-              final controller = Get.find<ScholarController>();
-              final results = await controller.fetchData();
-              if (context.mounted &&
-                  results.any((result) => result != null)) {
-                await showRefreshResultDialog(context, results);
-              }
-            } catch (_) {}
-          },
-          child: const Text('重新获取数据'),
-        ),
-        CupertinoActionSheetAction(
-          isDestructiveAction: true,
-          onPressed: () {
-            AppErrorLog.clear();
-            Navigator.of(context).pop();
-          },
-          child: const Text('清空错误记录'),
-        ),
-      ],
-      cancelButton: CupertinoActionSheetAction(
-        isDefaultAction: true,
-        onPressed: () => Navigator.of(context).pop(),
-        child: const Text('知道了'),
+    title: '应用错误（${entries.length}）',
+    subtitle: entries.isEmpty ? null : '下面是最近 ${entries.length > 5 ? 5 : entries.length} 条',
+    children: [
+      if (entries.isEmpty)
+        const DingTalkPanelNote('暂时没有记录到的错误。')
+      else
+        for (final entry in entries.take(5))
+          DingTalkPanelNote(AppErrorLog.summaryOf(entry)),
+    ],
+    secondaryActions: [
+      DingTalkPanelAction(
+        label: '重新获取数据',
+        onTap: () async {
+          Navigator.of(context).pop();
+          try {
+            if (!Get.isRegistered<ScholarController>()) return;
+            final controller = Get.find<ScholarController>();
+            final results = await controller.fetchData();
+            if (context.mounted && results.any((result) => result != null)) {
+              await showRefreshResultDialog(context, results);
+            }
+          } catch (_) {}
+        },
       ),
-    ),
+      DingTalkPanelAction(
+        label: '清空错误记录',
+        onTap: () {
+          AppErrorLog.clear();
+          Navigator.of(context).pop();
+        },
+      ),
+    ],
   );
 }
 

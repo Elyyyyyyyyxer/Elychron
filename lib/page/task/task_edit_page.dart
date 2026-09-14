@@ -24,6 +24,7 @@ import 'package:celechron/utils/utils.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart' show LinearProgressIndicator;
 import 'package:get/get.dart';
+import 'package:celechron/design/dingtalk_sheet.dart';
 
 /// 钉钉风格的待办/日程详情页。
 ///
@@ -310,44 +311,22 @@ class _TaskEditPageState extends State<TaskEditPage> {
   }
 
   Future<void> _pickPriority() async {
-    await showCupertinoModalPopup(
+    // ===== MOD: 换成钉钉风格弹层；优先级保留各自的颜色语义 =====
+    final picked = await showDingTalkSheet<TaskPriority>(
       context: context,
-      builder: (BuildContext context) {
-        return CupertinoActionSheet(
-          title: const Text('设置优先级'),
-          actions: TaskPriority.values.map((priority) {
-            return CupertinoActionSheetAction(
-              onPressed: () {
-                setState(() => now.priority = priority);
-                Navigator.of(context).pop();
-              },
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    now.priority == priority
-                        ? CupertinoIcons.checkmark_alt
-                        : null,
-                    size: 18,
-                    color: taskPriorityColor(priority),
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    taskPriorityName[priority]!,
-                    style: TextStyle(color: taskPriorityColor(priority)),
-                  ),
-                ],
-              ),
-            );
-          }).toList(),
-          cancelButton: CupertinoActionSheetAction(
-            isDefaultAction: true,
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('取消'),
+      title: '设置优先级',
+      current: now.priority,
+      options: [
+        for (final priority in TaskPriority.values)
+          DingTalkSheetOption(
+            label: taskPriorityName[priority]!,
+            value: priority,
+            color: taskPriorityColor(priority),
           ),
-        );
-      },
+      ],
     );
+    if (picked == null || !mounted) return;
+    setState(() => now.priority = picked);
   }
 
   // --------------------------------------------------------------- 子待办

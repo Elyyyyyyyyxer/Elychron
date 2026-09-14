@@ -19,12 +19,16 @@ import 'package:flutter/cupertino.dart';
 class DingTalkSheetOption<T> {
   final String label;
   final String? subtitle;
+
+  /// 标签文字的颜色（例如优先级用各自的颜色）；不传就用默认文字色
+  final Color? color;
   final T value;
 
   const DingTalkSheetOption({
     required this.label,
     required this.value,
     this.subtitle,
+    this.color,
   });
 }
 
@@ -99,12 +103,15 @@ class DingTalkSheetShell extends StatelessWidget {
   }
 }
 
-/// 钉钉风格的选择弹层：给一组选项，返回选中的值（取消返回 null）
+/// 钉钉风格的选择弹层：给一组选项，返回选中的值（取消返回 null）。
+///
+/// [current] 传 null 表示**没有预选项**（适合"选择一个动作"这类弹层，
+/// 比如「新建待办 / 添加到已有待办」）；传值时那一项右侧会打粉色对勾。
 Future<T?> showDingTalkSheet<T>({
   required BuildContext context,
   required String title,
   required List<DingTalkSheetOption<T>> options,
-  required T current,
+  T? current,
   String? subtitle,
   String cancelLabel = '取消',
 }) {
@@ -123,7 +130,8 @@ Future<T?> showDingTalkSheet<T>({
                   DingTalkSheetRow(
                     label: option.label,
                     subtitle: option.subtitle,
-                    selected: option.value == current,
+                    labelColorOverride: option.color,
+                    selected: current != null && option.value == current,
                     onTap: () => Navigator.of(context).pop(option.value),
                   ),
               ],
@@ -144,6 +152,9 @@ class DingTalkSheetRow extends StatelessWidget {
   final String label;
   final String? subtitle;
   final bool selected;
+
+  /// 标签文字的覆盖色（例如优先级各自的颜色）
+  final Color? labelColorOverride;
   final VoidCallback? onTap;
 
   const DingTalkSheetRow({
@@ -151,6 +162,7 @@ class DingTalkSheetRow extends StatelessWidget {
     required this.label,
     this.subtitle,
     this.selected = false,
+    this.labelColorOverride,
     this.onTap,
   });
 
@@ -183,7 +195,10 @@ class DingTalkSheetRow extends StatelessWidget {
                 children: [
                   Text(
                     label,
-                    style: TextStyle(fontSize: 16, color: textColor),
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: labelColorOverride ?? textColor,
+                    ),
                   ),
                   if (subtitle != null && subtitle!.isNotEmpty) ...[
                     const SizedBox(height: 2),

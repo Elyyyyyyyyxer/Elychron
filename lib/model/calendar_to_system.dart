@@ -8,6 +8,7 @@ import 'package:celechron/model/location_mapper.dart';
 import 'package:celechron/model/scholar.dart';
 import 'package:celechron/model/period.dart';
 import 'package:celechron/model/semester.dart';
+import 'package:celechron/design/dingtalk_sheet.dart';
 
 /// 系统日历同步管理器
 /// 负责创建和管理Celechron课表在系统日历中的同步
@@ -509,32 +510,35 @@ class CalendarToSystemManager {
 
   /// 显示日历同步选项对话框
   void showCalendarSyncDialog(BuildContext context) {
+    // ===== MOD: 换成全 App 统一的钉钉风格弹层 =====
     showCupertinoModalPopup(
       context: context,
       builder: (BuildContext actionSheetContext) {
-        return CupertinoActionSheet(
-          title: const Text('同步日历选项'),
-          message: const Text('选择日历同步操作'),
-          actions: <Widget>[
-            CupertinoActionSheetAction(
-              onPressed: () {
+        return DingTalkSheetShell(
+          title: '同步日历选项',
+          subtitle: '把课表写进系统日历，或指定学期同步',
+          children: [
+            DingTalkSheetRow(
+              label: '更新当前课表',
+              subtitle: '按当前学期重新写入，已同步的事件会更新',
+              onTap: () {
                 Navigator.pop(actionSheetContext);
                 resyncCalendarEvents(context);
               },
-              child: const Text('更新当前课表'),
             ),
-            CupertinoActionSheetAction(
-              onPressed: () {
+            DingTalkSheetRow(
+              label: '选择学期同步',
+              subtitle: '可以只同步某一学期，或所有学期一起',
+              onTap: () {
                 Navigator.pop(actionSheetContext);
                 _showSemesterSelectionDialog(context);
               },
-              child: const Text('选择学期同步'),
+            ),
+            DingTalkSheetCancel(
+              label: '取消',
+              onTap: () => Navigator.pop(actionSheetContext),
             ),
           ],
-          cancelButton: CupertinoActionSheetAction(
-            onPressed: () => Navigator.pop(actionSheetContext),
-            child: const Text('取消'),
-          ),
         );
       },
     );
@@ -552,29 +556,40 @@ class CalendarToSystemManager {
     showCupertinoModalPopup(
       context: context,
       builder: (BuildContext actionSheetContext) {
-        return CupertinoActionSheet(
-          title: const Text('选择学期'),
-          message: const Text('选择要同步的学期'),
-          actions: [
-            ...semesters.map((semester) => CupertinoActionSheetAction(
-                  onPressed: () {
-                    Navigator.pop(actionSheetContext);
-                    syncSpecificSemester(context, semester);
-                  },
-                  child: Text(semester),
-                )),
-            CupertinoActionSheetAction(
-              onPressed: () {
-                Navigator.pop(actionSheetContext);
-                syncAllSemesters(context);
-              },
-              child: const Text('同步所有学期'),
+        // ===== MOD: 换成钉钉风格弹层 =====
+        return DingTalkSheetShell(
+          title: '选择学期',
+          subtitle: '选一个学期单独同步，或把所有学期一起同步',
+          children: [
+            Flexible(
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    for (final semester in semesters)
+                      DingTalkSheetRow(
+                        label: semester,
+                        onTap: () {
+                          Navigator.pop(actionSheetContext);
+                          syncSpecificSemester(context, semester);
+                        },
+                      ),
+                    DingTalkSheetRow(
+                      label: '同步所有学期',
+                      onTap: () {
+                        Navigator.pop(actionSheetContext);
+                        syncAllSemesters(context);
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            DingTalkSheetCancel(
+              label: '取消',
+              onTap: () => Navigator.pop(actionSheetContext),
             ),
           ],
-          cancelButton: CupertinoActionSheetAction(
-            onPressed: () => Navigator.pop(actionSheetContext),
-            child: const Text('取消'),
-          ),
         );
       },
     );

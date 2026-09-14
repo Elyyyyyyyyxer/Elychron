@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:celechron/design/dingtalk_menu.dart';
+import 'package:celechron/design/dingtalk_sheet.dart';
 import 'package:celechron/mod/ai/ai_compose_sheet.dart';
 import 'package:celechron/mod/do_not_disturb.dart';
 import 'package:celechron/mod/ai/ai_image.dart';
@@ -148,11 +149,39 @@ class HomeModHooks {
         }
       }
 
-      // 切到「待办」页，再弹出新建窗口
+      // 切到「待办」页
       jumpToTaskTab();
       await Future.delayed(const Duration(milliseconds: 260));
       final context = Get.context;
       if (context == null) return;
+
+      // ===== MOD: 先问一句「新建」还是「加到已有待办」=====
+      //
+      // 以前分享进来只能新建一条待办 —— 但"把这张图/这个文件补到已有的那件事上"
+      // 是很常见的诉求（比如往「写报告」里丢一份参考资料），所以加一个去向选择。
+      final target = await showDingTalkSheet<_ShareTarget>(
+        context: context,
+        title: '分享到 Elychron',
+        subtitle: _shareSummary(title, attachments.length),
+        options: const [
+          DingTalkSheetOption(
+            label: '新建待办',
+            subtitle: '把分享的内容做成一条新待办（可继续用 AI 整理）',
+            value: _ShareTarget.create,
+          ),
+          DingTalkSheetOption(
+            label: '添加到已有待办',
+            subtitle: '作为附件与描述追加到某条待办上',
+            value: _ShareTarget.attach,
+          ),
+        ],
+      );
+      if (target == null || !context.mounted) return;
+
+      if (target == _ShareTarget.attach) {
+        await _attachToExistingTask(context, title, attachments);
+        return;
+      }
 
       final now = DateTime.now();
       final end = DateTime(now.year, now.month, now.day, 23, 59);
@@ -221,4 +250,120 @@ class HomeModHooks {
       _handlingShare = false;
     }
   }
+
+  /// 分享内容的一句话摘要（弹层副标题）
+  static String _shareSummary(String text, int fileCount) {
+    final parts = <String>[];
+    if (fileCount > 0) parts.add('$fileCount 个文件');
+    if (text.trim().isNotEmpty) parts.add('一段文字');
+    return parts.isEmpty ? '没有可识别的内容' : '收到 ${parts.join(' 与 ')}';
+  }
+
+  /// 把分享内容（附件 + 文字）追加到用户选中的那条待办上。
+  Future<void> _attachToExistingTask(
+    BuildContext context,
+    String text,
+    List<TaskAttachment> attachments,
+  ) async {
+    final all = Get.find<RxList<Task>>(tag: 'taskList');
+    // 只列「还活着」的待办，按「进行中优先、截止时间近的靠前」排
+    final candidates = all
+        .where((task) =>
+            task.status != TaskStatus.deleted &&
+            task.status != TaskStatus.completed)
+        .toList()
+      ..sort((a, b) {
+        final aRunning = a.status == TaskStatus.running ? 0 : 1;
+        final bRunning = b.status == TaskStatus.running ? 0 : 1;
+        if (aRunning != bRunning) return aRunning - bRunning;
+        return a.endTime.compareTo(b.endTime);
+      });
+
+    if (candidates.isEmpty) {
+      await showDingTalkPanel(
+        context: context,
+        title: '没有可添加的待办',
+        subtitle: '当前没有进行中的待办',
+        children: const [
+          DingTalkPanelNote('先新建一条，下次分享时再选「添加到已有待办」。'),
+        ],
+      );
+      return;
+    }
+
+    // 太多条就截断：列表弹层不是用来翻页的
+    const limit = 15;
+    final shown = candidates.take(limit).toList();
+    final picked = await showDingTalkSheet<Task>(
+      context: context,
+      title: '添加到哪条待办',
+      subtitle: shown.length < candidates.length
+          ? '按截止时间排序，只列出前 $limit 条'
+          : '进行中的排在前面；同组按截止时间由近到远',
+      options: [
+        for (final task in shown)
+          DingTalkSheetOption(
+            label: task.summary.trim().isEmpty ? '(无标题)' : task.summary.trim(),
+            subtitle: _taskLine(task),
+            value: task,
+          ),
+      ],
+    );
+    if (picked == null || !context.mounted) return;
+
+    if (attachments.isNotEmpty) {
+      picked.attachments = <TaskAttachment>[
+        ...picked.attachments,
+        ...attachments,
+      ];
+    }
+    final incoming = text.trim();
+    if (incoming.isNotEmpty) {
+      final old = picked.description.trim();
+      picked.description = old.isEmpty ? incoming : '$old\n$incoming';
+    }
+    picked.updatedAt = DateTime.now();
+
+    // 落库（走控制器：它会写 taskList + 更新时间）并刷新界面
+    final controller = Get.find<TaskController>();
+    controller.updateDeadlineListTime();
+    controller.updateDeadlineList();
+    controller.taskList.refresh();
+
+    if (!context.mounted) return;
+    await showDingTalkPanel(
+      context: context,
+      title: '已添加到待办',
+      children: [
+        DingTalkInfoRow(
+          label: '待办',
+          value:
+              picked.summary.trim().isEmpty ? '(无标题)' : picked.summary.trim(),
+        ),
+        DingTalkInfoRow(label: '附件', value: '共 ${picked.attachments.length} 个'),
+      ],
+      primaryLabel: '好',
+      onPrimary: () => Navigator.of(context).pop(),
+    );
+  }
+
+  /// 待办选择行下面那行小字：类型 + 时间
+  static String _taskLine(Task task) {
+    String two(int v) => v.toString().padLeft(2, '0');
+    final when = task.isMemo
+        ? '无时间'
+        : '${task.endTime.month}月${task.endTime.day}日 '
+            '${two(task.endTime.hour)}:${two(task.endTime.minute)}';
+    final kind = switch (task.type) {
+      TaskType.deadline => '截止',
+      TaskType.fixed => '活动',
+      TaskType.fixedlegacy => '日程',
+      TaskType.remind => '提醒',
+      TaskType.memo => '备忘',
+    };
+    return '$kind · $when';
+  }
 }
+
+/// 分享内容往哪儿去
+enum _ShareTarget { create, attach }
