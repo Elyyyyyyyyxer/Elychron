@@ -92,7 +92,7 @@ class Fuse {
   /// 所以 Gitee 既是分发渠道也是兜底更新源。留空字符串就只查 GitHub。
   ///
   /// ⚠️ 建好 Gitee 仓库后把这里改成实际的 `用户名/仓库名`。
-  static const String giteeRepo = '';
+  static const String giteeRepo = 'P3RF3CT/elychron';
 
   /// 更新检查的源，按顺序尝试（前面失败就试下一个）
   static List<UpdateSource> get updateSources => <UpdateSource>[
