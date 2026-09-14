@@ -65,6 +65,17 @@
                    android:resource="@xml/ecard_widget_info" />
        </receiver>
 
+       <receiver android:name=".TodoWidgetReceiver"
+                 android:label="最近待办"
+                 android:exported="true">
+           <intent-filter>
+               <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+           </intent-filter>
+           <meta-data
+                   android:name="android.appwidget.provider"
+                   android:resource="@xml/todo_widget_info" />
+       </receiver>
+
         <!-- 任务提醒：定时通知的接收器（flutter_local_notifications） -->
         <receiver android:exported="false"
                   android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver" />

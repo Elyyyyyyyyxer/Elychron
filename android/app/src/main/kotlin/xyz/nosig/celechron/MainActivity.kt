@@ -46,6 +46,33 @@ class MainActivity: FlutterActivity() {
             }
         }
 
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "celechron/todoWidget")
+            .setMethodCallHandler { call, result ->
+                if (call.method != "update") {
+                    result.notImplemented()
+                    return@setMethodCallHandler
+                }
+                val snapshot = call.arguments as? String
+                if (snapshot == null) {
+                    result.error("invalid_snapshot", "Missing todo widget snapshot", null)
+                    return@setMethodCallHandler
+                }
+                try {
+                    saveTodoWidgetSnapshot(this, snapshot)
+                } catch (error: Exception) {
+                    result.error("invalid_snapshot", error.message, null)
+                    return@setMethodCallHandler
+                }
+                CoroutineScope(Dispatchers.Main).launch {
+                    try {
+                        TodoWidget().updateAll(this@MainActivity)
+                        result.success(null)
+                    } catch (error: Exception) {
+                        result.error("widget_update_failed", error.message, null)
+                    }
+                }
+            }
+
         // 其它应用「分享」过来的内容
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "celechron/share").setMethodCallHandler {
                 call, result ->
