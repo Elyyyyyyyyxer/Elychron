@@ -42,11 +42,11 @@ class _HomePageState extends State<HomePage> {
 
   // ===== MOD BEGIN: 分享接收 / 闹钟监听 =====
 
-  // ===== MOD BEGIN: 分享接收 / 闹钟（实现见 lib/mod/home_mod_hooks.dart）=====
+  // ===== MOD BEGIN: 分享接收 / 闹钟 / 教程跳转（实现见 lib/mod/home_mod_hooks.dart）=====
   late final HomeModHooks _modHooks = HomeModHooks(
     jumpToTaskTab: () => _pageController.jumpToPage(1),
+    jumpToTab: (int index) => _pageController.jumpToPage(index),
   );
-  // ===== MOD END =====
   // ===== MOD END =====
 
   @override

@@ -13,11 +13,52 @@ import 'package:celechron/page/option/option_controller.dart';
 import 'package:celechron/page/option/option_view.dart' show BackChervonRow;
 import 'package:flutter/cupertino.dart';
 import 'package:get/get.dart';
+import 'package:celechron/tutorial/tutorial_entry.dart';
+import 'package:celechron/tutorial/tutorial_registry.dart';
+import 'package:celechron/tutorial/tutorial_store.dart';
 
 /// ============ 设置页里属于魔改的两个区块 ============
 ///
 /// 上游的 `lib/page/option/option_view.dart` 一直在更新（1.3 就加了 36 行），
 /// 所以把这些声明式的设置行放在这里，那个文件里只留两处挂载（见 `// ===== MOD =====`）。
+
+/// 教程中心的入口区块。
+///
+/// 教程内容在 `lib/tutorial/modules/` 下，**加一篇教程不需要改这个文件** ——
+/// 这里只负责"入口"，列表由 `TutorialCenterPage` 按注册表自动生成。
+Widget modTutorialSection(
+  BuildContext context, {
+  required TextStyle? headerStyle,
+  required EdgeInsetsGeometry margin,
+}) =>
+    SliverToBoxAdapter(
+        child: CupertinoListSection.insetGrouped(
+            additionalDividerMargin: 2,
+            margin: margin,
+            header: Container(
+                padding: const EdgeInsets.only(left: 16),
+                child: Text('教程', style: headerStyle)),
+            children: <CupertinoListTile>[
+          CupertinoListTile(
+            title: const Text('使用教程'),
+            subtitle: Text(_tutorialSubtitle()),
+            trailing: const BackChervonRow(),
+            onTap: () => openTutorialCenter(context),
+          ),
+        ]));
+
+/// 副标题：让用户一眼看到"还有几篇没看"
+String _tutorialSubtitle() {
+  try {
+    final pending = TutorialStore.instance.pending().length;
+    final total = TutorialRegistry.all.length;
+    if (total == 0) return '教程还在写';
+    if (pending == 0) return '共 $total 篇，都看过了';
+    return '共 $total 篇，还有 $pending 篇没看';
+  } catch (_) {
+    return '按功能一篇篇看，随时可以重看';
+  }
+}
 
 /// 是否开放「局域网同步」（多端协同）入口。
 ///

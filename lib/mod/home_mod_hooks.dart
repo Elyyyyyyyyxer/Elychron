@@ -20,6 +20,8 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart' show Icons;
 import 'package:get/get.dart';
 import 'package:celechron/page/option/option_controller.dart';
+import 'package:celechron/tutorial/tutorial_model.dart';
+import 'package:celechron/tutorial/tutorial_router.dart';
 
 /// ============ 首页的魔改钩子：分享接收 + 闹钟弹出 ============
 ///
@@ -27,10 +29,16 @@ import 'package:celechron/page/option/option_controller.dart';
 /// PageView + _KeepAlivePage），所以魔改逻辑不塞在那个文件里，
 /// 而是集中在这里；首页只保留 3 行挂载（见 `// ===== MOD =====` 标记）。
 class HomeModHooks {
-  HomeModHooks({required this.jumpToTaskTab});
+  HomeModHooks({
+    required this.jumpToTaskTab,
+    required this.jumpToTab,
+  });
 
-  /// 切到「待办」标签页（首页那边是 _pageController.jumpToPage(2)）
+  /// 切到「待办」标签页（首页那边是 _pageController.jumpToPage(1)）
   final void Function() jumpToTaskTab;
+
+  /// 切到任意底部标签（教程的"去试试"按钮要用）
+  final void Function(int index) jumpToTab;
 
   StreamSubscription<List<SharedItem>>? _shareSubscription;
   bool _handlingShare = false;
@@ -52,7 +60,31 @@ class HomeModHooks {
     // 不补的话他们一退出登录就没得预填。控制器可能还没注册，所以延后再试一次。
     _backfillRememberedAccount();
     Future<void>.delayed(const Duration(seconds: 3), _backfillRememberedAccount);
+    // 教程里的「去试试」按钮要能跳到对应页面（映射集中在这里，教程内容保持纯数据）
+    _wireTutorialRouter();
   }
+
+  /// 把教程的行动按钮接到真实的页面跳转上
+  void _wireTutorialRouter() {
+    TutorialRouter.instance.handler = (TutorialTarget target) {
+      switch (target) {
+        case TutorialTarget.taskList:
+          jumpToTaskTab();
+        case TutorialTarget.calendar:
+          _jumpToTab(0); // 日程
+        case TutorialTarget.focus:
+          _jumpToTab(2); // 专注
+        case TutorialTarget.settings:
+        case TutorialTarget.dataSection:
+        case TutorialTarget.aiSettings:
+          _jumpToTab(4); // 设置（数据/教程/AI 都在设置里）
+        }
+    };
+  }
+
+  /// 切到某个底部标签（索引与 `home_page.dart` 的 PageView 顺序一致：
+  /// 0 日程 / 1 待办 / 2 专注 / 3 学业 / 4 设置）
+  void _jumpToTab(int index) => jumpToTab(index);
 
   /// 把当前已登录的账号密码补记一份，供退出后预填（幂等）
   void _backfillRememberedAccount() {
