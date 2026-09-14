@@ -152,6 +152,9 @@
 - 新增 `lib/design/app_accent.dart` 作为**唯一来源**，替换掉散在 8 个文件里的 16 处硬编码粉色
 - 暴露 `primary / primaryLight / primaryDeep / primaryText / onPrimary / soft()` +
   `configure(color)` / `resetToDefault()`
+- ⚠️ 校验时注意：全仓库搜 `0xFFFF699A` 现在仍会命中 **2 处，都是对的** ——
+  一处是 `app_accent.dart` 顶部注释（记录这次改造的历史），一处是
+  `static const Color defaultPrimary = Color(0xFFFF699A);` 本身。**别把它当成漏改**
 - ⚠️ **故意不用 `const`**：const 常量在"运行时换色"时每个 const 上下文都要改；
   现在用 getter，将来加设置项只需接 UI + 持久化，**调用点一行都不用改**
 - 5 条测试锁住这个 API
