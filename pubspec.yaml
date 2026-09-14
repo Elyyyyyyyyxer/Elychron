@@ -1,7 +1,7 @@
 name: celechron
 description: Elychron —— Celechron 的非官方改版：四种时间语义、子待办行程表、专注计时与统计、AI 整理。
 publish_to: "none"
-version: 1.4.0-elychron.1+5
+version: 1.4.1-elychron.1+6
 environment:
   sdk: ">=3.0.0"
 
