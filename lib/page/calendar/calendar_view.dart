@@ -1,4 +1,5 @@
 import 'package:celechron/design/card_flip.dart';
+import 'package:celechron/design/bold_markdown_text.dart';
 import 'package:celechron/design/custom_decoration.dart';
 import 'package:celechron/design/sub_title.dart';
 import 'package:celechron/design/task_priority_color.dart';
@@ -537,7 +538,7 @@ class CalendarPage extends StatelessWidget {
                       ),
                       const SizedBox(width: 8.0),
                       Expanded(
-                        child: Text(
+                        child: BoldMarkdownText(
                           task.summary.isEmpty ? '(未命名待办)' : task.summary,
                           style: CupertinoTheme.of(context)
                               .textTheme
@@ -569,7 +570,7 @@ class CalendarPage extends StatelessWidget {
                       ),
                     ),
                   if (task.location.isNotEmpty)
-                    Text(
+                    BoldMarkdownText(
                       '地点 ${task.location}',
                       style: TextStyle(fontSize: 14, color: labelColor),
                     ),
@@ -658,7 +659,7 @@ class CalendarPage extends StatelessWidget {
                       ),
                       const SizedBox(width: 8.0),
                       Expanded(
-                        child: Text(
+                        child: BoldMarkdownText(
                           period.summary,
                           style: CupertinoTheme.of(context)
                               .textTheme
@@ -716,7 +717,7 @@ class CalendarPage extends StatelessWidget {
                         ),
                         const SizedBox(width: 6.0),
                         Expanded(
-                          child: Text(
+                          child: BoldMarkdownText(
                             '地点：${period.location}',
                             style: TextStyle(
                               fontSize: 14,

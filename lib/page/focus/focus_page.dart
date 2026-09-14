@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:celechron/database/database_helper.dart';
+import 'package:celechron/design/bold_markdown_text.dart';
 import 'package:celechron/model/focus_engine.dart';
 import 'package:celechron/model/focus_session.dart';
 import 'package:celechron/model/task.dart';
@@ -337,7 +338,7 @@ class _FocusPageState extends State<FocusPage> {
               ),
             ),
             const SizedBox(height: 18),
-            Text(
+            BoldMarkdownText(
               '$roundText · $_label',
               textAlign: TextAlign.center,
               style: TextStyle(

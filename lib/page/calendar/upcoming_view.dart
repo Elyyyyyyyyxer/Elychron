@@ -1,4 +1,5 @@
 import 'package:celechron/design/round_rectangle_card.dart';
+import 'package:celechron/design/bold_markdown_text.dart';
 import 'package:celechron/design/task_detail_nav.dart';
 import 'package:celechron/model/upcoming.dart';
 import 'package:celechron/utils/time_helper.dart';
@@ -167,7 +168,7 @@ class UpcomingView extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 8),
-                Text(
+                BoldMarkdownText(
                   item.title,
                   style: TextStyle(
                     fontSize: 28,
@@ -219,7 +220,7 @@ class UpcomingView extends StatelessWidget {
           ),
           const SizedBox(width: 6),
           Expanded(
-            child: Text(
+            child: BoldMarkdownText(
               text,
               style: TextStyle(fontSize: size, color: textColor),
             ),
@@ -257,7 +258,7 @@ class UpcomingView extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
+                  BoldMarkdownText(
                     item.title,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
@@ -323,8 +324,8 @@ class UpcomingView extends StatelessWidget {
     showCupertinoModalPopup<void>(
       context: context,
       builder: (BuildContext context) => CupertinoActionSheet(
-        title: Text(period.summary),
-        message: Text(
+        title: BoldMarkdownText(period.summary),
+        message: BoldMarkdownText(
           [
             period.friendlyTimeStartDayBased,
             if (period.location.trim().isNotEmpty) period.location.trim(),

@@ -10,6 +10,7 @@ import 'package:celechron/utils/attachment_helper.dart';
 import 'package:celechron/utils/time_helper.dart';
 import 'package:celechron/utils/utils.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:celechron/design/bold_markdown_text.dart';
 import 'package:flutter/material.dart' show Icons;
 import 'package:celechron/mod/ai/ai_compose_sheet.dart';
 import 'package:celechron/mod/ai/ai_task_draft.dart';
@@ -761,13 +762,13 @@ class _TaskCreatePageState extends State<TaskCreatePage> {
                                   crossAxisAlignment:
                                       CrossAxisAlignment.start,
                                   children: [
-                                    Text(
+                                    BoldMarkdownText(
                                       sub.title.isEmpty ? '(未命名步骤)' : sub.title,
                                       style: TextStyle(
                                           fontSize: 15, color: textColor),
                                     ),
                                     if (meta.isNotEmpty)
-                                      Text(
+                                      BoldMarkdownText(
                                         meta.join(' · '),
                                         style: TextStyle(
                                             fontSize: 12, color: labelColor),

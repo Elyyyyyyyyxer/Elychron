@@ -3,6 +3,7 @@ import 'package:celechron/mod/ai/ai_task_draft.dart';
 import 'package:celechron/mod/ai/deepseek.dart';
 import 'package:celechron/model/task.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:celechron/design/bold_markdown_text.dart';
 
 /// AI 不可用时的提示；返回是否已经可以继续用 AI。
 Future<bool> _ensureAiReady(BuildContext context) async {
@@ -154,7 +155,7 @@ Future<bool?> _preview(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
+                    BoldMarkdownText(
                       step.timeLabel.isEmpty
                           ? '· ${step.title}'
                           : '· ${step.timeLabel}  ${step.title}',
@@ -163,7 +164,7 @@ Future<bool?> _preview(
                     if (step.location.isNotEmpty || step.note.isNotEmpty)
                       Padding(
                         padding: const EdgeInsets.only(left: 12),
-                        child: Text(
+                        child: BoldMarkdownText(
                           [
                             if (step.location.isNotEmpty) step.location,
                             if (step.note.isNotEmpty) step.note,

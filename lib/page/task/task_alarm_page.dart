@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:ui';
 
 import 'package:celechron/design/alarm_theme.dart';
+import 'package:celechron/design/bold_markdown_text.dart';
 import 'package:celechron/database/database_helper.dart';
 import 'package:celechron/mod/database_mod.dart';
 import 'package:celechron/model/task.dart';
@@ -168,7 +169,7 @@ class _TaskAlarmPageState extends State<TaskAlarmPage> {
                                 color: theme.primary,
                               ),
                               const SizedBox(height: 14),
-                              Text(
+                              BoldMarkdownText(
                                 task.summary.isEmpty ? '(未命名待办)' : task.summary,
                                 textAlign: TextAlign.center,
                                 style: TextStyle(
@@ -188,7 +189,7 @@ class _TaskAlarmPageState extends State<TaskAlarmPage> {
                               ),
                               if (task.description.isNotEmpty) ...[
                                 const SizedBox(height: 8),
-                                Text(
+                                BoldMarkdownText(
                                   task.description,
                                   textAlign: TextAlign.center,
                                   maxLines: 3,
