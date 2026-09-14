@@ -5,6 +5,7 @@ import 'package:celechron/http/zjuServices/exceptions.dart';
 import 'package:celechron/page/option/option_controller.dart';
 import 'package:celechron/services/diagnostic_log_service.dart';
 import 'package:celechron/services/refresh_coordinator.dart';
+import 'package:celechron/mod/login_criteria.dart';
 import 'package:celechron/utils/json_utils.dart';
 import 'package:celechron/model/practice_score_item.dart';
 
@@ -151,7 +152,11 @@ class Scholar {
     }
     _spider!.db = _db;
     var loginErrorMessage = await _spider!.login();
-    if (loginErrorMessage.every((e) => e == null)) {
+    // ===== MOD: 判据只看统一身份认证 =====
+    // 原来是「6 项全为 null 才算登录成功」，任何一个子站抽风都会让人登不进来
+    // （实测：教务网故障导致首次登录直接失败，而身份认证其实已经通过）。
+    // 现在身份通过即算登录成功，子站失败降级为「部分模块暂不可用」，见 LoginCriteria。
+    if (LoginCriteria.succeeded(loginErrorMessage)) {
       isLogan = true;
       _db?.setScholar(this);
     }

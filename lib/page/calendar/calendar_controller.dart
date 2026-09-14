@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:celechron/model/task.dart';
 import 'package:celechron/utils/utils.dart';
 import 'package:get/get.dart';
@@ -42,11 +43,31 @@ class CalendarController extends GetxController {
     return '考试周/假期';
   }
 
+  /// 「接下来」的**心跳**：定时跳一下，让倒计时与排序不会停在旧值。
+  ///
+  /// 背景：这一页原先没有任何定时器，`还有 N 分钟` 只在"页面碰巧重建"时才算一次。
+  /// 实测出现过状态栏已经 13:16、卡片还写着「还有 24 分钟」（那是 13:01 的旧值）。
+  /// 现在每 20 秒跳一次（只在看「接下来」时跳，课表/日历没有倒计时，不必跟着重建）。
+  final upcomingTick = 0.obs;
+  Timer? _tickTimer;
+
   @override
   void onInit() {
     refreshEvents();
     ever(scholar, (callback) => refreshEvents());
+    _tickTimer = Timer.periodic(const Duration(seconds: 20), (_) {
+      if (viewMode.value == CalendarViewMode.upcoming) {
+        upcomingTick.value++;
+      }
+    });
     super.onInit();
+  }
+
+  @override
+  void onClose() {
+    _tickTimer?.cancel();
+    _tickTimer = null;
+    super.onClose();
   }
 
   void refreshEvents() {

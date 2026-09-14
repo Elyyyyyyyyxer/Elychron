@@ -752,6 +752,9 @@ class CalendarPage extends StatelessWidget {
   /// 「接下来」的条目：课程/考试/日程按开始时间、非备忘待办按提醒时间。
   /// 排序与过滤逻辑在 `model/upcoming.dart`（有单测），这里只负责把数据喂进去。
   List<UpcomingItem> _upcomingItems() {
+    // 读一下心跳：让包住这一层的 Obx 每 20 秒重算一次。
+    // 否则「还有 N 分钟」会停在页面上次重建时的旧值（实测差过一刻钟）。
+    _calendarController.upcomingTick.value;
     return buildUpcoming(
       periods: _calendarController.scholar.value.periods,
       tasks: deadlineList.toList(),

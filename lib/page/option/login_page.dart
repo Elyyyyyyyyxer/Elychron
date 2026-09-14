@@ -1,4 +1,5 @@
 import 'package:celechron/utils/platform_features.dart';
+import 'package:celechron/mod/login_criteria.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:get/get.dart';
 import 'package:celechron/model/scholar.dart';
@@ -96,7 +97,10 @@ class LoginForm extends StatelessWidget {
                             val!.username = usernameController.value.text;
                             val.password = passwordController.value.text;
                             val.login().then((value) async {
-                              if (value.every((e) => e == null)) {
+                              // ===== MOD: 判据只看统一身份认证（见 LoginCriteria）=====
+                              // 以前要求所有子站都登录成功，教务网一崩就「登录失败」并
+                              // 卡在登录页；现在身份通过就进 App，子站失败只做提示。
+                              if (LoginCriteria.succeeded(value)) {
                                 await val.refresh(
                                     onPartialUpdate: scholar.refresh);
                                 scholar.refresh();
@@ -105,6 +109,24 @@ class LoginForm extends StatelessWidget {
                                     PlatformFeatures.hasBackgroundRefresh;
                                 if (context.mounted) {
                                   Navigator.of(context).pop();
+                                }
+                                final hint =
+                                    LoginCriteria.degradedHint(value);
+                                if (hint.isNotEmpty && context.mounted) {
+                                  showCupertinoDialog(
+                                      context: context,
+                                      builder: (context) => CupertinoAlertDialog(
+                                            title: const Text('部分模块暂不可用'),
+                                            content: Text(hint),
+                                            actions: [
+                                              CupertinoDialogAction(
+                                                child: const Text('知道了'),
+                                                onPressed: () => Navigator.of(
+                                                        context)
+                                                    .pop(),
+                                              ),
+                                            ],
+                                          ));
                                 }
                               } else {
                                 buttonPressed.value = false;

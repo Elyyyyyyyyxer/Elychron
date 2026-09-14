@@ -1,7 +1,7 @@
 import 'package:celechron/design/round_rectangle_card.dart';
 import 'package:celechron/design/task_detail_nav.dart';
+import 'package:celechron/model/period.dart';
 import 'package:celechron/model/upcoming.dart';
-import 'package:celechron/utils/time_helper.dart';
 import 'package:flutter/cupertino.dart';
 
 /// 「接下来」视图：最近的一条大字号，后面几条小字。
@@ -311,7 +311,12 @@ class UpcomingView extends StatelessWidget {
         UpcomingKind.remind => '提醒',
       };
 
-  /// 待办 → 详情页；课程/考试/日程 → 用一个信息卡展示（含完整备注）
+  /// 待办 → 详情页；课程/考试/日程 → 一张信息卡。
+  ///
+  /// 这里原来用的是 `CupertinoActionSheet`：message 堆时间/地点/教师，actions 里塞了
+  /// **一条显示日期关系的项**（`chineseDayRelation`）——那行既与上面重复，算出来还可能是
+  /// 空串，于是用户看到一块「莫名其妙的空白选项」，风格也和 App 其它弹层不一致。
+  /// 现在改成与标签选择器、闹钟配色同一套观感：圆角顶、信息行带图标、粉色主按钮。
   static void _open(BuildContext context, UpcomingItem item) {
     final task = item.task;
     if (task != null) {
@@ -322,30 +327,105 @@ class UpcomingView extends StatelessWidget {
     if (period == null) return;
     showCupertinoModalPopup<void>(
       context: context,
-      builder: (BuildContext context) => CupertinoActionSheet(
-        title: Text(period.summary),
-        message: Text(
-          [
-            period.friendlyTimeStartDayBased,
-            if (period.location.trim().isNotEmpty) period.location.trim(),
-            if (period.description.trim().isNotEmpty) '',
-            if (period.description.trim().isNotEmpty) period.description.trim(),
-          ].join('\n'),
+      builder: (BuildContext context) => _PeriodSheet(period: period),
+    );
+  }
+}
+
+/// 课程 / 考试 / 日程的信息弹层（与 App 其它底部弹层同一套观感）
+class _PeriodSheet extends StatelessWidget {
+  final Period period;
+
+  const _PeriodSheet({required this.period});
+
+  @override
+  Widget build(BuildContext context) {
+    final labelColor = CupertinoDynamicColor.resolve(
+        CupertinoColors.secondaryLabel, context);
+    final textColor =
+        CupertinoTheme.of(context).textTheme.textStyle.color ??
+            CupertinoColors.label;
+    final description = period.description.trim();
+
+    return Container(
+      decoration: BoxDecoration(
+        color: CupertinoDynamicColor.resolve(
+            CupertinoColors.systemBackground, context),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                period.summary,
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w700,
+                  color: textColor,
+                ),
+              ),
+              const SizedBox(height: 14),
+              _line(
+                CupertinoIcons.time,
+                period.friendlyTimeStartDayBased,
+                textColor,
+                labelColor,
+              ),
+              if (period.location.trim().isNotEmpty)
+                _line(CupertinoIcons.location, period.location.trim(),
+                    textColor, labelColor),
+              if (description.isNotEmpty)
+                _line(CupertinoIcons.doc_text, description, textColor,
+                    labelColor),
+              const SizedBox(height: 18),
+              SizedBox(
+                width: double.infinity,
+                child: CupertinoButton(
+                  // 与 App 主按钮一致的爱莉希雅粉（电话/其它主操作用的同一色）
+                  color: const Color(0xFFFF699A),
+                  borderRadius: BorderRadius.circular(22),
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('知道了',
+                      style:
+                          TextStyle(color: CupertinoColors.white, fontSize: 16)),
+                ),
+              ),
+            ],
+          ),
         ),
-        actions: [
-          CupertinoActionSheetAction(
-            onPressed: () => Navigator.of(context).pop(),
+      ),
+    );
+  }
+
+  /// 一行「图标 + 文字」，与「接下来」卡片里的信息行同一套写法
+  Widget _line(
+    IconData icon,
+    String text,
+    Color textColor,
+    Color iconColor,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Icon(icon, size: 15, color: iconColor),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
             child: Text(
-              TimeHelper.chineseDayRelation(period.startTime),
-              style: const TextStyle(fontSize: 14),
+              text,
+              style: TextStyle(fontSize: 15, height: 1.35, color: textColor),
             ),
           ),
         ],
-        cancelButton: CupertinoActionSheetAction(
-          isDefaultAction: true,
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('知道了'),
-        ),
       ),
     );
   }
