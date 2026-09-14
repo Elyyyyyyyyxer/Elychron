@@ -22,6 +22,7 @@ import 'package:celechron/page/option/ecard_pay_page.dart';
 import 'package:celechron/services/diagnostic_log_service.dart';
 import 'package:celechron/services/refresh_coordinator.dart';
 import 'package:celechron/worker/ecard_widget_messenger.dart';
+import 'package:celechron/worker/todo_widget_messenger.dart';
 import 'package:celechron/database/database_helper.dart';
 import 'package:celechron/utils/global.dart';
 
@@ -48,6 +49,9 @@ void main() async {
   Get.put(db.getFuse().obs, tag: 'fuse');
 
   runApp(const CelechronApp());
+  unawaited(TodoWidgetMessenger.update(
+    Get.find<RxList<Task>>(tag: 'taskList'),
+  ));
 
   var scholar = Get.find<Rx<Scholar>>(tag: 'scholar');
   if (scholar.value.isLogan) {
@@ -117,6 +121,7 @@ class CelechronApp extends StatefulWidget {
 class _CelechronAppState extends State<CelechronApp>
     with WidgetsBindingObserver {
   Timer? _foregroundLeaseHeartbeat;
+  StreamSubscription<Uri>? _appLinkSubscription;
 
   @override
   void initState() {
@@ -137,6 +142,7 @@ class _CelechronAppState extends State<CelechronApp>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _appLinkSubscription?.cancel();
     _stopForegroundLease();
     super.dispose();
   }
@@ -152,6 +158,9 @@ class _CelechronAppState extends State<CelechronApp>
     }
     if (state == AppLifecycleState.paused) {
       ECardWidgetMessenger.update();
+      unawaited(TodoWidgetMessenger.update(
+        Get.find<RxList<Task>>(tag: 'taskList'),
+      ));
     }
   }
 
@@ -224,11 +233,17 @@ class _CelechronAppState extends State<CelechronApp>
 
   void _initAppLinks() {
     final appLinks = AppLinks();
-    appLinks.uriLinkStream.listen((uri) {
+    _appLinkSubscription = appLinks.uriLinkStream.listen((uri) {
       if (uri.toString() == 'celechron://ecardpaypage') {
         navigator?.popUntil((route) =>
             !(route.settings.name?.endsWith('ecardpaypage') ?? false));
         navigator?.pushNamed('/ecardpaypage');
+      } else if (uri.scheme == 'celechron' && uri.host == 'todo') {
+        TodoWidgetActionCenter.dispatch(
+          uri.path == '/create'
+              ? TodoWidgetAction.create
+              : TodoWidgetAction.openList,
+        );
       }
     });
   }

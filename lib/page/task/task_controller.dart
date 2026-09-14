@@ -8,6 +8,7 @@ import 'package:celechron/model/task.dart';
 import 'package:celechron/mod/loop_guard.dart';
 import 'package:celechron/mod/task_runtime_mod.dart';
 import 'package:celechron/utils/utils.dart';
+import 'package:celechron/worker/todo_widget_messenger.dart';
 
 class TaskController extends GetxController with TaskListFilterMod {
   // ===== MOD: 标签页名字（static 不能放 mixin，留着也是魔改的一部分）=====
@@ -50,6 +51,7 @@ class TaskController extends GetxController with TaskListFilterMod {
   Future<void> saveDeadlineListToDb() async {
     await _db.setTaskList(taskList);
     await _db.setTaskListUpdateTime(taskListLastUpdate.value);
+    await TodoWidgetMessenger.update(taskList);
   }
 
   void loadDeadlineListLastUpdate() {
