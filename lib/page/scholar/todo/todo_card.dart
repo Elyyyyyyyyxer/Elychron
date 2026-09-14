@@ -1,4 +1,5 @@
 import 'package:celechron/model/todo.dart';
+import 'package:celechron/design/bold_markdown_text.dart';
 import 'package:celechron/utils/utils.dart';
 import 'package:flutter/cupertino.dart';
 
@@ -32,7 +33,7 @@ class TodoCard extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         // add a colored edge
         children: [
-          Text(
+          BoldMarkdownText(
             todo.course,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
@@ -48,7 +49,7 @@ class TodoCard extends StatelessWidget {
                 ),
           ),
           const SizedBox(height: 6),
-          Text(
+          BoldMarkdownText(
             todo.name,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,

@@ -10,6 +10,7 @@ import 'package:celechron/utils/utils.dart';
 import 'package:celechron/design/sub_title.dart';
 import 'package:celechron/design/round_rectangle_card.dart';
 import 'package:celechron/design/custom_colors.dart';
+import 'package:celechron/design/bold_markdown_text.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:celechron/model/task.dart';
@@ -30,7 +31,7 @@ class TaskPage extends StatelessWidget {
       context: context,
       builder: (BuildContext context) {
         return CupertinoAlertDialog(
-          title: Text(
+          title: BoldMarkdownText(
             '${deadline.summary}：${deadline.type == TaskType.deadline ? deadlineStatusName[deadline.status]! : (taskKindName[deadline.type] ?? '')}',
             style: const TextStyle(fontWeight: FontWeight.bold),
           ),
@@ -64,12 +65,12 @@ class TaskPage extends StatelessWidget {
                     const Text('备忘：没有时间，也不会过期'),
                   ],
                   if (deadline.location.isNotEmpty) ...[
-                    Text(
+                    BoldMarkdownText(
                       '地点：${deadline.location}',
                     ),
                   ],
                   if (deadline.description.isNotEmpty) ...[
-                    Text(
+                    BoldMarkdownText(
                       '说明：${deadline.description}',
                     ),
                   ],
@@ -470,7 +471,7 @@ class TaskPage extends StatelessWidget {
                       const SizedBox(width: 8.0),
                       Expanded(
                           flex: 4,
-                          child: Text(deadline.summary,
+                          child: BoldMarkdownText(deadline.summary,
                               style: CupertinoTheme.of(context)
                                   .textTheme
                                   .textStyle
@@ -557,7 +558,7 @@ class TaskPage extends StatelessWidget {
                             .withValues(alpha: 0.5),
                       ),
                       Expanded(
-                          child: Text(' 地点：${deadline.location}',
+                          child: BoldMarkdownText(' 地点：${deadline.location}',
                               style: TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.normal,
@@ -605,7 +606,7 @@ class TaskPage extends StatelessWidget {
                                     .withValues(alpha: 0.5),
                           ),
                           Expanded(
-                            child: Text(
+                            child: BoldMarkdownText(
                               // ===== P2：行程型直接告诉用户「下一步」是什么 =====
                               _subtaskSummary(deadline),
                               overflow: TextOverflow.ellipsis,

@@ -9,6 +9,7 @@ import 'package:celechron/design/tag_picker.dart';
 import 'package:celechron/design/task_priority_color.dart';
 import 'package:celechron/design/task_kind_selector.dart';
 import 'package:celechron/mod/ai/ai_subtasks_ui.dart';
+import 'package:celechron/design/bold_markdown_text.dart';
 import 'package:celechron/page/focus/focus_entry.dart';
 import 'package:celechron/model/focus_engine.dart';
 import 'package:celechron/model/task.dart';
@@ -482,7 +483,7 @@ class _TaskEditPageState extends State<TaskEditPage> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
+                            BoldMarkdownText(
                               task.summary.isEmpty ? '(未命名待办)' : task.summary,
                               style: TextStyle(fontSize: 16, color: textColor),
                             ),
@@ -647,7 +648,7 @@ class _TaskEditPageState extends State<TaskEditPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
-                child: Text(
+                child: BoldMarkdownText(
                   sub.title.isEmpty ? '(未命名子待办)' : sub.title,
                   style: TextStyle(
                     fontSize: 15,
@@ -680,7 +681,7 @@ class _TaskEditPageState extends State<TaskEditPage> {
           if (sub.description.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(top: 2),
-              child: Text(
+              child: BoldMarkdownText(
                 sub.description,
                 style: TextStyle(fontSize: 12, color: labelColor),
               ),
@@ -694,7 +695,7 @@ class _TaskEditPageState extends State<TaskEditPage> {
                       size: 12, color: accent),
                   const SizedBox(width: 4),
                   Expanded(
-                    child: Text(
+                    child: BoldMarkdownText(
                       sub.location,
                       style: TextStyle(fontSize: 12, color: accent),
                     ),
@@ -1477,7 +1478,7 @@ class _TaskEditPageState extends State<TaskEditPage> {
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
-                                      Text(
+                                      BoldMarkdownText(
                                         subtask.title.isEmpty
                                             ? '(未命名子待办)'
                                             : subtask.title,
@@ -1635,7 +1636,7 @@ class _TaskEditPageState extends State<TaskEditPage> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(comment.content,
+                            BoldMarkdownText(comment.content,
                                 style:
                                     TextStyle(fontSize: 15, color: textColor)),
                             const SizedBox(height: 4),
