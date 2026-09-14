@@ -128,8 +128,8 @@ Future<void> modCopyFeedback(BuildContext context) async {
         context,
         '已复制反馈信息',
         '机型、系统版本、App 版本与最近 ${FeedbackCopy.logTailLines} 行'
-        '**已脱敏**日志都在剪贴板里了。\n\n'
-        '把它粘到反馈渠道（QQ 群 / 论坛帖 / Gitee Issue），'
+        '已脱敏日志已保存进剪贴板。\n\n'
+        '请粘贴到反馈渠道（QQ 群 / 论坛帖 / Gitee Issue），'
         '再补上复现步骤即可。\n\n'
         '日志里的密码、Cookie、学号已自动隐藏。',
       );

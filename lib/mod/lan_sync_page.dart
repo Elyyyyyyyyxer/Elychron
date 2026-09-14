@@ -129,7 +129,7 @@ class _LanSyncPageState extends State<LanSyncPage> {
             ),
             CupertinoListSection.insetGrouped(
               header: const Text('② 在电脑上输入配对码'),
-              footer: const Text('配对码每次开启都会重新生成；只有输入正确的电脑才能读到数据。'),
+              footer: const Text('配对码每次开启都会重新生成，请填写最新的配对码。'),
               children: [
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 10),
@@ -161,13 +161,12 @@ class _LanSyncPageState extends State<LanSyncPage> {
             header: const Text('说明'),
             footer: const Text(
               '数据只在局域网内直接传输，不经过任何服务器，也不需要注册账号。\n'
-              '电脑上的「导出」会下载整份 JSON 到电脑，「导入」会按 uid + 更新时间合并回手机。\n'
-              '删除会记墓碑，多台设备之间不会「删了又回来」。',
+              '电脑上的导出会下载整份 JSON 到电脑，导入会按更新时间合并回手机。',
             ),
             children: const [
               CupertinoListTile(
                 title: Text('同一 Wi-Fi 才能用'),
-                subtitle: Text('跨网络（比如用流量）连不上，这是局域网直连的固有限制'),
+                subtitle: Text('跨网络连不上，这是局域网直连的固有限制'),
               ),
               CupertinoListTile(
                 title: Text('只在 App 打开时可用'),

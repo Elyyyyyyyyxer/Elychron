@@ -33,7 +33,7 @@ class LoopGuard {
       level: CelechronLogLevel.error,
       module: '可靠性',
       operation: what,
-      message: '循环超过 $limit 次仍未结束，已强制中断（否则界面会卡死）。'
+      message: '循环超过 $limit 次仍未结束，已强制中断。'
           '这通常意味着某条数据畸形（例如重复周期异常、时间字段损坏）。',
     );
     return true;

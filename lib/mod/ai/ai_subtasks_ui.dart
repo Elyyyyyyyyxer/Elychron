@@ -16,7 +16,7 @@ Future<bool> _ensureAiReady(BuildContext context) async {
         padding: const EdgeInsets.only(top: 8),
         child: Text(
           AiConfig.apiKey.isEmpty
-              ? '去「设置 → 智能 → AI 智能助手」填自己的 DeepSeek key 后就能用。'
+              ? '去设置 → 智能 → AI 智能助手填自己的 DeepSeek key 后使用。'
               : 'AI 功能还没打开，去设置里打开开关即可。',
           style: const TextStyle(fontSize: 14),
         ),

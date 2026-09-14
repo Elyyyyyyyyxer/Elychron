@@ -73,13 +73,13 @@ List<Widget> modReminderTiles(
       ),
       CupertinoListTile(
         title: const Text('闹钟可靠性'),
-        subtitle: const Text('全屏闹钟授权、锁屏弹出、电池白名单，一项项查'),
+        subtitle: const Text('全屏闹钟授权、锁屏弹出、电池白名单'),
         trailing: const BackChervonRow(),
         onTap: () => showAlarmReliabilityDialog(context),
       ),
       CupertinoListTile(
         title: const Text('闹钟配色'),
-        subtitle: const Text('浅色 + 毛玻璃，仅影响闹钟页'),
+        subtitle: const Text('闹钟页面四种配色'),
         trailing: const BackChervonRow(),
         onTap: () => showAlarmThemePicker(
           context,
@@ -119,7 +119,7 @@ class _ReminderLeadTileState extends State<_ReminderLeadTile> {
     final picked = await showDingTalkSheet<int>(
       context: context,
       title: '默认提前多久提醒',
-      subtitle: '活动按「开始前」算，截止按「截止前」算；提醒型不受影响。',
+      subtitle: '活动按开始前算，截止按截止前算，提醒型不受影响。',
       current: _minutes,
       options: [
         for (final minutes in _options)
@@ -161,7 +161,7 @@ Widget modDataSection(
           if (kLanSyncEnabled) ...[
             CupertinoListTile(
               title: const Text('局域网同步'),
-              subtitle: const Text('同一 Wi-Fi 下用电脑浏览器看待办、改待办，无需账号'),
+              subtitle: const Text('同局域网下可从电脑浏览器访问'),
               trailing: const BackChervonRow(),
               onTap: () async {
                 await Navigator.of(context, rootNavigator: true).push(
@@ -174,13 +174,13 @@ Widget modDataSection(
           ],
           CupertinoListTile(
             title: const Text('导出数据'),
-            subtitle: const Text('导出为 JSON 文件，可自己保存或传到电脑'),
+            subtitle: const Text('导出为 JSON 文件'),
             trailing: const BackChervonRow(),
             onTap: () => modExportData(context),
           ),
           CupertinoListTile(
             title: const Text('导入数据'),
-            subtitle: const Text('从 JSON 文件合并（按 uid 比对，新的生效）'),
+            subtitle: const Text('从 JSON 文件合并'),
             trailing: const BackChervonRow(),
             onTap: () => modImportData(context),
           ),
@@ -188,7 +188,7 @@ Widget modDataSection(
           // 目的是让反馈发生在 QQ 群、论坛帖这类没门槛的地方时，也能说清现场。
           CupertinoListTile(
             title: const Text('复制反馈信息'),
-            subtitle: const Text('机型、系统、版本 + 脱敏日志，直接粘到反馈渠道'),
+            subtitle: const Text('机型、系统、版本、脱敏日志'),
             trailing: const BackChervonRow(),
             onTap: () => modCopyFeedback(context),
           ),
@@ -231,7 +231,7 @@ class _FocusParamTileState extends State<_FocusParamTile> {
       title: isWork ? '一段专注多久' : '每轮休息多久',
       subtitle: isWork
           ? '默认 60 分钟。到点会自动进入休息。'
-          : '默认 15 分钟。想连着干可以把休息设成「不休息」。',
+          : '默认 15 分钟。想连着干可以把休息设成不休息。',
       current: isWork ? _work : _rest,
       options: [
         for (final minutes in options)
@@ -251,7 +251,7 @@ class _FocusParamTileState extends State<_FocusParamTile> {
   Widget build(BuildContext context) {
     return CupertinoListTile(
       title: const Text('专注时长'),
-      subtitle: const Text('到点自动在工作 / 休息之间交替；下一次专注生效'),
+      subtitle: const Text('轮流进入工作/休息模式；仅对下一次专注生效'),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -304,8 +304,8 @@ class _FocusDndTileState extends State<_FocusDndTile> {
 
   String get _subtitle {
     if (_granted == null) return '专注期间自动把手机静音，结束时还原';
-    if (_granted == false) return '需要「勿扰访问权限」，点这里去系统设置里授予';
-    return '专注期间自动切到完全静音，结束时还原成原来的档位';
+    if (_granted == false) return '需要勿扰访问权限，点这里去系统设置里授予';
+    return '专注期间自动切到完全静音，结束时自动恢复';
   }
 
   @override
@@ -357,7 +357,7 @@ class _FocusRestNotifyTileState extends State<_FocusRestNotifyTile> {
   Widget build(BuildContext context) {
     return CupertinoListTile(
       title: const Text('休息时提醒我'),
-      subtitle: const Text('工作段走完时弹一条通知，提醒起来走走'),
+      subtitle: const Text('起来休息一下啦'),
       trailing: CupertinoSwitch(
         value: _db?.getFocusRestNotify() ?? true,
         onChanged: (value) {

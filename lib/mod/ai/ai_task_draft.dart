@@ -165,7 +165,7 @@ class AiTaskDraft {
 
   /// 图片输入时额外加的一段规则（文字输入时不出现，避免把模型绕晕）
   static const String _imageRules = '''
-这次给你的是图片（可能是教务通知、群消息、海报或课表截图）：
+本次请识别图片（可能是教务通知、群消息、海报或课表截图）：
 - 先读出图中文字，再按下面的规则整理成待办
 - 图里看不清、或没写清的字段，一律留空并写进 uncertain，绝不靠猜补齐
 - 图里有多个通知时，只取最主要的那一条
@@ -188,7 +188,7 @@ ${fromImage ? _imageRules : ''}
 
 当前时间：$today。默认时区 +08:00。
 
-只输出一个 json 对象，不要输出任何解释文字、不要用 markdown 代码块。字段与取值规则如下：
+只输出一个 json 对象，禁止输出任何解释文字、禁止用 markdown 代码块。字段与取值规则如下：
 
 {
   "summary": "一句话动作短语，不超过 $maxSummaryChars 字，不要出现「待办」「任务」这类词",
@@ -378,7 +378,7 @@ ${task.isEvent ? '''
 - 每条都要是能直接动手做的事（写、查、问、交、打印、预约…），
   不要写「认真准备」「努力完成」这类空话
 - **要带的东西 / 着装 / 材料也算步骤**：原文写了「着装：白院衫，带雨伞」就拆成
-  「穿白色院衫」「带雨伞」两条，**不带时间**；标题写具体物件，
+  「穿白色院衫，带雨伞」一条，**不带时间**；标题写具体物件，
   不要写「准备物品」这种笼统说法
 - 不要重复输入里已经列出的子待办
 - 如果这件事本身没法拆（比如「给妈妈打电话」），返回 {"subtasks": []}
@@ -463,7 +463,7 @@ ${task.isEvent ? '''
       var end = _parseStepTime(source['endTime']) ?? titleEnd;
 
       if (start != null && end != null && !start.isBefore(end)) {
-        warnings?.add('第 ${steps.length + 1} 步「$title」的结束时间不晚于开始时间，这一步的时间已丢掉');
+        warnings?.add('第 ${steps.length + 1} 步「$title」的结束时间不晚于开始时间，这一步的时间已丢弃');
         start = null;
         end = null;
       }
@@ -474,7 +474,7 @@ ${task.isEvent ? '''
           start = null;
           end = null;
         } else if (end != null && end.isAfter(parentEnd)) {
-          warnings?.add('第 ${steps.length + 1} 步「$title」的结束时间超出了这条待办的范围，已丢掉结束时间');
+          warnings?.add('第 ${steps.length + 1} 步「$title」的结束时间超出了这条待办的范围，已丢弃结束时间');
           end = null;
         }
       }
@@ -548,8 +548,8 @@ ${task.isEvent ? '''
       // 图里 / 文字里没有可做成的待办时不要直接报错：留空让用户自己补，
       // 已经读出来的时间、地点等字段仍然有用。这是"用户反馈感"的关键一步。
       warnings.add(fromImage
-          ? '这张图里没读出明确要做的事，标题先留空了，你可以自己补上'
-          : '这段文字里没读出明确要做的事，标题先留空了，你可以自己补上');
+          ? '图片中未识别到明确要做的事，标题先留空了，你可以自己补上'
+          : '文字中未识别到明确要做的事，标题先留空了，你可以自己补上');
     }
 
     // --- description
@@ -605,7 +605,7 @@ ${task.isEvent ? '''
       // _validateStartTime 已经把「读不出来 / 不早于结束时间」的开始时间丢掉了，
       // 这里只剩两种情况：有可用的开始时间 → 真活动；没有 → 老老实实降级成截止。
       if (startTime == null) {
-        warnings.add('模型说这是「活动」但没给出可用的开始时间，已按「截止」处理');
+        warnings.add('模型说这是活动但没给出可用的开始时间，已按截止处理');
         kind = TaskType.deadline;
       }
     } else if (startTime != null) {
@@ -676,7 +676,7 @@ ${task.isEvent ? '''
     var parsed = DateTime.tryParse(text) ??
         DateTime.tryParse(text.replaceAll("/", "-").replaceFirst(" ", "T"));
     if (parsed == null) {
-      warnings.add("开始时间「$text」读不出来，已按没有开始时间处理");
+      warnings.add("开始时间$text读不出来，已按没有开始时间处理");
       return null;
     }
     if (parsed.hour == 0 && parsed.minute == 0 && parsed.second == 0) {
@@ -782,7 +782,7 @@ ${task.isEvent ? '''
     if (text.isEmpty) return null;
     final kind = _kindAliases[text];
     if (kind == null) {
-      warnings.add('模型给的「时间类型」写法「$text」不认识，已按时间去判断');
+      warnings.add('模型给的时间类型写法$text不认识，已按时间去判断');
       return null;
     }
     return kind;
@@ -852,7 +852,7 @@ ${task.isEvent ? '''
       final matched = byNormalized[_normalizeTag(tag)];
       final finalTag = matched ?? tag;
       if (matched != null && matched != tag) {
-        warnings.add("标签「$tag」并入了你已有的「$matched」");
+        warnings.add("标签$tag并入了你已有的$matched");
       }
       if (!result.contains(finalTag)) result.add(finalTag);
     }

@@ -99,8 +99,8 @@ class HomeModHooks {
     await showDingTalkMenu(
       context,
       title: '要用 AI 识别这张图吗？',
-      message: '图里的文字会发送给你配置的模型服务商（默认 DeepSeek）。\n'
-          '选「只存附件」就完全不上传，图会作为附件留在待办里。',
+      message: '图片会发送给你配置的模型服务商进行识别。\n'
+          '选只存附件会只将图作为附件。',
       items: [
         DingTalkMenuItem(
           label: 'AI 识别图中内容',
@@ -178,7 +178,7 @@ class HomeModHooks {
         options: const [
           DingTalkSheetOption(
             label: '新建待办',
-            subtitle: '把分享的内容做成一条新待办（可继续用 AI 整理）',
+            subtitle: '把分享的内容做成一条新待办',
             value: _ShareTarget.create,
           ),
           DingTalkSheetOption(
@@ -297,7 +297,7 @@ class HomeModHooks {
         title: '没有可添加的待办',
         subtitle: '当前没有进行中的待办',
         children: const [
-          DingTalkPanelNote('先新建一条，下次分享时再选「添加到已有待办」。'),
+          DingTalkPanelNote('先新建一条，下次分享时再选添加到已有待办。'),
         ],
       );
       return;

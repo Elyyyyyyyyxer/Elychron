@@ -60,7 +60,7 @@ class _AiSettingsPageState extends State<AiSettingsPage> {
             padding: EdgeInsets.only(top: 8),
             child: Text(
               '密钥一般是 sk- 开头的一串字符，不是网址。\n\n'
-              '要把这个地址填到下面的「接口地址」里吗？',
+              '要把这个地址填到下面的接口地址里吗？',
               style: TextStyle(fontSize: 14),
             ),
           ),
@@ -105,7 +105,7 @@ class _AiSettingsPageState extends State<AiSettingsPage> {
       final picked = await ModelResolver.resolve(force: true);
       if (picked.isEmpty && !AiConfig.isManualModel && mounted) {
         setState(
-            () => _modelError = '没拿到模型列表（网络问题，或这个服务没提供 /models）。可以手动填模型名。');
+            () => _modelError = '未获取到模型列表。请手动填模型名。');
       }
     } on AiException catch (error) {
       if (mounted) setState(() => _modelError = error.message);
@@ -124,7 +124,7 @@ class _AiSettingsPageState extends State<AiSettingsPage> {
       final reply = await ModelResolver.withModelHealing(
         () => client.chat(
           system: '你是连通性测试助手，只回一句话。',
-          user: '用不超过 15 个字回复：连接成功。',
+          user: '用不超过 5 个字回复：连接成功。',
           temperature: 0,
           timeout: const Duration(seconds: 30),
         ),
@@ -158,7 +158,7 @@ class _AiSettingsPageState extends State<AiSettingsPage> {
         title: const Text('清除 API key'),
         content: const Padding(
           padding: EdgeInsets.only(top: 8),
-          child: Text('清除后 AI 功能会停用，需要重新填写。', style: TextStyle(fontSize: 14)),
+          child: Text('清除后会自动停用 AI 功能，需要重新填写。', style: TextStyle(fontSize: 14)),
         ),
         actions: [
           CupertinoDialogAction(
@@ -223,8 +223,8 @@ class _AiSettingsPageState extends State<AiSettingsPage> {
                 header: const Text('API key'),
                 footer: const Text(
                   '去 platform.deepseek.com 申请，复制那串 sk- 开头的密钥。\n'
-                  '密钥存在系统密钥库（Android Keystore / iOS Keychain），'
-                  '不会写进数据库，也不会跟着「导出数据」一起备份出去。',
+                  '密钥存在系统密钥库，使用前需给模型厂商充值，'
+                  '不会写进数据库，也不会跟着导出数据一起备份出去。',
                 ),
                 children: [
                   if (hasKey)
@@ -276,7 +276,7 @@ class _AiSettingsPageState extends State<AiSettingsPage> {
                 header: const Text('行为'),
                 footer: const Text(
                   '关掉之后，AI 整理出的待办不会再自动带上子待办（有些通知本来就没必要拆步骤）。'
-                  '待办详情页里的「AI 拆成子待办」不受影响，随时可以手动用。',
+                  ' AI 拆成子待办功能不受影响',
                 ),
                 children: [
                   CupertinoListTile(
@@ -298,10 +298,10 @@ class _AiSettingsPageState extends State<AiSettingsPage> {
                 header: const Text('模型'),
                 footer: Text(
                   AiConfig.isManualModel
-                      ? '当前是手动指定。点「自动选择」可以交回给应用自动挑。'
+                      ? '当前是手动指定。点自动选择可以交回给应用自动选择。'
                       : (ModelResolver.lastAutoPickReason.isEmpty
-                          ? '应用会自动问官方「现在有哪些模型」，按「便宜档优先 + 官方别名优先」挑一个。'
-                              '官方改名时会自动跟上，也永远不会因为改名而悄悄变贵。'
+                          ? 'Elychron会自动查询可用模型，并根据价格与官方名称进行选择。'
+                              '官方更名时会自动更改；Elychron无法控制模型价格变动。'
                           : '自动选择的理由：${ModelResolver.lastAutoPickReason}'),
                 ),
                 children: [
@@ -313,7 +313,7 @@ class _AiSettingsPageState extends State<AiSettingsPage> {
                   ),
                   CupertinoListTile(
                     title: const Text('自动选择（推荐）'),
-                    subtitle: const Text('改名自动跟上；只挑便宜档，pro 需要手动选'),
+                    subtitle: const Text('模型更名不受影响，优先选择Flash版本'),
                     trailing: AiConfig.isManualModel
                         ? null
                         : const Icon(
@@ -352,7 +352,7 @@ class _AiSettingsPageState extends State<AiSettingsPage> {
                     subtitle: Text(
                       _modelError ??
                           (AiConfig.availableModels.isEmpty
-                              ? '点一下问官方现在有哪些模型'
+                              ? '点击查询可用模型列表'
                               : '上次更新：${_formatTime(AiConfig.modelsFetchedAt)}'),
                     ),
                     trailing: _refreshing
