@@ -15,14 +15,40 @@ class UpdateInfo {
   /// 主版本号变化 → **强制更新**：对话框不可忽略，只能去下载或退出应用。
   final bool forced;
 
+  /// 这次是从哪个源查到的（`GitHub` / `Gitee`）。
+  ///
+  /// **必须记下来**：国内用户多半连不上 GitHub，如果查到更新的是 Gitee，
+  /// 「去下载」就该跳 Gitee 的页面 —— 否则用户看到更新却打不开下载页。
+  final String sourceName;
+
+  /// 「去下载」要打开的地址（跟着上面那个源走）
+  final String downloadUrl;
+
   const UpdateInfo({
     required this.tag,
     required this.summary,
     required this.forced,
+    required this.sourceName,
+    required this.downloadUrl,
   });
 
   String get message =>
       summary.isEmpty ? '有新版本可用：$tag' : '有新版本可用：$tag\n$summary';
+}
+
+/// 一个更新检查源。
+///
+/// GitHub 是源码主仓库；Gitee 是国内可达的镜像（下载与更新检查都靠它兜底）。
+class UpdateSource {
+  final String name;
+  final String apiUrl;
+  final String releasePageUrl;
+
+  const UpdateSource({
+    required this.name,
+    required this.apiUrl,
+    required this.releasePageUrl,
+  });
 }
 
 class Fuse {
@@ -30,13 +56,21 @@ class Fuse {
 
   final bool isBeta = false;
 
-  /// ===== 版本号（⚠️ 改版本时这三处要一起改）=====
+  /// ===== 版本号（⚠️ 改版本时这四处要一起改）=====
   /// - `pubspec.yaml` 的 `version:`（决定 APK 的 versionName / versionCode）
   /// - 这里的 [appVersionName]（关于页显示的就是它）
+  /// - [appBuildNumber]（反馈信息里会带上）
   /// - [version]（用来跟远端 tag 比较）
   static const String appVersionName = '1.4.0-elychron.1';
+
+  /// 构建号，与 `pubspec.yaml` 里 `+N` 保持一致。
+  ///
+  /// 单独放一个**静态常量**是因为「复制反馈信息」要用它，而那个场景不该去
+  /// 实例化 [Fuse]（构造函数依赖 GetX 里的数据库）。
+  static const int appBuildNumber = 5;
+
   final version = [1, 4, 0];
-  final build = 5;
+  final build = appBuildNumber;
 
   /// ===== 更新检查：只认我们自己的仓库 =====
   ///
@@ -51,6 +85,29 @@ class Fuse {
       'https://github.com/$releaseRepo/releases/latest';
   static const String releaseApiUrl =
       'https://api.github.com/repos/$releaseRepo/releases/latest';
+
+  /// Gitee 镜像仓库（`owner/repo`）。
+  ///
+  /// 用途：国内直连 GitHub 常常不通，而**更新检查与下载都得能用**，
+  /// 所以 Gitee 既是分发渠道也是兜底更新源。留空字符串就只查 GitHub。
+  ///
+  /// ⚠️ 建好 Gitee 仓库后把这里改成实际的 `用户名/仓库名`。
+  static const String giteeRepo = '';
+
+  /// 更新检查的源，按顺序尝试（前面失败就试下一个）
+  static List<UpdateSource> get updateSources => <UpdateSource>[
+        const UpdateSource(
+          name: 'GitHub',
+          apiUrl: releaseApiUrl,
+          releasePageUrl: releasePageUrl,
+        ),
+        if (giteeRepo.isNotEmpty)
+          const UpdateSource(
+            name: 'Gitee',
+            apiUrl: 'https://gitee.com/api/v5/repos/$giteeRepo/releases/latest',
+            releasePageUrl: 'https://gitee.com/$giteeRepo/releases/latest',
+          ),
+      ];
 
   List<int>? remoteVersion;
   int? remoteBuild;
@@ -143,6 +200,24 @@ class Fuse {
     return '';
   }
 
+  /// 查一个源，拿到它的 release JSON。失败（网络不通/非 200/结构不对）返回 null。
+  Future<Map<String, dynamic>?> _fetchRelease(UpdateSource source) async {
+    try {
+      final request = await _httpClient
+          .getUrl(Uri.parse(source.apiUrl))
+          .timeout(const Duration(seconds: 8));
+      request.headers.set(HttpHeaders.acceptHeader, 'application/vnd.github+json');
+      final response = await request.close().timeout(const Duration(seconds: 8));
+      // 还没发过 Release 时通常给 404：当作「这个源没东西」，安静换下一个
+      if (response.statusCode != 200) return null;
+      final raw = await response.transform(utf8.decoder).join();
+      final json = jsonDecode(raw);
+      return json is Map ? Map<String, dynamic>.from(json) : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
   Future<UpdateInfo?> checkUpdate() async {
     try {
       if (lastUpdateTime
@@ -150,20 +225,27 @@ class Fuse {
         return null;
       }
 
-      final request = await _httpClient
-          .getUrl(Uri.parse(releaseApiUrl))
-          .timeout(const Duration(seconds: 8));
-      request.headers.set(HttpHeaders.acceptHeader, 'application/vnd.github+json');
-      final response = await request.close().timeout(const Duration(seconds: 8));
-      // 还没发过 Release 时 GitHub 会给 404：当作「没有更新」，不打扰用户
-      if (response.statusCode != 200) return null;
-      final raw = await response.transform(utf8.decoder).join();
+      // 依次尝试各个源：GitHub 在国内常常连不上，Gitee 是兜底。
+      // 只要有一个源给了合法结果就用它，并记住是哪个源 —— 「去下载」要跳对地方。
+      UpdateSource? answered;
+      Map<String, dynamic>? json;
+      String tag = '';
+      List<int>? parsed;
+      for (final source in updateSources) {
+        final data = await _fetchRelease(source);
+        if (data == null) continue;
+        final candidateTag = '${data['tag_name'] ?? ''}';
+        final candidateVersion = parseTagVersion(candidateTag);
+        if (candidateVersion == null) continue;
+        answered = source;
+        json = data;
+        tag = candidateTag;
+        parsed = candidateVersion;
+        break;
+      }
 
-      final json = jsonDecode(raw);
-      if (json is! Map) return null;
-      final tag = '${json['tag_name'] ?? ''}';
-      final parsed = parseTagVersion(tag);
-      if (parsed == null) return null;
+      // 所有源都没结果：安静跳过（不写 lastUpdateTime，下次启动还会再试）
+      if (answered == null || json == null || parsed == null) return null;
 
       remoteVersion = parsed;
       // 我们自己的 tag 不带 versionCode，只比版本号本身
@@ -194,6 +276,8 @@ class Fuse {
         tag: tag,
         summary: _firstLineOf(json['body']),
         forced: forced,
+        sourceName: answered.name,
+        downloadUrl: answered.releasePageUrl,
       );
     } catch (e) {
       // 网络不通、JSON 结构变了、被限流……一律安静跳过，不影响任何本地功能

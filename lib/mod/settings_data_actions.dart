@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:celechron/database/database_helper.dart';
 import 'package:celechron/mod/database_mod.dart';
+import 'package:celechron/mod/feedback_copy.dart';
 import 'package:celechron/model/task.dart';
 import 'package:celechron/page/task/task_controller.dart';
 import 'package:celechron/utils/data_backup.dart';
@@ -9,6 +10,7 @@ import 'package:celechron/utils/data_sync.dart';
 import 'package:celechron/utils/time_helper.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:get/get.dart';
 import 'package:share_plus/share_plus.dart';
 
@@ -107,6 +109,32 @@ Future<void> modImportData(BuildContext context) async {
 
   if (context.mounted) {
     modAlert(context, '导入完成', merged.summary);
+  }
+}
+
+/// 一键复制「反馈信息」：机型 / 系统 / 版本 + 脱敏日志 + 反馈模板。
+///
+/// 目的是把反馈门槛压到最低 —— 用户粘一段文字就能在 QQ 群 / 论坛帖里说清楚，
+/// 我们也不用再追问"你什么机型、什么版本、日志呢"。
+Future<void> modCopyFeedback(BuildContext context) async {
+  try {
+    final text = await FeedbackCopy.build();
+    await Clipboard.setData(ClipboardData(text: text));
+    if (context.mounted) {
+      modAlert(
+        context,
+        '已复制反馈信息',
+        '机型、系统版本、App 版本与最近 ${FeedbackCopy.logTailLines} 行'
+        '**已脱敏**日志都在剪贴板里了。\n\n'
+        '把它粘到反馈渠道（QQ 群 / 论坛帖 / Gitee Issue），'
+        '再补上复现步骤即可。\n\n'
+        '日志里的密码、Cookie、学号已自动隐藏。',
+      );
+    }
+  } catch (e) {
+    if (context.mounted) {
+      modAlert(context, '复制失败', '$e');
+    }
   }
 }
 

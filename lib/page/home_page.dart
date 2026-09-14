@@ -203,9 +203,11 @@ class _HomePageState extends State<HomePage> {
                 isDefaultAction: true,
                 child: const Text('去下载'),
                 onPressed: () async {
-                  // 指向我们自己的 Release 页，别把用户送到上游站点
+                  // 打开**实际回答的那个源**的 Release 页：
+                  // 国内用户多半连不上 GitHub；如果这次是 Gitee 查到的更新，
+                  // 就必须跳 Gitee —— 否则他看得到更新却打不开下载页。
                   await launchUrlString(
-                    Fuse.releasePageUrl,
+                    update.downloadUrl,
                     mode: LaunchMode.externalApplication,
                   );
                   // 强制更新时对话框留着，装完新版本自然会消失

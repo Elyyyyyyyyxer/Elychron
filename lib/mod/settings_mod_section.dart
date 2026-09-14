@@ -188,6 +188,14 @@ Widget modDataSection(
             trailing: const BackChervonRow(),
             onTap: () => modImportData(context),
           ),
+          // 一键把「机型 / 系统 / 版本 + 脱敏日志 + 反馈模板」复制到剪贴板。
+          // 目的是让反馈发生在 QQ 群、论坛帖这类没门槛的地方时，也能说清现场。
+          CupertinoListTile(
+            title: const Text('复制反馈信息'),
+            subtitle: const Text('机型、系统、版本 + 脱敏日志，直接粘到反馈渠道'),
+            trailing: const BackChervonRow(),
+            onTap: () => modCopyFeedback(context),
+          ),
         ]));
 
 /// ===== P3：专注参数（工作 / 休息分钟数）=====

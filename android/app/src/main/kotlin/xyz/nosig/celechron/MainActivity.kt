@@ -74,6 +74,22 @@ class MainActivity: FlutterActivity() {
                 }
             })
 
+        // 设备信息：只给「复制反馈信息」用（机型 / 系统版本 / 厂商）
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "celechron/device")
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "info" -> result.success(
+                        mapOf(
+                            "manufacturer" to Build.MANUFACTURER,
+                            "model" to Build.MODEL,
+                            "release" to Build.VERSION.RELEASE,
+                            "sdk" to Build.VERSION.SDK_INT,
+                        )
+                    )
+                    else -> result.notImplemented()
+                }
+            }
+
         // 闹钟模式：播放系统默认闹钟铃声（循环）
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "celechron/alarm")
             .setMethodCallHandler { call, result ->
