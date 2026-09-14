@@ -6,6 +6,7 @@ import 'package:celechron/mod/ai/ai_task_draft.dart';
 import 'package:celechron/mod/ai/deepseek.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:celechron/mod/friendly_error.dart';
 
 /// 粘贴一段文字 → AI 整理成待办草稿 → 用户确认后填入新建页。
 ///
@@ -84,7 +85,9 @@ class _AiComposeSheetState extends State<_AiComposeSheet> {
       setState(() => _error = error.message);
     } catch (error) {
       if (!mounted) return;
-      setState(() => _error = '$error');
+      // 说人话（超时/密钥错/连不上…），细节留给诊断日志
+      setState(() => _error =
+          FriendlyError.short(error, fallback: 'AI 没能整理出结果，请稍后重试'));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -112,7 +115,10 @@ class _AiComposeSheetState extends State<_AiComposeSheet> {
         _error = null;
       });
     } catch (error) {
-      if (mounted) setState(() => _error = '选图失败：$error');
+      if (mounted) {
+        setState(() => _error =
+            '选图失败：${FriendlyError.short(error, fallback: '这张图读不出来')}');
+      }
     }
   }
 

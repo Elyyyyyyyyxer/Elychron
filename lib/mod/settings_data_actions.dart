@@ -13,6 +13,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:get/get.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:celechron/mod/friendly_error.dart';
 
 /// ============ 设置页里「数据（导出 / 导入）」的实现 ============
 ///
@@ -32,7 +33,9 @@ Future<void> modExportData(BuildContext context) async {
     ));
   } catch (e) {
     if (context.mounted) {
-      modAlert(context, '导出失败', '$e');
+      // 只说人话；细节在「设置 → 诊断与测试」里能看
+      modAlert(context, '导出失败',
+          FriendlyError.short(e, fallback: '导出没成功，请稍后重试'));
     }
   }
 }
@@ -133,7 +136,8 @@ Future<void> modCopyFeedback(BuildContext context) async {
     }
   } catch (e) {
     if (context.mounted) {
-      modAlert(context, '复制失败', '$e');
+      modAlert(context, '复制失败',
+          FriendlyError.short(e, fallback: '复制没成功，请稍后重试'));
     }
   }
 }

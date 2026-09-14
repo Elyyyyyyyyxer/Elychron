@@ -6,6 +6,7 @@ import 'package:celechron/model/scholar.dart';
 
 import '../../worker/ecard_widget_messenger.dart';
 import 'option_controller.dart';
+import 'package:celechron/mod/friendly_error.dart';
 
 class LoginForm extends StatelessWidget {
   final TextEditingController usernameController = TextEditingController();
@@ -131,18 +132,31 @@ class LoginForm extends StatelessWidget {
                               } else {
                                 buttonPressed.value = false;
                                 if (!context.mounted) return;
+                                // ===== MOD: 报错只说人话 =====
+                                // 以前把异常原文整段贴出来（含 URL / 状态码 / 响应片段），
+                                // 一屏都放不下，用户完全看不懂。现在压成一句，
+                                // 细节去「设置 → 诊断与测试」里看。
+                                final raw = value.firstWhere(
+                                    (e) => e != null && e.trim().isNotEmpty,
+                                    orElse: () => null);
                                 showCupertinoDialog(
                                     context: context,
                                     builder: (context) {
                                       return CupertinoAlertDialog(
                                         title: const Text('登录失败'),
-                                        content: Text(value
-                                            .where((e) => e != null)
-                                            .fold('', (p, v) => '$p\n$v')
-                                            .trim()),
+                                        content: Padding(
+                                          padding:
+                                              const EdgeInsets.only(top: 8),
+                                          child: Text(
+                                            FriendlyError.short(raw,
+                                                fallback: '登录没成功，请稍后重试'),
+                                            style: const TextStyle(
+                                                fontSize: 15),
+                                          ),
+                                        ),
                                         actions: [
                                           CupertinoDialogAction(
-                                            child: const Text('确定'),
+                                            child: const Text('知道了'),
                                             onPressed: () async {
                                               Navigator.of(context).pop();
                                             },
