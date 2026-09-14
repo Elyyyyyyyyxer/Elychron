@@ -1,6 +1,7 @@
 import 'package:celechron/model/task.dart';
 import 'package:celechron/mod/system_alarm.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:celechron/design/bold_markdown_text.dart';
 import 'package:get/get.dart';
 
 /// 「把某条待办交给系统闹钟」。
@@ -59,7 +60,7 @@ Future<void> setSystemAlarmForTask(BuildContext context, Task task) async {
     barrierDismissible: false,
     builder: (BuildContext context) => CupertinoAlertDialog(
       title: const Text('交给系统闹钟？'),
-      content: Text(
+      content: BoldMarkdownText(
         '「${task.summary}」\n'
         '${at.year}-${_two(at.month)}-${_two(at.day)} ${_two(at.hour)}:${_two(at.minute)}\n\n'
         '系统闹钟是**一次性**的，而且**不会随着待办完成或删除而撤销** —— '

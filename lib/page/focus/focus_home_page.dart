@@ -1,4 +1,5 @@
 import 'package:celechron/database/database_helper.dart';
+import 'package:celechron/design/bold_markdown_text.dart';
 import 'package:celechron/model/focus_engine.dart';
 import 'package:celechron/model/focus_stats.dart';
 import 'package:celechron/model/task.dart';
@@ -156,7 +157,7 @@ class _FocusHomePageState extends State<FocusHomePage> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
+                            BoldMarkdownText(
                               task.summary.trim().isEmpty
                                   ? '(未命名待办)'
                                   : task.summary.trim(),
