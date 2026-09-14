@@ -19,6 +19,7 @@ import 'package:celechron/utils/utils.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart' show Icons;
 import 'package:get/get.dart';
+import 'package:celechron/page/option/option_controller.dart';
 
 /// ============ 首页的魔改钩子：分享接收 + 闹钟弹出 ============
 ///
@@ -47,6 +48,32 @@ class HomeModHooks {
     DoNotDisturb.restoreIfStale();
     // 一次性迁移：把「异步刷新」改成默认开启（老用户也会被迁移一次）。
     _migrateOnce();
+    // 补记「上次登录的账号密码」：老用户是在这个功能之前登录的，
+    // 不补的话他们一退出登录就没得预填。控制器可能还没注册，所以延后再试一次。
+    _backfillRememberedAccount();
+    Future<void>.delayed(const Duration(seconds: 3), _backfillRememberedAccount);
+  }
+
+  /// 把当前已登录的账号密码补记一份，供退出后预填（幂等）
+  void _backfillRememberedAccount() {
+    try {
+      if (!Get.isRegistered<DatabaseHelper>(tag: 'db')) return;
+      if (!Get.isRegistered<OptionController>(tag: 'optionController')) return;
+      final scholar =
+          Get.find<OptionController>(tag: 'optionController').scholar.value;
+      final username = scholar.username ?? '';
+      final password = scholar.password ?? '';
+      if (username.isEmpty && password.isEmpty) return;
+      final db = Get.find<DatabaseHelper>(tag: 'db');
+      db.rememberedAccount().then((saved) {
+        // 已经有记录就不覆盖（避免把用户后来改过的密码冲掉）
+        if (saved.username.isEmpty && saved.password.isEmpty) {
+          db.rememberAccount(username, password);
+        }
+      });
+    } catch (_) {
+      // 补记失败不影响启动
+    }
   }
 
   /// 启动时跑一次的一次性迁移（带标记键，幂等，失败不影响启动）
