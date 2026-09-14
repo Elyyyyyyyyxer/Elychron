@@ -1,3 +1,4 @@
+import 'package:celechron/design/app_accent.dart';
 import 'package:celechron/database/database_helper.dart';
 import 'package:celechron/model/focus_engine.dart';
 import 'package:celechron/model/focus_stats.dart';
@@ -283,14 +284,14 @@ class _FocusHomePageState extends State<FocusHomePage> {
                   height: 208,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    gradient: const LinearGradient(
+                    gradient: LinearGradient(
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
-                      colors: [Color(0xFFFF699A), Color(0xFFFF8FB3)],
+                      colors: [AppAccent.primary, AppAccent.primaryLight],
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFFFF699A).withValues(alpha: 0.35),
+                        color: AppAccent.soft(0.35),
                         blurRadius: 24,
                         offset: const Offset(0, 10),
                       ),
@@ -477,7 +478,7 @@ class _FocusHomePageState extends State<FocusHomePage> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 16, color: const Color(0xFFFF699A)),
+            Icon(icon, size: 16, color: AppAccent.primary),
             const SizedBox(width: 6),
             Text(label, style: const TextStyle(fontSize: 15)),
           ],

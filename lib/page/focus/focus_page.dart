@@ -1,3 +1,4 @@
+import 'package:celechron/design/app_accent.dart';
 import 'dart:async';
 import 'dart:math' as math;
 
@@ -236,7 +237,7 @@ class _FocusPageState extends State<FocusPage> {
   Color get _phaseColor {
     if (_engine.isResting) return const Color(0xFF34C759); // 休息：绿
     if (_engine.isPaused) return const Color(0xFFFF9F0A); // 暂停：橙
-    return const Color(0xFFFF699A); // 工作：主题粉
+    return AppAccent.primary; // 工作：主题粉
   }
 
   /// 当前这一段的总时长（工作段就是工作分钟数，休息段就是休息分钟数）

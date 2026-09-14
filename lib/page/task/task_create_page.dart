@@ -1,3 +1,4 @@
+import 'package:celechron/design/app_accent.dart';
 import 'package:celechron/design/date_picker_sheet.dart';
 import 'package:celechron/design/repeat_sheet.dart';
 import 'package:celechron/design/image_preview.dart';
@@ -750,7 +751,7 @@ class _TaskCreatePageState extends State<TaskCreatePage> {
                                     style: TextStyle(
                                       fontSize: 13,
                                       color: sub.hasTime
-                                          ? const Color(0xFFFF699A)
+                                          ? AppAccent.primary
                                           : labelColor,
                                     ),
                                   ),

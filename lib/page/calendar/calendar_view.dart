@@ -1,3 +1,4 @@
+import 'package:celechron/design/app_accent.dart';
 import 'package:celechron/design/card_flip.dart';
 import 'package:celechron/design/custom_decoration.dart';
 import 'package:celechron/design/sub_title.dart';
@@ -158,7 +159,7 @@ class CalendarPage extends StatelessWidget {
                           width: 1.6,
                           color: mode ==
                                   CalendarViewMode.upcoming
-                              ? const Color(0xFFFF699A)
+                              ? AppAccent.primary
                               : CupertinoDynamicColor.resolve(
                                   CupertinoColors.secondaryLabel, context),
                         ),

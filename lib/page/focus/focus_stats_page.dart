@@ -1,3 +1,4 @@
+import 'package:celechron/design/app_accent.dart';
 import 'package:celechron/database/database_helper.dart';
 import 'package:celechron/model/focus_engine.dart';
 import 'package:celechron/model/focus_session.dart';
@@ -226,8 +227,8 @@ class _FocusStatsPageState extends State<FocusStatsPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(CupertinoIcons.timer,
-                size: 44, color: Color(0xFFFF699A)),
+            Icon(CupertinoIcons.timer,
+                size: 44, color: AppAccent.primary),
             const SizedBox(height: 14),
             const Text('还没有专注记录',
                 style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
@@ -240,7 +241,7 @@ class _FocusStatsPageState extends State<FocusStatsPage> {
             ),
             const SizedBox(height: 20),
             CupertinoButton(
-              color: const Color(0xFFFF699A),
+              color: AppAccent.primary,
               borderRadius: BorderRadius.circular(22),
               padding:
                   const EdgeInsets.symmetric(horizontal: 28, vertical: 12),
@@ -391,7 +392,7 @@ class _FocusStatsPageState extends State<FocusStatsPage> {
           ),
           Text(
             sub,
-            style: const TextStyle(fontSize: 11, color: Color(0xFFFF699A)),
+            style: TextStyle(fontSize: 11, color: AppAccent.primary),
           ),
         ],
       ),
@@ -444,7 +445,7 @@ class _FocusStatsPageState extends State<FocusStatsPage> {
                       height: 6 + 74 * ratio,
                       decoration: BoxDecoration(
                         color: d.focused > Duration.zero
-                            ? const Color(0xFFFF699A)
+                            ? AppAccent.primary
                             : CupertinoDynamicColor.resolve(
                                 CupertinoColors.systemFill, context),
                         borderRadius: BorderRadius.circular(6),
@@ -520,7 +521,7 @@ class _FocusStatsPageState extends State<FocusStatsPage> {
                       child: Container(
                         height: 6,
                         decoration: BoxDecoration(
-                          color: const Color(0xFFFF699A),
+                          color: AppAccent.primary,
                           borderRadius: BorderRadius.circular(4),
                         ),
                       ),

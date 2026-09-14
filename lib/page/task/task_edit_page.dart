@@ -1,3 +1,4 @@
+import 'package:celechron/design/app_accent.dart';
 import 'dart:async';
 
 import 'package:celechron/design/date_picker_sheet.dart';
@@ -1129,17 +1130,17 @@ class _TaskEditPageState extends State<TaskEditPage> {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(CupertinoIcons.timer,
-                            size: 18, color: Color(0xFFFF699A)),
+                        Icon(CupertinoIcons.timer,
+                            size: 18, color: AppAccent.primary),
                         const SizedBox(width: 6),
                         Text(
                           now.timeSpent > Duration.zero
                               ? '开始专注 · 已记 ${focusHuman(now.timeSpent)}'
                               : '开始专注',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.w500,
-                            color: Color(0xFFFF699A),
+                            color: AppAccent.primary,
                           ),
                         ),
                       ],

@@ -1,3 +1,4 @@
+import 'package:celechron/design/app_accent.dart';
 import 'package:celechron/design/round_rectangle_card.dart';
 import 'package:celechron/design/task_detail_nav.dart';
 import 'package:celechron/model/period.dart';
@@ -296,7 +297,7 @@ class UpcomingView extends StatelessWidget {
       '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
 
   static Color _accentOf(UpcomingKind kind) => switch (kind) {
-        UpcomingKind.course => const Color(0xFFFF699A),
+        UpcomingKind.course => AppAccent.primary,
         UpcomingKind.exam => CupertinoColors.systemRed,
         UpcomingKind.activity => CupertinoColors.systemPurple,
         UpcomingKind.deadline => CupertinoColors.systemOrange,
@@ -387,7 +388,7 @@ class _PeriodSheet extends StatelessWidget {
                 width: double.infinity,
                 child: CupertinoButton(
                   // 与 App 主按钮一致的爱莉希雅粉（电话/其它主操作用的同一色）
-                  color: const Color(0xFFFF699A),
+                  color: AppAccent.primary,
                   borderRadius: BorderRadius.circular(22),
                   onPressed: () => Navigator.of(context).pop(),
                   child: const Text('知道了',
