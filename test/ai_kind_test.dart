@@ -111,7 +111,7 @@ void main() {
       ));
       expect(draft.kind, TaskType.deadline);
       expect(draft.startTime, isNull);
-      expect(draft.warnings.any((w) => w.contains('已按「截止」处理')), isTrue);
+      expect(draft.warnings.any((w) => w.contains('已按截止处理')), isTrue);
     });
 
     test('活动的开始时间不早于结束时间 → 那其实不是时段，同样降级成截止', () {
@@ -124,7 +124,7 @@ void main() {
       expect(draft.kind, TaskType.deadline);
       // _validateStartTime 已经解释过为什么丢掉开始时间，加上我们那条降级说明
       expect(draft.warnings.any((w) => w.contains('不早于结束时间')), isTrue);
-      expect(draft.warnings.any((w) => w.contains('已按「截止」处理')), isTrue);
+      expect(draft.warnings.any((w) => w.contains('已按截止处理')), isTrue);
     });
 
     test('截止/提醒型被塞了开始时间 → 丢掉，并留一条', () {
