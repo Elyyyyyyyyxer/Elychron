@@ -1,8 +1,11 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:celechron/database/database_helper.dart';
 import 'package:celechron/mod/database_mod.dart';
 import 'package:celechron/mod/feedback_copy.dart';
+import 'package:celechron/mod/friendly_error.dart';
+import 'package:celechron/mod/ical_import.dart';
 import 'package:celechron/model/task.dart';
 import 'package:celechron/page/task/task_controller.dart';
 import 'package:celechron/utils/data_backup.dart';
@@ -112,6 +115,111 @@ Future<void> modImportData(BuildContext context) async {
 
   if (context.mounted) {
     modAlert(context, '导入完成', merged.summary);
+  }
+}
+
+/// 导入 iCal（.ics）文件：解析出每条日程，转成待办。
+///
+/// 按用户要求**只进 Elychron 的待办**，不写系统日历。
+/// 去重靠 iCal 自带的 UID：同一个文件重复导入不会产生重复待办。
+Future<void> modImportIcal(BuildContext context) async {
+  try {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['ics', 'ical'],
+      withData: true,
+    );
+    if (result == null || result.files.isEmpty) return;
+    final file = result.files.first;
+    final bytes = file.bytes;
+    if (bytes == null) {
+      if (context.mounted) modAlert(context, '读取失败', '拿不到文件内容，请换一个文件试试。');
+      return;
+    }
+    var text = utf8.decode(bytes, allowMalformed: true);
+    // 去掉 UTF-8 BOM（有些日历导出的文件带）
+    if (text.startsWith('\uFEFF')) text = text.substring(1);
+
+    final events = IcalImporter.parseIcal(text);
+    if (events.isEmpty) {
+      if (context.mounted) {
+        modAlert(context, '没找到日程', '这个文件里没有可识别的日程（VEVENT）。');
+      }
+      return;
+    }
+
+    final taskList = Get.find<RxList<Task>>(tag: 'taskList');
+    final existing = taskList.map((task) => task.uid).toSet();
+    final plan = IcalImporter.plan(events, existingUids: existing);
+
+    if (!context.mounted) return;
+    if (plan.isEmpty) {
+      modAlert(context, '都导入过了', '${plan.summary}。');
+      return;
+    }
+
+    // 确认：列前几条标题，让用户知道要进来什么
+    final preview = plan.tasks
+        .take(5)
+        .map((task) => '· ${task.summary}')
+        .join('\n');
+    final more = plan.tasks.length > 5 ? '\n…… 还有 ${plan.tasks.length - 5} 条' : '';
+    final confirmed = await showCupertinoDialog<bool>(
+      context: context,
+      builder: (BuildContext context) => CupertinoAlertDialog(
+        title: const Text('导入 iCal 日程'),
+        content: Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(plan.summary, style: const TextStyle(fontSize: 14)),
+              const SizedBox(height: 8),
+              Text('$preview$more', style: const TextStyle(fontSize: 13)),
+              const SizedBox(height: 8),
+              const Text(
+                '有起止的会导入成「活动」，只有一个时刻的按「提醒」或「截止」，'
+                '都没有的按「备忘」。重复导入同一个文件不会产生重复待办。',
+                style: TextStyle(fontSize: 12),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          CupertinoDialogAction(
+            child: const Text('取消'),
+            onPressed: () => Navigator.of(context).pop(false),
+          ),
+          CupertinoDialogAction(
+            isDefaultAction: true,
+            child: const Text('导入'),
+            onPressed: () => Navigator.of(context).pop(true),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+
+    taskList.addAll(plan.tasks);
+    final controller = Get.find<TaskController>();
+    controller.updateDeadlineList();
+    controller.updateDeadlineListTime();
+    controller.taskList.refresh();
+
+    if (context.mounted) {
+      modAlert(
+        context,
+        '导入完成',
+        '新增 ${plan.tasks.length} 条待办'
+        '${plan.skipped.isEmpty ? '' : '，跳过 ${plan.skipped.length} 条已存在的'}。',
+      );
+    }
+  } catch (e) {
+    if (context.mounted) {
+      modAlert(context, '导入失败',
+          FriendlyError.short(e, fallback: '这个 iCal 文件读不出来，请确认格式'));
+    }
   }
 }
 

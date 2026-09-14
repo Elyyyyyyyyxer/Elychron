@@ -192,6 +192,15 @@ Widget modDataSection(
             trailing: const BackChervonRow(),
             onTap: () => modCopyFeedback(context),
           ),
+          // 导入 iCal（.ics）：把别的日历/课程表导出的日程变成待办。
+          // 与「导出为 iCal 文件」成对，但那条在上游的设置区块里，
+          // 这里放在数据区块，避免改上游文件。
+          CupertinoListTile(
+            title: const Text('导入 iCal 文件'),
+            subtitle: const Text('把 .ics 里的日程导入成待办（重复导入不会重复）'),
+            trailing: const BackChervonRow(),
+            onTap: () => modImportIcal(context),
+          ),
         ]));
 
 /// ===== P3：专注参数（工作 / 休息分钟数）=====
