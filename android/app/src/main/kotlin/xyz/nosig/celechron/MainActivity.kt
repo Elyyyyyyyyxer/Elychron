@@ -48,28 +48,39 @@ class MainActivity: FlutterActivity() {
 
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "celechron/todoWidget")
             .setMethodCallHandler { call, result ->
-                if (call.method != "update") {
-                    result.notImplemented()
-                    return@setMethodCallHandler
-                }
-                val snapshot = call.arguments as? String
-                if (snapshot == null) {
-                    result.error("invalid_snapshot", "Missing todo widget snapshot", null)
-                    return@setMethodCallHandler
-                }
-                try {
-                    saveTodoWidgetSnapshot(this, snapshot)
-                } catch (error: Exception) {
-                    result.error("invalid_snapshot", error.message, null)
-                    return@setMethodCallHandler
-                }
-                CoroutineScope(Dispatchers.Main).launch {
-                    try {
-                        TodoWidget().updateAll(this@MainActivity)
-                        result.success(null)
-                    } catch (error: Exception) {
-                        result.error("widget_update_failed", error.message, null)
+                when (call.method) {
+                    "update" -> {
+                        val snapshot = call.arguments as? String
+                        if (snapshot == null) {
+                            result.error("invalid_snapshot", "Missing todo widget snapshot", null)
+                            return@setMethodCallHandler
+                        }
+                        try {
+                            saveTodoWidgetSnapshot(this, snapshot)
+                        } catch (error: Exception) {
+                            result.error("invalid_snapshot", error.message, null)
+                            return@setMethodCallHandler
+                        }
+                        CoroutineScope(Dispatchers.Main).launch {
+                            try {
+                                TodoWidget().updateAll(this@MainActivity)
+                                result.success(null)
+                            } catch (error: Exception) {
+                                result.error("widget_update_failed", error.message, null)
+                            }
+                        }
                     }
+                    "getPendingCompletions" ->
+                        result.success(pendingTodoWidgetCompletions(this))
+                    "ackCompletions" -> {
+                        val ids = (call.arguments as? List<*>)
+                            ?.mapNotNull { it as? String }
+                            ?.toSet()
+                            .orEmpty()
+                        acknowledgeTodoWidgetCompletions(this, ids)
+                        result.success(null)
+                    }
+                    else -> result.notImplemented()
                 }
             }
 

@@ -11,13 +11,22 @@ import androidx.glance.GlanceModifier
 import androidx.glance.GlanceTheme
 import androidx.glance.Image
 import androidx.glance.ImageProvider
-import androidx.glance.LocalSize
+import androidx.glance.action.Action
+import androidx.glance.action.ActionParameters
+import androidx.glance.action.actionParametersOf
+import androidx.glance.action.clickable
+import androidx.glance.appwidget.CheckBox
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.GlanceAppWidgetReceiver
 import androidx.glance.appwidget.SizeMode
+import androidx.glance.appwidget.action.ActionCallback
+import androidx.glance.appwidget.action.actionRunCallback
 import androidx.glance.appwidget.action.actionStartActivity
 import androidx.glance.appwidget.cornerRadius
+import androidx.glance.appwidget.lazy.LazyColumn
+import androidx.glance.appwidget.lazy.items
 import androidx.glance.appwidget.provideContent
+import androidx.glance.appwidget.updateAll
 import androidx.glance.background
 import androidx.glance.layout.Alignment
 import androidx.glance.layout.Box
@@ -30,11 +39,13 @@ import androidx.glance.layout.height
 import androidx.glance.layout.padding
 import androidx.glance.layout.size
 import androidx.glance.layout.width
-import androidx.glance.action.clickable
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.intOrNull
@@ -44,8 +55,12 @@ import kotlinx.serialization.json.jsonPrimitive
 
 private const val TODO_WIDGET_PREFS = "todo_widget"
 private const val TODO_WIDGET_SNAPSHOT = "snapshot"
+private const val TODO_WIDGET_PENDING_COMPLETIONS = "pending_completions"
+private val todoTaskIdKey = ActionParameters.Key<String>("todoTaskId")
+private val todoWidgetCompletionLock = Any()
 
 private data class TodoWidgetTask(
+    val id: String,
     val title: String,
     val time: String,
     val overdue: Boolean,
@@ -75,12 +90,6 @@ class TodoWidget : GlanceAppWidget() {
 
 @Composable
 private fun TodoWidgetContent(context: Context, snapshot: TodoWidgetSnapshot) {
-    val maxRows = when {
-        LocalSize.current.height >= 260.dp -> 5
-        LocalSize.current.height >= 220.dp -> 4
-        LocalSize.current.height >= 180.dp -> 3
-        else -> 2
-    }
     val openList = actionStartActivity(todoWidgetIntent(context, create = false))
     val createTask = actionStartActivity(todoWidgetIntent(context, create = true))
 
@@ -163,36 +172,43 @@ private fun TodoWidgetContent(context: Context, snapshot: TodoWidgetSnapshot) {
                 )
             }
         } else {
-            snapshot.tasks.take(maxRows).forEach { task ->
-                TodoTaskRow(task, openList)
+            LazyColumn(
+                modifier = GlanceModifier.fillMaxWidth().defaultWeight(),
+            ) {
+                items(
+                    items = snapshot.tasks,
+                    itemId = { task -> task.id.hashCode().toLong() },
+                ) { task ->
+                    TodoTaskRow(task, openList)
+                }
             }
         }
     }
 }
 
 @Composable
-private fun TodoTaskRow(task: TodoWidgetTask, openList: androidx.glance.action.Action) {
+private fun TodoTaskRow(task: TodoWidgetTask, openList: Action) {
     Row(
         modifier = GlanceModifier
             .fillMaxWidth()
-            .padding(vertical = 4.dp)
-            .clickable(openList),
+            .padding(vertical = 2.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(
-            text = if (task.overdue) "!" else "•",
-            style = TextStyle(
-                color = if (task.overdue) {
-                    GlanceTheme.colors.error
-                } else {
-                    GlanceTheme.colors.primary
-                },
-                fontSize = 15.sp,
-                fontWeight = FontWeight.Bold,
+        CheckBox(
+            checked = false,
+            onCheckedChange = actionRunCallback<CompleteTodoAction>(
+                actionParametersOf(todoTaskIdKey to task.id),
             ),
+            text = "",
+            modifier = GlanceModifier.size(36.dp),
         )
-        Spacer(GlanceModifier.width(7.dp))
-        Column(modifier = GlanceModifier.defaultWeight()) {
+        Spacer(GlanceModifier.width(4.dp))
+        Column(
+            modifier = GlanceModifier
+                .defaultWeight()
+                .padding(vertical = 4.dp)
+                .clickable(openList),
+        ) {
             Text(
                 text = task.title,
                 maxLines = 1,
@@ -218,6 +234,18 @@ private fun TodoTaskRow(task: TodoWidgetTask, openList: androidx.glance.action.A
     }
 }
 
+class CompleteTodoAction : ActionCallback {
+    override suspend fun onAction(
+        context: Context,
+        glanceId: GlanceId,
+        parameters: ActionParameters,
+    ) {
+        val taskId = parameters[todoTaskIdKey] ?: return
+        queueTodoWidgetCompletion(context, taskId)
+        TodoWidget().updateAll(context)
+    }
+}
+
 private fun todoWidgetIntent(context: Context, create: Boolean): Intent =
     Intent(context, MainActivity::class.java).apply {
         action = Intent.ACTION_VIEW
@@ -235,6 +263,68 @@ internal fun saveTodoWidgetSnapshot(context: Context, rawSnapshot: String) {
         .apply()
 }
 
+internal fun pendingTodoWidgetCompletions(context: Context): List<String> =
+    synchronized(todoWidgetCompletionLock) {
+        context.getSharedPreferences(TODO_WIDGET_PREFS, Context.MODE_PRIVATE)
+            .getStringSet(TODO_WIDGET_PENDING_COMPLETIONS, emptySet())
+            .orEmpty()
+            .toList()
+    }
+
+internal fun acknowledgeTodoWidgetCompletions(context: Context, ids: Set<String>) {
+    if (ids.isEmpty()) return
+    synchronized(todoWidgetCompletionLock) {
+        val preferences = context.getSharedPreferences(TODO_WIDGET_PREFS, Context.MODE_PRIVATE)
+        val remaining = preferences
+            .getStringSet(TODO_WIDGET_PENDING_COMPLETIONS, emptySet())
+            .orEmpty()
+            .toMutableSet()
+        remaining.removeAll(ids)
+        preferences.edit()
+            .putStringSet(TODO_WIDGET_PENDING_COMPLETIONS, remaining)
+            .apply()
+    }
+}
+
+private fun queueTodoWidgetCompletion(context: Context, taskId: String) {
+    synchronized(todoWidgetCompletionLock) {
+        val preferences = context.getSharedPreferences(TODO_WIDGET_PREFS, Context.MODE_PRIVATE)
+        val pending = preferences
+            .getStringSet(TODO_WIDGET_PENDING_COMPLETIONS, emptySet())
+            .orEmpty()
+            .toMutableSet()
+        pending.add(taskId)
+
+        val rawSnapshot = preferences.getString(TODO_WIDGET_SNAPSHOT, null)
+        val updatedSnapshot = rawSnapshot?.let { removeTaskFromSnapshot(it, taskId) }
+        val editor = preferences.edit()
+            .putStringSet(TODO_WIDGET_PENDING_COMPLETIONS, pending)
+        if (updatedSnapshot != null) {
+            editor.putString(TODO_WIDGET_SNAPSHOT, updatedSnapshot)
+        }
+        editor.apply()
+    }
+}
+
+private fun removeTaskFromSnapshot(rawSnapshot: String, taskId: String): String? = try {
+    val root = Json.parseToJsonElement(rawSnapshot).jsonObject
+    val tasks = root["tasks"]?.jsonArray ?: JsonArray(emptyList())
+    val remaining = tasks.filterNot { element ->
+        element.jsonObject["id"]?.jsonPrimitive?.contentOrNull == taskId
+    }
+    if (remaining.size == tasks.size) {
+        null
+    } else {
+        val currentCount = root["pendingCount"]?.jsonPrimitive?.intOrNull ?: tasks.size
+        JsonObject(root.toMutableMap().apply {
+            put("pendingCount", JsonPrimitive((currentCount - 1).coerceAtLeast(0)))
+            put("tasks", JsonArray(remaining))
+        }).toString()
+    }
+} catch (_: Exception) {
+    null
+}
+
 private fun readTodoWidgetSnapshot(context: Context): TodoWidgetSnapshot {
     val raw = context.getSharedPreferences(TODO_WIDGET_PREFS, Context.MODE_PRIVATE)
         .getString(TODO_WIDGET_SNAPSHOT, null)
@@ -243,8 +333,10 @@ private fun readTodoWidgetSnapshot(context: Context): TodoWidgetSnapshot {
         val root = Json.parseToJsonElement(raw).jsonObject
         val tasks = root["tasks"]?.jsonArray?.mapNotNull { element ->
             val item = element.jsonObject
+            val id = item["id"]?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null
             val title = item["title"]?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null
             TodoWidgetTask(
+                id = id,
                 title = title,
                 time = item["time"]?.jsonPrimitive?.contentOrNull.orEmpty(),
                 overdue = item["overdue"]?.jsonPrimitive?.booleanOrNull ?: false,
