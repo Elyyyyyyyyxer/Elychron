@@ -125,8 +125,12 @@ Future<void> modImportData(BuildContext context) async {
 Future<void> modImportIcal(BuildContext context) async {
   try {
     final result = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['ics', 'ical'],
+      // 为什么用 any 而不是按扩展名过滤：
+      // Android 上 `allowedExtensions: ['ics']` 会被映射成 MIME 过滤（text/calendar），
+      // 而很多 .ics（浏览器直下、聊天软件转发、adb 推的）**没有登记 MIME**，
+      // 于是文件明明在那儿、选择器里却看不到 —— 实测就是这么翻车的。
+      // 所以放开选择，读出来之后再校验内容（下面会检查有没有 VEVENT）。
+      type: FileType.any,
       withData: true,
     );
     if (result == null || result.files.isEmpty) return;
