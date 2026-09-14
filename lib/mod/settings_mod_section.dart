@@ -41,7 +41,12 @@ Widget modTutorialSection(
             children: <CupertinoListTile>[
           CupertinoListTile(
             title: const Text('使用教程'),
-            subtitle: Text(_tutorialSubtitle()),
+            // ⚠️ 副标题是"还有几篇没看"，必须跟着教程状态刷新 ——
+            // 否则看完一篇回到设置页还显示旧数字（真机上就是这么发现的）。
+            subtitle: ValueListenableBuilder<int>(
+              valueListenable: TutorialStore.instance.revision,
+              builder: (context, _, __) => Text(_tutorialSubtitle()),
+            ),
             trailing: const BackChervonRow(),
             onTap: () => openTutorialCenter(context),
           ),
