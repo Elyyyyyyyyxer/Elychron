@@ -15,7 +15,41 @@ const String kAlarmThemeKey = 'alarmTheme';
 const String kTagLibraryKey = 'tagLibrary';
 const String kTagColorsKey = 'tagColors';
 
+/// 专注时自动免打扰：开关本身（默认开）
+const String kFocusDndKey = 'focusDndEnabled';
+
+/// 开启免打扰**之前**的系统档位。
+///
+/// 落盘是为了防「App 被杀导致手机永久静音」：下次启动时如果发现这个键还在，
+/// 说明我们改过却没来得及还原，就立刻还原（见 `DoNotDisturb.restoreIfStale`）。
+const String kDndSavedFilterKey = 'dndSavedFilter';
+
 extension DatabaseModExt on DatabaseHelper {
+  // 专注时自动免打扰
+
+  bool getFocusDndEnabled() {
+    final value = optionsBox.get(kFocusDndKey);
+    if (value is bool) return value;
+    return true; // 默认开：这正是这个功能的意义
+  }
+
+  Future<void> setFocusDndEnabled(bool enabled) async {
+    await optionsBox.put(kFocusDndKey, enabled);
+  }
+
+  int? getDndSavedFilter() {
+    final value = optionsBox.get(kDndSavedFilterKey);
+    return value is int ? value : null;
+  }
+
+  Future<void> setDndSavedFilter(int filter) async {
+    await optionsBox.put(kDndSavedFilterKey, filter);
+  }
+
+  Future<void> clearDndSavedFilter() async {
+    await optionsBox.delete(kDndSavedFilterKey);
+  }
+
   // 提醒方式：0 = 通知（横幅+响铃），1 = 闹钟模式
 
   int getReminderMode() {

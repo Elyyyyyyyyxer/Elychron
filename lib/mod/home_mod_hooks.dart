@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:celechron/design/dingtalk_menu.dart';
 import 'package:celechron/mod/ai/ai_compose_sheet.dart';
+import 'package:celechron/mod/do_not_disturb.dart';
 import 'package:celechron/mod/ai/ai_image.dart';
 import 'package:celechron/mod/ai/deepseek.dart';
 import 'package:celechron/model/task.dart';
@@ -38,6 +39,9 @@ class HomeModHooks {
     if (TaskAlarmCenter.current.value != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _onAlarm());
     }
+    // 免打扰兜底：若上次专注期间 App 被系统杀掉，手机可能还停在静音档。
+    // 这里发现「我们改过却没还原」就立刻还原（用户自己开的免打扰不会被碰）。
+    DoNotDisturb.restoreIfStale();
   }
 
   void dispose() {

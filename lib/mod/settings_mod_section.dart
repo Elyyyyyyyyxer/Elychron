@@ -1,6 +1,8 @@
 import 'package:celechron/design/alarm_reliability.dart';
 import 'package:celechron/design/alarm_theme_picker.dart';
 import 'package:celechron/database/database_helper.dart';
+import 'package:celechron/mod/database_mod.dart';
+import 'package:celechron/mod/do_not_disturb.dart';
 import 'package:celechron/mod/ai/ai_settings_page.dart';
 import 'package:celechron/mod/ai/deepseek.dart';
 import 'package:celechron/mod/lan_sync_page.dart';
@@ -54,6 +56,7 @@ List<Widget> modReminderTiles(
       // ===== P3：专注参数 + 休息提醒 =====
       const _FocusParamTile(),
       const _FocusRestNotifyTile(),
+      const _FocusDndTile(),
       // ===== P4：专注记录 / 统计 =====
       CupertinoListTile(
         title: const Text('专注记录'),
@@ -283,6 +286,70 @@ class _FocusParamTileState extends State<_FocusParamTile> {
         ],
       ),
       onTap: () => _pick(isWork: true),
+    );
+  }
+}
+
+/// ===== 专注时自动免打扰（默认开）=====
+///
+/// 免打扰要「勿扰访问权限」，那是特殊权限、装机不自动授予。
+/// 所以这里不仅是个开关：没授权时点它会直接跳到系统授权页，并在副标题里说明状态。
+class _FocusDndTile extends StatefulWidget {
+  const _FocusDndTile();
+
+  @override
+  State<_FocusDndTile> createState() => _FocusDndTileState();
+}
+
+class _FocusDndTileState extends State<_FocusDndTile> {
+  DatabaseHelper? get _db {
+    if (!Get.isRegistered<DatabaseHelper>(tag: 'db')) return null;
+    return Get.find<DatabaseHelper>(tag: 'db');
+  }
+
+  bool? _granted;
+
+  @override
+  void initState() {
+    super.initState();
+    DoNotDisturb.isGranted().then((value) {
+      if (mounted) setState(() => _granted = value);
+    });
+  }
+
+  String get _subtitle {
+    if (_granted == null) return '专注期间自动把手机静音，结束时还原';
+    if (_granted == false) return '需要「勿扰访问权限」，点这里去系统设置里授予';
+    return '专注期间自动切到完全静音，结束时还原成原来的档位';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = _db?.getFocusDndEnabled() ?? true;
+    return CupertinoListTile(
+      title: const Text('专注时自动免打扰'),
+      subtitle: Text(_subtitle),
+      trailing: CupertinoSwitch(
+        value: enabled,
+        onChanged: (value) async {
+          _db?.setFocusDndEnabled(value);
+          setState(() {});
+          // 打开开关但没授权 → 直接带用户去授权，别让他以为已经生效
+          if (value && _granted == false) {
+            await DoNotDisturb.openSettings();
+            final granted = await DoNotDisturb.isGranted();
+            if (mounted) setState(() => _granted = granted);
+          }
+        },
+      ),
+      // 没授权时点整行也去授权，免得用户找不到入口
+      onTap: _granted == false
+          ? () async {
+              await DoNotDisturb.openSettings();
+              final granted = await DoNotDisturb.isGranted();
+              if (mounted) setState(() => _granted = granted);
+            }
+          : null,
     );
   }
 }

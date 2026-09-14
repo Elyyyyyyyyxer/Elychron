@@ -15,6 +15,10 @@
          这是 normal 权限，安装即授予，不需要运行时申请 -->
    <uses-permission android:name="com.android.alarm.permission.SET_ALARM" />
 
+    <!-- 专注时自动免打扰：「勿扰访问权限」属于特殊权限，声明只是前提，
+         用户还需要去系统设置里手动授予（设置页会引导跳转） -->
+   <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
+
     <!-- Android 11+ 的包可见性：不声明这段，resolveActivity(SET_ALARM) 一律返回 null，
          于是「没有可用的系统时钟」——真机上就是这么翻车的。声明后才能看见时钟应用。 -->
    <queries>

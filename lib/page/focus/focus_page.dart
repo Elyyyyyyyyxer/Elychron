@@ -1,4 +1,5 @@
 import 'package:celechron/design/app_accent.dart';
+import 'package:celechron/mod/do_not_disturb.dart';
 import 'dart:async';
 import 'dart:math' as math;
 
@@ -82,6 +83,10 @@ class _FocusPageState extends State<FocusPage> {
     _ticker = Timer.periodic(const Duration(seconds: 1), (_) => _onTick());
     // 页面关掉时把会话结算掉（正常结束走 _finish，这条路是兜底）
     WidgetsBinding.instance.addPostFrameCallback((_) => setState(() {}));
+    // 专注期间自动免打扰（设置里可关；没授权时安静跳过，设置页会引导授权）
+    if (DoNotDisturb.autoEnabled()) {
+      DoNotDisturb.enableForFocus();
+    }
   }
 
   @override
@@ -89,6 +94,8 @@ class _FocusPageState extends State<FocusPage> {
     _ticker?.cancel();
     // 离开页面就把还没到点的「该休息了」撤掉，别让它半夜响
     TaskReminder.cancelFocusRestNotice();
+    // 还原免打扰（只还原我们改过的；用户自己开着的话不动）
+    DoNotDisturb.restore();
     super.dispose();
   }
 

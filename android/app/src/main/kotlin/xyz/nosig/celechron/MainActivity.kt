@@ -74,6 +74,26 @@ class MainActivity: FlutterActivity() {
                 }
             })
 
+        // 免打扰（DND）：专注开始时切到「完全静音」，结束时还原。
+        // setInterruptionFilter 需要「勿扰访问权限」；没授权时一律返回 false，
+        // 由 Dart 侧提示去授权 —— 不静默失败。
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "celechron/dnd")
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "isGranted" -> result.success(isDndAccessGranted())
+                    "currentFilter" -> result.success(currentInterruptionFilter())
+                    "setFilter" -> {
+                        val filter = call.argument<Int>("filter") ?: -1
+                        result.success(setInterruptionFilter(filter))
+                    }
+                    "openSettings" -> {
+                        openDndSettings()
+                        result.success(null)
+                    }
+                    else -> result.notImplemented()
+                }
+            }
+
         // 设备信息：只给「复制反馈信息」用（机型 / 系统版本 / 厂商）
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "celechron/device")
             .setMethodCallHandler { call, result ->
@@ -228,6 +248,51 @@ class MainActivity: FlutterActivity() {
         } catch (e: Exception) {
             android.util.Log.e("CelechronAlarm", "setSystemAlarm failed", e)
             false
+        }
+    }
+
+    /** 有没有「勿扰访问权限」（用户需要在系统设置里手动授予） */
+    private fun isDndAccessGranted(): Boolean {
+        return try {
+            val nm = getSystemService(NotificationManager::class.java) ?: return false
+            nm.isNotificationPolicyAccessGranted
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    /** 当前免打扰档位（1=全部允许 2=仅优先 4=完全静音 5=仅闹钟） */
+    private fun currentInterruptionFilter(): Int {
+        return try {
+            getSystemService(NotificationManager::class.java)?.currentInterruptionFilter ?: 1
+        } catch (e: Exception) {
+            1
+        }
+    }
+
+    /** 切免打扰档位；没授权或系统拒绝时返回 false */
+    private fun setInterruptionFilter(filter: Int): Boolean {
+        if (filter < 0) return false
+        return try {
+            val nm = getSystemService(NotificationManager::class.java) ?: return false
+            if (!nm.isNotificationPolicyAccessGranted) return false
+            nm.setInterruptionFilter(filter)
+            true
+        } catch (e: Exception) {
+            android.util.Log.e("CelechronDnd", "setInterruptionFilter failed", e)
+            false
+        }
+    }
+
+    /** 跳到系统的「勿扰权限」授权页 */
+    private fun openDndSettings() {
+        try {
+            startActivity(
+                Intent(android.provider.Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            )
+        } catch (e: Exception) {
+            android.util.Log.e("CelechronDnd", "open settings failed", e)
         }
     }
 
