@@ -9,7 +9,12 @@ import 'package:flutter/cupertino.dart';
 ///
 /// 排序逻辑全在 `model/upcoming.dart`（有单测），这里只负责画。
 /// 卡片统一用应用里的 [RoundRectangleCard]，与日程/待办页保持同一套观感。
-class UpcomingView extends StatelessWidget {
+///
+/// **同时有好几件在进行中时**（上课 + 组会撞在一起是真实场景）：顶层只放一张
+/// 大卡，其余的折叠成一叠小卡排在它下面，并写明「同时还有 N 个进行中」。
+/// 默认顶层是**课程**（见 [defaultTopRunningIndex]）；点折叠里的任意一条
+/// 可以把它换到顶层 —— 换上去以后原来那张会落回折叠堆里，所以点错了能点回来。
+class UpcomingView extends StatefulWidget {
   /// 已经排好序的条目（见 `buildUpcoming`）
   final List<UpcomingItem> items;
 
@@ -23,16 +28,45 @@ class UpcomingView extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
-    if (items.isEmpty) return _empty(context);
+  State<UpcomingView> createState() => _UpcomingViewState();
+}
+
+class _UpcomingViewState extends State<UpcomingView> {
+  /// 用户点着换到顶层的那一条，按 [UpcomingItem.dedupeKey] 记。
+  ///
+  /// **不能按 index 记**：这一页每 20 秒会跟着心跳重算一次，条目会随着时间
+  /// 进出列表，下标随时会变（按 index 记的话过一会儿就指到别人身上）。
+  String? _pinnedKey;
+
+  @override
+  void didUpdateWidget(UpcomingView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // 被置顶的那条**不再进行中**（课上完了 / 待办被删）→ 忘掉它。
+    //
+    // 必须按「还在不在进行中」而不是「还在不在列表里」判断：课程/日程的 uid
+    // 是一整套复用的（同一门课每天都是同一个 uid），所以那条会一直在 7 天窗口里，
+    // 按「在不在列表里」判断的话，置顶会一直留到下次它开课 —— 好几天后
+    // 莫名其妙又冒到顶层去。
+    final key = _pinnedKey;
+    if (key == null) return;
     final now = DateTime.now();
-    final head = items.first;
-    final rest = items.skip(1).toList();
+    final stillRunning = widget.items
+        .any((item) => item.dedupeKey == key && item.isRunningAt(now));
+    if (!stillRunning) _pinnedKey = null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.items.isEmpty) return _empty(context);
+    final now = DateTime.now();
+    final layout = layoutUpcoming(widget.items, now, pinnedKey: _pinnedKey)!;
     return ListView(
       padding: const EdgeInsets.fromLTRB(14, 6, 14, 110),
       children: [
-        _headCard(context, head, now),
-        if (rest.isNotEmpty) ...[
+        _headCard(context, layout.head, now),
+        if (layout.otherRunning.isNotEmpty)
+          ..._runningStack(context, layout),
+        if (layout.later.isNotEmpty) ...[
           const SizedBox(height: 18),
           Padding(
             padding: const EdgeInsets.only(left: 10, bottom: 6),
@@ -46,9 +80,107 @@ class UpcomingView extends StatelessWidget {
               ),
             ),
           ),
-          ...rest.map((item) => _row(context, item, now)),
+          ...layout.later.map((item) => _row(context, item, now)),
         ],
       ],
+    );
+  }
+
+  // -------------------------------------------------- 折叠起来的「其它进行中」
+
+  /// 除顶层之外的进行中条目：一条一行，逐级内缩，看着像一叠卡。
+  ///
+  /// 只做「内缩」不做「重叠」：重叠会把标题盖掉，而这些卡是要**按标题认领**
+  /// 再点上去的（用户要求「点击可以选择放在顶层的卡片」）。
+  List<Widget> _runningStack(BuildContext context, UpcomingLayout layout) {
+    final labelColor = CupertinoDynamicColor.resolve(
+        CupertinoColors.secondaryLabel, context);
+    final others = layout.otherRunning;
+    return [
+      const SizedBox(height: 14),
+      Padding(
+        padding: const EdgeInsets.only(left: 10, bottom: 6),
+        child: Text(
+          '同时还有 ${others.length} 个进行中 · 点一下置顶',
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: labelColor,
+          ),
+        ),
+      ),
+      for (var i = 0; i < others.length; i++)
+        Padding(
+          // 逐级内缩，最多缩三级 —— 再多就把标题挤没了
+          padding: EdgeInsets.only(
+            left: 12.0 * (i + 1).clamp(1, 3),
+            right: 4,
+            bottom: 6,
+          ),
+          child: _runningPill(context, others[i]),
+        ),
+    ];
+  }
+
+  Widget _runningPill(BuildContext context, UpcomingItem item) {
+    final labelColor = CupertinoDynamicColor.resolve(
+        CupertinoColors.secondaryLabel, context);
+    final textColor =
+        CupertinoTheme.of(context).textTheme.textStyle.color ??
+            CupertinoColors.label;
+    final sub = [
+      '进行中',
+      if (item.location.isNotEmpty) item.location,
+    ].join(' · ');
+
+    return RoundRectangleCard(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+      onTap: () => setState(() => _pinnedKey = item.dedupeKey),
+      child: Row(
+        children: [
+          Container(
+            width: 8,
+            height: 8,
+            margin: const EdgeInsets.only(right: 9),
+            decoration: const BoxDecoration(
+              shape: BoxShape.circle,
+              color: CupertinoColors.systemGreen,
+            ),
+          ),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  item.title,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                    color: textColor,
+                  ),
+                ),
+                const SizedBox(height: 1),
+                Text(
+                  sub,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: CupertinoColors.systemGreen,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 6),
+          // 「点它上去」的暗示：向上箭头，不用文字说明也看得懂
+          Icon(
+            CupertinoIcons.arrow_up_to_line,
+            size: 15,
+            color: labelColor,
+          ),
+        ],
+      ),
     );
   }
 
@@ -87,14 +219,14 @@ class UpcomingView extends StatelessWidget {
                     textAlign: TextAlign.center,
                     style: TextStyle(fontSize: 13, color: labelColor),
                   ),
-                  if (onAddTask != null) ...[
+                  if (widget.onAddTask != null) ...[
                     const SizedBox(height: 14),
                     CupertinoButton(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 18, vertical: 8),
                       color: CupertinoDynamicColor.resolve(
                           CupertinoColors.tertiarySystemFill, context),
-                      onPressed: onAddTask,
+                      onPressed: widget.onAddTask,
                       child: const Text('去添加待办',
                           style: TextStyle(fontSize: 14)),
                     ),

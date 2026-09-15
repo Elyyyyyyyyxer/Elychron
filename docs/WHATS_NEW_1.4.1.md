@@ -329,24 +329,49 @@
      下次进专注页就提示"上次没有正常结束"。
    - 修法：`home_mod_hooks._handleShared` 里**先判断是否有未结算的专注会话**；
      是则把分享内容**攒起来**（每 3 秒看一次是否结束），专注结束后再自动弹出来处理 —— **全程不打断**。
-3. **「接下来」多个进行中的项目只显示一个 → 待做（方案已写死）** ⏳
-   - 需求：顶层仍显示一个，**下方用多层折叠卡片**表示其余正在进行的项目（数量=进行中数量），
-     **点某张可把它提为顶层；未选择时默认「课程优先」**。
-   - 代码锚点：
-     - 数据入口：`calendar_view.dart` 的 `_upcomingItems()` → `buildUpcoming(...)`
-     - 渲染入口：`calendar_view.dart` 里 `UpcomingView(items: _upcomingItems())`
-     - 卡片与"进行中"判定：`upcoming_view.dart` 的 `_UpcomingCard`（`item.isRunningAt(now)`）
-     - 已有 20 秒心跳 `_calendarController.upcomingTick` → 这层每 20 秒重建，计数会自动跟着变
-   - 实施要点：把"所有进行中"收集成列表；顶层默认取 `PeriodType.classes` 优先（其次按开始时间）；
-     其余用折叠堆叠（每张露出一条边 + 显示"还有 N 个进行中"）；点选把该项提到顶层
-     （一个 `StatefulWidget` 里的 `int _topIndex` 即可，无需持久化）。
-4. **日程页上滑折叠日历（只留一周）→ 待做（方案已写死）** ⏳
-   - 需求：像图二那样，上滑把月历折成**一行星期 + 日期 + 农历 + 小圆点**，只显示一周。
-   - 代码锚点：`calendar_view.dart` 里的 `TableCalendar`（`calendarBuilders` /
-     `formatButtonVisible` / `headerVisible`），以及同文件里已有的
-     `chrome = 88` / `gridHeight`（课表模式那套高度计算，可直接借用思路）。
-   - 实施要点：用 `NotificationListener<ScrollNotification>` 或
-     `DraggableScrollableSheet` 驱动折叠；**折叠态建议不用 TableCalendar**，
-     而是自绘一周条（星期/日期/农历/圆点），点击某天即切换选中日 —— 更接近图二也更省帧。
-   - ⚠️ 两条都**没有真机验证**（用户外出、手机断连）。改动集中在 UI，建议先在真机上
-     确认折叠手势与卡片堆叠的观感再进发布。
+3. **「接下来」多个进行中的项目只显示一个 → 已修** ✅
+   - 现象（用户反馈）："同时有两个正在进行的项目⋯⋯只会显示一个进行中"。
+   - 原因：界面只认 `items.first` 当顶层大卡；第二条进行中的条目掉进「之后还有」，
+     而那一行**还故意不显示「进行中」**（`_row` 里的旧条件）→ 用户根本看不出它在进行。
+   - 修法：把「顶层大卡 / 折叠的其它进行中 / 之后还有」三段划分做成**纯逻辑**
+     （`model/upcoming.dart` 的 `layoutUpcoming`，13 条单测）。顶层默认**课程优先**
+     （`defaultTopRunningIndex`：有 `PeriodType.classes` 就给它，否则按开始时间最早）；
+     其余进行中的条目在顶层卡片下方**折叠成一叠小卡**（逐级内缩 + 「同时还有 N 个进行中 ·
+     点一下置顶」），点任意一张把它换到顶层，原来那张落回折叠堆（点错了能点回来）。
+     - 置顶按 `dedupeKey` 记**不按下标**：这一页每 20 秒跟着心跳重算，下标随时会变。
+     - 置顶**只在那条还进行中时有效**：课程/日程的 uid 整套复用（同一门课每天同一个 uid），
+       按"还在不在列表里"判断会让置顶一直留到下次开课（好几天后莫名冒到顶层）。
+     - 进行中的条目**不再同时出现在「之后还有」**，避免同一条显示两遍。
+   - ⚠️ 没有真机验证（用户外出、手机断连）。
+
+4. **日程页上滑折叠日历（只留一周）→ 已做** ✅（农历那部分**没做**，见下）
+   - 做法：折叠的呈现**直接用 `TableCalendar` 自带的 `CalendarFormat.month ⇄ .week`**，
+     不手画一周条 —— 它自己就是 `AnimatedSize` 包着的（`formatAnimationDuration` 默认
+     200ms），高度变化天然平滑；且选中态、今天、小圆点标记在周视图下全都照旧。
+     手画一条「一周条」要把选中/今天/标记/横向翻周全部重写一遍，风险大得多。
+   - 手势：`NotificationListener<ScrollNotification>`（`calendar_view.dart` 的日历分支）→
+     `CalendarController.handleDayListScroll` → 判定在 `mod/calendar_fold.dart`
+     （`CalendarFoldGesture`，13 条单测）。上滑列表 → 折成一周；**回到顶部继续下拉** → 展开整月。
+   - 三个必须踩住的坑（都写进注释和单测了）：
+     1. **只认竖向通知**：`TableCalendar` 内部是横向翻页的 `PageView`，它的通知同样会冒泡
+        出来，而那时 `metrics.pixels` 是"第几页"的偏移 —— 拿它判断会让日历莫名折叠。
+     2. **只认"手指直接带着动"的通知**（`dragDetails != null`）：折叠后列表因为日历变矮而
+        **变高**、内容可能不再溢出，位置会自动弹回 0；那种自动回弹若被当成"用户下拉"，
+        就会立刻展开 → **一折一展死循环**。
+     3. **当天列表改成"永远可拖"**（`AlwaysScrollableScrollPhysics.applyTo(当前平台物理)`）：
+        当天只有一两条时列表本来滚不动，手势就没有载体。用 `applyTo` 接在平台物理外面
+        （本 App 是 CupertinoApp → `BouncingScrollPhysics`），只多出"永远可拖"，回弹手感不变。
+   - ❌ **图二里的农历没做**：仓库里没有农历换算（`TimeHelper.chineseDayRelation` 只是
+     "今天/明天"这种相对说法，不是农历）。要加得引一个农历库或自己塞一张换算表，
+     属于独立小功能，等用户明确要了再做。**其余（星期 + 日期 + 小圆点标记）与图二一致。**
+   - ⚠️ 没有真机验证（用户外出、手机断连）：折叠手感、阈值（28px）是否合适要上手才知道。
+
+## 8.9 本轮工程记录（2026-09-15 第三轮）
+
+- 新增单测 **22 条**：`test/upcoming_test.dart` 加 9 条（多个进行中的三段划分），
+  `test/calendar_fold_test.dart` 新建 13 条（折叠/展开/必须滤掉的两种通知/边界）。
+- 全套测试 **483 条全绿**；`flutter analyze` **0 error / 26 warning（与基线一致）/ 50 info**。
+- 改动文件：`lib/model/upcoming.dart`、`lib/page/calendar/upcoming_view.dart`
+  （改为 `StatefulWidget`）、`lib/page/calendar/calendar_view.dart`、
+  `lib/page/calendar/calendar_controller.dart`、`lib/mod/calendar_fold.dart`（新建）。
+

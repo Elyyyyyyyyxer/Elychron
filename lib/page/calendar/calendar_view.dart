@@ -201,9 +201,14 @@ class CalendarPage extends StatelessWidget {
               onAddTask: () => newDeadline(context, time: DateTime.now()),
             );
           } else {
-            body = Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+            // ===== MOD ===== 「上滑收起日历」（用户要求：上滑折成一周，滑回顶部展开）
+            // 判定逻辑在 CalendarController.handleDayListScroll + lib/mod/calendar_fold.dart
+            // （纯逻辑有单测）。这里只是把当天那条列表的滚动通知接上去。
+            body = NotificationListener<ScrollNotification>(
+              onNotification: _calendarController.handleDayListScroll,
+              child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
               Padding(
                 padding: const EdgeInsets.only(
                     bottom: 5, left: 12, right: 12),
@@ -321,15 +326,30 @@ class CalendarPage extends StatelessWidget {
               Expanded(
                 child: Obx(
                   () => ListView(
+                    // ===== MOD ===== 当天列表永远可拖（内容不够长时也能上滑收起日历）
+                    physics: _dayListPhysics(context),
                     children: _buildDayEntries(context),
                   ),
                 ),
               ),
             ],
-          );
+          ),
+            );
           }
     return body;
   }
+
+  /// 当天列表的滚动物理：当前平台的物理 + 「永远可拖」。
+  ///
+  /// 为什么非要「永远可拖」：当天只有一两条时列表本来滚不动，
+  /// 上滑收起日历这个手势就没有载体，手指划上去只会毫无反应。
+  ///
+  /// 用 `applyTo` 而不是直接写 `BouncingScrollPhysics`：本 App 是 CupertinoApp，
+  /// 平台物理本来就是 BouncingScrollPhysics（macOS 还带快速减速），
+  /// 这样只在它外面多套一层「永远可拖」，回弹手感一点不变。
+  ScrollPhysics _dayListPhysics(BuildContext context) =>
+      const AlwaysScrollableScrollPhysics()
+          .applyTo(ScrollConfiguration.of(context).getScrollPhysics(context));
 
 
   Future<void> newDeadline(context, {required DateTime time}) async {

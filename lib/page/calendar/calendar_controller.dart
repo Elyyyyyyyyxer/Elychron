@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'package:celechron/model/task.dart';
+import 'package:celechron/mod/calendar_fold.dart';
 import 'package:celechron/utils/utils.dart';
+import 'package:flutter/widgets.dart';
 import 'package:get/get.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:celechron/model/period.dart';
@@ -184,6 +186,55 @@ class CalendarController extends GetxController {
   /// **只有「接下来 ⇄ 日历」这一对切换才算换面** —— 右上角那个按钮切到课表
   /// 不换面，所以不会播放翻转动画（用户反馈过：切课表也翻一下很突兀）。
   final cardFace = 'upcoming'.obs;
+
+  // ===== MOD ===== 日程页上滑收起日历（用户要求：上滑折成一周，滑回顶部展开）
+
+  /// 折叠手势的累加器。判定口径全在 `lib/mod/calendar_fold.dart`（纯逻辑，有单测）。
+  final foldGesture = CalendarFoldGesture();
+
+  /// 接在当天那条列表外面的 `NotificationListener<ScrollNotification>`。
+  ///
+  /// 返回 `false` 表示**不拦**通知，列表该滚还怎么滚 —— 这里只顺手看一眼
+  /// 「要不要把日历折起来 / 展开」。
+  ///
+  /// 折叠的呈现直接用 `TableCalendar` 自带的 `CalendarFormat.month ⇄ .week`：
+  /// 它自己就是 `AnimatedSize` 包着的（`formatAnimationDuration` 默认 200ms），
+  /// 高度变化是平滑的，不用我们再套一层动画；而且选中态、今天、小圆点标记
+  /// 在周视图下全都照旧，比手画一条「一周条」稳得多。
+  bool handleDayListScroll(ScrollNotification notification) {
+    if (notification is ScrollStartNotification) {
+      if (notification.dragDetails != null) foldGesture.startDrag();
+      return false;
+    }
+
+    final bool fromUser;
+    final double delta;
+    final bool isOverscroll;
+    if (notification is OverscrollNotification) {
+      fromUser = notification.dragDetails != null;
+      delta = notification.overscroll;
+      isOverscroll = true;
+    } else if (notification is ScrollUpdateNotification) {
+      fromUser = notification.dragDetails != null;
+      delta = notification.scrollDelta ?? 0;
+      isOverscroll = false;
+    } else {
+      return false;
+    }
+
+    final next = foldGesture.decide(
+      current: calendarFormat.value,
+      axis: notification.metrics.axis,
+      pixels: notification.metrics.pixels,
+      delta: delta,
+      isOverscroll: isOverscroll,
+      fromUser: fromUser,
+    );
+    if (next != null && next != calendarFormat.value) {
+      calendarFormat.value = next;
+    }
+    return false;
+  }
 
   Semester? getCurrentSemester() {
     final now = DateTime.now();

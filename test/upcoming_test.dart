@@ -297,4 +297,226 @@ void main() {
       expect(items.single.title, '(未命名待办)');
     });
   });
+
+  // ===== 「同时有好几件在进行中」：顶层 / 折叠堆 / 之后还有 三段划分 =====
+  //
+  // 用户遇到的实际情况：同一时刻有两件事在进行（比如上课 + 一个日程），
+  // 页面上却只有一条看得出「进行中」。这里把口径钉死。
+  group('多个进行中', () {
+    /// 直接造条目 —— 只测切分口径，不掺 buildUpcoming 的过滤规则
+    UpcomingItem item({
+      required String key,
+      required UpcomingKind kind,
+      required DateTime start,
+      DateTime? end,
+      String? title,
+    }) =>
+        UpcomingItem(
+          kind: kind,
+          at: start,
+          until: end,
+          title: title ?? key,
+          period: Period(
+            uid: key,
+            type: switch (kind) {
+              UpcomingKind.course => PeriodType.classes,
+              UpcomingKind.exam => PeriodType.test,
+              UpcomingKind.activity => PeriodType.user,
+              _ => PeriodType.user,
+            },
+            description: '',
+            startTime: start,
+            endTime: end ?? start,
+            location: '',
+            summary: title ?? key,
+          ),
+        );
+
+    test('buildUpcoming 会把两件进行中的都留下（原来第二条只能掉进「之后还有」）', () {
+      final items = build(periods: [
+        period(
+          start: DateTime(2026, 9, 12, 8, 0),
+          end: DateTime(2026, 9, 12, 11, 30),
+          summary: '专业课',
+        ),
+        period(
+          start: DateTime(2026, 9, 12, 9, 30),
+          end: DateTime(2026, 9, 12, 11, 0),
+          summary: '组会',
+          type: PeriodType.user,
+        ),
+        period(
+          start: DateTime(2026, 9, 12, 13, 30),
+          end: DateTime(2026, 9, 12, 15, 5),
+          summary: '下午那节',
+        ),
+      ]);
+      expect(runningUpcoming(items, now).length, 2);
+      expect(
+        runningUpcoming(items, now).map((e) => e.title),
+        ['专业课', '组会'],
+      );
+    });
+
+    test('没有进行中的：顶层就是最近那条，其余进「之后还有」', () {
+      final items = [
+        item(
+          key: 'a',
+          kind: UpcomingKind.deadline,
+          start: DateTime(2026, 9, 12, 12, 0),
+        ),
+        item(
+          key: 'b',
+          kind: UpcomingKind.course,
+          start: DateTime(2026, 9, 12, 13, 30),
+        ),
+      ];
+      final layout = layoutUpcoming(items, now)!;
+      expect(layout.headIsRunning, isFalse);
+      expect(layout.head.title, 'a');
+      expect(layout.otherRunning, isEmpty);
+      expect(layout.later.map((e) => e.title), ['b']);
+    });
+
+    test('空列表给出 null（界面据此走空状态）', () {
+      expect(layoutUpcoming(const [], now), isNull);
+    });
+
+    test('★ 两件进行中：顶层默认课程优先，另一件折叠起来', () {
+      // 组会 09:30 开始得更早，但顶层仍应是 08:00 开始的专业课
+      final items = [
+        item(
+          key: 'course',
+          kind: UpcomingKind.course,
+          start: DateTime(2026, 9, 12, 8, 0),
+          end: DateTime(2026, 9, 12, 11, 30),
+          title: '专业课',
+        ),
+        item(
+          key: 'meet',
+          kind: UpcomingKind.activity,
+          start: DateTime(2026, 9, 12, 9, 30),
+          end: DateTime(2026, 9, 12, 11, 0),
+          title: '组会',
+        ),
+        item(
+          key: 'later',
+          kind: UpcomingKind.deadline,
+          start: DateTime(2026, 9, 12, 12, 0),
+        ),
+      ];
+      final layout = layoutUpcoming(items, now)!;
+      expect(layout.headIsRunning, isTrue);
+      expect(layout.head.title, '专业课');
+      expect(layout.topIndex, 0);
+      expect(layout.otherRunning.map((e) => e.title), ['组会']);
+      // 进行中的不能同时出现在「之后还有」里（否则同一条会显示两遍）
+      expect(layout.later.map((e) => e.title), ['later']);
+    });
+
+    test('两件进行中且都不是课程：按开始时间最早的当顶层', () {
+      final items = [
+        item(
+          key: 'exam',
+          kind: UpcomingKind.exam,
+          start: DateTime(2026, 9, 12, 7, 30),
+          end: DateTime(2026, 9, 12, 11, 0),
+          title: '期中考试',
+        ),
+        item(
+          key: 'meet',
+          kind: UpcomingKind.activity,
+          start: DateTime(2026, 9, 12, 9, 30),
+          end: DateTime(2026, 9, 12, 11, 0),
+          title: '组会',
+        ),
+      ];
+      final layout = layoutUpcoming(items, now)!;
+      expect(layout.head.title, '期中考试');
+      expect(layout.otherRunning.map((e) => e.title), ['组会']);
+    });
+
+    test('两门课撞在同一节：都进行中，顶层是开始更早的那门，另一门折叠', () {
+      final items = [
+        item(
+          key: 'c1',
+          kind: UpcomingKind.course,
+          start: DateTime(2026, 9, 12, 8, 0),
+          end: DateTime(2026, 9, 12, 11, 30),
+          title: '数据结构',
+        ),
+        item(
+          key: 'c2',
+          kind: UpcomingKind.course,
+          start: DateTime(2026, 9, 12, 9, 50),
+          end: DateTime(2026, 9, 12, 11, 30),
+          title: '能源工程伦理',
+        ),
+      ];
+      final layout = layoutUpcoming(items, now)!;
+      expect(layout.head.title, '数据结构');
+      expect(layout.otherRunning.map((e) => e.title), ['能源工程伦理']);
+    });
+
+    test('★ 点折叠里的那条可以换到顶层，原来那张落回折叠堆', () {
+      final meeting = item(
+        key: 'meet',
+        kind: UpcomingKind.activity,
+        start: DateTime(2026, 9, 12, 9, 30),
+        end: DateTime(2026, 9, 12, 11, 0),
+        title: '组会',
+      );
+      final items = [
+        item(
+          key: 'course',
+          kind: UpcomingKind.course,
+          start: DateTime(2026, 9, 12, 8, 0),
+          end: DateTime(2026, 9, 12, 11, 30),
+          title: '专业课',
+        ),
+        meeting,
+      ];
+      final pinned =
+          layoutUpcoming(items, now, pinnedKey: meeting.dedupeKey)!;
+      expect(pinned.head.title, '组会');
+      expect(pinned.topIndex, 1);
+      expect(pinned.otherRunning.map((e) => e.title), ['专业课']);
+    });
+
+    test('置顶的那条已经结束了 → 回到默认口径（不会一直挡着课程）', () {
+      final items = [
+        item(
+          key: 'course',
+          kind: UpcomingKind.course,
+          start: DateTime(2026, 9, 12, 8, 0),
+          end: DateTime(2026, 9, 12, 11, 30),
+          title: '专业课',
+        ),
+      ];
+      final layout = layoutUpcoming(items, now, pinnedKey: '走掉了')!;
+      expect(layout.head.title, '专业课');
+      expect(layout.topIndex, defaultTopRunningIndex(layout.running));
+    });
+
+    test('只有一件进行中：折叠堆是空的（就不会显示「同时还有」那行）', () {
+      final items = [
+        item(
+          key: 'course',
+          kind: UpcomingKind.course,
+          start: DateTime(2026, 9, 12, 8, 0),
+          end: DateTime(2026, 9, 12, 11, 30),
+          title: '专业课',
+        ),
+        item(
+          key: 'later',
+          kind: UpcomingKind.deadline,
+          start: DateTime(2026, 9, 12, 14, 0),
+        ),
+      ];
+      final layout = layoutUpcoming(items, now)!;
+      expect(layout.head.title, '专业课');
+      expect(layout.otherRunning, isEmpty);
+      expect(layout.later.map((e) => e.title), ['later']);
+    });
+  });
 }
