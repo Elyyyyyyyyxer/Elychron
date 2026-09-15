@@ -88,78 +88,91 @@ class _UpcomingViewState extends State<UpcomingView> {
 
   // -------------------------------------------------- 折叠起来的「其它进行中」
 
-  /// 除顶层之外的进行中条目：像**一叠卡片**那样，在顶层卡下面露出几条边。
+  /// 除顶层之外的进行中条目：像**一叠卡**那样，在顶层卡下面露出几层边。
   ///
-  /// 用户纠正过我第一版的做法：折叠的意思是"像一叠卡片一样重合起来"，
-  /// **不是**把每条都并排列出来（他还专门画了张概念图，并强调概念图只是表达
-  /// "一叠"这个意思，别照抄）。所以这里只画几条露出来的边、**不写字** ——
-  /// 想知道到底是谁、想换谁到顶层，点这叠边会弹出列表（[_openRunningPicker]）。
+  /// 这是第 3 版，前两版都不好看，原因记在这里免得又绕回去：
+  /// - 第 1 版：每条并排列出 —— 那压根不是"一叠"；
+  /// - 第 2 版：几条留缝、各带一圈向上阴影的圆角条 —— 看着像"几条 UI 线条"。
+  ///   根因是**留缝**破坏了"一件物体"的整体感，而且每层长得一模一样读不出深度；
+  ///   给每条描一圈边只会更像控件。
+  /// - 现在（照着纸的物理线索来）：
+  ///   1. **不留缝**：第一层直接贴着顶层卡，让卡自己的投影落在它身上；
+  ///   2. 每层**与卡片同色、不描边**，只在**自己的上沿**有一道由深到无的渐变 ——
+  ///      那正是"上面那张压下来的影子"，比描边像纸得多；
+  ///   3. 越深越窄（≈均匀缩小 5px/层），最下面那张补一道落地下阴影；
+  ///   4. 层高随层数递减，**整叠总高有上限**，堆六条也不会把当天列表顶下去。
   Widget _runningStack(BuildContext context, UpcomingLayout layout) {
     final others = layout.otherRunning;
+    // 层高随层数收敛：1 层 13px，5 层以上每层 7px（总高封顶 ~32px）
+    final lip = switch (others.length) {
+      1 => 13.0,
+      2 => 11.0,
+      3 => 9.0,
+      4 => 8.0,
+      _ => 7.0,
+    };
     return GestureDetector(
       key: const ValueKey('running-stack'),
       behavior: HitTestBehavior.opaque,
       onTap: () => _openRunningPicker(layout),
-      child: Padding(
-        padding: const EdgeInsets.only(top: 4),
-        child: Column(
-          children: [
-            for (var i = 0; i < others.length; i++)
-              _cardEdge(context, i, last: i == others.length - 1),
-          ],
-        ),
+      child: Column(
+        children: [
+          for (var i = 0; i < others.length; i++)
+            _deckLayer(context,
+                level: i, height: lip, last: i == others.length - 1),
+        ],
       ),
     );
   }
 
-  /// 露出来的那几层"卡边"：**像一叠纸**。
-  ///
-  /// 用户吐槽过我第一版（只画了几条圆角线、层与层之间还留缝）：那样看着是"几条线"，
-  /// 不是"一叠卡"。真正能读出"一叠"的三件事，这里都做了：
-  /// 1. **层与层贴紧不留缝** —— 留缝就变回"几条线"了；
-  /// 2. **每层往上一小片阴影**（落在它上面那张的下沿），这是"一张压着一张"的关键线索；
-  /// 3. **越深越暗 + 外圈阴影越重** —— 用户点名要的"阴影程度变化"，靠这个读出深度。
-  ///
-  /// 几何上：越深越窄（7px/层，最多 26px），露出 12px 一条；
-  /// 只在**最下面那张**做圆底角 + 向下的外阴影（那是整叠纸的底边）。
-  Widget _cardEdge(BuildContext context, int level, {required bool last}) {
+  /// 一叠卡里露出来的那一层：上沿是"上面那张压下来的影子"，底边是自己的边。
+  Widget _deckLayer(
+    BuildContext context, {
+    required int level,
+    required double height,
+    required bool last,
+  }) {
     final brightness = CupertinoTheme.of(context).brightness ??
         MediaQuery.of(context).platformBrightness;
     final isDark = brightness == Brightness.dark;
-    final base = isDark
+    final surface = isDark
         ? CupertinoDynamicColor.resolve(
             CupertinoColors.secondarySystemBackground, context)
         : CupertinoDynamicColor.resolve(CupertinoColors.white, context);
-    // 越深越暗：浅色下往灰里走，深色下往黑里走
-    final shade = isDark ? CupertinoColors.black : const Color(0xFFD5D5DC);
-    final color = Color.lerp(base, shade, 0.05 * (level + 1)) ?? base;
-    final inset = (7.0 * (level + 1)).clamp(0.0, 26.0);
+    // 压在上面的层数越多，缝里的影子越重一点点。
+    // 这个数决定"读不读得出每张纸的边"：太小会糊成一片，太大又会变成描边条。
+    final seam = isDark ? 0.22 + 0.03 * level : 0.075 + 0.02 * level;
 
     return Container(
-      height: last ? 14 : 12,
-      margin: EdgeInsets.symmetric(horizontal: inset),
+      height: height,
+      // 均匀缩小：每深一层往里收 5px（最多 20px），读起来才像同一叠纸
+      margin:
+          EdgeInsets.symmetric(horizontal: (5.0 * (level + 1)).clamp(0.0, 20.0)),
       decoration: BoxDecoration(
-        color: color,
-        // 这一层是"下面那张卡露出来的底边"：底角圆、上边被上面那张盖着
+        // 底角圆、上边被上面那张盖着
         borderRadius: BorderRadius.vertical(
-          bottom: Radius.circular(last ? 12 : 9),
+          bottom: Radius.circular(last ? 12 : 10),
         ),
-        boxShadow: [
-          // ① 往上一小片：压在上一层下沿，形成"一张压一张"的分层感
-          BoxShadow(
-            color: CupertinoColors.black
-                .withValues(alpha: 0.05 + 0.03 * level),
-            offset: const Offset(0, -1.5),
-            blurRadius: 4,
-          ),
-          // ② 最下面那张再往下来一片：整叠纸的落地阴影
-          if (last)
-            BoxShadow(
-              color: CupertinoColors.black.withValues(alpha: isDark ? 0.16 : 0.10),
-              offset: const Offset(0, 4),
-              blurRadius: 9,
-            ),
-        ],
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Color.alphaBlend(
+                CupertinoColors.black.withValues(alpha: seam), surface),
+            surface,
+          ],
+        ),
+        // 只有整叠的底边落地
+        boxShadow: last
+            ? [
+                BoxShadow(
+                  color: CupertinoColors.black
+                      .withValues(alpha: isDark ? 0.30 : 0.10),
+                  offset: const Offset(0, 5),
+                  blurRadius: 12,
+                ),
+              ]
+            : null,
       ),
     );
   }
