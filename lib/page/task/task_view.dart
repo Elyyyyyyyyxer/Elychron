@@ -405,7 +405,7 @@ class TaskPage extends StatelessWidget {
                 // （复用 _toggleDone：它内部会处理确认框、状态与刷新）。
                 final target = deadline;
                 WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (!mounted) return;
+                  if (!context.mounted) return;
                   _toggleDone(context, target);
                 });
               }
