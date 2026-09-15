@@ -39,6 +39,9 @@ class TaskAlarmPage extends StatefulWidget {
 class _TaskAlarmPageState extends State<TaskAlarmPage> {
   Timer? _ticker;
   bool _handled = false;
+
+  /// 这一页是否已经 pop 过（见 [_popOnce]）
+  bool _popped = false;
   AlarmTheme _theme = kAlarmThemes.first;
 
   @override
@@ -56,11 +59,37 @@ class _TaskAlarmPageState extends State<TaskAlarmPage> {
       _ticker = Timer.periodic(const Duration(seconds: 2), (_) {
         HapticFeedback.heavyImpact();
       });
+      // ===== MOD ===== 别处把闹钟清掉时，这一页要自己关掉
+      //
+      // 场景：用户在通知上点「划掉」（通知模式/闹钟模式都可能有）。
+      // 那条路走的是 TaskReminder._onResponse → TaskAlarmCenter.clear()，
+      // 而这一页原来**不监听**中心，于是界面留在屏幕上、铃声一直响 ——
+      // 用户看到的就是「点了划掉没反应」。铃声是在 dispose 里停的，
+      // 所以这里只要把这一页 pop 掉就够了。
+      TaskAlarmCenter.current.addListener(_onAlarmCenterChanged);
     }
+  }
+
+  /// 闹钟被别处清掉 → 关掉这一页
+  void _onAlarmCenterChanged() {
+    if (TaskAlarmCenter.current.value == null) _popOnce();
+  }
+
+  /// 只 pop 一次。
+  ///
+  /// `_close()` 自己会 pop，而 `clear()` 又会让监听器再 pop 一次 ——
+  /// 连着两次 maybePop 会把闹钟页**下面那一页**也弹掉。
+  void _popOnce() {
+    if (_popped || !mounted) return;
+    _popped = true;
+    Navigator.of(context).maybePop();
   }
 
   @override
   void dispose() {
+    if (!widget.preview) {
+      TaskAlarmCenter.current.removeListener(_onAlarmCenterChanged);
+    }
     _ticker?.cancel();
     AlarmPlayer.stop();
     super.dispose();
@@ -86,7 +115,7 @@ class _TaskAlarmPageState extends State<TaskAlarmPage> {
 
   void _close() {
     TaskAlarmCenter.clear();
-    if (mounted) Navigator.of(context).maybePop();
+    _popOnce();
   }
 
   @override

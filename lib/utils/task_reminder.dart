@@ -13,6 +13,23 @@ import 'package:get/get.dart';
 import 'package:timezone/data/latest.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
 
+/// 通知按钮在**后台**被点时的入口（`showsUserInterface: false` 的那些）。
+///
+/// ⚠️ 必须是**顶层函数**并且带 `@pragma('vm:entry-point')`：插件会为它单独起一个
+/// 后台 Flutter 引擎来执行这个入口，带 `vm:entry-point` 才不会被 tree-shake 掉。
+///
+/// 这里跑在**独立的后台 isolate**里：碰不到前台界面，也读不到前台的静态状态
+/// （比如 `TaskAlarmCenter`、`_synced`）。所以只做后台能做的事 ——
+/// 目前唯一那种按钮（通知模式下的「划掉」）要的效果是"别弹 App、把通知收掉"，
+/// 而通知已经由插件自己的广播接收器按 `cancelNotification: true` 取消掉了，
+/// 这里不需要再做什么。留着它的意义是**别让这次点击静默消失**，
+/// 将来要加"纯后台动作"也从这里接。
+@pragma('vm:entry-point')
+void notificationTapBackground(NotificationResponse response) {
+  // 故意为空：见上面的说明。真需要做事时，注意本函数运行在后台 isolate 里，
+  // 不能碰前台的单例与界面。
+}
+
 /// 任务截止提醒：把开启提醒的任务同步成本地通知。
 ///
 /// 两种形态（由设置里的「提醒方式」决定）：
@@ -38,44 +55,72 @@ class TaskReminder {
   /// uid -> 延迟提醒到什么时候
   static final Map<String, DateTime> _snoozed = <String, DateTime>{};
 
-  static const List<AndroidNotificationAction> _actions = [
-    AndroidNotificationAction('snooze', '延迟提醒', showsUserInterface: true),
-    AndroidNotificationAction('dismiss', '划掉',
-        showsUserInterface: false, cancelNotification: true),
-  ];
+  /// 通知上的两个按钮（随当前提醒方式变，见 [actionsFor]）。
+  static List<AndroidNotificationAction> actionsFor(int mode) =>
+      mode == modeAlarm
+          ? const [
+              AndroidNotificationAction('snooze', '延迟提醒',
+                  showsUserInterface: true),
+              // 闹钟模式必须 true：见下面那段注释
+              AndroidNotificationAction('dismiss', '划掉',
+                  showsUserInterface: true, cancelNotification: true),
+            ]
+          : const [
+              AndroidNotificationAction('snooze', '延迟提醒',
+                  showsUserInterface: true),
+              AndroidNotificationAction('dismiss', '划掉',
+                  showsUserInterface: false, cancelNotification: true),
+            ];
 
-  static const AndroidNotificationDetails _notificationDetails =
+  /// 「划掉」这个按钮为什么要分模式设置 `showsUserInterface`：
+  ///
+  /// `showsUserInterface: false` 的按钮**不会把 App 拉到前台**，响应只会送到
+  /// **后台 isolate**（插件会为它单独起一个引擎执行
+  /// `onDidReceiveBackgroundNotificationResponse`），而后台 isolate 碰不到前台界面 ——
+  /// 于是「通知上的划掉」只能把通知取消掉，**全屏闹钟照样响、铃声也不停**。
+  /// 用户的原话：「横幅通知点划掉没有反应，只能点击延迟」
+  /// （「延迟提醒」本来就是 `true`，它会把 App 拉起来，所以那条一直能用 ——
+  /// 这个"只有一条好用"的现象正好印证了上面的机制）。
+  ///
+  /// 闹钟模式改成 `true` 之后，点「划掉」会把 App 唤到前台，
+  /// 走 `_onResponse` 的 `dismiss` 分支清掉闹钟中心，闹钟页跟着关、铃声在
+  /// `dispose` 里停掉。
+  ///
+  /// 通知模式（普通横幅）没有全屏闹钟要停，就保持 `false`：
+  /// 插件自己的广播接收器会按 `cancelNotification` 把通知取消掉，
+  /// 点「划掉」不必把 App 弹出来。
+  static AndroidNotificationDetails get _notificationDetails =>
       AndroidNotificationDetails(
-    // 注意：Android 的通知渠道一旦创建就**不可修改**（重要度/声音/音量流都锁死）。
-    // 早期版本建的渠道被系统降过级（实测 mOriginalImp=5 但 effective=3），
-    // 所以这里换新渠道名，才能拿到正确的重要度与音量流。
-    'task_reminder_v3',
-    '待办提醒',
-    channelDescription: '待办截止提醒：横幅弹出 + 响铃',
-    importance: Importance.max,
-    priority: Priority.high,
-    category: AndroidNotificationCategory.reminder,
-    actions: _actions,
-  );
+        // 注意：Android 的通知渠道一旦创建就**不可修改**（重要度/声音/音量流都锁死）。
+        // 早期版本建的渠道被系统降过级（实测 mOriginalImp=5 但 effective=3），
+        // 所以这里换新渠道名，才能拿到正确的重要度与音量流。
+        'task_reminder_v3',
+        '待办提醒',
+        channelDescription: '待办截止提醒：横幅弹出 + 响铃',
+        importance: Importance.max,
+        priority: Priority.high,
+        category: AndroidNotificationCategory.reminder,
+        actions: actionsFor(modeNotification),
+      );
 
-  static const AndroidNotificationDetails _alarmDetails =
+  static AndroidNotificationDetails get _alarmDetails =>
       AndroidNotificationDetails(
-    'task_reminder_alarm_v2',
-    '待办闹钟',
-    channelDescription: '闹钟模式：全屏提醒 + 闹钟铃声，可延迟或划掉',
-    importance: Importance.max,
-    priority: Priority.max,
-    category: AndroidNotificationCategory.alarm,
-    fullScreenIntent: true,
-    playSound: true,
-    enableVibration: true,
-    // 走「闹钟」音量流：否则默认用通知音量流，静音模式/音量低时就听不见，
-    // 也不会像系统闹钟那样绕过免打扰
-    audioAttributesUsage: AudioAttributesUsage.alarm,
-    ongoing: true,
-    autoCancel: false,
-    actions: _actions,
-  );
+        'task_reminder_alarm_v2',
+        '待办闹钟',
+        channelDescription: '闹钟模式：全屏提醒 + 闹钟铃声，可延迟或划掉',
+        importance: Importance.max,
+        priority: Priority.max,
+        category: AndroidNotificationCategory.alarm,
+        fullScreenIntent: true,
+        playSound: true,
+        enableVibration: true,
+        // 走「闹钟」音量流：否则默认用通知音量流，静音模式/音量低时就听不见，
+        // 也不会像系统闹钟那样绕过免打扰
+        audioAttributesUsage: AudioAttributesUsage.alarm,
+        ongoing: true,
+        autoCancel: false,
+        actions: actionsFor(modeAlarm),
+      );
 
   static NotificationDetails get _details => NotificationDetails(
         android: mode == modeAlarm ? _alarmDetails : _notificationDetails,
@@ -105,6 +150,9 @@ class TaskReminder {
       await _plugin.initialize(
         initializationSettings,
         onDidReceiveNotificationResponse: _onResponse,
+        // 后台按钮（showsUserInterface: false）的响应入口。
+        // 不注册的话，那种按钮点下去会静默消失（插件还会为它白起一个引擎）。
+        onDidReceiveBackgroundNotificationResponse: notificationTapBackground,
       );
       final android = _plugin.resolvePlatformSpecificImplementation<
           AndroidFlutterLocalNotificationsPlugin>();

@@ -65,7 +65,7 @@ class _UpcomingViewState extends State<UpcomingView> {
       children: [
         _headCard(context, layout.head, now),
         if (layout.otherRunning.isNotEmpty)
-          ..._runningStack(context, layout),
+          _runningStack(context, layout),
         if (layout.later.isNotEmpty) ...[
           const SizedBox(height: 18),
           Padding(
@@ -88,100 +88,74 @@ class _UpcomingViewState extends State<UpcomingView> {
 
   // -------------------------------------------------- 折叠起来的「其它进行中」
 
-  /// 除顶层之外的进行中条目：一条一行，逐级内缩，看着像一叠卡。
+  /// 除顶层之外的进行中条目：像**一叠卡片**那样，在顶层卡下面露出几条边。
   ///
-  /// 只做「内缩」不做「重叠」：重叠会把标题盖掉，而这些卡是要**按标题认领**
-  /// 再点上去的（用户要求「点击可以选择放在顶层的卡片」）。
-  List<Widget> _runningStack(BuildContext context, UpcomingLayout layout) {
-    final labelColor = CupertinoDynamicColor.resolve(
-        CupertinoColors.secondaryLabel, context);
+  /// 用户纠正过我第一版的做法：折叠的意思是"像一叠卡片一样重合起来"，
+  /// **不是**把每条都并排列出来（他还专门画了张概念图，并强调概念图只是表达
+  /// "一叠"这个意思，别照抄）。所以这里只画几条露出来的边、**不写字** ——
+  /// 想知道到底是谁、想换谁到顶层，点这叠边会弹出列表（[_openRunningPicker]）。
+  Widget _runningStack(BuildContext context, UpcomingLayout layout) {
     final others = layout.otherRunning;
-    return [
-      const SizedBox(height: 14),
-      Padding(
-        padding: const EdgeInsets.only(left: 10, bottom: 6),
-        child: Text(
-          '同时还有 ${others.length} 个进行中 · 点一下置顶',
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            color: labelColor,
-          ),
+    return GestureDetector(
+      key: const ValueKey('running-stack'),
+      behavior: HitTestBehavior.opaque,
+      onTap: () => _openRunningPicker(layout),
+      child: Padding(
+        padding: const EdgeInsets.only(top: 7),
+        child: Column(
+          children: [
+            for (var i = 0; i < others.length; i++)
+              Padding(
+                // 逐级内缩一点，才像"一叠"；缩太多会显得像无关的条
+                padding: EdgeInsets.symmetric(horizontal: 9.0 * (i + 1)),
+                child: _cardEdge(context, last: i == others.length - 1),
+              ),
+          ],
         ),
-      ),
-      for (var i = 0; i < others.length; i++)
-        Padding(
-          // 逐级内缩，最多缩三级 —— 再多就把标题挤没了
-          padding: EdgeInsets.only(
-            left: 12.0 * (i + 1).clamp(1, 3),
-            right: 4,
-            bottom: 6,
-          ),
-          child: _runningPill(context, others[i]),
-        ),
-    ];
-  }
-
-  Widget _runningPill(BuildContext context, UpcomingItem item) {
-    final labelColor = CupertinoDynamicColor.resolve(
-        CupertinoColors.secondaryLabel, context);
-    final textColor =
-        CupertinoTheme.of(context).textTheme.textStyle.color ??
-            CupertinoColors.label;
-    final sub = [
-      '进行中',
-      if (item.location.isNotEmpty) item.location,
-    ].join(' · ');
-
-    return RoundRectangleCard(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-      onTap: () => setState(() => _pinnedKey = item.dedupeKey),
-      child: Row(
-        children: [
-          Container(
-            width: 8,
-            height: 8,
-            margin: const EdgeInsets.only(right: 9),
-            decoration: const BoxDecoration(
-              shape: BoxShape.circle,
-              color: CupertinoColors.systemGreen,
-            ),
-          ),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  item.title,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w500,
-                    color: textColor,
-                  ),
-                ),
-                const SizedBox(height: 1),
-                Text(
-                  sub,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: CupertinoColors.systemGreen,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 6),
-          // 「点它上去」的暗示：向上箭头，不用文字说明也看得懂
-          Icon(
-            CupertinoIcons.arrow_up_to_line,
-            size: 15,
-            color: labelColor,
-          ),
-        ],
       ),
     );
+  }
+
+  /// 露出来的那条"卡边"：跟顶层大卡同色同阴影，只是很矮。
+  Widget _cardEdge(BuildContext context, {required bool last}) {
+    final brightness = CupertinoTheme.of(context).brightness ??
+        MediaQuery.of(context).platformBrightness;
+    final isDark = brightness == Brightness.dark;
+    return Container(
+      height: last ? 14 : 11,
+      margin: const EdgeInsets.only(bottom: 3),
+      decoration: BoxDecoration(
+        color: isDark
+            ? CupertinoDynamicColor.resolve(
+                CupertinoColors.secondarySystemBackground, context)
+            : CupertinoDynamicColor.resolve(CupertinoColors.white, context),
+        borderRadius: BorderRadius.circular(8),
+        boxShadow: isDark
+            ? null
+            : const [
+                BoxShadow(
+                  color: CupertinoColors.systemGrey5,
+                  blurRadius: 8,
+                  offset: Offset(0, 4),
+                ),
+              ],
+      ),
+    );
+  }
+
+  /// 点那叠卡边：列出全部进行中的条目，选一条置顶。
+  ///
+  /// 顶层那张大卡本身**不**走这里 —— 点它是"看这条的信息"（用户明确要求）。
+  Future<void> _openRunningPicker(UpcomingLayout layout) async {
+    final picked = await showCupertinoModalPopup<UpcomingItem>(
+      context: context,
+      builder: (BuildContext context) => _RunningPickerSheet(
+        running: layout.running,
+        topKey: layout.head.dedupeKey,
+      ),
+    );
+    if (picked == null || !mounted) return;
+    setState(() => _pinnedKey = picked.dedupeKey);
   }
 
   // -------------------------------------------------------------- 空状态
@@ -558,6 +532,160 @@ class _PeriodSheet extends StatelessWidget {
               style: TextStyle(fontSize: 15, height: 1.35, color: textColor),
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 点「那叠卡边」弹出来的列表：正在进行中的**全部**条目，选一条放到顶层。
+///
+/// 顶层那张会标一个勾，点它就等于不改。观感与 [_PeriodSheet] 一致
+/// （圆角顶、系统背景、行间发丝线）。
+class _RunningPickerSheet extends StatelessWidget {
+  /// 全部进行中的条目（含当前顶层）
+  final List<UpcomingItem> running;
+
+  /// 当前顶层那条的 [UpcomingItem.dedupeKey]
+  final String topKey;
+
+  const _RunningPickerSheet({
+    required this.running,
+    required this.topKey,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final labelColor = CupertinoDynamicColor.resolve(
+        CupertinoColors.secondaryLabel, context);
+    final textColor =
+        CupertinoTheme.of(context).textTheme.textStyle.color ??
+            CupertinoColors.label;
+    final line = CupertinoDynamicColor.resolve(
+        CupertinoColors.separator, context);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: CupertinoDynamicColor.resolve(
+            CupertinoColors.systemBackground, context),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 18, 20, 4),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '同时进行中',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                      color: textColor,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '点一条把它放到顶层',
+                    style: TextStyle(fontSize: 13, color: labelColor),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+            for (var i = 0; i < running.length; i++) ...[
+              if (i > 0)
+                Container(height: 0.5, margin: const EdgeInsets.only(left: 52), color: line),
+              _row(context, running[i], textColor, labelColor),
+            ],
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 14, 20, 6),
+              child: SizedBox(
+                width: double.infinity,
+                child: CupertinoButton(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  color: CupertinoDynamicColor.resolve(
+                      CupertinoColors.tertiarySystemFill, context),
+                  borderRadius: BorderRadius.circular(22),
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: Text('取消',
+                      style: TextStyle(fontSize: 16, color: textColor)),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _row(
+    BuildContext context,
+    UpcomingItem item,
+    Color textColor,
+    Color labelColor,
+  ) {
+    final isTop = item.dedupeKey == topKey;
+    final sub = [
+      '进行中',
+      if (item.location.isNotEmpty) item.location,
+    ].join(' · ');
+
+    return CupertinoButton(
+      key: ValueKey('running-pick-${item.dedupeKey}'),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      // 用 CupertinoButton 是为了有原生的按压反馈；它对不齐也无所谓，
+      // 传给 pop 的值才是关键。
+      onPressed: () => Navigator.of(context).pop(item),
+      child: Row(
+        children: [
+          Container(
+            width: 8,
+            height: 8,
+            margin: const EdgeInsets.only(right: 10),
+            decoration: const BoxDecoration(
+              shape: BoxShape.circle,
+              color: CupertinoColors.systemGreen,
+            ),
+          ),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  item.title,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                    color: textColor,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  sub,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: CupertinoColors.systemGreen,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (isTop) ...[
+            Text('当前',
+                style: TextStyle(fontSize: 12, color: labelColor)),
+            const SizedBox(width: 6),
+            const Icon(CupertinoIcons.checkmark_alt,
+                size: 16, color: CupertinoColors.systemGreen),
+          ] else
+            Icon(CupertinoIcons.arrow_up_to_line, size: 16, color: labelColor),
         ],
       ),
     );

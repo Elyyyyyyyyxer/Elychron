@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:celechron/model/task.dart';
 import 'package:celechron/mod/calendar_fold.dart';
+import 'package:celechron/mod/calendar_paging.dart';
 import 'package:celechron/utils/utils.dart';
 import 'package:flutter/widgets.dart';
 import 'package:get/get.dart';
@@ -189,6 +190,19 @@ class CalendarController extends GetxController {
       viewMode.value = CalendarViewMode.upcoming;
       cardFace.value = 'upcoming';
     }
+  }
+
+  /// 横向翻页：`-1` 上一页、`+1` 下一页。
+  ///
+  /// 月视图按整月挪、周视图按整周挪；日期按目标月长度收口（见 [shiftedFocusedDay]）。
+  void shiftFocused(int direction) {
+    focusedDay.value =
+        shiftedFocusedDay(focusedDay.value, calendarFormat.value, direction);
+  }
+
+  /// 折叠／展开日历（日历下面那个小提示点的就是它）。
+  void setCalendarFormat(CalendarFormat format) {
+    if (calendarFormat.value != format) calendarFormat.value = format;
   }
 
   /// 卡片翻转的「正反面」。

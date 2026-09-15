@@ -3,6 +3,7 @@ import 'package:celechron/design/card_flip.dart';
 import 'package:celechron/design/custom_decoration.dart';
 import 'package:celechron/design/sub_title.dart';
 import 'package:celechron/design/task_priority_color.dart';
+import 'package:celechron/mod/calendar_paging.dart';
 import 'package:celechron/model/task.dart';
 import 'package:celechron/page/task/task_create_page.dart';
 import 'package:celechron/page/task/task_controller.dart';
@@ -209,7 +210,12 @@ class CalendarPage extends StatelessWidget {
               child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-              Padding(
+              // ===== MOD ===== 横向翻页改成「划够一段才翻」
+              // 用户反馈：原来的内置滑动太灵敏，老划错、还会一口气翻好几个月。
+              // 判定见 lib/mod/calendar_paging.dart（阈值可调，有单测）。
+              ModSwipePager(
+                onShift: _calendarController.shiftFocused,
+                child: Padding(
                 padding: const EdgeInsets.only(
                     bottom: 5, left: 12, right: 12),
                 child: TableCalendar(
@@ -231,7 +237,9 @@ class CalendarPage extends StatelessWidget {
                       '日'
                     ][date.weekday],
                   ),
-                  availableGestures: AvailableGestures.all,
+                  // ===== MOD ===== 关掉内置横向滑动（改由 ModSwipePager 带阈值接管）；
+                  // 竖向那条「整月 ⇄ 一周」保留，手势不变。
+                  availableGestures: AvailableGestures.verticalSwipe,
                   availableCalendarFormats: const {
                     CalendarFormat.month: '显示整月',
                     CalendarFormat.week: '显示一周',
@@ -288,7 +296,11 @@ class CalendarPage extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(height: 16),
+              ),
+              // ===== MOD ===== 折叠／展开的小提示（无文字）
+              // 展开整月时是一条短横（"可以往上收"），折成一周时是 V 形（"可以拉下来"）。
+              // 点它也能折叠/展开 —— 只做提示的话用户多半会去点它却点不动。
+              _foldHint(context),
               Obx(
                 () => SubSubtitleRow(
                     padHorizontal: 24,
@@ -337,6 +349,51 @@ class CalendarPage extends StatelessWidget {
             );
           }
     return body;
+  }
+
+  /// 折叠／展开的小提示（**无文字**，用户点名要的）。
+  ///
+  /// 展开整月 → 一条短横（意思是"能往上收"）；折成一周 → V 形（"能拉下来"）。
+  /// 点它也能折叠／展开 —— 只做提示不可点的话，用户多半会去点它却点不动。
+  ///
+  /// 用 [AnimatedSwitcher] 换图形，时长跟日历自己的折叠动画（200ms）对齐。
+  Widget _foldHint(BuildContext context) {
+    final collapsed =
+        _calendarController.calendarFormat.value == CalendarFormat.week;
+    final color = CupertinoDynamicColor.resolve(
+        CupertinoColors.secondaryLabel, context);
+    return Center(
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => _calendarController.setCalendarFormat(
+            collapsed ? CalendarFormat.month : CalendarFormat.week),
+        child: SizedBox(
+          width: 72,
+          // 只做提示，别占高度：26 够点，又不把当天列表挤下去
+          height: 26,
+          child: Center(
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 200),
+              child: collapsed
+                  ? const Icon(
+                      CupertinoIcons.chevron_down,
+                      key: ValueKey('fold-hint-week'),
+                      size: 14,
+                    )
+                  : Container(
+                      key: const ValueKey('fold-hint-month'),
+                      width: 26,
+                      height: 3,
+                      decoration: BoxDecoration(
+                        color: color,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   /// 当天列表的滚动物理：当前平台的物理 + 「永远可拖」。
