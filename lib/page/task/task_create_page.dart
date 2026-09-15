@@ -237,7 +237,7 @@ class _TaskCreatePageState extends State<TaskCreatePage> {
 
   Future<void> _pickAttachments() async {
     try {
-      final added = await pickAttachments();
+      final added = await pickAttachments(context: context);
       if (added.isEmpty || !mounted) return;
       setState(() => now.attachments.addAll(added));
     } catch (e) {

@@ -124,84 +124,103 @@ class _TaskAlarmPageState extends State<TaskAlarmPage> {
                   children: [
                     const Spacer(),
                     // 毛玻璃卡片
+                    //
+                    // ===== MOD: 性能修复（闹钟页动画卡顿）=====
+                    // 原来「模糊层」把整块内容（含**每秒刷新的时钟文字**）包在里面，
+                    // 于是每秒钟都要重算一次 sigma=24 的大面积实时高斯模糊 —— 必然掉帧。
+                    // 现在拆成兄弟节点：
+                    //   ① 静态毛玻璃层 → RepaintBoundary 包住，只在需要时**光栅化一次**；
+                    //   ② 内容层 → 时钟/标题等会变的部分放在上面，重绘代价很小。
+                    // 观感（玻璃质感 + 白边 + 圆角）与原来一致。
                     ClipRRect(
                       borderRadius: BorderRadius.circular(28),
-                      child: BackdropFilter(
-                        filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
-                        child: Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 22, vertical: 28),
-                          decoration: BoxDecoration(
-                            color: theme.glass,
-                            borderRadius: BorderRadius.circular(28),
-                            border: Border.all(
-                              color:
-                                  CupertinoColors.white.withValues(alpha: 0.65),
-                              width: 1,
+                      child: Stack(
+                        children: [
+                          Positioned.fill(
+                            child: RepaintBoundary(
+                              child: BackdropFilter(
+                                filter:
+                                    ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+                                child: Container(color: theme.glass),
+                              ),
                             ),
                           ),
-                          child: Column(
-                            children: [
-                              Text(
-                                '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}',
-                                style: TextStyle(
-                                  fontSize: 56,
-                                  fontWeight: FontWeight.w300,
-                                  color: theme.text,
-                                  height: 1.1,
-                                ),
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 22, vertical: 28),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(28),
+                              border: Border.all(
+                                color: CupertinoColors.white
+                                    .withValues(alpha: 0.65),
+                                width: 1,
                               ),
-                              const SizedBox(height: 4),
-                              Text(
-                                '待办提醒',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  letterSpacing: 2,
-                                  color: theme.text.withValues(alpha: 0.55),
-                                ),
-                              ),
-                              const SizedBox(height: 22),
-                              Icon(
-                                CupertinoIcons.bell_fill,
-                                size: 34,
-                                color: theme.primary,
-                              ),
-                              const SizedBox(height: 14),
-                              Text(
-                                task.summary.isEmpty ? '(未命名待办)' : task.summary,
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.w600,
-                                  color: theme.text,
-                                ),
-                              ),
-                              const SizedBox(height: 10),
-                              Text(
-                                '截止 ${TimeHelper.chineseDateTime(task.endTime)}',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: theme.text.withValues(alpha: 0.6),
-                                ),
-                              ),
-                              if (task.description.isNotEmpty) ...[
-                                const SizedBox(height: 8),
+                            ),
+                            child: Column(
+                              children: [
                                 Text(
-                                  task.description,
-                                  textAlign: TextAlign.center,
-                                  maxLines: 3,
-                                  overflow: TextOverflow.ellipsis,
+                                  '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}',
                                   style: TextStyle(
-                                    fontSize: 14,
-                                    color: theme.text.withValues(alpha: 0.5),
+                                    fontSize: 56,
+                                    fontWeight: FontWeight.w300,
+                                    color: theme.text,
+                                    height: 1.1,
                                   ),
                                 ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  '待办提醒',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    letterSpacing: 2,
+                                    color: theme.text.withValues(alpha: 0.55),
+                                  ),
+                                ),
+                                const SizedBox(height: 22),
+                                Icon(
+                                  CupertinoIcons.bell_fill,
+                                  size: 34,
+                                  color: theme.primary,
+                                ),
+                                const SizedBox(height: 14),
+                                Text(
+                                  task.summary.isEmpty
+                                      ? '(未命名待办)'
+                                      : task.summary,
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.w600,
+                                    color: theme.text,
+                                  ),
+                                ),
+                                const SizedBox(height: 10),
+                                Text(
+                                  '截止 ${TimeHelper.chineseDateTime(task.endTime)}',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: theme.text.withValues(alpha: 0.6),
+                                  ),
+                                ),
+                                if (task.description.isNotEmpty) ...[
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    task.description,
+                                    textAlign: TextAlign.center,
+                                    maxLines: 3,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      color: theme.text.withValues(alpha: 0.5),
+                                    ),
+                                  ),
+                                ],
                               ],
-                            ],
+                            ),
                           ),
-                        ),
+                        ],
                       ),
                     ),
                     const Spacer(),
@@ -268,13 +287,19 @@ class _TaskAlarmPageState extends State<TaskAlarmPage> {
   }
 
   Widget _blob(Color color, double size) {
-    return ClipOval(
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 40, sigmaY: 40),
-        child: Container(
-          width: size,
-          height: size,
-          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+    // ===== MOD: 性能修复 =====
+    // 装饰用的光斑：sigma=40 的模糊很贵，而且它自己不会变 —— 包一层 RepaintBoundary，
+    // 让它在时钟每秒刷新 / 页面动画时**不被重新光栅化**。
+    // 观感完全不变。
+    return RepaintBoundary(
+      child: ClipOval(
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 40, sigmaY: 40),
+          child: Container(
+            width: size,
+            height: size,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          ),
         ),
       ),
     );
