@@ -350,6 +350,48 @@ class Zdbk {
       message: '$context：原始 ${items.length} 条，解析出 ${sessions.length} 条；'
           '已确定 $confirmed 条；上半学期 $firstHalf 条；下半学期 $secondHalf 条',
     );
+
+    // ===== MOD: 半学期归属诊断（只读，不写任何数据）=====
+    //
+    // 为什么要它：有反馈说"只有冬学期的课显示到了秋学期"，而现任代码在
+    // 教务的 `xxq`（学期类型）读不出来时会**按查询用的季节猜**（见 Session.fromZdbk）。
+    // 到底是"教务本来就没给"还是"给了别的写法读不出来"，光看代码无法判断 ——
+    // 这一行把**原始 xxq 值**和**被判成两半都上的课程**记进日志，
+    // 用户用「设置 → 数据 → 复制反馈信息」发出来即可定位。
+    // 注意：只记课程名与字段原文，不含任何个人信息。
+    try {
+      final unclear = <String>[];
+      for (final row in items) {
+        final map = asStringMap(row);
+        if (map == null) continue;
+        final xxq = asString(map['xxq']);
+        final known = xxq != null &&
+            (xxq.contains('秋') ||
+                xxq.contains('冬') ||
+                xxq.contains('春') ||
+                xxq.contains('夏'));
+        if (known) continue;
+        final block = asString(map['kcb']) ?? '';
+        final name = block.split('<br>').first.trim();
+        unclear.add('${name.isEmpty ? "?" : name}(xxq=${xxq ?? "缺失"})');
+      }
+      final bothHalves = sessions
+          .where((e) => e.firstHalf && e.secondHalf)
+          .map((e) => e.name)
+          .toSet()
+          .toList();
+      DiagnosticLogService.instance.record(
+        module: '课表',
+        operation: 'halfDiag',
+        message: '半学期诊断：请求「${requestedSeason ?? "未指定"}」；'
+            '两半都上 ${bothHalves.length} 门'
+            '${bothHalves.isEmpty ? '' : '（${bothHalves.take(6).join("、")}）'}；'
+            'xxq 读不出 ${unclear.length} 条'
+            '${unclear.isEmpty ? '' : '（${unclear.take(6).join("、")}）'}',
+      );
+    } catch (_) {
+      // 诊断本身不能影响课表解析
+    }
     return sessions;
   }
 
