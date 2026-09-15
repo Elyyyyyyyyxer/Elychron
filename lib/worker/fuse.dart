@@ -67,7 +67,7 @@ class Fuse {
   ///
   /// 单独放一个**静态常量**是因为「复制反馈信息」要用它，而那个场景不该去
   /// 实例化 [Fuse]（构造函数依赖 GetX 里的数据库）。
-  static const int appBuildNumber = 7;
+  static const int appBuildNumber = 8;
 
   final version = [1, 4, 1];
   final build = appBuildNumber;

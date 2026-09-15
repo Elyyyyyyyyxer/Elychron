@@ -180,8 +180,37 @@ List<Session> parseEtaTimetable(Map<String, dynamic> payload) {
       if (session != null) sessions.add(session);
     }
   }
+  // ===== MOD: 半学期诊断上报（只读）=====
+  // 把本次解析里"xxq 缺失、于是被判成两半都上"的课程记进日志 ——
+  // 真实反馈「只有冬学期的课显示到了秋学期」最可能就是这一条。
+  try {
+    final bothHalves = sessions
+        .where((e) => e.firstHalf && e.secondHalf)
+        .map((e) => e.name)
+        .toSet()
+        .toList();
+    final line = '半学期诊断（智慧研工）：共 ${sessions.length} 条；'
+        '两半都上 ${bothHalves.length} 门'
+        '${bothHalves.isEmpty ? '' : '（${bothHalves.take(6).join("、")}）'}；'
+        'xxq 缺失 ${etaHalfDiag.length} 条'
+        '${etaHalfDiag.isEmpty ? '' : '（${etaHalfDiag.take(6).join("、")}）'}';
+    DiagnosticLogService.instance.record(
+      module: '课表',
+      operation: 'halfDiagEta',
+      message: line,
+    );
+    // 临时（1.4.0-debug 专用）：同时打到 stdout，便于 adb logcat 验证
+    // ignore: avoid_print
+    print('[halfDiagEta] $line');
+  } catch (_) {
+    // 诊断不能影响课表解析
+  }
+  etaHalfDiag.clear();
   return sessions;
 }
+
+/// 一次解析里"xxq 缺失"的课程（收集起来给上面的诊断用）
+final List<String> etaHalfDiag = <String>[];
 
 /// 单条 eta 课表记录 → [Session]；缺关键字段时返回 null（跳过而不是抛异常）。
 Session? sessionFromEtaEntry(Map<String, dynamic> entry) {
@@ -215,6 +244,14 @@ Session? sessionFromEtaEntry(Map<String, dynamic> entry) {
   final secondHalf = half.contains('冬') || half.contains('夏');
   session.firstHalf = firstHalf || !secondHalf;
   session.secondHalf = secondHalf || !firstHalf;
+
+  // ===== MOD: 半学期诊断（只读，不写数据）=====
+  // 与 zdbk 那条同源：`xxq` 缺失时这里会把课程**算成两半都上**（上面两行的 `!` 兜底），
+  // 于是一门口径上"只有冬学期"的课会同时出现在秋与冬 —— 真实反馈的现象。
+  // 教务最近常返回 921（限流），课表很可能来自智慧研工这条路，所以两边都要能看到。
+  if (!firstHalf && !secondHalf) {
+    etaHalfDiag.add('${session.name}(xxq=${half.isEmpty ? "缺失" : half})');
+  }
 
   // 单双周：eta 用 all / single / double（也兼容数字码）。
   final repeat = (asString(entry['dsz']) ?? '').toLowerCase();
