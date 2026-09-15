@@ -81,13 +81,20 @@ class DoNotDisturb {
   /// 开始专注时调用：把当前档位记下来，再切成完全静音。
   ///
   /// 返回 false 表示没生效（多半是没授权），调用点据此决定要不要提示。
+  ///
+  /// **重复调用是安全的**（真机上验过这条路径：进专注页时会调一次，
+  /// 随后每秒的对齐检查发现状态没变就不会再调；即使被调第二次也只是提前返回）。
   static Future<bool> enableForFocus() async {
     final db = _db;
     if (db == null) return false;
     final before = await currentFilter();
     if (before == filterNone) {
-      // 本来就已经静音了：什么都不用改，也不必记（结束时不该动用户自己的设置）
-      db.clearDndSavedFilter();
+      // 本来就已经静音了：什么都不用改。
+      //
+      // ⚠️ 这里**绝不能清掉「改之前是什么档位」那条记录**：如果现在这个静音
+      // 正是我们自己刚才设的（记录还在），清了就再也不会还原 —— 用户手机会
+      // 一直静音下去，正好是最不能出的那个事故。用户自己开的免打扰本来就没
+      // 有记录，也就不存在"该清"的情况。
       return true;
     }
     final ok = await _setFilter(filterNone);

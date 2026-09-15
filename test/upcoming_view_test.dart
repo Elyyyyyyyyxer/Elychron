@@ -1,3 +1,4 @@
+import 'package:celechron/design/round_rectangle_card.dart';
 import 'package:celechron/model/period.dart';
 import 'package:celechron/model/upcoming.dart';
 import 'package:celechron/page/calendar/upcoming_view.dart';
@@ -142,6 +143,22 @@ void main() {
       tester.getCenter(find.text('专业课')).dy <
           tester.getCenter(find.text('组会')).dy,
       isTrue,
+    );
+  });
+
+  testWidgets('★ 点折叠卡的空白处也要能置顶（不能只有压在文字上才算点中）', (tester) async {
+    await pump(tester, [course(), activity()]);
+    // 真机实测：往卡片右侧的空白处点，什么都没发生 ——
+    // RoundRectangleCard 里的 GestureDetector 是 deferToChild，
+    // 只有命中子节点（文字）才算点在这张卡上。
+    // 这里点**整张折叠卡的中心**（标题右边的空白处），必须能置顶。
+    final pill = find.byType(RoundRectangleCard).last;
+    await tapAndSettle(tester, pill);
+    expect(
+      tester.getCenter(find.text('组会')).dy <
+          tester.getCenter(find.text('专业课')).dy,
+      isTrue,
+      reason: '点了折叠卡空白处却没能把它换到顶层',
     );
   });
 

@@ -37,6 +37,11 @@ class _FocusPageState extends State<FocusPage> {
   int _ticks = 0;
   FocusPhase _lastPhase = FocusPhase.idle;
 
+  /// 上一次实际应用的免打扰状态（true = 静音中）。
+  ///
+  /// 只用来判断"要不要动系统设置"，见 [_onTick] 里的对齐检查。
+  bool? _lastSilenced;
+
   /// 打开页面时结算的「上次没正常结束」的会话（用于提示一句）
   String? _recoveredNotice;
 
@@ -133,6 +138,17 @@ class _FocusPageState extends State<FocusPage> {
       _syncDoNotDisturbForPhase();
     }
 
+    // ===== MOD: 免打扰再按「当前是不是工作段」对齐一次 =====
+    //
+    // 为什么不只靠上面那个「段变了」：暂停/继续、跳过休息这些按钮会**手动对齐**
+    // `_lastPhase = _engine.phase`，那条路上的段切换收不到通知 —— 真机实测过：
+    // 工作中点「暂停」，免打扰仍然是开的（本该还原成能收通知）。
+    // 这里每秒只看一次「该不该静音」，任何路径换段都会在 1 秒内被纠正；
+    // 而且只在状态**变化**时才真的动系统设置（enableForFocus/restore 本身也幂等）。
+    if (_lastSilenced != _engine.isWorking) {
+      _syncDoNotDisturbForPhase();
+    }
+
     // 每 10 秒落一次库：App 被系统杀掉时最多损失 10 秒
     if (_ticks % 10 == 0) _flush();
 
@@ -143,6 +159,7 @@ class _FocusPageState extends State<FocusPage> {
   ///
   /// 离开专注页时 `dispose` 还会再还原一次（幂等：没记录就什么都不做）。
   void _syncDoNotDisturbForPhase() {
+    _lastSilenced = _engine.isWorking;
     if (!DoNotDisturb.autoEnabled()) return;
     if (_engine.isWorking) {
       DoNotDisturb.enableForFocus();
@@ -410,6 +427,13 @@ class _FocusPageState extends State<FocusPage> {
                         });
                         _lastPhase = _engine.phase;
                         _syncRestNotice(); // 暂停要撤掉排程，继续要重排
+                        // ===== MOD: 按钮换段也要同步免打扰 =====
+                        //
+                        // 上面那行 `_lastPhase = _engine.phase` 是**手动对齐**，
+                        // 于是 `_onTick` 里的「段变了」判断不会成立 —— 免打扰同步
+                        // 就被跳过了（真机实测：工作中点暂停，免打扰仍然是开的）。
+                        // 语义同休息段：不在工作段就该能收到通知。
+                        _syncDoNotDisturbForPhase();
                       },
                       child: Text(_engine.isPaused ? '继续' : '暂停'),
                     ),
@@ -427,6 +451,8 @@ class _FocusPageState extends State<FocusPage> {
                               setState(() => _engine.skipRest());
                               _lastPhase = _engine.phase;
                               _syncRestNotice(); // 回到工作段：重排下一次休息提示
+                              // ===== MOD: 同上 —— 回到工作段要重新静音 =====
+                              _syncDoNotDisturbForPhase();
                             }
                           : () => setState(() {}),
                       child: Text(
