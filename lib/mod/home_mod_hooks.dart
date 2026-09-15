@@ -16,6 +16,7 @@ import 'package:celechron/utils/attachment_helper.dart';
 import 'package:celechron/utils/share_receiver.dart';
 import 'package:celechron/utils/task_alarm_center.dart';
 import 'package:celechron/utils/utils.dart';
+import 'package:celechron/worker/todo_widget_messenger.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart' show Icons;
 import 'package:get/get.dart';
@@ -42,9 +43,11 @@ class HomeModHooks {
 
   StreamSubscription<List<SharedItem>>? _shareSubscription;
   bool _handlingShare = false;
+  bool _handlingWidgetAction = false;
 
   void start() {
     TaskAlarmCenter.current.addListener(_onAlarm);
+    TodoWidgetActionCenter.current.addListener(_onTodoWidgetAction);
     _listenShares();
     // 冷启动场景：闹钟可能在监听挂上之前就已被触发（全屏通知拉起 App）。
     // ValueNotifier 不会补发旧值，所以这里主动看一眼当前值。
@@ -62,6 +65,11 @@ class HomeModHooks {
     Future<void>.delayed(const Duration(seconds: 3), _backfillRememberedAccount);
     // 教程里的「去试试」按钮要能跳到对应页面（映射集中在这里，教程内容保持纯数据）
     _wireTutorialRouter();
+    // 桌面小组件（PR #4）：冷启动也可能是从小组件点进来的，
+    // ValueNotifier 不会补发旧值，所以这里也主动看一眼当前值。
+    if (TodoWidgetActionCenter.current.value != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _onTodoWidgetAction());
+    }
   }
 
   /// 把教程的行动按钮接到真实的页面跳转上
@@ -118,7 +126,50 @@ class HomeModHooks {
 
   void dispose() {
     TaskAlarmCenter.current.removeListener(_onAlarm);
+    TodoWidgetActionCenter.current.removeListener(_onTodoWidgetAction);
     _shareSubscription?.cancel();
+  }
+
+  void _onTodoWidgetAction() {
+    final action = TodoWidgetActionCenter.current.value;
+    if (action == null || _handlingWidgetAction) return;
+    TodoWidgetActionCenter.current.value = null;
+    unawaited(_handleTodoWidgetAction(action));
+  }
+
+  Future<void> _handleTodoWidgetAction(TodoWidgetAction action) async {
+    _handlingWidgetAction = true;
+    try {
+      jumpToTaskTab();
+      if (action == TodoWidgetAction.openList) return;
+
+      await Future.delayed(const Duration(milliseconds: 260));
+      final context = Get.context;
+      if (context == null) return;
+
+      final now = DateTime.now();
+      final draft = Task(
+        endTime: now,
+        startTime: now,
+        repeatEndsTime: dateOnly(now),
+      )..reset();
+      final result = await showCupertinoModalPopup<Task>(
+        context: context,
+        builder: (context) => TaskCreatePage(draft),
+      );
+      if (result == null || result.status == TaskStatus.deleted) return;
+
+      final controller = Get.find<TaskController>();
+      controller.taskList.add(result);
+      controller.updateDeadlineList();
+      controller.updateDeadlineListTime();
+      controller.taskList.refresh();
+    } finally {
+      _handlingWidgetAction = false;
+      if (TodoWidgetActionCenter.current.value != null) {
+        scheduleMicrotask(_onTodoWidgetAction);
+      }
+    }
   }
 
   /// 闹钟到点：弹出全屏闹钟页

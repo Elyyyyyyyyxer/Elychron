@@ -23,6 +23,7 @@ import 'package:celechron/page/option/ecard_pay_page.dart';
 import 'package:celechron/services/diagnostic_log_service.dart';
 import 'package:celechron/services/refresh_coordinator.dart';
 import 'package:celechron/worker/ecard_widget_messenger.dart';
+import 'package:celechron/worker/todo_widget_messenger.dart';
 import 'package:celechron/database/database_helper.dart';
 import 'package:celechron/utils/global.dart';
 
@@ -39,9 +40,12 @@ void main() async {
   var db = Get.put(DatabaseHelper(), tag: 'db');
   await db.init();
 
+  final taskList = db.getTaskList();
+  await _applyPendingTodoWidgetCompletions(db, taskList);
+
   // 注入数据观察项（相当于事件总线，更新这些变量将导致Widget重绘
   Get.put((await db.getScholar()).obs, tag: 'scholar');
-  Get.put(db.getTaskList().obs, tag: 'taskList');
+  Get.put(taskList.obs, tag: 'taskList');
   Get.put(db.getTaskListUpdateTime().obs, tag: 'taskListLastUpdate');
   Get.put(db.getFlowList().obs, tag: 'flowList');
   Get.put(db.getFlowListUpdateTime().obs, tag: 'flowListLastUpdate');
@@ -49,6 +53,9 @@ void main() async {
   Get.put(db.getFuse().obs, tag: 'fuse');
 
   runApp(const CelechronApp());
+  unawaited(TodoWidgetMessenger.update(
+    Get.find<RxList<Task>>(tag: 'taskList'),
+  ));
 
   var scholar = Get.find<Rx<Scholar>>(tag: 'scholar');
   if (scholar.value.isLogan) {
@@ -63,6 +70,27 @@ void main() async {
   } else {
     unawaited(ECardWidgetMessenger.update());
   }
+}
+
+Future<DateTime?> _applyPendingTodoWidgetCompletions(
+  DatabaseHelper db,
+  List<Task> tasks,
+) async {
+  final ids = await TodoWidgetMessenger.pendingCompletionIds();
+  if (ids.isEmpty) return null;
+
+  final completedAt = DateTime.now();
+  final changed = TodoWidgetMessenger.markCompleted(
+    tasks,
+    ids,
+    now: completedAt,
+  );
+  if (changed) {
+    await db.setTaskList(tasks);
+    await db.setTaskListUpdateTime(completedAt);
+  }
+  await TodoWidgetMessenger.acknowledgeCompletions(ids);
+  return changed ? completedAt : null;
 }
 
 Future<void> _refreshRestoredScholar(Rx<Scholar> scholar) async {
@@ -118,6 +146,8 @@ class CelechronApp extends StatefulWidget {
 class _CelechronAppState extends State<CelechronApp>
     with WidgetsBindingObserver {
   Timer? _foregroundLeaseHeartbeat;
+  StreamSubscription<Uri>? _appLinkSubscription;
+  bool _applyingWidgetCompletions = false;
 
   @override
   void initState() {
@@ -138,6 +168,7 @@ class _CelechronAppState extends State<CelechronApp>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _appLinkSubscription?.cancel();
     _stopForegroundLease();
     super.dispose();
   }
@@ -146,6 +177,7 @@ class _CelechronAppState extends State<CelechronApp>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       _startForegroundLease();
+      unawaited(_consumeTodoWidgetCompletions());
     } else if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.hidden ||
         state == AppLifecycleState.detached) {
@@ -153,6 +185,28 @@ class _CelechronAppState extends State<CelechronApp>
     }
     if (state == AppLifecycleState.paused) {
       ECardWidgetMessenger.update();
+      unawaited(TodoWidgetMessenger.update(
+        Get.find<RxList<Task>>(tag: 'taskList'),
+      ));
+    }
+  }
+
+  Future<void> _consumeTodoWidgetCompletions() async {
+    if (_applyingWidgetCompletions) return;
+    _applyingWidgetCompletions = true;
+    try {
+      final tasks = Get.find<RxList<Task>>(tag: 'taskList');
+      final completedAt = await _applyPendingTodoWidgetCompletions(
+        Get.find<DatabaseHelper>(tag: 'db'),
+        tasks,
+      );
+      if (completedAt == null) return;
+
+      Get.find<Rx<DateTime>>(tag: 'taskListLastUpdate').value = completedAt;
+      tasks.refresh();
+      await TodoWidgetMessenger.update(tasks);
+    } finally {
+      _applyingWidgetCompletions = false;
     }
   }
 
@@ -225,11 +279,17 @@ class _CelechronAppState extends State<CelechronApp>
 
   void _initAppLinks() {
     final appLinks = AppLinks();
-    appLinks.uriLinkStream.listen((uri) {
+    _appLinkSubscription = appLinks.uriLinkStream.listen((uri) {
       if (uri.toString() == 'celechron://ecardpaypage') {
         navigator?.popUntil((route) =>
             !(route.settings.name?.endsWith('ecardpaypage') ?? false));
         navigator?.pushNamed('/ecardpaypage');
+      } else if (uri.scheme == 'celechron' && uri.host == 'todo') {
+        TodoWidgetActionCenter.dispatch(
+          uri.path == '/create'
+              ? TodoWidgetAction.create
+              : TodoWidgetAction.openList,
+        );
       }
     });
   }
