@@ -24,8 +24,8 @@ import androidx.glance.appwidget.action.ActionCallback
 import androidx.glance.appwidget.action.actionRunCallback
 import androidx.glance.appwidget.action.actionStartActivity
 import androidx.glance.appwidget.cornerRadius
-import androidx.glance.appwidget.lazy.LazyColumn
-import androidx.glance.appwidget.lazy.items
+// 注意：原来这里 import 了 androidx.glance.appwidget.lazy.LazyColumn / items，
+// 现在内容改成了普通 Column（原因见 TodoWidgetContent 里的长注释），故不再需要。
 import androidx.glance.appwidget.provideContent
 import androidx.glance.appwidget.updateAll
 import androidx.glance.background
@@ -185,13 +185,21 @@ private fun TodoWidgetContent(context: Context, snapshot: TodoWidgetSnapshot) {
                 )
             }
         } else {
-            LazyColumn(
+            // ===== 不用 LazyColumn（原版是它，这是"点了没反应"的头号嫌疑）=====
+            //
+            // Glance 的 LazyColumn 是**适配器型集合**：内容由 RemoteViewsService 提供，
+            // 更新时还要请桌面重新拉一次数据（日志里能看到 lazyCollection=2、
+            // ListAdapterCallbackTrampoline）。华为/鸿蒙这类 OEM 桌面在收到更新后
+            // 经常不去重新拉，表现就是——数据全对、画面纹丝不动：
+            //   实测日志：onAction queued=true ✓ → updateAll ✓ → SessionWorker SUCCESS ✓
+            //              → 小组件画面完全不变 ✗
+            // 而这里最多只显示 6 条，懒加载一点用都没有。
+            // 换成普通 Column 后就是一份普通的 RemoteViews，update 即可直接重画。
+            // 代价：失去滚动（超出高度的部分会被裁掉）—— 小组件本身可拉伸，先按可靠优先。
+            Column(
                 modifier = GlanceModifier.fillMaxWidth().defaultWeight(),
             ) {
-                items(
-                    items = snapshot.tasks,
-                    itemId = { task -> task.id.hashCode().toLong() },
-                ) { task ->
+                for (task in snapshot.tasks) {
                     TodoTaskRow(task, openList)
                 }
             }
@@ -322,8 +330,15 @@ class CompleteTodoAction : ActionCallback {
         }
         val queued = queueTodoWidgetCompletion(context, taskId)
         Log.i(TAG, "onAction 结果: queued=$queued（false = 快照里没找到这条，或快照坏了）")
-        TodoWidget().updateAll(context)
-        Log.i(TAG, "onAction 已请求 updateAll")
+        // 用**点到的这个小组件**的 glanceId 定向重画（原来是无差别 updateAll）。
+        // 定向更新更直接，也不用去遍历所有实例，某些桌面上更可靠。
+        try {
+            TodoWidget().update(context, glanceId)
+            Log.i(TAG, "onAction 已请求定向 update($glanceId)")
+        } catch (error: Exception) {
+            Log.w(TAG, "定向 update 失败，退回 updateAll: ${error.message}")
+            TodoWidget().updateAll(context)
+        }
     }
 }
 
