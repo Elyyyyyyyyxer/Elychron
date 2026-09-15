@@ -74,6 +74,11 @@
                  android:exported="true">
            <intent-filter>
                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+               <!-- 小组件上的时间文案是它自己按当前时间算的（见 TodoWidget.kt），
+                    所以跨零点 / 改时间 / 换时区都要重画一次，否则文案会停在旧的一天。 -->
+               <action android:name="android.intent.action.TIME_SET" />
+               <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+               <action android:name="android.intent.action.DATE_CHANGED" />
            </intent-filter>
            <meta-data
                    android:name="android.appwidget.provider"

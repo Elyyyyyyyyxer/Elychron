@@ -86,6 +86,12 @@ class CourseListPage extends StatelessWidget {
                   childCount: _courseListController.courses.length,
                 ),
               )),
+          // ===== MOD ===== 末尾垫出系统导航栏的高度（否则最后一张卡会被压掉一半）
+          SliverToBoxAdapter(
+            child: SizedBox(
+              height: 16 + MediaQuery.of(context).padding.bottom,
+            ),
+          ),
         ],
       ),
     );

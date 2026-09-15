@@ -1186,6 +1186,14 @@ class ScholarPage extends StatelessWidget {
             }
           }),
         ),
+        // ===== MOD ===== 末尾垫出系统导航栏的高度
+        // 这个页面在「未登录 / 没数据」时会显示一句提示，那种情况同样需要垫，
+        // 否则提示语会被底部导航栏压住。
+        SliverToBoxAdapter(
+          child: SizedBox(
+            height: 16 + MediaQuery.of(context).padding.bottom,
+          ),
+        ),
       ],
     ));
   }

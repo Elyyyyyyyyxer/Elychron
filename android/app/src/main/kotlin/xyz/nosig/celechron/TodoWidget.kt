@@ -52,6 +52,9 @@ import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.longOrNull
+import java.util.Calendar
+import java.util.Locale
 
 private const val TODO_WIDGET_PREFS = "todo_widget"
 private const val TODO_WIDGET_SNAPSHOT = "snapshot"
@@ -62,8 +65,14 @@ private val todoWidgetCompletionLock = Any()
 private data class TodoWidgetTask(
     val id: String,
     val title: String,
+    /** 旧字段：Dart 侧算好的文案，仅在拿不到 kind/at 时兜底（旧快照） */
     val time: String,
+    /** 旧字段：同上 */
     val overdue: Boolean,
+    /** 四种语义：event / deadline / remind / memo（备忘没有时间） */
+    val kind: String,
+    /** 排序与显示用的时刻（活动=开始、其余=结束）；备忘为 null */
+    val atMillis: Long?,
 )
 
 private data class TodoWidgetSnapshot(
@@ -186,8 +195,63 @@ private fun TodoWidgetContent(context: Context, snapshot: TodoWidgetSnapshot) {
     }
 }
 
+/**
+ * 小组件**自己按当前时间**算「今天 10:00 截止 / 已逾期 / 备忘」这些文案。
+ *
+ * 以前这些是 Dart 侧推快照时算好的，App 不开就永远停在旧值 —— 小组件看着"像是死的"。
+ * 现在 Dart 只把原始时间戳（`at`）与语义（`kind`）传下来，文案在这里现算；
+ * 配合 `updatePeriodMillis` 的周期刷新，时间就会自己走。
+ *
+ * 口径与 Dart 侧 `TodoWidgetMessenger._timeLabel` 保持一致（改一处要改两处）：
+ * 今天/明天用「今天 HH:mm」、其余用「M月d日 HH:mm」；
+ * 只有截止型会「已逾期」；活动加「开始」、提醒加「提醒」、其余加「截止」。
+ */
+private fun todoWidgetLabel(task: TodoWidgetTask, nowMillis: Long): String {
+    val atMillis = task.atMillis
+    if (task.kind == "memo" || atMillis == null) return task.time
+
+    val now = Calendar.getInstance().apply { timeInMillis = nowMillis }
+    val at = Calendar.getInstance().apply { timeInMillis = atMillis }
+    val tomorrow = Calendar.getInstance().apply {
+        timeInMillis = nowMillis
+        add(Calendar.DAY_OF_YEAR, 1)
+    }
+
+    val clock = String.format(
+        Locale.US,
+        "%02d:%02d",
+        at.get(Calendar.HOUR_OF_DAY),
+        at.get(Calendar.MINUTE),
+    )
+    fun isSameDay(left: Calendar, right: Calendar): Boolean =
+        left.get(Calendar.YEAR) == right.get(Calendar.YEAR) &&
+            left.get(Calendar.DAY_OF_YEAR) == right.get(Calendar.DAY_OF_YEAR)
+
+    val date = when {
+        isSameDay(now, at) -> "今天 $clock"
+        isSameDay(tomorrow, at) -> "明天 $clock"
+        else -> "${at.get(Calendar.MONTH) + 1}月${at.get(Calendar.DAY_OF_MONTH)}日 $clock"
+    }
+
+    if (todoWidgetOverdue(task, nowMillis)) return "已逾期 · $date"
+    return when (task.kind) {
+        "event" -> "$date 开始"
+        "remind" -> "$date 提醒"
+        else -> "$date 截止"
+    }
+}
+
+/** 只有「截止」且时间已经过去才算逾期（与 Dart 侧同口径）。 */
+private fun todoWidgetOverdue(task: TodoWidgetTask, nowMillis: Long): Boolean {
+    val atMillis = task.atMillis
+    return task.kind == "deadline" && atMillis != null && atMillis < nowMillis
+}
+
 @Composable
 private fun TodoTaskRow(task: TodoWidgetTask, openList: Action) {
+    val nowMillis = System.currentTimeMillis()
+    val label = todoWidgetLabel(task, nowMillis)
+    val overdue = todoWidgetOverdue(task, nowMillis)
     Row(
         modifier = GlanceModifier
             .fillMaxWidth()
@@ -219,10 +283,10 @@ private fun TodoTaskRow(task: TodoWidgetTask, openList: Action) {
                 ),
             )
             Text(
-                text = task.time,
+                text = label,
                 maxLines = 1,
                 style = TextStyle(
-                    color = if (task.overdue) {
+                    color = if (overdue) {
                         GlanceTheme.colors.error
                     } else {
                         GlanceTheme.colors.onSurfaceVariant
@@ -340,6 +404,9 @@ private fun readTodoWidgetSnapshot(context: Context): TodoWidgetSnapshot {
                 title = title,
                 time = item["time"]?.jsonPrimitive?.contentOrNull.orEmpty(),
                 overdue = item["overdue"]?.jsonPrimitive?.booleanOrNull ?: false,
+                // 新格式才有的两个字段；旧快照没有时会退回上面那两个算好的值
+                kind = item["kind"]?.jsonPrimitive?.contentOrNull.orEmpty(),
+                atMillis = item["at"]?.jsonPrimitive?.longOrNull,
             )
         }.orEmpty()
         TodoWidgetSnapshot(

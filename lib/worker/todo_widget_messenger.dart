@@ -98,6 +98,16 @@ class TodoWidgetMessenger {
             (task) => <String, Object>{
               'id': task.uid,
               'title': task.summary.trim().isEmpty ? '未命名待办' : task.summary,
+              // ===== 小组件自己算文案要用的两个字段 =====
+              //
+              // `kind` + `at` 是给小组件**在本地按当前时间重算**「今天 10:00 截止」
+              // 「已逾期」用的：原来这两句是 App 推快照时算好的，App 不开就永远停在
+              // 旧值（用户实测："小组件像是死的"）。`at` 的取值口径与 [_timeLabel]
+              // 完全一致（活动取开始、其余取结束），逾期判定也基于它。
+              'kind': _kindOf(task),
+              if (!task.isMemo) 'at': _timeOf(task).millisecondsSinceEpoch,
+              // 下面两个是**兜底**：万一是旧版快照（没有 kind/at），
+              // 小组件仍能显示 App 算好的文案，而不是空白。
               'time': _timeLabel(task, now),
               'overdue': _isOverdue(task, now),
             },
@@ -105,6 +115,17 @@ class TodoWidgetMessenger {
           .toList(),
     };
   }
+
+  /// 小组件要区分的四种语义（备忘没有时间）
+  static String _kindOf(Task task) {
+    if (task.isMemo) return 'memo';
+    if (task.isEvent) return 'event';
+    if (task.isRemind) return 'remind';
+    return 'deadline';
+  }
+
+  static DateTime _timeOf(Task task) =>
+      task.isEvent ? task.startTime : task.endTime;
 
   static bool _isPending(Task task) {
     if (task.type == TaskType.fixedlegacy) return false;
@@ -122,8 +143,8 @@ class TodoWidgetMessenger {
       return right.sortableUpdatedAt.compareTo(left.sortableUpdatedAt);
     }
 
-    final leftTime = left.isEvent ? left.startTime : left.endTime;
-    final rightTime = right.isEvent ? right.startTime : right.endTime;
+    final leftTime = _timeOf(left);
+    final rightTime = _timeOf(right);
     // For overdue tasks, show the deadline nearest to now first.
     return leftGroup == 0
         ? rightTime.compareTo(leftTime)
@@ -139,7 +160,7 @@ class TodoWidgetMessenger {
   static String _timeLabel(Task task, DateTime now) {
     if (task.isMemo) return '备忘';
 
-    final time = task.isEvent ? task.startTime : task.endTime;
+    final time = _timeOf(task);
     final today = DateTime(now.year, now.month, now.day);
     final day = DateTime(time.year, time.month, time.day);
     final clock =

@@ -80,7 +80,11 @@ class _LanSyncPageState extends State<LanSyncPage> {
     return CupertinoPageScaffold(
       navigationBar: const CupertinoNavigationBar(middle: Text('局域网同步')),
       child: ListView(
-        padding: const EdgeInsets.symmetric(vertical: 12),
+        // ===== MOD ===== 底部留出系统导航栏的高度（否则最后一块内容会被压掉一半）
+        padding: EdgeInsets.only(
+          top: 12,
+          bottom: 12 + MediaQuery.of(context).padding.bottom,
+        ),
         children: [
           CupertinoListSection.insetGrouped(
             header: const Text('开关'),
