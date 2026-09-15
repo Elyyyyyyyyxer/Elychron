@@ -343,6 +343,13 @@ internal fun saveTodoWidgetSnapshot(context: Context, rawSnapshot: String) {
         .putString(TODO_WIDGET_SNAPSHOT, rawSnapshot)
         // 同步写：紧接着 updateAll 就要按新快照渲染，别留"写还没落"的窗口
         .commit()
+    // 探针：App 每次推快照都会经过这里。用户反馈"小组件不跟着更新"时，
+    // 先看这条日志有没有出现 —— 没有的话说明问题在 Dart → 原生这一跳；
+    // 有的话说明快照是新的，画面没变就是启动器/重画那边的事。
+    val count = runCatching {
+        Json.parseToJsonElement(rawSnapshot).jsonObject["tasks"]?.jsonArray?.size
+    }.getOrNull()
+    Log.i(TAG, "App 推来新快照: 条数=$count, 字节=${rawSnapshot.length}")
 }
 
 internal fun pendingTodoWidgetCompletions(context: Context): List<String> =
