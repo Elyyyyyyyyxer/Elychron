@@ -368,10 +368,17 @@
 
 ## 8.9 本轮工程记录（2026-09-15 第三轮）
 
-- 新增单测 **22 条**：`test/upcoming_test.dart` 加 9 条（多个进行中的三段划分），
-  `test/calendar_fold_test.dart` 新建 13 条（折叠/展开/必须滤掉的两种通知/边界）。
-- 全套测试 **483 条全绿**；`flutter analyze` **0 error / 26 warning（与基线一致）/ 50 info**。
+- 新增单测 **34 条**：
+  - `test/upcoming_test.dart` +9（多个进行中的三段划分、点选置顶、置顶失效）
+  - `test/calendar_fold_test.dart` 新建 **20**（折叠 / 展开 / 两种必须滤掉的通知 / 边界 /
+    **通知→判定参数的映射**（拿真的 `ScrollNotification` 对象测，含"自动回弹不会把日历又展开"的端到端一条））
+  - `test/upcoming_view_test.dart` 新建 **5**（widget 测试：折叠堆画出来的样子、
+    写明数量、**点一下真的能换到顶层**、点错了能点回来）
+- 全套测试 **495 条全绿**；`flutter analyze` **0 error / 26 warning（与基线一致）/ 50 info**。
 - 改动文件：`lib/model/upcoming.dart`、`lib/page/calendar/upcoming_view.dart`
   （改为 `StatefulWidget`）、`lib/page/calendar/calendar_view.dart`、
   `lib/page/calendar/calendar_controller.dart`、`lib/mod/calendar_fold.dart`（新建）。
+- ⚠️ 手机断连，**真机没验**。所以这两项特意用 widget 测试把"画出来的样子 + 点击交互"
+  钉住了（手机关机期间这是能做到的最好验证）；**手感类的东西（折叠阈值 28px 合不合适、
+  折叠动画顺不顺）只能等上手**。
 

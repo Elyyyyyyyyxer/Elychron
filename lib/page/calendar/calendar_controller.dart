@@ -202,33 +202,21 @@ class CalendarController extends GetxController {
   /// 高度变化是平滑的，不用我们再套一层动画；而且选中态、今天、小圆点标记
   /// 在周视图下全都照旧，比手画一条「一周条」稳得多。
   bool handleDayListScroll(ScrollNotification notification) {
-    if (notification is ScrollStartNotification) {
-      if (notification.dragDetails != null) foldGesture.startDrag();
+    if (CalendarFoldSignal.isDragStart(notification)) {
+      foldGesture.startDrag();
       return false;
     }
 
-    final bool fromUser;
-    final double delta;
-    final bool isOverscroll;
-    if (notification is OverscrollNotification) {
-      fromUser = notification.dragDetails != null;
-      delta = notification.overscroll;
-      isOverscroll = true;
-    } else if (notification is ScrollUpdateNotification) {
-      fromUser = notification.dragDetails != null;
-      delta = notification.scrollDelta ?? 0;
-      isOverscroll = false;
-    } else {
-      return false;
-    }
+    final signal = CalendarFoldSignal.from(notification);
+    if (signal == null) return false;
 
     final next = foldGesture.decide(
       current: calendarFormat.value,
       axis: notification.metrics.axis,
       pixels: notification.metrics.pixels,
-      delta: delta,
-      isOverscroll: isOverscroll,
-      fromUser: fromUser,
+      delta: signal.delta,
+      isOverscroll: signal.isOverscroll,
+      fromUser: signal.fromUser,
     );
     if (next != null && next != calendarFormat.value) {
       calendarFormat.value = next;

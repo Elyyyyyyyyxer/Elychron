@@ -6,7 +6,8 @@ import 'package:table_calendar/table_calendar.dart';
 /// 日程页「上滑收起日历」的判定测试。
 ///
 /// 口径（用户定的）：日程页面上滑 → 日历折成一周；滑回顶部继续下拉 → 展开整月。
-/// 这里全是纯逻辑，不碰真实滚动 —— 真机手感还要人工确认。
+/// 前四组是纯逻辑（不碰真实滚动）；最后一组拿真的 `ScrollNotification` 对象
+/// 验「通知 → 判定参数」的映射 —— 真机手感还要人工确认。
 void main() {
   CalendarFoldGesture fresh() => CalendarFoldGesture();
 
@@ -73,7 +74,7 @@ void main() {
       );
     });
 
-    test('越界累计中途松手回到顶部会清零（两次小滑动凑不成一次大滑动）', () {
+    test('越界累计中途回到顶部会清零（两次小滑动凑不成一次大滑动）', () {
       final g = fresh();
       scroll(g,
           current: CalendarFormat.month,
@@ -114,27 +115,18 @@ void main() {
   group('展开：回到顶部下拉', () {
     test('折起来后，回到顶部继续下拉 → 展开整月', () {
       final g = fresh();
-      // 从列表中间往下拉：不算（还在往回看，不是想放日历出来）
+      // 从列表中间往下拉：不算（还在往回看，不是想把日历放出来）
       expect(
-        scroll(g,
-            current: CalendarFormat.week,
-            pixels: 300,
-            delta: -50),
+        scroll(g, current: CalendarFormat.week, pixels: 300, delta: -50),
         isNull,
       );
       // 到顶了继续拉：攒够就展开
       expect(
-        scroll(g,
-            current: CalendarFormat.week,
-            pixels: 0,
-            delta: -20),
+        scroll(g, current: CalendarFormat.week, pixels: 0, delta: -20),
         isNull,
       );
       expect(
-        scroll(g,
-            current: CalendarFormat.week,
-            pixels: 0,
-            delta: -20),
+        scroll(g, current: CalendarFormat.week, pixels: 0, delta: -20),
         CalendarFormat.month,
       );
     });
@@ -226,6 +218,156 @@ void main() {
       // 28：比"手滑"大，比"有意识划一下"小
       expect(CalendarFoldGesture.threshold, 28);
       expect(CalendarFoldGesture.topTolerance, 1);
+    });
+  });
+
+  // ===== 通知 → 判定参数 的映射 =====
+  //
+  // 这一层最容易接错：把 fromUser 写死成 true 就会把"折叠后列表自动回弹"
+  // 当成用户下拉 → 一折一展死循环。所以拿**真的通知对象**来测。
+  //
+  // 这个 Flutter 版本里 `ScrollNotification.context` 是 required 非空的，
+  // 所以这组只能用 testWidgets（pump 一个 Builder 拿一个真 context）。
+  group('ScrollNotification 映射', () {
+    FixedScrollMetrics metrics({double pixels = 120}) => FixedScrollMetrics(
+          minScrollExtent: 0,
+          maxScrollExtent: 2000,
+          pixels: pixels,
+          viewportDimension: 500,
+          axisDirection: AxisDirection.down,
+          devicePixelRatio: 3,
+        );
+
+    Future<BuildContext> contextOf(WidgetTester tester) async {
+      late BuildContext ctx;
+      await tester.pumpWidget(Builder(builder: (context) {
+        ctx = context;
+        return const SizedBox();
+      }));
+      return ctx;
+    }
+
+    final fingerDown = DragUpdateDetails(globalPosition: Offset.zero);
+
+    ScrollUpdateNotification update(
+      BuildContext context, {
+      double pixels = 120,
+      double delta = 0,
+      DragUpdateDetails? drag,
+    }) =>
+        ScrollUpdateNotification(
+          metrics: metrics(pixels: pixels),
+          context: context,
+          scrollDelta: delta,
+          dragDetails: drag,
+        );
+
+    OverscrollNotification over(
+      BuildContext context, {
+      double pixels = 0,
+      double overscroll = 0,
+      DragUpdateDetails? drag,
+    }) =>
+        OverscrollNotification(
+          metrics: metrics(pixels: pixels),
+          context: context,
+          overscroll: overscroll,
+          dragDetails: drag,
+        );
+
+    ScrollStartNotification start(
+      BuildContext context, {
+      DragStartDetails? drag,
+    }) =>
+        ScrollStartNotification(
+          metrics: metrics(),
+          context: context,
+          dragDetails: drag,
+        );
+
+    testWidgets('手指带着滚 → fromUser，增量取 scrollDelta', (tester) async {
+      final ctx = await contextOf(tester);
+      final s =
+          CalendarFoldSignal.from(update(ctx, delta: 7, drag: fingerDown))!;
+      expect(s.fromUser, isTrue);
+      expect(s.delta, 7);
+      expect(s.isOverscroll, isFalse);
+    });
+
+    testWidgets('★ 没有 dragDetails 的滚动（惯性 / 布局变化后的自动回弹）→ fromUser 为假',
+        (tester) async {
+      final ctx = await contextOf(tester);
+      final s = CalendarFoldSignal.from(update(ctx, pixels: 0, delta: -100))!;
+      expect(s.fromUser, isFalse);
+      // decide 拿到它必须什么都不做
+      expect(
+        fresh().decide(
+          current: CalendarFormat.week,
+          axis: Axis.vertical,
+          pixels: 0,
+          delta: s.delta,
+          isOverscroll: s.isOverscroll,
+          fromUser: s.fromUser,
+        ),
+        isNull,
+      );
+    });
+
+    testWidgets('越界通知 → 增量取 overscroll（不是 scrollDelta）', (tester) async {
+      final ctx = await contextOf(tester);
+      final s = CalendarFoldSignal.from(
+          over(ctx, overscroll: 13, drag: fingerDown))!;
+      expect(s.delta, 13);
+      expect(s.isOverscroll, isTrue);
+      expect(s.fromUser, isTrue);
+    });
+
+    testWidgets('惯性撞到头的越界（没有 dragDetails）→ fromUser 为假', (tester) async {
+      final ctx = await contextOf(tester);
+      final s = CalendarFoldSignal.from(over(ctx, overscroll: 13))!;
+      expect(s.fromUser, isFalse);
+    });
+
+    testWidgets('滚动开始/结束通知不参与判定', (tester) async {
+      final ctx = await contextOf(tester);
+      expect(
+        CalendarFoldSignal.from(
+            ScrollEndNotification(metrics: metrics(), context: ctx)),
+        isNull,
+      );
+      expect(CalendarFoldSignal.from(start(ctx)), isNull);
+    });
+
+    testWidgets('只有"手按下去"的滚动开始才算新手势（要清累加器）', (tester) async {
+      final ctx = await contextOf(tester);
+      expect(
+        CalendarFoldSignal.isDragStart(start(ctx, drag: DragStartDetails())),
+        isTrue,
+      );
+      expect(CalendarFoldSignal.isDragStart(start(ctx)), isFalse);
+      expect(
+        CalendarFoldSignal.isDragStart(update(ctx, delta: 1, drag: fingerDown)),
+        isFalse,
+      );
+    });
+
+    testWidgets('★ 端到端：折叠后列表自动回弹到 0 不会把日历又展开', (tester) async {
+      final ctx = await contextOf(tester);
+      final g = fresh();
+      // 折叠之后列表变高，位置自动弹回 0
+      final signal =
+          CalendarFoldSignal.from(update(ctx, pixels: 0, delta: -300))!;
+      expect(
+        g.decide(
+          current: CalendarFormat.week,
+          axis: Axis.vertical,
+          pixels: 0,
+          delta: signal.delta,
+          isOverscroll: signal.isOverscroll,
+          fromUser: signal.fromUser,
+        ),
+        isNull,
+      );
     });
   });
 }

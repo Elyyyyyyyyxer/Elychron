@@ -1,6 +1,54 @@
 import 'package:flutter/widgets.dart';
 import 'package:table_calendar/table_calendar.dart';
 
+/// 从一条滚动通知里取出判定需要的几样东西。
+///
+/// 单独抽出来是为了**能测**：真要测 `CalendarController.handleDayListScroll`
+/// 得先把 controller 造出来（它依赖 scholar / taskList 两个 Rx），不值当；
+/// 而"哪几种通知能用、每个字段对应什么"恰恰是最容易接错的一环
+/// （把 `fromUser` 写死成 `true` 就会把"折叠后列表自动回弹"当成用户下拉 → 一折一展死循环）。
+class CalendarFoldSignal {
+  /// 本次增量：滚动通知是 `scrollDelta`，越界通知是 `overscroll`
+  final double delta;
+
+  /// 本次是不是越界通知
+  final bool isOverscroll;
+
+  /// 是不是**手指直接带着动**的
+  final bool fromUser;
+
+  const CalendarFoldSignal({
+    required this.delta,
+    required this.isOverscroll,
+    required this.fromUser,
+  });
+
+  /// 返回 `null` 表示这条通知不该用来判定
+  /// （滚动开始/结束、布局变化引起的自动回弹、惯性滑动……）。
+  static CalendarFoldSignal? from(ScrollNotification notification) {
+    if (notification is OverscrollNotification) {
+      return CalendarFoldSignal(
+        delta: notification.overscroll,
+        isOverscroll: true,
+        fromUser: notification.dragDetails != null,
+      );
+    }
+    if (notification is ScrollUpdateNotification) {
+      return CalendarFoldSignal(
+        delta: notification.scrollDelta ?? 0,
+        isOverscroll: false,
+        fromUser: notification.dragDetails != null,
+      );
+    }
+    return null;
+  }
+
+  /// 是不是「一次新的触摸开始了」—— 要把累加器清零。
+  static bool isDragStart(ScrollNotification notification) =>
+      notification is ScrollStartNotification &&
+      notification.dragDetails != null;
+}
+
 /// 日程页「上滑收起日历」的手势判定 —— **纯逻辑，有单测**。
 ///
 /// 口径（用户要求）：日程页面上滑 → 日历折成一周；滑回顶部继续下拉 → 展开整月。
