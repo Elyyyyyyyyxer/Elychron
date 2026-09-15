@@ -346,10 +346,21 @@ internal fun saveTodoWidgetSnapshot(context: Context, rawSnapshot: String) {
     // 探针：App 每次推快照都会经过这里。用户反馈"小组件不跟着更新"时，
     // 先看这条日志有没有出现 —— 没有的话说明问题在 Dart → 原生这一跳；
     // 有的话说明快照是新的，画面没变就是启动器/重画那边的事。
-    val count = runCatching {
-        Json.parseToJsonElement(rawSnapshot).jsonObject["tasks"]?.jsonArray?.size
+    //
+    // 还打 id 列表：把这里的 id 和 onAction 那三行里的 task id 对一下就知道了 ——
+    // 如果**刚勾掉的那几条又出现在新快照里**，那就不是小组件的问题，
+    // 而是 App 把它们重新变成了未完成（线上就抓到过这种"3→4→5→6"的回涨）。
+    val snapshotJson = runCatching {
+        Json.parseToJsonElement(rawSnapshot).jsonObject
     }.getOrNull()
-    Log.i(TAG, "App 推来新快照: 条数=$count, 字节=${rawSnapshot.length}")
+    val ids = snapshotJson?.get("tasks")?.jsonArray
+        ?.mapNotNull { it.jsonObject["id"]?.jsonPrimitive?.contentOrNull }
+        .orEmpty()
+    Log.i(
+        TAG,
+        "App 推来新快照: 条数=${ids.size}(含可见 ${snapshotJson?.get("pendingCount")?.jsonPrimitive?.intOrNull}), " +
+            "字节=${rawSnapshot.length}, id=${ids.joinToString(",") { it.take(8) }}",
+    )
 }
 
 internal fun pendingTodoWidgetCompletions(context: Context): List<String> =
