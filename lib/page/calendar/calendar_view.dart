@@ -224,6 +224,9 @@ class CalendarPage extends StatelessWidget {
                   lastDay: DateTime.utc(2030, 12, 31),
                   rowHeight: 48.0,
                   daysOfWeekHeight: 20.0,
+                  // ===== MOD ===== 折叠/展开的动画快一点（用户要求）
+                  // 默认 200ms 点一下折叠提示要等一小会儿才收完；140ms 跟手得多。
+                  formatAnimationDuration: const Duration(milliseconds: 140),
                   startingDayOfWeek: StartingDayOfWeek.monday,
                   daysOfWeekStyle: DaysOfWeekStyle(
                     dowTextFormatter: (date, locale) => <String>[
@@ -354,42 +357,56 @@ class CalendarPage extends StatelessWidget {
   /// 折叠／展开的小提示（**无文字**，用户点名要的）。
   ///
   /// 展开整月 → 一条短横（意思是"能往上收"）；折成一周 → V 形（"能拉下来"）。
-  /// 点它也能折叠／展开 —— 只做提示不可点的话，用户多半会去点它却点不动。
   ///
-  /// 用 [AnimatedSwitcher] 换图形，时长跟日历自己的折叠动画（200ms）对齐。
+  /// **整条都是判定区**（用户要求"判定区域增加"）：点、**上下滑**都能折叠／展开 ——
+  /// 只做提示不可点/不可滑的话，用户多半会去点它、划它，却什么都没发生。
+  /// 判定区做成一整条（左右到底、高 34），图形本身仍是很小的一点，不影响观感。
+  ///
+  /// 滑的方向跟列表那边保持一致：**往上滑 = 收起来，往下拉 = 放出来**。
   Widget _foldHint(BuildContext context) {
     final collapsed =
         _calendarController.calendarFormat.value == CalendarFormat.week;
     final color = CupertinoDynamicColor.resolve(
         CupertinoColors.secondaryLabel, context);
-    return Center(
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: () => _calendarController.setCalendarFormat(
-            collapsed ? CalendarFormat.month : CalendarFormat.week),
-        child: SizedBox(
-          width: 72,
-          // 只做提示，别占高度：26 够点，又不把当天列表挤下去
-          height: 26,
-          child: Center(
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 200),
-              child: collapsed
-                  ? const Icon(
-                      CupertinoIcons.chevron_down,
-                      key: ValueKey('fold-hint-week'),
-                      size: 14,
-                    )
-                  : Container(
-                      key: const ValueKey('fold-hint-month'),
-                      width: 26,
-                      height: 3,
-                      decoration: BoxDecoration(
-                        color: color,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => _calendarController.setCalendarFormat(
+          collapsed ? CalendarFormat.month : CalendarFormat.week),
+      onVerticalDragUpdate: (details) {
+        // 往上滑 = 收起，往下拉 = 展开（跟当天列表那边一致）。
+        //
+        // 不设"每次事件的位移阈值"：`details.delta` 是**逻辑像素**，慢划时一帧只有
+        // 1~2px，卡阈值就会"划了没反应"。这里只看方向、靠 setCalendarFormat 幂等
+        // （已经是那个状态就不动），所以重复触发无害。
+        if (details.delta.dy < 0) {
+          _calendarController.setCalendarFormat(CalendarFormat.week);
+        } else if (details.delta.dy > 0) {
+          _calendarController.setCalendarFormat(CalendarFormat.month);
+        }
+      },
+      child: SizedBox(
+        // 左右不留白：整条都能划；高度 34 是为了好按（图形本身只有 3~5 高）
+        height: 34,
+        width: double.infinity,
+        child: Center(
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 160),
+            child: collapsed
+                // 比图标更扁更宽的自绘 V（用户要求"再扁一点"）
+                ? const _FlatChevron(
+                    key: ValueKey('fold-hint-week'),
+                    width: 22,
+                    height: 5,
+                  )
+                : Container(
+                    key: const ValueKey('fold-hint-month'),
+                    width: 28,
+                    height: 3,
+                    decoration: BoxDecoration(
+                      color: color,
+                      borderRadius: BorderRadius.circular(2),
                     ),
-            ),
+                  ),
           ),
         ),
       ),
@@ -882,4 +899,55 @@ class CalendarPage extends StatelessWidget {
       ),
     );
   }
+}
+
+/// 折叠提示里的那个「V」：自绘的**扁** V（比 `CupertinoIcons.chevron_down` 更宽更浅）。
+///
+/// 用户点名"V 可以再扁一点"：图标在 14 号字下画出来的 V 又窄又高，看着像个尖，
+/// 而折叠提示想要的是一道"往下拉"的浅角。自绘可以精确控制宽高比与线宽。
+class _FlatChevron extends StatelessWidget {
+  final double width;
+  final double height;
+
+  const _FlatChevron({
+    super.key,
+    this.width = 22,
+    this.height = 5,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = CupertinoDynamicColor.resolve(
+        CupertinoColors.secondaryLabel, context);
+    return CustomPaint(
+      size: Size(width, height),
+      painter: _FlatChevronPainter(color),
+    );
+  }
+}
+
+class _FlatChevronPainter extends CustomPainter {
+  final Color color;
+
+  const _FlatChevronPainter(this.color);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    // 留出线宽，免得圆角笔帽被裁掉
+    final path = Path()
+      ..moveTo(1, 1)
+      ..lineTo(size.width / 2, size.height - 1)
+      ..lineTo(size.width - 1, 1);
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(_FlatChevronPainter oldDelegate) =>
+      oldDelegate.color != color;
 }

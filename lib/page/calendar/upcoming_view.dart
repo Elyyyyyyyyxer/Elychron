@@ -101,44 +101,65 @@ class _UpcomingViewState extends State<UpcomingView> {
       behavior: HitTestBehavior.opaque,
       onTap: () => _openRunningPicker(layout),
       child: Padding(
-        padding: const EdgeInsets.only(top: 7),
+        padding: const EdgeInsets.only(top: 4),
         child: Column(
           children: [
             for (var i = 0; i < others.length; i++)
-              Padding(
-                // 逐级内缩一点，才像"一叠"；缩太多会显得像无关的条
-                padding: EdgeInsets.symmetric(horizontal: 9.0 * (i + 1)),
-                child: _cardEdge(context, last: i == others.length - 1),
-              ),
+              _cardEdge(context, i, last: i == others.length - 1),
           ],
         ),
       ),
     );
   }
 
-  /// 露出来的那条"卡边"：跟顶层大卡同色同阴影，只是很矮。
-  Widget _cardEdge(BuildContext context, {required bool last}) {
+  /// 露出来的那几层"卡边"：**像一叠纸**。
+  ///
+  /// 用户吐槽过我第一版（只画了几条圆角线、层与层之间还留缝）：那样看着是"几条线"，
+  /// 不是"一叠卡"。真正能读出"一叠"的三件事，这里都做了：
+  /// 1. **层与层贴紧不留缝** —— 留缝就变回"几条线"了；
+  /// 2. **每层往上一小片阴影**（落在它上面那张的下沿），这是"一张压着一张"的关键线索；
+  /// 3. **越深越暗 + 外圈阴影越重** —— 用户点名要的"阴影程度变化"，靠这个读出深度。
+  ///
+  /// 几何上：越深越窄（7px/层，最多 26px），露出 12px 一条；
+  /// 只在**最下面那张**做圆底角 + 向下的外阴影（那是整叠纸的底边）。
+  Widget _cardEdge(BuildContext context, int level, {required bool last}) {
     final brightness = CupertinoTheme.of(context).brightness ??
         MediaQuery.of(context).platformBrightness;
     final isDark = brightness == Brightness.dark;
+    final base = isDark
+        ? CupertinoDynamicColor.resolve(
+            CupertinoColors.secondarySystemBackground, context)
+        : CupertinoDynamicColor.resolve(CupertinoColors.white, context);
+    // 越深越暗：浅色下往灰里走，深色下往黑里走
+    final shade = isDark ? CupertinoColors.black : const Color(0xFFD5D5DC);
+    final color = Color.lerp(base, shade, 0.05 * (level + 1)) ?? base;
+    final inset = (7.0 * (level + 1)).clamp(0.0, 26.0);
+
     return Container(
-      height: last ? 14 : 11,
-      margin: const EdgeInsets.only(bottom: 3),
+      height: last ? 14 : 12,
+      margin: EdgeInsets.symmetric(horizontal: inset),
       decoration: BoxDecoration(
-        color: isDark
-            ? CupertinoDynamicColor.resolve(
-                CupertinoColors.secondarySystemBackground, context)
-            : CupertinoDynamicColor.resolve(CupertinoColors.white, context),
-        borderRadius: BorderRadius.circular(8),
-        boxShadow: isDark
-            ? null
-            : const [
-                BoxShadow(
-                  color: CupertinoColors.systemGrey5,
-                  blurRadius: 8,
-                  offset: Offset(0, 4),
-                ),
-              ],
+        color: color,
+        // 这一层是"下面那张卡露出来的底边"：底角圆、上边被上面那张盖着
+        borderRadius: BorderRadius.vertical(
+          bottom: Radius.circular(last ? 12 : 9),
+        ),
+        boxShadow: [
+          // ① 往上一小片：压在上一层下沿，形成"一张压一张"的分层感
+          BoxShadow(
+            color: CupertinoColors.black
+                .withValues(alpha: 0.05 + 0.03 * level),
+            offset: const Offset(0, -1.5),
+            blurRadius: 4,
+          ),
+          // ② 最下面那张再往下来一片：整叠纸的落地阴影
+          if (last)
+            BoxShadow(
+              color: CupertinoColors.black.withValues(alpha: isDark ? 0.16 : 0.10),
+              offset: const Offset(0, 4),
+              blurRadius: 9,
+            ),
+        ],
       ),
     );
   }
