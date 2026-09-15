@@ -294,9 +294,13 @@
 ## 8.6 排查用的临时构建（**发布前必须还原**）
 
 - `pubspec.yaml` 与 `lib/worker/fuse.dart` 里的版本号被临时改成 **`1.4.0-debug`（build 7/8）**，
-  出了两个 APK 交给当事人收集诊断：
+  出了三个 APK（都仍保留半学期诊断，交给当事人收集）：
   - `Elychron-v1.4.0-debug-arm64.apk`（versionCode 7）
   - `Elychron-v1.4.0-debug2-arm64.apk`（versionCode 8，多覆盖智慧研工路径）
+  - `Elychron-v1.4.0-debug3-arm64.apk`（versionCode 8，含本轮 ③④ 的改动；
+    SHA-256 `510aed2aeb3f13ec087be934fed5e330ae9545c7c8c35b169c919e278ac89425`，25.3 MB）
+  - 三个都用**正式签名密钥**签的（证书 SHA-256 `b2cc4256…a771c8`），
+    所以能直接覆盖安装保留数据（`adb install -r`）。
 - ⚠️ **发布前必须做**：版本号改回 `1.4.1-elychron.1`（build 6 或重新 +1），重新构建正式包。
 - 临时加过的东西：`zdbk.dart` / `eta.dart` 里各有一行 `print('[halfDiag…]')`（便于 adb 验证）、
   诊断上报。诊断本身**可以留着**（只读、有用），但 `print` 建议删掉。
