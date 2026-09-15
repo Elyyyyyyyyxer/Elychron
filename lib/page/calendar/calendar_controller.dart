@@ -62,6 +62,16 @@ class CalendarController extends GetxController {
         upcomingTick.value++;
       }
     });
+    // ===== MOD ===== 进「日历」这一面时恢复整月
+    //
+    // 「上滑收起日历」是一次性的浏览动作，不该**粘着**不走：用户翻去「接下来」
+    // 再翻回来，如果只剩一行星期，很容易以为月视图坏了 —— 而展开的手势
+    // （回到列表顶部继续下拉）不是一眼能看出来的。所以每次进这一面都从整月开始。
+    ever(viewMode, (mode) {
+      if (mode == CalendarViewMode.calendar) {
+        calendarFormat.value = CalendarFormat.month;
+      }
+    });
     super.onInit();
   }
 
