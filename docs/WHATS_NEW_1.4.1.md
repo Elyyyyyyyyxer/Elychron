@@ -375,13 +375,13 @@
 
 ## 8.9 本轮工程记录（2026-09-15 第三轮）
 
-- 新增单测 **34 条**：
+- 新增单测 **35 条**：
   - `test/upcoming_test.dart` +9（多个进行中的三段划分、点选置顶、置顶失效）
   - `test/calendar_fold_test.dart` 新建 **20**（折叠 / 展开 / 两种必须滤掉的通知 / 边界 /
     **通知→判定参数的映射**（拿真的 `ScrollNotification` 对象测，含"自动回弹不会把日历又展开"的端到端一条））
-  - `test/upcoming_view_test.dart` 新建 **5**（widget 测试：折叠堆画出来的样子、
-    写明数量、**点一下真的能换到顶层**、点错了能点回来）
-- 全套测试 **495 条全绿**；`flutter analyze` **0 error / 26 warning（与基线一致）/ 50 info**。
+  - `test/upcoming_view_test.dart` 新建 **6**（widget 测试：折叠堆画出来的样子、
+    写明数量、**点一下真的能换到顶层**、点错了能点回来、**360pt 手机宽度下不溢出**）
+- 全套测试 **496 条全绿**；`flutter analyze` **0 error / 26 warning（与基线一致）/ 50 info**。
 - 改动文件：`lib/model/upcoming.dart`、`lib/page/calendar/upcoming_view.dart`
   （改为 `StatefulWidget`）、`lib/page/calendar/calendar_view.dart`、
   `lib/page/calendar/calendar_controller.dart`、`lib/mod/calendar_fold.dart`（新建）。
