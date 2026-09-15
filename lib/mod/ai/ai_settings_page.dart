@@ -195,7 +195,14 @@ class _AiSettingsPageState extends State<AiSettingsPage> {
         builder: (BuildContext context, int _, Widget? __) {
           final hasKey = AiConfig.apiKey.isNotEmpty;
           return ListView(
-            padding: const EdgeInsets.symmetric(vertical: 12),
+            // ===== MOD ===== 底部留出系统导航栏的高度
+            // 不留的话，最后一块内容会被底部导航栏压住一半（用户反馈的截图就是这样）。
+            // `MediaQuery.padding.bottom` 正好是这个高度：全屏页面等于系统导航栏，
+            // 标签页里则是「标签栏 + 系统导航栏」（首页会把它注入 MediaQuery）。
+            padding: EdgeInsets.only(
+              top: 12,
+              bottom: 12 + MediaQuery.of(context).padding.bottom,
+            ),
             children: [
               CupertinoListSection.insetGrouped(
                 header: const Text('开关'),

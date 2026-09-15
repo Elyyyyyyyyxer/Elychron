@@ -329,11 +329,14 @@ class TaskPage extends StatelessWidget {
             : SubtitleRow(subtitle: title),
         Dismissible(
           key: Key(deadline.uid),
-          direction: batch
-              ? DismissDirection.none
-              : (!deadline.isEvent
-                  ? DismissDirection.horizontal
-                  : DismissDirection.endToStart),
+          // ===== MOD: 活动（日程）也要能右滑 =====
+          //
+          // 上游这里对活动型只给了 `endToStart`（只能从右往左滑 = 删除），
+          // 所以「右滑完成 / 右滑恢复」在活动型上**永远收不到手势** ——
+          // 用户反馈的「活动类待办无法右滑完成及右滑恢复」就是它。
+          // 详情页（`task_edit_page` 的完成按钮）本来就不分类型，口径不一致。
+          // 现在四种类型一视同仁：向右滑 = 完成 / 取消完成，向左滑 = 删除。
+          direction: batch ? DismissDirection.none : DismissDirection.horizontal,
           movementDuration: const Duration(milliseconds: 300),
           resizeDuration: const Duration(milliseconds: 300),
           dismissThresholds: const {
@@ -341,33 +344,32 @@ class TaskPage extends StatelessWidget {
             DismissDirection.endToStart: 0.25,
           },
           crossAxisEndOffset: 0.0,
-          background: !deadline.isEvent
-              ? Container(
-                  alignment: Alignment.centerLeft,
-                  padding: const EdgeInsets.only(left: 16),
-                  decoration: BoxDecoration(
-                    color: deadline.status == TaskStatus.completed
-                        ? CupertinoColors.systemOrange
-                        : CupertinoColors.systemGreen,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: CupertinoColors.white.withValues(alpha: 0.2),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      deadline.status == TaskStatus.completed
-                          ? CupertinoIcons.arrow_counterclockwise
-                          : CupertinoIcons.check_mark_circled_solid,
-                      color: CupertinoColors.white,
-                      size: 20,
-                    ),
-                  ),
-                )
-              : null,
+          // 完成背景对所有类型都一样（原来活动型是 null，等于右滑时没有任何提示）
+          background: Container(
+              alignment: Alignment.centerLeft,
+              padding: const EdgeInsets.only(left: 16),
+              decoration: BoxDecoration(
+                color: deadline.status == TaskStatus.completed
+                    ? CupertinoColors.systemOrange
+                    : CupertinoColors.systemGreen,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: CupertinoColors.white.withValues(alpha: 0.2),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  deadline.status == TaskStatus.completed
+                      ? CupertinoIcons.arrow_counterclockwise
+                      : CupertinoIcons.check_mark_circled_solid,
+                  color: CupertinoColors.white,
+                  size: 20,
+                ),
+              ),
+            ),
           secondaryBackground: Container(
             alignment: Alignment.centerRight,
             padding: const EdgeInsets.only(right: 16),
@@ -391,24 +393,31 @@ class TaskPage extends StatelessWidget {
           ),
           confirmDismiss: (direction) async {
             if (direction == DismissDirection.startToEnd) {
-              // 向右滑（从左到右）：完成 - 不真正 dismiss，只更新状态
-              // 待办 / 提醒 / 备忘 都能滑；活动（日程）不算"完成"
-              if (!deadline.isEvent) {
-                // ===== MOD: 右滑完成改为"先弹回、下一帧再处理" =====
-                //
-                // 这个回调正是在**手指抬起的那一刻**被调用的。原来的写法在这里
-                // `await confirmCompleteTask(...)`（有未完成子待办时会弹确认框），
-                // 于是弹框刚出现就被同一个抬手事件误触关闭 → 返回 false → 什么都不发生。
-                // 现象就是「**有子待办的待办无法右滑完成**」，而没有子待办的（不弹框）正常。
-                //
-                // 现在：不在这里 await，先把卡片弹回去，等这一帧结束再走完成流程
-                // （复用 _toggleDone：它内部会处理确认框、状态与刷新）。
-                final target = deadline;
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (!context.mounted) return;
-                  _toggleDone(context, target);
-                });
-              }
+              // 向右滑（从左到右）：完成 / 取消完成 —— 不真正 dismiss，只更新状态。
+              //
+              // ===== MOD: 活动（日程）也要能滑 =====
+              //
+              // 原来这里挡着 `if (!deadline.isEvent)`，注释写的是「活动不算"完成"」。
+              // 但卡片上那个「点圆圈打勾」的按钮已经被我们删掉了（用户要求），
+              // 于是**活动型待办在列表里再没有任何完成入口** —— 用户反馈：
+              // 「活动类待办无法实现右滑完成及右滑恢复」。
+              // 而且详情页/批量编辑本来就允许完成活动型，口径不一致。
+              // 所以现在四种类型一视同仁：右滑 = 完成，已完成再右滑 = 取消完成。
+              //
+              // ===== MOD: 右滑完成改为"先弹回、下一帧再处理" =====
+              //
+              // 这个回调正是在**手指抬起的那一刻**被调用的。原来的写法在这里
+              // `await confirmCompleteTask(...)`（有未完成子待办时会弹确认框），
+              // 于是弹框刚出现就被同一个抬手事件误触关闭 → 返回 false → 什么都不发生。
+              // 现象就是「**有子待办的待办无法右滑完成**」，而没有子待办的（不弹框）正常。
+              //
+              // 现在：不在这里 await，先把卡片弹回去，等这一帧结束再走完成流程
+              // （复用 _toggleDone：它内部会处理确认框、状态与刷新）。
+              final target = deadline;
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (!context.mounted) return;
+                _toggleDone(context, target);
+              });
               return false; // 阻止真正的 dismiss
             } else if (direction == DismissDirection.endToStart) {
               // 向左滑（从右到左）：删除 —— **必须二次确认**，
@@ -517,11 +526,19 @@ class TaskPage extends StatelessWidget {
                               ? '完成'
                               : '备忘';
                         } else {
-                          label = now.isBefore(deadline.startTime)
-                              ? '未开始'
-                              : (!now.isBefore(deadline.endTime)
-                                  ? '已结束'
-                                  : '进行中');
+                          // ===== MOD: 活动（日程）的标签要把"完成"算进去 =====
+                          //
+                          // 原来这里只看时间轴 —— 于是一条**已右滑完成**的活动，
+                          // 进了「我已处理」却还写着「进行中」，看着像右滑没生效
+                          // （真机实测见过一次，很容易误判成 bug）。
+                          // 完成状态优先，其次才是时间轴。
+                          label = deadline.status == TaskStatus.completed
+                              ? '完成'
+                              : (now.isBefore(deadline.startTime)
+                                  ? '未开始'
+                                  : (!now.isBefore(deadline.endTime)
+                                      ? '已结束'
+                                      : '进行中'));
                         }
                         return Text(
                             label,

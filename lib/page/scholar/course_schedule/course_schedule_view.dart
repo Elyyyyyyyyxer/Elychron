@@ -516,6 +516,13 @@ class CourseSchedulePage extends StatelessWidget {
               ),
             ),
           ),
+          // ===== MOD ===== 末尾垫出系统导航栏的高度
+          // 不垫的话，最后那张卡片会被底部导航栏压住一半（用户反馈的截图就是这样）。
+          SliverToBoxAdapter(
+            child: SizedBox(
+              height: 16 + MediaQuery.of(context).padding.bottom,
+            ),
+          ),
         ],
       ),
     );
