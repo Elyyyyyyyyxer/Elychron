@@ -703,11 +703,58 @@ Could not close incremental caches in D:\celechron-mod\Celechron\...
   ② 「已登录但取不到数据」时给一个明确的重新登录入口，而不是让用户自己摸索；
   ③ 排查「记住的账号密码」在退出后为什么取不到。
 
-## 11.7 学业页整页空白 + 每 20 秒一次 Flutter 崩溃（待修）
+## 11.7 学业页整页空白 + 每 20 秒一次 Flutter 崩溃（已定位并修复，见 11.8）
 
 - 日志里每 20 秒一条 `Elychron ErrorWidget: Null check operator used on a null value`
   —— 刷新心跳每 20 秒推一次状态，而**数据缺失时某个 widget 的 build 会空值崩**
   （上游代码的脆弱点：缺数据应该给一句"部分数据暂不可用"，而不是崩）。
 - 直接触发条件：用户那次刷新的某一项失败（弹窗写「刷新遇到问题：0 项降级，1 项失败 /
   失败：未登录」），而「查看详情」**只说"未登录"、不说是哪个模块** —— 这句可读性也该改。
+
+## 11.8 11.7 的崩溃定位到了（已修）：`Scholar.isGrs` 里的空断言
+
+- 抓到日志后堆栈很清楚：
+
+  ```
+  #0  Scholar.isGrs (package:celechron/model/scholar.dart:55)
+  #1  ScholarPage.build.<anonymous closure> (package:celechron/page/scholar/scholar_view.dart:1103)
+  ```
+
+- `lib/model/scholar.dart:55` 原文是：
+
+  ```dart
+  bool get isGrs => !username!.startsWith('3');
+  ```
+
+  **`username!`** —— 而用户描述的"老毛病"状态正是 `username == null`
+  （**"显示已登录但没有学号"**）。于是学业页 build 直接抛
+  `Null check operator used on a null value`：整页空白，
+  又因为刷新心跳每 20 秒重建一次 → **每 20 秒崩一次**。
+- **所以 11.6 的"老毛病"和 11.7 的崩溃是同一个现场**：
+  那个半坏的登录态直接触发了这个空断言。
+- 修法：学号为空时按最常见的**本科**口径返回 false。这样页面会正常走到它本来就有的
+  「未登录 / 下拉刷新以获取数据」空状态，而不是整页崩掉。
+- 顺带说明：这只治"崩"，不治"为什么会出现半坏登录态" —— 那件事见 11.6 的下一步。
+
+## 11.9 新用户反馈：密码框弹不出键盘（已做缓解，需回访确认）
+
+- 反馈原文：「想问问大家现在登录的时候有没有也遇到输学号正常但输密码键盘会跳不出来」
+  「小米17pm，现在我尝试粘贴密码上去，但显示连不上教务网」。
+  → 「连不上教务网」是另一件事（我们已修过，先不管）；
+  → 关键线索是**粘贴能贴进去**：说明输入框本身能聚焦、能收文本，
+  卡住的是"向系统要输入法"这一步。
+- 判断：这类国产 ROM 对**密码类输入框**会挂自己的"安全输入法"，
+  那个键盘起不来时，系统就什么都不弹。
+- 本轮改动（`lib/page/option/login_page.dart`）：
+  ① 密码框的输入类型显式声明为 `TextInputType.visiblePassword`
+  （不再让引擎按 `obscureText` 推成 `textPassword`）；
+  ② 关掉 `autocorrect` / `enableSuggestions`；
+  ③ 加一个「显示密码」眼睛开关 —— 真弹不出来时切成明文一般就能正常输入，
+  也能让用户自己确认密码有没有打错。
+- 实现细节：`LoginForm` 由 `StatelessWidget` 改成 `StatefulWidget` 来承载这个开关。
+  它只在 `option_view.dart` 里内联构造（两处），外部不碰它的控制器，所以改造是安全的；
+  顺手把两个 controller 的 `dispose` 补上了。
+- ⚠️ **我们没有小米设备，这条只能等反馈者回访确认**。
+  如果眼睛开关管用，说明判断成立；如果明文也弹不出来，那就要换方向查（例如 ROM 的
+  输入法白名单 / 悬浮窗权限）。
 

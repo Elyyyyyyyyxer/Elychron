@@ -10,21 +10,44 @@ import 'package:celechron/mod/friendly_error.dart';
 import 'package:celechron/database/database_helper.dart';
 import 'package:celechron/mod/database_mod.dart';
 
-class LoginForm extends StatelessWidget {
+class LoginForm extends StatefulWidget {
+  const LoginForm({super.key});
+
+  @override
+  State<LoginForm> createState() => _LoginFormState();
+}
+
+class _LoginFormState extends State<LoginForm> {
   final TextEditingController usernameController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
   final _optionController = Get.find<OptionController>(tag: 'optionController');
   final buttonPressed = false.obs;
+
+  /// 密码是否明文显示。
+  ///
+  /// 加这个开关是为了绕开一个真机问题：部分国产 ROM（反馈来自小米 17 PM / HyperOS）
+  /// 在**密码类输入框**上弹不出输入法，而粘贴能贴进去；切成明文后走的是普通文本框，
+  /// 一般就能正常调出键盘了。见密码框那里的长注释。
+  bool _showPassword = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _prefillRememberedAccount();
+  }
+
+  @override
+  void dispose() {
+    usernameController.dispose();
+    passwordController.dispose();
+    super.dispose();
+  }
 
   /// ===== MOD: 预填上次登录的账号密码 =====
   ///
   /// 用户要求：**主动退出登录之后，登录页仍要预填好账号密码**。
   /// 退出登录会把 `username`/`password` 两个键从密钥库删掉（这是上游行为，
   /// 我们不动它），所以我们另存了一份 `mod_last_*`，退出不删 → 这里读回来填上。
-  LoginForm({super.key}) {
-    _prefillRememberedAccount();
-  }
-
   Future<void> _prefillRememberedAccount() async {
     try {
       if (!Get.isRegistered<DatabaseHelper>(tag: 'db')) return;
@@ -98,7 +121,39 @@ class LoginForm extends StatelessWidget {
                         height: 48,
                         child: CupertinoTextField(
                           controller: passwordController,
-                          obscureText: true,
+                          // ===== MOD: 密码框在部分国产 ROM 上弹不出键盘 =====
+                          //
+                          // 用户反馈（小米 17 PM / HyperOS）：「输学号正常，但输密码键盘
+                          // 会跳不出来」，而**粘贴是能贴进去的** —— 说明输入框本身能聚焦、
+                          // 也能收文本，卡住的是"向系统要输入法"这一步。这类 ROM 对
+                          // **密码类输入框**会挂自己的"安全输入法"，那个键盘起不来时
+                          // 系统就什么都不弹。
+                          //
+                          // 所以这里：① 输入类型显式声明成 visiblePassword（而不是
+                          // 让引擎按 obscureText 推成 textPassword），尽量走普通文本框那条路；
+                          // ② 关掉联想/自动更正；③ 给一个「显示密码」开关 ——
+                          // 万一还是弹不出来，切成明文一般就能正常输入（也能让用户
+                          // 自己确认密码有没有打错）。
+                          keyboardType: TextInputType.visiblePassword,
+                          autocorrect: false,
+                          enableSuggestions: false,
+                          obscureText: !_showPassword,
+                          suffix: GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: () =>
+                                setState(() => _showPassword = !_showPassword),
+                            child: Padding(
+                              padding: const EdgeInsets.only(right: 12),
+                              child: Icon(
+                                _showPassword
+                                    ? CupertinoIcons.eye_slash
+                                    : CupertinoIcons.eye,
+                                size: 20,
+                                color: CupertinoDynamicColor.resolve(
+                                    CupertinoColors.secondaryLabel, context),
+                              ),
+                            ),
+                          ),
                           prefix: Container(
                             padding: const EdgeInsets.only(left: 12),
                             child: Text('密码',

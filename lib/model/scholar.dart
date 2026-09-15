@@ -52,7 +52,20 @@ class Scholar {
   String? password;
   Spider? _spider;
 
-  bool get isGrs => !username!.startsWith('3');
+  /// 是否研究生（研工那边的数据口径与本科不同）。
+  ///
+  /// ===== MOD: 不要用 `username!` =====
+  ///
+  /// 原来写的是 `!username!.startsWith('3')`。用户反馈过一种状态：
+  /// **更新后「显示已登录但没有学号」** —— 此时 `username == null`，
+  /// 而这个 getter 会在 build 里被调用（`scholar_view.dart` 的学业页），
+  /// 于是抛 `Null check operator used on a null value`：整页空白，
+  /// 而且刷新心跳每 20 秒重建一次 → **每 20 秒崩一次**（线上抓到的日志就是这样）。
+  /// 缺学号时按最常见的本科口径返回 false，让页面正常走到它的空状态提示。
+  bool get isGrs {
+    final name = username;
+    return name != null && !name.startsWith('3');
+  }
 
   // 按学期整理好的学业信息，包括该学期的所有科目、考试、课表、均绩等
   List<Semester> semesters = <Semester>[];

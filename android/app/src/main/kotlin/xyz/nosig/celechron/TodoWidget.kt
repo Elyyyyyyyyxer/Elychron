@@ -3,6 +3,7 @@ package xyz.nosig.celechron
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.util.Log
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -57,6 +58,9 @@ import java.util.Calendar
 import java.util.Locale
 
 private const val TODO_WIDGET_PREFS = "todo_widget"
+
+/// 小组件自己的日志标签：`adb logcat -s ElychronWidget` 就能只看这几行。
+private const val TAG = "ElychronWidget"
 private const val TODO_WIDGET_SNAPSHOT = "snapshot"
 private const val TODO_WIDGET_PENDING_COMPLETIONS = "pending_completions"
 private val todoTaskIdKey = ActionParameters.Key<String>("todoTaskId")
@@ -304,9 +308,22 @@ class CompleteTodoAction : ActionCallback {
         glanceId: GlanceId,
         parameters: ActionParameters,
     ) {
-        val taskId = parameters[todoTaskIdKey] ?: return
-        queueTodoWidgetCompletion(context, taskId)
+        // ===== 探针 =====
+        //
+        // 用户反馈：点小组件上的方框"没反应"（但进 App 后待办确实完成了）。
+        // 光看系统日志只能确认动作被派发了（InvisibleActionTrampolineActivity 起来过），
+        // 分不清是"回调没跑"还是"跑了但画面没重画"。这两行 + queueTodoWidgetCompletion
+        // 里的日志，用 `adb logcat -s ElychronWidget` 就能一刀切开。
+        Log.i(TAG, "onAction 收到勾选: id=$glanceId task=${parameters[todoTaskIdKey]}")
+        val taskId = parameters[todoTaskIdKey]
+        if (taskId == null) {
+            Log.w(TAG, "onAction 参数里没有 task id，直接返回")
+            return
+        }
+        val queued = queueTodoWidgetCompletion(context, taskId)
+        Log.i(TAG, "onAction 结果: queued=$queued（false = 快照里没找到这条，或快照坏了）")
         TodoWidget().updateAll(context)
+        Log.i(TAG, "onAction 已请求 updateAll")
     }
 }
 
@@ -324,7 +341,8 @@ internal fun saveTodoWidgetSnapshot(context: Context, rawSnapshot: String) {
     context.getSharedPreferences(TODO_WIDGET_PREFS, Context.MODE_PRIVATE)
         .edit()
         .putString(TODO_WIDGET_SNAPSHOT, rawSnapshot)
-        .apply()
+        // 同步写：紧接着 updateAll 就要按新快照渲染，别留"写还没落"的窗口
+        .commit()
 }
 
 internal fun pendingTodoWidgetCompletions(context: Context): List<String> =
@@ -350,7 +368,7 @@ internal fun acknowledgeTodoWidgetCompletions(context: Context, ids: Set<String>
     }
 }
 
-private fun queueTodoWidgetCompletion(context: Context, taskId: String) {
+private fun queueTodoWidgetCompletion(context: Context, taskId: String): Boolean {
     synchronized(todoWidgetCompletionLock) {
         val preferences = context.getSharedPreferences(TODO_WIDGET_PREFS, Context.MODE_PRIVATE)
         val pending = preferences
@@ -361,12 +379,24 @@ private fun queueTodoWidgetCompletion(context: Context, taskId: String) {
 
         val rawSnapshot = preferences.getString(TODO_WIDGET_SNAPSHOT, null)
         val updatedSnapshot = rawSnapshot?.let { removeTaskFromSnapshot(it, taskId) }
+        if (updatedSnapshot == null) {
+            // 快照里没有这条 id（或者快照读不出来）→ 画面上那一行**不会消失**。
+            // 完成本身仍然记进了 pending，App 下次启动/回前台时照样会把它标记完成。
+            Log.w(
+                TAG,
+                "快照里没找到 id=$taskId（快照=${if (rawSnapshot == null) "读不到" else "有"}），" +
+                    "画面不会变；已记入待处理队列",
+            )
+        }
         val editor = preferences.edit()
             .putStringSet(TODO_WIDGET_PENDING_COMPLETIONS, pending)
         if (updatedSnapshot != null) {
             editor.putString(TODO_WIDGET_SNAPSHOT, updatedSnapshot)
         }
-        editor.apply()
+        // commit() 而不是 apply()：这里紧接着就要重画小组件，
+        // 用同步写把"写完了但画面按旧数据渲染"的可能彻底排除掉（这点开销无所谓）。
+        editor.commit()
+        return updatedSnapshot != null
     }
 }
 
