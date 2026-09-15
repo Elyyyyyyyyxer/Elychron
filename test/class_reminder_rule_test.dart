@@ -31,19 +31,25 @@ void main() {
   });
 
   group('规则 2：前面有课且连着上 → 提前 10 分钟', () {
-    test('课间刚好 10 分钟（08:45 下课 → 08:55 上课）', () {
-      final first = slot(8, 0, 8, 45);
-      final second = slot(8, 55, 9, 40);
-      expect(rule.leadMinutesFor(second, [first, second]), 10);
-    });
-
-    test('课间 5 分钟（小于课间时长）', () {
+    test('小课间 5 分钟（08:45 下课 → 08:50 上课）', () {
       final first = slot(8, 0, 8, 45);
       final second = slot(8, 50, 9, 35);
       expect(rule.leadMinutesFor(second, [first, second]), 10);
     });
 
-    test('三节连堂，第三节也是 10 分钟', () {
+    test('连堂课的课间 15 分钟 → 仍算连着上', () {
+      final first = slot(8, 0, 8, 45);
+      final second = slot(9, 0, 9, 45); // 空 15 分钟
+      expect(rule.leadMinutesFor(second, [first, second]), 10);
+    });
+
+    test('课间刚好 10 分钟（阈值内）', () {
+      final first = slot(8, 0, 8, 45);
+      final second = slot(8, 55, 9, 40);
+      expect(rule.leadMinutesFor(second, [first, second]), 10);
+    });
+
+    test('三节连堂：第二节按"前面有课"算', () {
       final a = slot(8, 0, 8, 45);
       final b = slot(8, 50, 9, 35);
       final c = slot(10, 0, 10, 45); // 与 b 空 25 分钟 → 见规则 4
@@ -52,29 +58,29 @@ void main() {
   });
 
   group('规则 4：空余时间大于课间时长 → 视作前面没课（20 分钟）', () {
-    test('空 25 分钟（大于 10 分钟课间）', () {
-      final first = slot(8, 0, 8, 45);
-      final second = slot(10, 0, 10, 45); // 空 75 分钟，但只测规则本身
+    test('大课间 25 分钟（09:35 下课 → 10:00 上课）', () {
+      final first = slot(9, 0, 9, 35);
+      final second = slot(10, 0, 10, 45);
       expect(rule.leadMinutesFor(second, [first, second]), 20);
     });
 
-    test('空 11 分钟（刚好超过课间）', () {
+    test('空 16 分钟（刚好超过 15 分钟阈值）', () {
       final first = slot(8, 0, 8, 45);
-      final second = slot(8, 56, 9, 41);
+      final second = slot(9, 1, 9, 46);
       expect(rule.leadMinutesFor(second, [first, second]), 20);
     });
 
-    test('空 10 分钟（等于课间，不算超过）', () {
+    test('空 15 分钟（等于阈值，不算超过）', () {
       final first = slot(8, 0, 8, 45);
-      final second = slot(8, 55, 9, 40);
+      final second = slot(9, 0, 9, 45);
       expect(rule.leadMinutesFor(second, [first, second]), 10);
     });
 
     test('取的是"最近的一节"：中间隔了两节课也算挨着最近的', () {
       final morning = slot(8, 0, 8, 45);
       final before = slot(9, 0, 9, 45);
-      final target = slot(9, 50, 10, 35);
-      // 与 before 空 5 分钟 → 10 分钟（morning 更远，不影响）
+      final target = slot(9, 55, 10, 40);
+      // 与 before 空 10 分钟 → 10 分钟（morning 更远，不影响）
       expect(rule.leadMinutesFor(target, [morning, before, target]), 10);
     });
   });
