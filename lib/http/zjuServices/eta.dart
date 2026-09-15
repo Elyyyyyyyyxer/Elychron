@@ -199,9 +199,7 @@ List<Session> parseEtaTimetable(Map<String, dynamic> payload) {
       operation: 'halfDiagEta',
       message: line,
     );
-    // 临时（1.4.0-debug 专用）：同时打到 stdout，便于 adb logcat 验证
-    // ignore: avoid_print
-    print('[halfDiagEta] $line');
+    // （原先这里还有一行 print 方便 adb logcat 验证，1.4.1 正式版已删掉。）
   } catch (_) {
     // 诊断不能影响课表解析
   }

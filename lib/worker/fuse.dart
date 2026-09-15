@@ -61,13 +61,16 @@ class Fuse {
   /// - 这里的 [appVersionName]（关于页显示的就是它）
   /// - [appBuildNumber]（反馈信息里会带上）
   /// - [version]（用来跟远端 tag 比较）
-  static const String appVersionName = '1.4.0-debug';
+  static const String appVersionName = '1.4.1-elychron.1';
 
   /// 构建号，与 `pubspec.yaml` 里 `+N` 保持一致。
   ///
   /// 单独放一个**静态常量**是因为「复制反馈信息」要用它，而那个场景不该去
   /// 实例化 [Fuse]（构造函数依赖 GetX 里的数据库）。
-  static const int appBuildNumber = 8;
+  ///
+  /// ⚠️ 发布版的 build 必须**大于**发出去的临时调试包（那些是 7 / 8），
+  /// 否则安卓会当成降级、直接拒绝安装。
+  static const int appBuildNumber = 9;
 
   final version = [1, 4, 1];
   final build = appBuildNumber;

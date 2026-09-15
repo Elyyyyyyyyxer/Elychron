@@ -196,15 +196,17 @@
 
 ## 五、发布前仍要处理的事（别忘了）
 
-- [ ] **`docs/RELEASE_NOTES.md` 里的 APK SHA-256 已过期** —— 之后又改了 10+ 次代码，
-      必须**重新构建 → 重算哈希 → 更新**（现在写的是 `8ba5bb14…`）
-- [ ] ⚠️ **版本号当前是临时 debug 号（1.4.0-debug+8），发布前必须改回 1.4.1**
-- [ ] 版本号是否要再 +1（当前 `appVersionName = 1.4.1-elychron.1`、`appBuildNumber = 6`，
-      见 `lib/worker/fuse.dart`）
+- [x] **`docs/RELEASE_NOTES.md` 里的 APK SHA-256** —— 已重新构建、重算并更新（见第十节）
+- [x] ⚠️ **版本号已改回 `1.4.1-elychron.1`**（build **9**，见 `pubspec.yaml` 与
+      `lib/worker/fuse.dart`）。为什么是 9 不是原来那个 6：发出去的临时调试包是
+      build 7/8，**发布版的 versionCode 必须更大**，否则安卓会当成降级直接拒绝安装
+      （我们自己的手机和当事人手机上都装着调试包）
+- [x] 两行临时的 `print('[halfDiag…]')` 已删（诊断本身保留，见「设置 → 诊断与测试」）
 - [ ] `docs/V1.4.1_README.md` 还是草稿（"问题引用"大纲，待填）
 - [ ] 手机上还有 **4 条 iCal 导入测试待办**（新生开学典礼 / 交实验报告 / 国庆假期 / 线上组会）
 - [ ] Gitee 发行版还没建（需要与 GitHub 同 tag、同 APK）
 - [ ] 网盘备用下载链接待补，README/Release 说明里的「国内备用下载」段落待填
+- [ ] Gitee 用的 `.zip`（给网盘/直链）还没按新包重新打
 
 ## 六、本版**没做**的事（避免以后误以为做了）
 
@@ -522,6 +524,58 @@
   阈值/竖向不误触 3）、`test/notification_actions_test.dart` 4 条（按钮声明）；
   `test/upcoming_view_test.dart` 改成新交互（7 条）。
 - 全套 **511 条全绿**；`flutter analyze` **0 error / 26 warning（与基线一致）/ 50 info**。
+
+---
+
+# 十、1.4.1 发布准备（2026-09-15 夜）
+
+## 10.1 合并 PR #4：桌面「最近待办」小组件（作者 LisirX）
+
+- **来龙去脉**：仓库里有两个社区 PR（都来自 `LisirX` 的 fork）。我把两个分支都拉下来
+  **实跑**了一遍（analyze / test / 真编 APK）：
+  - **#4 桌面小组件**：analyze 0 error、352 测试全绿、**release APK 真编得出来** → 接。
+  - **#1 全局 Markdown 加粗**：分支本身也是干净的（351 测试全绿），但它的基线是
+    `350bcb0`，之后 main 走了 **52 个提交**、它要改的 13 个文件我们都动过 ✗；
+    更麻烦的是它在 `upcoming_view.dart` 里改的还是**我们早就删掉的 `CupertinoActionSheet`**
+    —— 硬合会把旧代码带回来。**用户决定不做**（收益不大、工作量不小），PR 由用户自己回复。
+- **为什么 #4 接得下**：
+  1. **不是引入新技术栈**：Glance 依赖与 `MainActivity` 的 `updateAll` 用法 main 里本来就有
+     （`ECardWidget.kt` 就是一个 Glance 小组件），这是沿着已有模式扩展；
+  2. **架构选对了**：小组件**不碰数据库**。Flutter 侧推一份精简快照到 SharedPreferences，
+     勾选动作进队列，由 App 启动/回前台时对账落库（幂等、有测试、对
+     `MissingPluginException` 有兜底）—— 跨进程直接读 Hive 是这类需求最常见的坑，它避开了。
+- **合并冲突只有一个文件**：`lib/mod/home_mod_hooks.dart`（双方都在 `start()` 末尾追加初始化），
+  按"两边都保留"解决：PR 的小组件冷启动检查放在 `start()` 最末。
+- 合并后：analyze 0 error / 25 warning、测试 **516 全绿**、release APK 构建通过。
+
+### ⚠️ 10.1.1 一个坑：Kotlin 增量编译缓存坏了会报假错
+
+合并后第一次构建失败，报的是
+`Unresolved reference 'saveTodoWidgetSnapshot' / 'pendingTodoWidgetCompletions' / …`
+—— 看着像"文件没进编译"，但文件在、也在 git 里、gradle 源集也包含 `src/main/kotlin` ✗。
+翻**完整构建日志**（别只看过滤后的几行）才看到真因：
+
+```
+e: Daemon compilation failed: null
+Caused by: java.lang.AssertionError: java.lang.Exception:
+Could not close incremental caches in D:\celechron-mod\Celechron\...
+```
+
+**Kotlin 的增量编译缓存坏了会退化成一堆"未解析引用"的假错误。**
+解法：删掉 `android/.gradle`（必要时连 `android/app/build`）再编 ✓。
+（起因大概是：先编了 PR4 分支，又切回 main 合并，缓存对不上了。）
+
+## 10.2 发布物
+
+- 版本：`pubspec.yaml` = `1.4.1-elychron.1+9`；`lib/worker/fuse.dart` =
+  `appVersionName '1.4.1-elychron.1'` + `appBuildNumber 9`（两处必须一起改）
+- 正式包：`Elychron-v1.4.1-elychron.1-arm64.apk`
+  - `versionCode=9` / `versionName=1.4.1-elychron.1` / 25.3 MB（arm64）
+  - **SHA-256** `8fc16ab62aea5a6fad2b74e10c8406ff6e7ac3e58c34df2a6487e85759d37720`
+  - 签名证书 SHA-256 `b2cc4256…a771c8`（与 1.4.0 同一个正式密钥 ✓）
+- 已装到用户手机验证：`dumpsys` 里 versionName/versionCode 正确、
+  **小组件接收器已注册**（`TodoWidgetReceiver` + `APPWIDGET_UPDATE`）、启动无崩溃。
+- 仍未做：Gitee 发行版、网盘备用链接、`.zip` 重打、`docs/V1.4.1_README.md`。
 
 ## 9.6 第四轮微调（用户上手后又提的四条）
 

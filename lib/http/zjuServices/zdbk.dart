@@ -390,10 +390,8 @@ class Zdbk {
         operation: 'halfDiag',
         message: diagLine,
       );
-      // 临时（1.4.0-debug 专用）：release 构建里 record 不会打 stdout，
-      // 这里额外打一行，方便用 adb logcat 确认诊断真的跑到了。
-      // ignore: avoid_print
-      print('[halfDiag] $diagLine');
+      // （原先这里还有一行 print 方便 adb logcat 验证，1.4.1 正式版已删掉 ——
+      //   要看诊断请走「设置 → 诊断与测试 → 测试日志」里的 操作=halfDiag 那条。）
     } catch (_) {
       // 诊断本身不能影响课表解析
     }
