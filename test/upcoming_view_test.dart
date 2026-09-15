@@ -144,4 +144,21 @@ void main() {
       isTrue,
     );
   });
+
+  testWidgets('★ 手机宽度下不溢出（默认测试画布 800 宽比手机宽，靠这条兜住）', (tester) async {
+    // 常见手机逻辑宽度 360；标题故意给长的，逼出省略号那条分支
+    tester.view.physicalSize = const Size(360 * 3, 800 * 3);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    await pump(tester, [
+      course(title: '习近平新时代中国特色社会主义思想概论'),
+      activity(title: '实验室组会与项目进展汇报（每周例会）'),
+    ]);
+    // 只要画出来不报 overflow，就说明标题与那排小字都收住了
+    expect(find.textContaining('同时还有 1 个进行中'), findsOneWidget);
+  });
 }
