@@ -380,15 +380,20 @@ class Zdbk {
           .map((e) => e.name)
           .toSet()
           .toList();
+      final diagLine = '半学期诊断：请求「${requestedSeason ?? "未指定"}」；'
+          '两半都上 ${bothHalves.length} 门'
+          '${bothHalves.isEmpty ? '' : '（${bothHalves.take(6).join("、")}）'}；'
+          'xxq 读不出 ${unclear.length} 条'
+          '${unclear.isEmpty ? '' : '（${unclear.take(6).join("、")}）'}';
       DiagnosticLogService.instance.record(
         module: '课表',
         operation: 'halfDiag',
-        message: '半学期诊断：请求「${requestedSeason ?? "未指定"}」；'
-            '两半都上 ${bothHalves.length} 门'
-            '${bothHalves.isEmpty ? '' : '（${bothHalves.take(6).join("、")}）'}；'
-            'xxq 读不出 ${unclear.length} 条'
-            '${unclear.isEmpty ? '' : '（${unclear.take(6).join("、")}）'}',
+        message: diagLine,
       );
+      // 临时（1.4.0-debug 专用）：release 构建里 record 不会打 stdout，
+      // 这里额外打一行，方便用 adb logcat 确认诊断真的跑到了。
+      // ignore: avoid_print
+      print('[halfDiag] $diagLine');
     } catch (_) {
       // 诊断本身不能影响课表解析
     }
