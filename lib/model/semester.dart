@@ -8,6 +8,7 @@ import 'course.dart';
 import 'exam.dart';
 import 'grade.dart';
 import 'session.dart';
+import 'package:celechron/mod/class_half_rule.dart';
 
 /// 把「上一次的课程安排」补回本次返回空课表的学期。
 ///
@@ -343,6 +344,15 @@ class Semester {
     // 自定义第几周上课的课程，在这里处理
     for (var session in _sessions) {
       if (session.customRepeat) {
+        // ===== MOD: 单半学期课程按"它自己那一半"为基准 =====
+        // 研究生院给的 zc 是**该课程所在半学期内部**的周次（只有冬学期的课也给 1-8 周），
+        // 而下面的原公式一律把第 1-8 周当上半学期 → 冬课被排到秋天（真实反馈）。
+        // 规则见 ClassHalfRule：跨两半的长学期课与全局编号（≥9 周）维持原样。
+        final baseHalf = ClassHalfRule.baseHalfIndex(
+          firstHalf: session.firstHalf,
+          secondHalf: session.secondHalf,
+          weeks: session.customRepeatWeeks,
+        );
         for (var week in session.customRepeatWeeks) {
           // (week - 1) ~/ 8 : 判断是上半学期还是下半学期。例如，第8周是上半学期。
           // 1 - week % 2 : 判断是单周还是双周。例如，第8周是双周。
@@ -355,8 +365,9 @@ class Semester {
             day = _dayOfWeekToDays.last.last.last.last
                 .add(Duration(days: (week - 17) * 7 + session.dayOfWeek));
           } else {
-            day = _dayOfWeekToDays[(week - 1) ~/ 8][1 - week % 2]
-                [session.dayOfWeek][(week - 1) % 8 ~/ 2];
+            day = _dayOfWeekToDays[
+                    ClassHalfRule.halfIndexForWeek(week, baseHalfIndex: baseHalf)][
+                1 - week % 2][session.dayOfWeek][(week - 1) % 8 ~/ 2];
           }
           var period = Period(
               uid:
