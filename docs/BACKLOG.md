@@ -527,3 +527,29 @@
    → 改用 `lifecycleScope` 更干净。
 4. 「小组件点 + 新建」用了 `Future.delayed(260ms)` 等底部标签切换完成 ——
    能工作但脆，将来可以改成等切换真正结束。
+
+### 28. ★ 小组件「点了没反应」已定位：需要后台白名单（2026-09-15 深夜）
+
+**根因**：App 被系统"电池优化/后台限制"管着时，**Glance 的会话任务（WorkManager）在后台
+根本不会被调度** → 数据更新了、小组件画面永不重画。App 在前台时任务能立刻跑，
+所以现象就是"进 App 就正常、在桌面点就没反应"。
+
+**证据**（`adb logcat -s ElychronWidget`，探针本轮已加）：
+`onAction queued=true ✓` → `update/updateAll ✓` → 但**没有任何 `SessionWorker`** ✗；
+`adb shell dumpsys deviceidle whitelist +xyz.nosig.celechron.mod` 之后
+→ `Worker result SUCCESS for Work [... tags={ androidx.glance.session.SessionWorker }]` ✓
+→ 画面当场正确 ✓。
+
+**这和"闹钟不响"是同一个根因**（见上面第 26 条）—— 我们已经有个「闹钟可靠性」面板
+在引导白名单。
+
+剩下要做的：
+
+1. **把这条补进「闹钟可靠性」面板**：现在只讲闹钟/通知，应该加一句
+   "桌面小组件的勾选同样需要后台白名单，否则点了要等下次打开 App 才刷新"。
+2. 更新日志 / 教程里说明同样的事。
+3. （可选）让小组件**自己检测**是否在白名单里，不在就提示"点此允许后台运行"。
+4. 本轮为缩短重画链路把 `LazyColumn` 换成了普通 `Column` → **失去滚动**
+   （超出高度会被裁）。白名单这条稳定后可以再评估要不要加回来
+   （`verticalScroll` 需要 API 31+，我们 minSdk 28）。
+5. 第 27 条里的其余遗留仍然有效（尤其是"从小组件勾选会连带勾掉子待办"要写进教程）。

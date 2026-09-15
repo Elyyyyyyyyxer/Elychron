@@ -330,14 +330,24 @@ class CompleteTodoAction : ActionCallback {
         }
         val queued = queueTodoWidgetCompletion(context, taskId)
         Log.i(TAG, "onAction 结果: queued=$queued（false = 快照里没找到这条，或快照坏了）")
-        // 用**点到的这个小组件**的 glanceId 定向重画（原来是无差别 updateAll）。
-        // 定向更新更直接，也不用去遍历所有实例，某些桌面上更可靠。
+        // **两条都发**。
+        //
+        // 真机实测（2026-09-15 深夜，华为鸿蒙桌面）：
+        // - 只发定向 `update(context, glanceId)` → 数据更新了，**画面经常不动**；
+        // - 而 App 推快照那条路（MainActivity 里调 `updateAll`）→ 画面确实会重画。
+        // 所以这里定向 + 全量都发一遍：定向保证"点到的那个实例"一定被覆盖到，
+        // 全量是这条真机上被验证过能真正触发重画的那一种。开销可以忽略。
         try {
             TodoWidget().update(context, glanceId)
             Log.i(TAG, "onAction 已请求定向 update($glanceId)")
         } catch (error: Exception) {
-            Log.w(TAG, "定向 update 失败，退回 updateAll: ${error.message}")
+            Log.w(TAG, "定向 update 失败: ${error.message}")
+        }
+        try {
             TodoWidget().updateAll(context)
+            Log.i(TAG, "onAction 已请求 updateAll")
+        } catch (error: Exception) {
+            Log.w(TAG, "updateAll 失败: ${error.message}")
         }
     }
 }

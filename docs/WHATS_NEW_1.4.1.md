@@ -736,7 +736,45 @@ Could not close incremental caches in D:\celechron-mod\Celechron\...
   「未登录 / 下拉刷新以获取数据」空状态，而不是整页崩掉。
 - 顺带说明：这只治"崩"，不治"为什么会出现半坏登录态" —— 那件事见 11.6 的下一步。
 
-## 11.9 新用户反馈：密码框弹不出键盘（已做缓解，需回访确认）
+## 11.9 ★ 小组件"点了没反应"的真凶：后台被电池优化限制（已定位 + 已解决）
+
+这一条值得单独记，因为**根因不在小组件，也不在桌面**。
+
+### 现象
+- 桌面点方框：进 App 看，待办**确实完成了**；但**小组件画面纹丝不动**（连重绘的迹象都没有）。
+- 而在 App 里操作 → 小组件的画面**会**跟着变。
+
+### 定位过程（探针逐层切开）
+1. `onAction 收到勾选` ✓、`queued=true` ✓、`update/updateAll 已请求` ✓ —— **动作与数据全对**；
+2. 画面仍不变 ✗ —— 于是排除"勾选没生效""快照没更新"这两层；
+3. 抓系统日志发现：点击后**只有 `AppWidgetServiceImpl.resetAppWidgetProviderInfo`**（系统收到请求 ✓），
+   而 **Glance 的 `androidx.glance.session.SessionWorker` 一次都没跑** ✗ ——
+   那是个 **WorkManager 任务**；
+4. **决定性实验**：`adb shell dumpsys deviceidle whitelist +xyz.nosig.celechron.mod`
+   把它加进电池优化白名单 → 再点 → 被卡住的任务**立刻执行**：
+   `I/WM-WorkerWrapper: Worker result SUCCESS for Work [ ... tags={ androidx.glance.session.SessionWorker } ]`
+   → 小组件画面**当场变成正确的条数** ✓✓✓
+
+### 结论
+**小组件的重画依赖 Glance 的会话任务（WorkManager），而 App 被系统"电池优化/后台限制"
+管着时，这个任务在后台根本不会被调度** → 数据更新了、画面永远不重画。
+App 在前台时任务能立刻跑，所以现象就是"**进 App 就正常、在桌面点就没反应**"。
+
+**这和"闹钟不响"是同一个根因**（我们那个「闹钟可靠性」面板讲的就是这件事）。
+→ 待办：把这条也写进那个面板 + 更新日志里说明（见 BACKLOG）。
+
+### 本轮同时做的两件事
+- **`LazyColumn` → 普通 `Column`**（`TodoWidget.kt`）：Glance 的 LazyColumn 是适配器型集合
+  （日志里的 `lazyCollection=2`、`ListAdapterCallbackTrampoline`），换掉它让小组件变成
+  一份普通 RemoteViews，重画链路更短更可预测。代价：**失去滚动**，超出高度会被裁
+  （列表最多 6 条，小组件本身可拉伸）。
+- **定向 `update(glanceId)` + `updateAll` 两条都发**，并把两处 SharedPreferences 写入
+  从 `apply()` 改成 `commit()`（排除"写还没落就重画"）。
+- **探针保留**：`adb logcat -s ElychronWidget` 能看到"收到勾选 / queued / 推快照的条数与 id"，
+  下次同类问题一步就能定性，不用再从零猜。
+
+
+## 11.10 新用户反馈：密码框弹不出键盘（已做缓解，需回访确认）
 
 - 反馈原文：「想问问大家现在登录的时候有没有也遇到输学号正常但输密码键盘会跳不出来」
   「小米17pm，现在我尝试粘贴密码上去，但显示连不上教务网」。
