@@ -202,8 +202,43 @@ class HomeModHooks {
     return picked;
   }
 
+  /// ===== MOD: 专注期间不打断 =====
+  ///
+  /// 用户反馈：「如果在专注期间通过外部分享进入 Elychron，会强行打断并提示未正常退出」。
+  /// 原因：分享流程会切到待办页并弹出新建面板 —— 直接压在专注页上，把这次专注打断，
+  /// 而专注会话是"未完成"状态，于是再进专注页就会提示"上次没有正常结束"。
+  ///
+  /// 现在：专注进行中先把分享内容**存起来**，等专注结束再自动弹出来处理。
+  final List<SharedItem> _pendingShares = <SharedItem>[];
+  Timer? _focusPendingPoll;
+
+  /// 是否有正在进行的专注会话（会话未结算 = 正在专注）
+  bool _isFocusRunning() {
+    try {
+      if (!Get.isRegistered<DatabaseHelper>(tag: 'db')) return false;
+      return Get.find<DatabaseHelper>(tag: 'db')
+          .getUnfinishedFocusSessions()
+          .isNotEmpty;
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<void> _handleShared(List<SharedItem> items) async {
     if (items.isEmpty || _handlingShare) return;
+    if (_isFocusRunning()) {
+      // 专注中：攒着，每 3 秒看一眼是否结束了
+      _pendingShares.addAll(items);
+      _focusPendingPoll ??= Timer.periodic(const Duration(seconds: 3), (_) {
+        if (_isFocusRunning()) return;
+        _focusPendingPoll?.cancel();
+        _focusPendingPoll = null;
+        final pending = List<SharedItem>.from(_pendingShares);
+        _pendingShares.clear();
+        if (pending.isNotEmpty) _handleShared(pending);
+      });
+      return;
+    }
     _handlingShare = true;
     try {
       // 先把分享过来的文件复制到应用附件目录

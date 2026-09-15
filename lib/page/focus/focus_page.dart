@@ -125,12 +125,30 @@ class _FocusPageState extends State<FocusPage> {
     if (_engine.phase != _lastPhase) {
       _lastPhase = _engine.phase;
       _syncRestNotice();
+      // ===== MOD: 休息期间要把免打扰**关掉** =====
+      //
+      // 用户反馈：「切休息模式时不会自动关掉免打扰，导致无通知，我也不知道我要休息了」。
+      // 原因：免打扰只在进/出专注页时开关（进=静音、走=还原），中间段切换没管它。
+      // 语义上这也是对的：专注段静音，休息段要能收到消息 —— 否则休息提醒本身也可能被挡。
+      _syncDoNotDisturbForPhase();
     }
 
     // 每 10 秒落一次库：App 被系统杀掉时最多损失 10 秒
     if (_ticks % 10 == 0) _flush();
 
     setState(() {});
+  }
+
+  /// 按当前阶段开关免打扰：**工作段静音、休息段还原**。
+  ///
+  /// 离开专注页时 `dispose` 还会再还原一次（幂等：没记录就什么都不做）。
+  void _syncDoNotDisturbForPhase() {
+    if (!DoNotDisturb.autoEnabled()) return;
+    if (_engine.isWorking) {
+      DoNotDisturb.enableForFocus();
+    } else {
+      DoNotDisturb.restore();
+    }
   }
 
   /// 把「该休息了」按当前状态同步到**系统通知排程**。
