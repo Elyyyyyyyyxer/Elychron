@@ -36,7 +36,11 @@ class ClassReminderRule {
   static const int defaultBreakMinutes = 15;
 
   /// 前面没课 → 提前这么多分钟
-  static const int leadWithoutPreviousClass = 20;
+  ///
+  /// 2026-09-15 用户调整：20 → **30**。
+  /// 理由：前面本来就空着，早点提醒更从容（而连着上课时给 30 分钟反而没意义，
+  /// 因为你就在教学楼里）。
+  static const int leadWithoutPreviousClass = 30;
 
   /// 前面有课（连着上） → 提前这么多分钟
   static const int leadWithPreviousClass = 10;

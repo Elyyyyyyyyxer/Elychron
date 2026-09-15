@@ -13,20 +13,20 @@ void main() {
   ClassSlot slot(int sh, int sm, int eh, int em) =>
       ClassSlot(at(sh, sm), at(eh, em));
 
-  group('规则 1：前面没有课 → 提前 20 分钟', () {
+  group('规则 1：前面没有课 → 提前 30 分钟', () {
     test('当天第一节课', () {
       final first = slot(8, 0, 8, 45);
-      expect(rule.leadMinutesFor(first, [first]), 20);
+      expect(rule.leadMinutesFor(first, [first]), 30);
     });
 
     test('空课表', () {
-      expect(rule.leadMinutesFor(slot(10, 0, 10, 45), []), 20);
+      expect(rule.leadMinutesFor(slot(10, 0, 10, 45), []), 30);
     });
 
     test('前面只有更晚的课（不算前面有课）', () {
       final target = slot(8, 0, 8, 45);
       final later = slot(10, 0, 10, 45);
-      expect(rule.leadMinutesFor(target, [target, later]), 20);
+      expect(rule.leadMinutesFor(target, [target, later]), 30);
     });
   });
 
@@ -57,17 +57,17 @@ void main() {
     });
   });
 
-  group('规则 4：空余时间大于课间时长 → 视作前面没课（20 分钟）', () {
+  group('规则 4：空余时间大于课间时长 → 视作前面没课（30 分钟）', () {
     test('大课间 25 分钟（09:35 下课 → 10:00 上课）', () {
       final first = slot(9, 0, 9, 35);
       final second = slot(10, 0, 10, 45);
-      expect(rule.leadMinutesFor(second, [first, second]), 20);
+      expect(rule.leadMinutesFor(second, [first, second]), 30);
     });
 
     test('空 16 分钟（刚好超过 15 分钟阈值）', () {
       final first = slot(8, 0, 8, 45);
       final second = slot(9, 1, 9, 46);
-      expect(rule.leadMinutesFor(second, [first, second]), 20);
+      expect(rule.leadMinutesFor(second, [first, second]), 30);
     });
 
     test('空 15 分钟（等于阈值，不算超过）', () {
@@ -86,16 +86,16 @@ void main() {
   });
 
   group('规则 3：午饭 / 晚饭视作一节空课', () {
-    test('上午最后一节 → 下午第一节：隔着午饭 → 20 分钟', () {
+    test('上午最后一节 → 下午第一节：隔着午饭 → 30 分钟', () {
       final morning = slot(11, 40, 12, 25); // 第 5 节
       final afternoon = slot(13, 25, 14, 10); // 第 6 节
-      expect(rule.leadMinutesFor(afternoon, [morning, afternoon]), 20);
+      expect(rule.leadMinutesFor(afternoon, [morning, afternoon]), 30);
     });
 
-    test('下午最后一节 → 晚上第一节：隔着晚饭 → 20 分钟', () {
+    test('下午最后一节 → 晚上第一节：隔着晚饭 → 30 分钟', () {
       final afternoon = slot(17, 5, 17, 50); // 第 11 节
       final evening = slot(18, 50, 19, 35); // 第 12 节
-      expect(rule.leadMinutesFor(evening, [afternoon, evening]), 20);
+      expect(rule.leadMinutesFor(evening, [afternoon, evening]), 30);
     });
 
     test('饭点判定本身：空档与饭点重叠才算', () {
@@ -109,7 +109,7 @@ void main() {
       // 12:25 下课、12:30 上课（人为构造：空档落在饭点边界内）
       final before = slot(11, 40, 12, 26);
       final after = slot(12, 30, 13, 15);
-      expect(rule.leadMinutesFor(after, [before, after]), 20);
+      expect(rule.leadMinutesFor(after, [before, after]), 30);
     });
   });
 
@@ -126,7 +126,7 @@ void main() {
       final morning = slot(11, 40, 12, 25);
       final afternoon = slot(13, 25, 14, 10);
       // 空 60 分钟 > 课间 → 依然是 20 分钟（规则 4 已经覆盖）
-      expect(noMeals.leadMinutesFor(afternoon, [morning, afternoon]), 20);
+      expect(noMeals.leadMinutesFor(afternoon, [morning, afternoon]), 30);
     });
 
     test('自定义饭点能被识别', () {

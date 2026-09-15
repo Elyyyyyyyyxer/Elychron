@@ -394,19 +394,20 @@ class TaskPage extends StatelessWidget {
               // 向右滑（从左到右）：完成 - 不真正 dismiss，只更新状态
               // 待办 / 提醒 / 备忘 都能滑；活动（日程）不算"完成"
               if (!deadline.isEvent) {
-                if (deadline.status == TaskStatus.completed) {
-                  // 如果已完成，恢复为未完成状态
-                  deadline.status = TaskStatus.running;
-                } else {
-                  // 有没勾完的子待办时先确认
-                  if (!await confirmCompleteTask(context, deadline)) {
-                    return false;
-                  }
-                  deadline.status = TaskStatus.completed;
-                }
-                _taskController.updateDeadlineList();
-                _taskController.updateDeadlineListTime();
-                _taskController.taskList.refresh();
+                // ===== MOD: 右滑完成改为"先弹回、下一帧再处理" =====
+                //
+                // 这个回调正是在**手指抬起的那一刻**被调用的。原来的写法在这里
+                // `await confirmCompleteTask(...)`（有未完成子待办时会弹确认框），
+                // 于是弹框刚出现就被同一个抬手事件误触关闭 → 返回 false → 什么都不发生。
+                // 现象就是「**有子待办的待办无法右滑完成**」，而没有子待办的（不弹框）正常。
+                //
+                // 现在：不在这里 await，先把卡片弹回去，等这一帧结束再走完成流程
+                // （复用 _toggleDone：它内部会处理确认框、状态与刷新）。
+                final target = deadline;
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (!mounted) return;
+                  _toggleDone(context, target);
+                });
               }
               return false; // 阻止真正的 dismiss
             } else if (direction == DismissDirection.endToStart) {
@@ -474,21 +475,12 @@ class TaskPage extends StatelessWidget {
                                         context),
                               ),
                             )),
-                      CupertinoButton(
-                        padding: EdgeInsets.zero,
-                        minimumSize: const Size(36, 36),
-                        onPressed: () => _toggleDone(context, deadline),
-                        child: Icon(
-                          deadline.status == TaskStatus.completed
-                              ? CupertinoIcons.checkmark_circle_fill
-                              : CupertinoIcons.circle,
-                          size: 22,
-                          color: deadline.status == TaskStatus.completed
-                              ? CupertinoColors.systemGreen
-                              : CupertinoDynamicColor.resolve(
-                                  CupertinoColors.tertiaryLabel, context),
-                        ),
-                      ),
+                      // ===== MOD: 删掉卡片上的「点击完成」圆圈按钮 =====
+                      //
+                      // 用户指出它多余：上游的设计就是**右滑完成**（而且卡片上那个
+                      // 圆圈长得像勾选框，容易让人以为要点它，与右滑重复）。
+                      // 完成/取消完成现在的入口：右滑、长按弹窗里的「标记为完成」、
+                      // 以及详情页的「完成待办」。
                       Container(
                         width: 12.0,
                         height: 12.0,
