@@ -52,6 +52,18 @@ class FocusSession {
   @HiveField(10)
   bool completed;
 
+  /// ===== MOD: 这次专注算在哪门课上（可空）=====
+  ///
+  /// 课程挂载的第三件事（用户 2026-09-14 拍板）：
+  /// - 自由专注若**开始时间**落在某节课里，自动记成那门课的专注（**按开始时间判定**，
+  ///   不是按重叠比例 —— 这样一次专注永远不会被拆到两门课上）；
+  /// - 挂在**带了课程归属的待办**上时，直接继承那个课程（比按时间猜更准）；
+  /// - 整体做成开关（默认开），见 `getFocusAttributeToCourse`。
+  ///
+  /// 只追加、不插队：11 是 [FocusSession] 里没用过的编号。
+  @HiveField(11)
+  String? courseId;
+
   FocusSession({
     String? uid,
     this.taskUid,
@@ -64,6 +76,7 @@ class FocusSession {
     this.workMinutes = 60,
     this.restMinutes = 15,
     this.completed = false,
+    this.courseId,
   }) : uid = uid ?? const Uuid().v4();
 
   bool get isRunning => endedAt == null;
@@ -86,6 +99,7 @@ class FocusSession {
         'workMinutes': workMinutes,
         'restMinutes': restMinutes,
         'completed': completed,
+        'courseId': courseId,
       };
 
   static FocusSession fromJson(Map<String, dynamic> json) => FocusSession(
@@ -102,6 +116,7 @@ class FocusSession {
         workMinutes: _int(json['workMinutes'], fallback: 60),
         restMinutes: _int(json['restMinutes'], fallback: 15),
         completed: json['completed'] == true,
+        courseId: json['courseId'] is String ? json['courseId'] as String : null,
       );
 
   static int _int(Object? raw, {int fallback = 0}) {

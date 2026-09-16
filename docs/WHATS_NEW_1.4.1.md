@@ -895,6 +895,29 @@ if (restoredScholar.isLogan && credentialsMissing) {
   我们拿名字去课表里**精确/模糊匹配**，匹配上才写 `Task.courseId`，匹配不上就不挂。
 - 提示词要明确写：**只有输入里显式提到课程时才填这个字段**，其余一律留空。
 
+### ★ 专注归属（课程挂载的第三件，已完成）
+
+用户 2026-09-14 拍板的两条口径都落实了：**按「开始时间」判定** + **做成开关**。
+
+- `FocusSession` 追加 `@HiveField(11) String? courseId`（只追加、不插队），
+  同时改了 `copy` 相关的序列化与 `database/adapters/focus_adapter.dart`，
+  并进了 `toJson/fromJson`（导出/同步/备份带着它走）。
+- 规则是纯函数 `courseIdForFocusStart()`（`mod/course_mount_store.dart`），优先级：
+  1. **待办自带课程归属 → 直接继承**（用户建待办时明确选过，比按时间猜准）；
+  2. 否则 **开始时间**落在哪一节的 `[startTime, endTime)` 里就算那门课
+     —— 半开区间保证连续两节课的接缝只命中后一节，一次专注永远只记一门课；
+  3. 只认 `PeriodType.classes`；考试 / 日程 / 虚拟占位都不算；
+  4. 命中不了就是自由专注（null），**不硬塞给某门课**。
+- 开关：`kFocusAttributeToCourseKey`（默认**开**），设置页在「专注」那组里
+  新增一行**「专注自动计入课程」**（`settings_mod_section.dart` 的 `_FocusCourseTile`）。
+- 归属失败（没登录 / 课表还没抓到）**绝不影响专注本身** —— 整个判定包在 try 里，
+  失败就退回"只继承待办的课程归属"。
+- 测试 13 条（`test/focus_attribution_test.dart`）：接缝（下课那一刻开始算不算）、
+  课间空档、跨天不误命中、冲堂时只取一门、考试/日程混入、待办优先、无课表数据、
+  没有课程代码的课时。**全套 534 条全绿。**
+- 为什么不用"重叠比例"：一次专注会被拆成两半记到两门课上，统计页就没法看了
+  （用户明确选了这个口径）。
+
 
 ## 11.10 新用户反馈：密码框弹不出键盘（已做缓解，需回访确认）
 

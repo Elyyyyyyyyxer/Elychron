@@ -31,7 +31,10 @@ class FocusSessionAdapter extends TypeAdapter<FocusSession> {
       ..writeByte(9)
       ..write(obj.restMinutes)
       ..writeByte(10)
-      ..write(obj.completed);
+      ..write(obj.completed)
+      // ===== MOD: 课程归属（见 FocusSession.courseId）=====
+      ..writeByte(11)
+      ..write(obj.courseId);
   }
 
   @override
@@ -53,6 +56,8 @@ class FocusSessionAdapter extends TypeAdapter<FocusSession> {
       workMinutes: fields[8] as int? ?? 60,
       restMinutes: fields[9] as int? ?? 15,
       completed: fields[10] as bool? ?? false,
+      // 老会话没有这一项 → null，正好表示"没归到任何课程"
+      courseId: fields[11] as String?,
     );
   }
 }

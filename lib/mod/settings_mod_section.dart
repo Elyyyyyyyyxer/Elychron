@@ -104,6 +104,7 @@ List<Widget> modReminderTiles(
       const _FocusParamTile(),
       const _FocusRestNotifyTile(),
       const _FocusDndTile(),
+      const _FocusCourseTile(),
       // ===== P4：专注记录 / 统计 =====
       CupertinoListTile(
         title: const Text('专注记录'),
@@ -326,6 +327,41 @@ class _FocusParamTileState extends State<_FocusParamTile> {
         ],
       ),
       onTap: () => _pick(isWork: true),
+    );
+  }
+}
+
+/// ===== 专注自动计入课程（默认开）=====
+///
+/// 用户 2026-09-14 拍板的三条之一：自由专注若**开始时间**落在某节课里，
+/// 就算那门课的专注；并且**做成开关**。
+/// 口径与实现见 `mod/course_mount_store.dart` 的 `courseIdForFocusStart`。
+class _FocusCourseTile extends StatefulWidget {
+  const _FocusCourseTile();
+
+  @override
+  State<_FocusCourseTile> createState() => _FocusCourseTileState();
+}
+
+class _FocusCourseTileState extends State<_FocusCourseTile> {
+  DatabaseHelper? get _db {
+    if (!Get.isRegistered<DatabaseHelper>(tag: 'db')) return null;
+    return Get.find<DatabaseHelper>(tag: 'db');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = _db?.getFocusAttributeToCourse() ?? true;
+    return CupertinoListTile(
+      title: const Text('专注自动计入课程'),
+      subtitle: const Text('上课时段里开始的专注，按开始时间记到那门课上'),
+      trailing: CupertinoSwitch(
+        value: enabled,
+        onChanged: (value) {
+          _db?.setFocusAttributeToCourse(value);
+          setState(() {});
+        },
+      ),
     );
   }
 }

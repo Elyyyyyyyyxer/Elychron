@@ -4,8 +4,11 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:celechron/database/database_helper.dart';
+import 'package:celechron/mod/course_mount_store.dart';
+import 'package:celechron/mod/database_mod.dart';
 import 'package:celechron/model/focus_engine.dart';
 import 'package:celechron/model/focus_session.dart';
+import 'package:celechron/model/scholar.dart';
 import 'package:celechron/model/task.dart';
 import 'package:celechron/page/task/task_controller.dart';
 import 'package:celechron/utils/task_reminder.dart';
@@ -76,12 +79,14 @@ class _FocusPageState extends State<FocusPage> {
     // 一开始就把「该休息了」排进系统（锁屏也响）
     _syncRestNotice();
 
+    final startedAt = DateTime.now();
     _session = FocusSession(
       taskUid: widget.task?.uid,
       label: _label,
-      startedAt: DateTime.now(),
+      startedAt: startedAt,
       workMinutes: _workMinutes,
       restMinutes: _restMinutes,
+      courseId: _courseIdFor(startedAt),
     );
     _db?.saveFocusSession(_session);
 
@@ -91,6 +96,33 @@ class _FocusPageState extends State<FocusPage> {
     // 专注期间自动免打扰（设置里可关；没授权时安静跳过，设置页会引导授权）
     if (DoNotDisturb.autoEnabled()) {
       DoNotDisturb.enableForFocus();
+    }
+  }
+
+  /// 这次专注算在哪门课上（课程挂载的第三件事，用户拍板"按开始时间判定 + 做成开关"）。
+  ///
+  /// - 开关关掉 → 一律不归属；
+  /// - 待办自带课程归属 → 直接继承（用户建待办时明确选过，比按时间猜准）；
+  /// - 否则拿**开始时间**去课表里找那一节，命中才算（口径见 [courseIdForFocusStart]）。
+  ///
+  /// 课表拿不到（没登录 / 还没抓到数据）就只保留"继承待办"这一条，
+  /// **绝不因为归属失败而影响专注本身** —— 这是个锦上添花的功能。
+  String? _courseIdFor(DateTime startedAt) {
+    final explicit = widget.task?.courseId;
+    try {
+      if (!(_db?.getFocusAttributeToCourse() ?? true)) return null;
+      if (explicit != null && explicit.isNotEmpty) return explicit;
+      if (!Get.isRegistered<Rx<Scholar>>(tag: 'scholar')) return null;
+      final scholar = Get.find<Rx<Scholar>>(tag: 'scholar').value;
+      return courseIdForFocusStart(
+        startedAt: startedAt,
+        // 直接传全量课时：每节的起止都是绝对时间，落在窗口里的自然只有当前那一节，
+        // 不必再按"今天"筛一遍（也就不用依赖日历控制器是否已注册）。
+        periodsOfDay: scholar.periods,
+        explicitCourseId: null,
+      );
+    } catch (_) {
+      return (explicit != null && explicit.isNotEmpty) ? explicit : null;
     }
   }
 

@@ -20,6 +20,9 @@ const String kTagColorsKey = 'tagColors';
 /// 专注时自动免打扰：开关本身（默认开）
 const String kFocusDndKey = 'focusDndEnabled';
 
+/// 专注是否自动归属到课程（默认开，见 [DatabaseModExt.getFocusAttributeToCourse]）
+const String kFocusAttributeToCourseKey = 'focusAttributeToCourse';
+
 /// 开启免打扰**之前**的系统档位。
 ///
 /// 落盘是为了防「App 被杀导致手机永久静音」：下次启动时如果发现这个键还在，
@@ -147,6 +150,21 @@ extension DatabaseModExt on DatabaseHelper {
 
   Future<void> setFocusDndEnabled(bool enabled) async {
     await optionsBox.put(kFocusDndKey, enabled);
+  }
+
+  // ===== 专注归属到课程（默认开）=====
+  //
+  // 用户 2026-09-14 拍板：自由专注若**开始时间**落在某节课里，就算那门课的专注，
+  // 并且做成开关。口径与实现在 `course_mount_store.dart` 的 [courseIdForFocusStart]。
+
+  bool getFocusAttributeToCourse() {
+    final value = optionsBox.get(kFocusAttributeToCourseKey);
+    if (value is bool) return value;
+    return true; // 默认开：这个功能的全部意义就是"自动记上"，还得手动开就没意义了
+  }
+
+  Future<void> setFocusAttributeToCourse(bool enabled) async {
+    await optionsBox.put(kFocusAttributeToCourseKey, enabled);
   }
 
   int? getDndSavedFilter() {

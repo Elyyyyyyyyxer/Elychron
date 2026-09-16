@@ -1,5 +1,6 @@
 import 'package:celechron/database/database_helper.dart';
 import 'package:celechron/model/course_mount.dart';
+import 'package:celechron/model/period.dart';
 import 'package:celechron/model/task.dart';
 
 /// 课程挂载（资料 / 评论 / 关联待办）的读写入口。
@@ -41,7 +42,6 @@ extension CourseMountStore on DatabaseHelper {
 }
 
 /// 从一堆待办里挑出挂在这门课上的那些。
-///
 /// 规则：
 /// - 只认 `courseId` 完全相等的；
 /// - **跳过已删除与已作废**（那是"这条记录不该再出现"，与课程无关）；
@@ -58,4 +58,37 @@ List<Task> tasksForCourse(Iterable<Task> tasks, String courseId) {
           task.status != TaskStatus.outdated)
         task,
   ];
+}
+
+/// 这次专注算在哪门课上（用户 2026-09-14 拍板的口径）。
+///
+/// 优先级从高到低：
+/// 1. **待办自带课程归属时直接用它** —— 用户建待办时明确选过，比按时间猜准；
+/// 2. 否则看**开始时间**落在哪一节的时段里（`[startTime, endTime)` 半开区间：
+///    连续两节课的边界只会命中后一节，不会一次算进两门课）；
+/// 3. 只认 [PeriodType.classes]（真课程）—— 考试、日程、虚拟占位都不算；
+/// 4. 找不到就算自由专注，返回 null（不硬塞给某门课）。
+///
+/// 为什么按"开始时间"而不是按重叠比例：一次专注被拆成两半记到两门课上，
+/// 统计页会变得没法看；按开始时间则永远只记一门（用户明确选了这个口径）。
+///
+/// 纯函数、无 IO，可单测（见 `test/focus_attribution_test.dart`）。
+String? courseIdForFocusStart({
+  required DateTime startedAt,
+  required Iterable<Period> periodsOfDay,
+  String? explicitCourseId,
+}) {
+  if (explicitCourseId != null && explicitCourseId.isNotEmpty) {
+    return explicitCourseId;
+  }
+  for (final period in periodsOfDay) {
+    if (period.type != PeriodType.classes) continue;
+    final courseId = period.fromUid;
+    if (courseId == null || courseId.isEmpty) continue;
+    if (!startedAt.isBefore(period.startTime) &&
+        startedAt.isBefore(period.endTime)) {
+      return courseId;
+    }
+  }
+  return null;
 }
