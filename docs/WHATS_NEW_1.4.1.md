@@ -196,8 +196,9 @@
 
 ## 五、发布前仍要处理的事（别忘了）
 
-- [ ] ⚠️ **`docs/RELEASE_NOTES.md` 里的 APK SHA-256 必须重算** —— 现在那个值是
-      **事故之前**那版包的（第十节那次构建），已经不适用；重建发布包后要重新算、重新填
+- [x] ⚠️ **APK 已重建、SHA-256 已重算并填回文档**（2026-09-16）：
+      `versionCode=9` / `versionName=1.4.1-elychron.1` / 25.3 MB，
+      SHA-256 `b835218c842dfa1e6fe9745d0695cacdf964bdf4de0f76a927e9c745cb6914ec`，签名当场验过；构建产物见 10.2
 - [x] ⚠️ **版本号已改回 `1.4.1-elychron.1`**（build **9**，见 `pubspec.yaml` 与
       `lib/worker/fuse.dart`）。为什么是 9 不是原来那个 6：发出去的临时调试包是
       build 7/8，**发布版的 versionCode 必须更大**，否则安卓会当成降级直接拒绝安装
@@ -585,6 +586,12 @@ Could not close incremental caches in D:\celechron-mod\Celechron\...
   - `versionCode=9` / `versionName=1.4.1-elychron.1` / 25.3 MB（arm64）
   - **SHA-256** `8fc16ab62aea5a6fad2b74e10c8406ff6e7ac3e58c34df2a6487e85759d37720`
   - 签名证书 SHA-256 `b2cc4256…a771c8`（与 1.4.0 同一个正式密钥 ✓）
+  - ⚠️ **上面这一版是"事故之前"构建的，已经作废**（它不含第十二节的修复）
+- 正式包（**2026-09-16 重建，当前这一版**）：`Elychron-v1.4.1-elychron.1-arm64.apk`
+  - `versionCode=9` / `versionName=1.4.1-elychron.1` / 25.3 MB（**26,548,828 字节**）
+  - **SHA-256** `b835218c842dfa1e6fe9745d0695cacdf964bdf4de0f76a927e9c745cb6914ec`
+  - 签名证书 SHA-256 `b2cc4256…a771c8` —— 用 `apksigner verify --print-certs` 当场核对过 ✓
+  - 构建产物落在 `build/app/outputs/flutter-apk/app-release.apk`，发布时改名为上面那个文件名
 - 已装到用户手机验证：`dumpsys` 里 versionName/versionCode 正确、
   **小组件接收器已注册**（`TodoWidgetReceiver` + `APPWIDGET_UPDATE`）、启动无崩溃。
 - 仍未做：Gitee 发行版、网盘备用链接、`.zip` 重打、`docs/V1.4.1_README.md`。
