@@ -52,6 +52,97 @@ Future<T?> secureStorageOrNull<T>(Future<T> future) async {
   }
 }
 
+/// 一次性抢救：从 `.damaged-*` 备份里把待办捞回来。
+///
+/// 原理：待办盒子**每次保存都写一整份列表**，所以**最后一个能解码的帧里装的就是
+/// 完整的待办列表** —— 只要从文件尾往前找第一个读得动的帧，把它的值写回新盒子即可。
+/// 丢的只是"坏帧之后的那几次保存"，历史数据绝大部分还在。
+///
+/// 安全前提（三条都满足才动手）：
+///   1. 只做一次（optionsBox 里的标记）；
+///   2. **当前待办盒子是空的**才恢复 —— 已经有数据时绝不覆盖；
+///   3. 只读备份文件，**绝不修改或删除它**。
+///
+/// 放在 `runApp` 之后跑（不 await）：抢救可能要扫一会儿，但**不能挡住界面**。
+Future<int> salvageTasksFromBackupOnce(
+    Directory directory, Box taskBox, Box options) async {
+  // 换过键：第一版用 `salvagedTaskBox20260916`，但它把"盒子非空"当成"已有数据"，
+  // 而 App 启动后自己就会往盒子里写 `deadlineListUpdateTime` 等进度键 ✗ →
+  // 抢救被误判为"不需要"并顺手用掉了标记。现在改成看**待办列表本身**是否为空。
+  const flagKey = 'salvagedTaskBox20260916b';
+  try {
+    if (options.get(flagKey) == true) return 0;
+    // 只在"当前一条待办都没有"时才动手 —— 有数据就一条都不碰，
+    // 而且**不设标记**（万一是别的原因导致空列表，下次还有机会）。
+    final current = taskBox.get('deadlineList');
+    if (current is List && current.isNotEmpty) return 0;
+    final backups = <File>[];
+    await for (final entity in directory.list()) {
+      if (entity is File && entity.path.contains('.hive.damaged-')) {
+        backups.add(entity);
+      }
+    }
+    if (backups.isEmpty) {
+      await options.put(flagKey, true);
+      return 0;
+    }
+    // 最新的那个备份（时间戳在文件名里）
+    backups.sort((a, b) => a.path.compareTo(b.path));
+    final backup = backups.last;
+    debugPrint('[boot] 开始从备份抢救待办：${backup.path}');
+
+    final registry = _repairRegistry();
+    final raf = await backup.open();
+    try {
+      final total = await raf.length();
+      // 第一步：便宜地走一遍帧边界（只读 4 字节）
+      final starts = <int>[];
+      var position = 0;
+      while (position + 4 <= total && starts.length < 200000) {
+        await raf.setPosition(position);
+        final head = await raf.read(4);
+        if (head.length < 4) break;
+        final length =
+            ByteData.sublistView(Uint8List.fromList(head)).getUint32(0, Endian.little);
+        if (length < 8 || position + 4 + length > total) break;
+        starts.add(position);
+        position += 4 + length;
+      }
+      // 第二步：从最后一帧往前找第一个能解码、且值是一列待办的帧
+      for (var i = starts.length - 1; i >= 0 && i >= starts.length - 200; i--) {
+        final start = starts[i];
+        final end = i + 1 < starts.length ? starts[i + 1] : total;
+        if (end - start > 64 * 1024 * 1024) continue;
+        await raf.setPosition(start);
+        final frameBytes = await raf.read(end - start);
+        Object? value;
+        try {
+          final reader = BinaryReaderImpl(
+              Uint8List.fromList(frameBytes), registry);
+          value = reader.readFrame()?.value;
+        } catch (_) {
+          continue; // 坏帧，继续往前找
+        }
+        if (value is List && value.isNotEmpty && value.first is Task) {
+          final tasks = <Task>[for (final item in value) item as Task];
+          await taskBox.put('deadlineList', tasks);
+          await options.put(flagKey, true);
+          debugPrint('[boot] 抢救成功：恢复到 ${tasks.length} 条待办（第 ${i + 1}/${starts.length} 帧）');
+          return tasks.length;
+        }
+      }
+      await options.put(flagKey, true);
+      debugPrint('[boot] 备份里没找到可用的待办帧（扫描了 ${starts.length} 帧）');
+      return 0;
+    } finally {
+      await raf.close();
+    }
+  } catch (error) {
+    debugPrint('[boot] 抢救失败：$error');
+    return 0;
+  }
+}
+
 /// 盒子在磁盘上的文件名。
 ///
 /// ⚠️ Hive 会把盒子名**转成小写**再落盘（`HiveImpl` 内部用 `name.toLowerCase()`），

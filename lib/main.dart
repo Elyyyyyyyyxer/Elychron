@@ -13,6 +13,7 @@ import 'package:get/get.dart';
 import 'package:celechron/model/task.dart';
 import 'package:celechron/utils/utils.dart';
 
+import 'package:path_provider/path_provider.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:app_links/app_links.dart';
 
@@ -96,6 +97,33 @@ void main() async {
 
   runApp(const CelechronApp());
   debugPrint('[boot] 8 runApp 已调用');
+
+  // ===== 一次性抢救：从被打坏的待办盒子备份里把数据捞回来 =====
+  //
+  // 放在 runApp **之后**且不 await：抢救要扫备份文件，可能几十秒，
+  // 但绝不能因为它在启动路径上而拖住界面（这正是今晚"打不开"的教训）。
+  // 只在"当前待办盒子是空的"时才恢复，已经有数据就一条都不碰。
+  unawaited(() async {
+    try {
+      final directory = await getApplicationDocumentsDirectory();
+      final restored = await salvageTasksFromBackupOnce(
+        directory,
+        db.taskBox,
+        db.optionsBox,
+      );
+      if (restored > 0) {
+        final tasks = db.getTaskList();
+        final live = Get.find<RxList<Task>>(tag: 'taskList');
+        live
+          ..clear()
+          ..addAll(tasks);
+        live.refresh();
+        debugPrint('[boot] 已把抢救到的 ${tasks.length} 条待办推给界面');
+      }
+    } catch (error) {
+      debugPrint('[boot] 抢救流程出错（不影响使用）：$error');
+    }
+  }());
   unawaited(TodoWidgetMessenger.update(
     Get.find<RxList<Task>>(tag: 'taskList'),
   ));
