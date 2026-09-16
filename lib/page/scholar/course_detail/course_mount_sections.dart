@@ -101,11 +101,16 @@ class _CourseMaterialsSectionState extends State<CourseMaterialsSection> {
           child: Column(
             children: [
               if (_mount.attachments.isEmpty)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 10),
-                  child: Text(
-                    '课件、笔记、板书……都可以放这里',
-                    style: TextStyle(fontSize: 13, color: labelColor),
+                // 左对齐：Column 默认是居中的，这行提示语原来被摆在卡片中间，
+                // 与下面的按钮不在一条线上（用户看图指出来的）。
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    child: Text(
+                      '课件、笔记、板书……都可以放这里',
+                      style: TextStyle(fontSize: 13, color: labelColor),
+                    ),
                   ),
                 ),
               for (var i = 0; i < _mount.attachments.length; i++)
@@ -278,10 +283,13 @@ class _CourseCommentsSectionState extends State<CourseCommentsSection> {
                 ],
               ),
               if (comments.isEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(top: 10),
-                  child: Text('还没有评论',
-                      style: TextStyle(fontSize: 13, color: labelColor)),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 10),
+                    child: Text('还没有评论',
+                        style: TextStyle(fontSize: 13, color: labelColor)),
+                  ),
                 ),
               for (var i = 0; i < comments.length; i++)
                 Padding(
@@ -389,11 +397,14 @@ class _CourseTasksSectionState extends State<CourseTasksSection> {
             child: Column(
               children: [
                 if (mine.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    child: Text(
-                      '这门课还没有挂待办',
-                      style: TextStyle(fontSize: 13, color: labelColor),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: Text(
+                        '这门课还没有挂待办',
+                        style: TextStyle(fontSize: 13, color: labelColor),
+                      ),
                     ),
                   ),
                 for (final task in mine) _taskRow(context, task, labelColor),
