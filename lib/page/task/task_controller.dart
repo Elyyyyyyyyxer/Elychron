@@ -164,11 +164,14 @@ class TaskController extends GetxController with TaskListFilterMod {
   }
 
   void removeCompletedDeadline(context) {
-    // ===== P1：待办 / 提醒 / 备忘 完成后都能一键清掉（活动日程不算）=====
+    // ===== MOD：活动（日程）也算 =====
+    //
+    // 原来这里写着「活动日程不算」，于是**已完成的活动永远清不掉**。
+    // 用户要求活动类也能右滑完成/恢复之后，口径就该跟上：
+    // 既然能完成，就得能一起清掉，否则「清除已完成」对活动型是条死路。
     TaskTombstoneStore.remove(
         taskList,
-        taskList.where((element) =>
-            !element.isEvent && element.status == TaskStatus.completed));
+        taskList.where((element) => element.status == TaskStatus.completed));
     saveDeadlineListToDb();
   }
 

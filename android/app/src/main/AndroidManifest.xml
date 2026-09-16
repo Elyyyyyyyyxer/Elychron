@@ -69,13 +69,23 @@
                    android:resource="@xml/ecard_widget_info" />
        </receiver>
 
-       <receiver android:name=".TodoWidgetReceiver"
+        <!-- ===== 已尘封：桌面小组件「最近待办」=====
+             代码仍在树里（TodoWidget.kt / lib/worker/todo_widget_messenger.dart），
+             但**不再注册接收器** —— 所以它不会出现在桌面小组件列表里。
+
+             为什么尘封：在本项目维护者的机器（华为鸿蒙）上，"勾选后小组件画面不刷新"
+             查到最后是**系统把 App 限制在电池优化里 → Glance 的会话任务（WorkManager）
+             在后台不被调度** → 数据更新了、画面永不重画。加白名单后能好，
+             但那要求每个用户手动去系统里允许后台运行，代价太大、体验不可控。
+             详见 docs/WHATS_NEW_1.4.1.md 11.9 与 docs/BACKLOG.md #28。
+
+             要复活：把下面这段 receiver 放回来（内容见 git 历史），
+             并让 TodoWidgetMessenger.enabled 恢复 true。
+        <receiver android:name=".TodoWidgetReceiver"
                  android:label="最近待办"
                  android:exported="true">
            <intent-filter>
                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-               <!-- 小组件上的时间文案是它自己按当前时间算的（见 TodoWidget.kt），
-                    所以跨零点 / 改时间 / 换时区都要重画一次，否则文案会停在旧的一天。 -->
                <action android:name="android.intent.action.TIME_SET" />
                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
                <action android:name="android.intent.action.DATE_CHANGED" />
@@ -84,6 +94,7 @@
                    android:name="android.appwidget.provider"
                    android:resource="@xml/todo_widget_info" />
        </receiver>
+       -->
 
         <!-- 任务提醒：定时通知的接收器（flutter_local_notifications） -->
         <receiver android:exported="false"

@@ -21,7 +21,19 @@ class TodoWidgetMessenger {
   static const _channel = MethodChannel('celechron/todoWidget');
   static const int maxVisibleTasks = 20;
 
+  /// ===== 已尘封：桌面小组件「最近待办」=====
+  ///
+  /// 2026-09-15 深夜决定尘封（`AndroidManifest.xml` 里的接收器也一并注释掉了，
+  /// 所以它不会出现在桌面小组件列表里）。原因见 `docs/WHATS_NEW_1.4.1.md` 11.9：
+  /// 在华为鸿蒙上，"勾选后画面不刷新"是系统电池优化挡住了 Glance 的会话任务
+  /// （WorkManager）——加白名单能好，但要求每个用户手动去系统里放行，代价太大。
+  ///
+  /// 代码全部保留、只是不再推数据：把这里改成 `true`、并且把 manifest 里那段
+  /// receiver 放回来，功能就回来了（后端逻辑这轮已经全部验证过是对的）。
+  static const bool enabled = false;
+
   static Future<void> update(Iterable<Task> tasks) async {
+    if (!enabled) return;
     if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return;
     try {
       final snapshot = buildSnapshot(tasks, now: DateTime.now());
@@ -34,6 +46,7 @@ class TodoWidgetMessenger {
   }
 
   static Future<Set<String>> pendingCompletionIds() async {
+    if (!enabled) return const <String>{};
     if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
       return const <String>{};
     }
@@ -49,6 +62,7 @@ class TodoWidgetMessenger {
   }
 
   static Future<void> acknowledgeCompletions(Iterable<String> ids) async {
+    if (!enabled) return;
     if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return;
     try {
       await _channel.invokeMethod<void>(

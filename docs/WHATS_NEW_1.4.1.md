@@ -633,11 +633,16 @@ Could not close incremental caches in D:\celechron-mod\Celechron\...
   右滑 → 待我处理 6→5、我已处理 17→18 ✓；到「我已处理」里再右滑 → **恢复**，
   计数回到 6/17 ✓（顺手把用户数据还原了）。
 
-### 11.1.1 还留着两处"排除活动型"（**未改，等用户决定**）
+### 11.1.1 另外两处"排除活动型"（**已一并对齐**）
 
-- `mod/task_batch_edit.dart` 的 `splitCompletable`：批量完成会跳过活动型（有单测钉着）；
+- `mod/task_batch_edit.dart`：原 `splitCompletable` 会把活动型从批量完成里剔除
+  （连"全是活动"时的提示语都在讲这条规则）→ **函数已删**，批量完成直接走
+  `resolve` 的结果，四种类型一视同仁；钉住旧规则的那两个单测也随之删除
+  （新规则就是"不过滤"，没有可测的分支）。
 - `page/task/task_controller.dart` 的 `removeCompletedDeadline`：
-  「清除已完成」不会清已完成的活动型。
+  「清除已完成」原来跳过活动型 → 现在一起清。理由：**既然能完成，就得能一起清掉**，
+  否则对活动型是条死路。
+- 这一改一共影响三个入口：**列表右滑、批量完成、清除已完成** —— 口径现在统一了。
 
 ## 11.2 两个子页面底部被系统导航栏遮住（已修）
 
@@ -772,6 +777,69 @@ App 在前台时任务能立刻跑，所以现象就是"**进 App 就正常、�
   从 `apply()` 改成 `commit()`（排除"写还没落就重画"）。
 - **探针保留**：`adb logcat -s ElychronWidget` 能看到"收到勾选 / queued / 推快照的条数与 id"，
   下次同类问题一步就能定性，不用再从零猜。
+
+### ★ 后续决定：**尘封这个小组件**（2026-09-15 深夜，用户拍板）
+
+定位清楚之后用户的要求是「**实在修不好就尘封**」，而结论是：
+
+- 数据链路完全正确 ✓（探针已证明）；
+- 但"画面刷新"依赖 WorkManager 任务能被调度 ✗，而这要求**每个用户手动去系统里
+  允许后台运行**（本机实测加白名单后确实好了 ✓）—— 对大多数用户就是"点了没反应"，
+  体验不可控，代价太大。
+
+所以：
+
+- `AndroidManifest.xml` 里那段 `<receiver>` 已**注释掉**（验证：装到手机上后
+  `dumpsys package | grep -c TodoWidgetReceiver` = 0 ✓，桌面上的实例随之消失 ✓）；
+- Dart 侧加了 `TodoWidgetMessenger.enabled = false` 开关，`update/pendingCompletionIds/
+  acknowledgeCompletions` 全部直接返回，不再做无用功；
+- **代码与资源全部保留在树里**，复活步骤写在 manifest 的注释和 `BACKLOG.md` #28 里；
+- 两个 PR 的回复里也向作者如实说明了这件事（PR #4）。
+
+## 11.11 ★ 「更新后半坏登录态」的成因与修复（已修，含成因）
+
+用户原话（反馈过很多次的老毛病）：
+
+> 基本上每次推送更新的时候登录态会变成一种诡异的样子，显示"已登录"但是没有学号，
+> 同时学业页面刷新不出来。退出登录后再次重新登陆时不会保存上次的账号密码，
+> 重新登陆之后一切恢复正常。
+
+### 成因：两套存储的存活期不一样
+
+- **`isLogan`（以及课程、成绩等）跟着 `Scholar` 存进 Hive 数据库** —— 覆盖安装后还在 ✓；
+- **`username` / `password` 存在系统密钥库**（`FlutterSecureStorage`，见
+  `database_helper.dart` 的 `getScholar/setScholar/removeScholar`）——
+  某些 ROM / 机型在覆盖安装后**读回 null（且不报错）** ✗。
+
+于是 `Scholar` 从数据库恢复时无条件 `isLogan = true`（`scholar.dart` 恢复路径的最后一行），
+App 就"认为自己登录着"：不做重新登录、但每次刷新都必然失败 →
+用户看到的就是那个"诡异的样子"。**学业页还因此每 20 秒崩一次**（`Scholar.isGrs` 里的
+`username!`，见 11.8）——**11.6 与 11.7/11.8 是同一个现场**。
+
+### 修复
+
+在 `main.dart` 注入 scholar 之前做一次纠正（**注入之前**，全 App 都会看到纠正后的状态）：
+
+```dart
+final credentialsMissing = username.isEmpty || password.isEmpty;
+if (restoredScholar.isLogan && credentialsMissing) {
+  restoredScholar.isLogan = false;      // 别再去跑注定失败的自动刷新
+  restoredScholar.sessionInvalid = true; // 设置页会给出「重新登录」入口（已有该 UI）
+}
+```
+
+并打一行 `debugPrint`，把"凭据缺了哪一项"记进日志，方便下次直接确认是不是同一回事。
+
+### 还差一步（需要用户拍板）
+
+「记住的账号密码」（`mod_last_*`）**也存在同一个密钥库里** —— 所以密钥库读不出来时，
+它同样读不出来，这就是"退出重登时不会预填"的直接原因。
+要让它真正挺过更新，只能**换一个不受密钥库影响的存储**（App 私有目录 / 数据库），
+而那意味着**密码以可解形式落在应用私有存储里**（虽然只有本机、只有 App 自己能读，
+但终究不如密钥库）。这是个**安全与便利的取舍**，等用户决定：
+- 要"永远能预填" → 把 `mod_last_*` 一并镜像到数据库（并在文档/设置里讲清楚）；
+- 只要"更安全的失败" → 保持现状，但登录页在预填失败时明确提示"上次的账号没能读出来，
+  请手动输入"。
 
 
 ## 11.10 新用户反馈：密码框弹不出键盘（已做缓解，需回访确认）

@@ -50,25 +50,6 @@ class TaskBatchEdit {
           if (selected.contains(task.uid)) task,
       ];
 
-  /// 从选中里挑出"能算完成/未完成"的：**活动与日程不算完成**
-  /// （与单条右滑的规则一致），并汇报被跳过的条数。
-  ///
-  /// 抽成纯函数是为了能单测 —— 这条规则很容易在改动中被破坏。
-  static ({List<Task> completable, int skipped}) splitCompletable(
-    List<Task> tasks,
-  ) {
-    final usable = <Task>[];
-    var skipped = 0;
-    for (final task in tasks) {
-      if (task.isEvent) {
-        skipped++;
-      } else {
-        usable.add(task);
-      }
-    }
-    return (completable: usable, skipped: skipped);
-  }
-
   /// 有子待办没勾完的那些（批量完成前要合并成一次确认）
   static List<Task> withUnfinishedSubtasks(List<Task> tasks) => [
         for (final task in tasks)
@@ -127,21 +108,26 @@ class TaskBatchEdit {
 
   // ------------------------------------------------------- 批量完成 / 未完成
 
+  ///
+  /// ===== MOD: 活动/日程也允许批量完成 =====
+  ///
+  /// 原来这里用 `splitCompletable` 把活动型剔除（理由写的是"活动不算完成"），
+  /// 但用户要求活动类也能右滑完成/恢复之后，两条路的规则就该一致：
+  /// 详情页的完成按钮、列表右滑、批量完成 —— 四种类型一视同仁。
+  /// 这个函数以前是个纯函数（为了单测钉住那条规则），现在规则没了，
+  /// 直接返回 `resolve` 的结果，也就顺手把那个函数删掉了。
   static Future<void> setCompleted(
     BuildContext context,
     TaskController controller,
     List<Task> all, {
     required bool completed,
   }) async {
-    // 活动/日程不算"完成"（与单条右滑的规则一致），先剔除
-    final split = splitCompletable(resolve(all));
-    final tasks = split.completable;
-    final skipped = split.skipped;
+    final tasks = resolve(all);
     if (tasks.isEmpty) {
       await showDingTalkPanel(
         context: context,
         title: completed ? '没有可完成的待办' : '没有可恢复的待办',
-        subtitle: skipped > 0 ? '选中的都是活动 / 日程，它们不算"完成"' : null,
+        subtitle: null,
         children: const [],
         primaryLabel: '好',
         onPrimary: () => Navigator.of(context).pop(),

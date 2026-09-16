@@ -66,28 +66,12 @@ void main() {
     });
   });
 
-  group('谁能被"完成"', () {
-    test('活动与日程不算完成，会被跳过并计数', () {
-      final result = TaskBatchEdit.splitCompletable([
-        make('deadline', type: TaskType.deadline),
-        make('event', type: TaskType.fixed),
-        make('legacy', type: TaskType.fixedlegacy),
-        make('remind', type: TaskType.remind),
-      ]);
-      expect(result.completable.map((t) => t.uid).toList(),
-          ['deadline', 'remind']);
-      expect(result.skipped, 2);
-    });
-
-    test('全是活动时没有可完成的', () {
-      final result = TaskBatchEdit.splitCompletable([
-        make('e1', type: TaskType.fixed),
-        make('e2', type: TaskType.fixed),
-      ]);
-      expect(result.completable, isEmpty);
-      expect(result.skipped, 2);
-    });
-  });
+  // 「活动与日程不算完成，批量完成时要跳过」这条规则在 1.4.1 里被用户推翻了：
+  // 活动型现在和另外三种一样，可以右滑完成 / 恢复、也可以批量完成，
+  // 所以原来那两个 splitCompletable 的测试连同函数一起删掉了。
+  // 为什么不换一个测试钉住新规则：新规则就是"不过滤"，没有可测的逻辑分支
+  // （真正的入口在 setCompleted 里，直接走 resolve 的结果）。
+  // 背景见 docs/WHATS_NEW_1.4.1.md 11.1。
 
   group('批量完成前的确认要合并成一次', () {
     test('只挑出"还有子待办没完成"的那些', () {

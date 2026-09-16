@@ -44,7 +44,39 @@ void main() async {
   await _applyPendingTodoWidgetCompletions(db, taskList);
 
   // 注入数据观察项（相当于事件总线，更新这些变量将导致Widget重绘
-  Get.put((await db.getScholar()).obs, tag: 'scholar');
+  final restoredScholar = await db.getScholar();
+
+  // ===== MOD: 「已登录但没有学号」= 半坏状态，必须当没登录 =====
+  //
+  // 用户反复反馈（原话：「基本上每次推送更新的时候登录态会变成一种诡异的样子，
+  // 显示"已登录"但是没有学号，同时学业页面刷新不出来。退出登录后再次重新登陆时
+  // 不会保存上次的账号密码，重新登陆之后一切恢复正常」）。
+  //
+  // 成因：**两套存储的存活期不一样** ——
+  //   · `isLogan`（以及课程/成绩等）跟着 Scholar 存进 Hive 数据库，覆盖安装后还在；
+  //   · `username`/`password` 存在**系统密钥库**（FlutterSecureStorage），
+  //     某些 ROM / 机型在覆盖安装后读不出来（读回 null，不报错）。
+  // 于是 App 认为自己登录着 → 不做重新登录、但每次刷新都失败 →
+  // 用户看到的就是那个"诡异的样子"。顺带一提，学业页曾因此**每 20 秒崩一次**
+  // （`Scholar.isGrs` 里的 `username!`，已修，见 WHATS_NEW 11.8）。
+  //
+  // 这里在**注入之前**纠正：凭据不全就当没登录。这样：
+  //   ① `if (scholar.value.isLogan)` 不会再去跑注定失败的自动刷新；
+  //   ② `sessionInvalid = true` 会让设置页给出"重新登录"入口（option_view 已有该 UI）；
+  //   ③ 登录页会读我们另存的 `mod_last_*` 去预填账号密码（数据库里那份，不依赖密钥库
+  //      读得到——但如果连它也读不出来，用户至少知道要重新登录，而不是干瞪眼）。
+  final restoredUsername = restoredScholar.username ?? '';
+  final restoredPassword = restoredScholar.password ?? '';
+  final credentialsMissing = restoredUsername.isEmpty || restoredPassword.isEmpty;
+  if (restoredScholar.isLogan && credentialsMissing) {
+    debugPrint(
+        '[Elychron] 恢复的登录状态缺少凭据（学号=${restoredUsername.isEmpty ? "空" : "有"}、'
+        '密码=${restoredPassword.isEmpty ? "空" : "有"}）→ 按需要重新登录处理');
+    restoredScholar.isLogan = false;
+    restoredScholar.sessionInvalid = true;
+  }
+
+  Get.put(restoredScholar.obs, tag: 'scholar');
   Get.put(taskList.obs, tag: 'taskList');
   Get.put(db.getTaskListUpdateTime().obs, tag: 'taskListLastUpdate');
   Get.put(db.getFlowList().obs, tag: 'flowList');
