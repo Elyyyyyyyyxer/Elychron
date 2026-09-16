@@ -594,8 +594,10 @@ Could not close incremental caches in D:\celechron-mod\Celechron\...
   - 签名证书 SHA-256 `b2cc4256…a771c8`（与 1.4.0 同一个正式密钥 ✓）
   - ⚠️ **上面这一版是"事故之前"构建的，已经作废**（它不含第十二节的修复）
 - 正式包（**2026-09-16 重建，当前这一版**）：`Elychron-v1.4.1-elychron.1-arm64.apk`
-  - `versionCode=9` / `versionName=1.4.1-elychron.1` / 25.3 MB（**26,548,828 字节**）
-  - **SHA-256** `b835218c842dfa1e6fe9745d0695cacdf964bdf4de0f76a927e9c745cb6914ec`
+  - `versionCode=9` / `versionName=1.4.1-elychron.1` / **25.4 MB（26,679,900 字节）**
+  - **SHA-256** `a914715dc84d0c2ceba530ae76885ec3b4421fa22fde83e5da124a7fe1ecafa5`
+  - ⚠️ 这是**第二次重建**（2026-09-16 深夜）：装进了第十三节的卡死修复与专注改动，
+    所以 25.3 MB / `b835218c…` 那一版**同样作废**，以这一版为准
   - 签名证书 SHA-256 `b2cc4256…a771c8` —— 用 `apksigner verify --print-certs` 当场核对过 ✓
   - 构建产物落在 `build/app/outputs/flutter-apk/app-release.apk`，发布时改名为上面那个文件名
 - 已装到用户手机验证：`dumpsys` 里 versionName/versionCode 正确、
