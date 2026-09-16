@@ -31,6 +31,23 @@ class DatabaseHelper {
   late final Box customGpaBox;
   late final Box tombstoneBox;
   late final Box focusBox;
+
+  /// ===== MOD: 「记住的账号密码」的持久化副本 =====
+  ///
+  /// 用户反馈：更新之后登录页不再预填上次的账号密码。原因是那份副本
+  /// （`mod_last_*`）原来只写在**系统密钥库**里，而某些 ROM 在覆盖安装后
+  /// 读密钥库会返回 null（不报错）——和"显示已登录但没有学号"是同一个坑。
+  /// 用户拍板：**另存一份到数据库，永远能预填**。
+  ///
+  /// 取舍（重要，别以后当惊喜发现）：密钥库那份仍然写、仍然优先读；
+  /// 数据库这份是**可解形式的回退**，存在应用私有目录里，只有本机能读，
+  /// 但毕竟不如密钥库。安全与便利之间，用户选了"永远能预填"。
+  late final Box accountBox;
+
+  /// 课程挂载（资料 / 评论）：**键 = 课程代码**，值是一份 Map（见 `CourseMount`）。
+  /// 不新增 typeId、不注册 adapter —— 与 `CourseIdMap` 同一套做法。
+  late final Box courseMountBox;
+
   late final FlutterSecureStorage secureStorage;
 
   Future<void> init() async {
@@ -58,6 +75,8 @@ class DatabaseHelper {
     customGpaBox = await Hive.openBox(dbCustomGpa);
     tombstoneBox = await Hive.openBox(dbTombstones);
     focusBox = await Hive.openBox(dbFocus);
+    accountBox = await Hive.openBox(dbAccount);
+    courseMountBox = await Hive.openBox(dbCourseMount);
     secureStorage = const FlutterSecureStorage();
 
     // ===== P5：清掉「时间规划」时代留在 optionsBox 里的三个键 =====
@@ -92,6 +111,12 @@ class DatabaseHelper {
 
   /// ===== P3：专注会话记录 =====
   final String dbFocus = 'dbFocus';
+
+  /// 「记住的账号密码」的数据库副本（见 [accountBox] 的注释）
+  final String dbAccount = 'dbAccount';
+
+  /// 课程挂载（资料 / 评论），键 = 课程代码
+  final String dbCourseMount = 'dbCourseMount';
 
   /// 专注参数：工作 / 休息分钟数 + 休息时是否提醒（用户拍板默认 60 / 15）
   final String kFocusWorkMinutes = 'focusWorkMinutes';

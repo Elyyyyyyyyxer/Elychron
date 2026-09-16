@@ -43,35 +43,69 @@ const String kLastPasswordKey = 'mod_last_password';
 extension DatabaseModExt on DatabaseHelper {
   // ===== 记住上次登录的账号密码（退出后仍可预填）=====
 
-  /// 登录成功时调用：把这次用的账号密码另存一份，供以后预填
+  /// 数据库副本的键（与密钥库那份同名，方便对照）
+  static const String kLastUsernameDbKey = 'lastUsername';
+  static const String kLastPasswordDbKey = 'lastPassword';
+
+  /// 登录成功时调用：把这次用的账号密码另存一份，供以后预填。
+  ///
+  /// **两处都写**：系统密钥库（首选，加密）+ 数据库（回退副本）。
+  /// 为什么要有数据库那份：某些 ROM 在**覆盖安装后读密钥库会返回 null**
+  /// （用户反馈的"更新后预填失效"就是这么来的，见 WHATS_NEW 11.11）。
+  /// 用户拍板要"永远能预填"，所以接受这份可解形式的副本落在应用私有目录里。
   Future<void> rememberAccount(String username, String password) async {
     if (username.isEmpty && password.isEmpty) return;
     try {
       await secureStorage.write(key: kLastUsernameKey, value: username);
       await secureStorage.write(key: kLastPasswordKey, value: password);
     } catch (_) {
-      // 密钥库不可用时不影响登录本身
+      // 密钥库不可用时不影响登录本身，下面那份副本仍然会写成功
     }
-  }
-
-  /// 读回上次登录的账号密码（拿不到就返回空串）
-  Future<({String username, String password})> rememberedAccount() async {
     try {
-      final username =
-          await secureStorage.read(key: kLastUsernameKey) ?? '';
-      final password =
-          await secureStorage.read(key: kLastPasswordKey) ?? '';
-      return (username: username, password: password);
+      await accountBox.put(kLastUsernameDbKey, username);
+      await accountBox.put(kLastPasswordDbKey, password);
     } catch (_) {
-      return (username: '', password: '');
+      // 数据库也写不进去就算了，至少不阻塞登录
     }
   }
 
-  /// 用户主动「忘记账号」时清掉（退出登录**不**调用它）
+  /// 读回上次登录的账号密码（拿不到就返回空串）。
+  ///
+  /// 顺序：**先密钥库，读不到再退回数据库副本**。
+  /// 这样正常情况下用的仍是加密存储，只有在密钥库"失忆"时才会用到副本。
+  Future<({String username, String password})> rememberedAccount() async {
+    var username = '';
+    var password = '';
+    try {
+      username = await secureStorage.read(key: kLastUsernameKey) ?? '';
+      password = await secureStorage.read(key: kLastPasswordKey) ?? '';
+    } catch (_) {
+      // 密钥库读挂了（正是我们要兜住的情况）→ 下面走副本
+    }
+    if (username.isEmpty || password.isEmpty) {
+      try {
+        final fallbackUsername =
+            accountBox.get(kLastUsernameDbKey) as String? ?? '';
+        final fallbackPassword =
+            accountBox.get(kLastPasswordDbKey) as String? ?? '';
+        if (username.isEmpty) username = fallbackUsername;
+        if (password.isEmpty) password = fallbackPassword;
+      } catch (_) {
+        // 副本也读不到就只能让用户手打了
+      }
+    }
+    return (username: username, password: password);
+  }
+
+  /// 用户主动「忘记账号」时清掉（退出登录**不**调用它）——两处一起清。
   Future<void> forgetAccount() async {
     try {
       await secureStorage.delete(key: kLastUsernameKey);
       await secureStorage.delete(key: kLastPasswordKey);
+    } catch (_) {}
+    try {
+      await accountBox.delete(kLastUsernameDbKey);
+      await accountBox.delete(kLastPasswordDbKey);
     } catch (_) {}
   }
 

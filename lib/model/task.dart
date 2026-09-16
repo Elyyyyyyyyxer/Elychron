@@ -379,6 +379,19 @@ class Task {
   @HiveField(25)
   DateTime? updatedAt;
 
+  /// ===== MOD: 这条待办挂在哪门课上（可空）=====
+  ///
+  /// 课程挂载三件事（评论 / 资料 / 待办）里的最后一件：待办**仍是普通待办**
+  /// —— 该提醒提醒、该进列表进列表、该上日历上日历 —— 只是多一个"归属"，
+  /// 课程详情页据此把它列出来。这样"课程级"和"当次级"两种分级都能用：
+  /// 想记"这门课的长期资料"就挂在课程上，想记"这一次课要带什么"就建一条待办再挂上来。
+  ///
+  /// 只追加、不插队：26 是 `Task` 里没用过的编号（原代码到 25）。
+  /// 加字段要**同时**改四处，少一处就会出现"编辑一次链接就没了"：
+  /// 这里、构造函数、[copy]/[copyWith]、以及 `database/adapters/deadline_adapter.dart`。
+  @HiveField(26)
+  String? courseId;
+
   Task({
     this.uid = '114514',
     this.status = TaskStatus.running,
@@ -403,6 +416,7 @@ class Task {
     this.starred = false,
     this.createdAt,
     this.updatedAt,
+    this.courseId,
   })  : subtasks = subtasks ?? <SubTask>[],
         attachments = attachments ?? <TaskAttachment>[],
         comments = comments ?? <TaskComment>[],
@@ -608,6 +622,7 @@ class Task {
     starred = false;
     createdAt = DateTime.now();
     updatedAt = DateTime.now();
+    courseId = null; // 清空重来时不该留着课程归属
   }
 
   void copy(Task another) {
@@ -634,6 +649,7 @@ class Task {
     starred = another.starred;
     createdAt = another.createdAt;
     updatedAt = another.updatedAt;
+    courseId = another.courseId; // 改名/编辑不该把课程归属弄丢
   }
 
   Task copyWith({
@@ -660,6 +676,7 @@ class Task {
     bool? starred,
     DateTime? createdAt,
     DateTime? updatedAt,
+    String? courseId,
   }) {
     return Task(
       uid: uid ?? this.uid,
@@ -685,6 +702,7 @@ class Task {
       starred: starred ?? this.starred,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      courseId: courseId ?? this.courseId,
     );
   }
 

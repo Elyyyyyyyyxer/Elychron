@@ -218,7 +218,10 @@ class DeadlineAdapter extends TypeAdapter<Task> {
       ..writeByte(24)
       ..write(obj.createdAt)
       ..writeByte(25)
-      ..write(obj.updatedAt);
+      ..write(obj.updatedAt)
+      // ===== MOD: 课程归属（见 Task.courseId）=====
+      ..writeByte(26)
+      ..write(obj.courseId);
   }
 
   @override
@@ -260,6 +263,8 @@ class DeadlineAdapter extends TypeAdapter<Task> {
           (fields[22] as List?)?.map((e) => e as String).toList() ?? <String>[]
       ..starred = fields[23] as bool? ?? false
       ..createdAt = fields[24] as DateTime?
-      ..updatedAt = fields[25] as DateTime?;
+      ..updatedAt = fields[25] as DateTime?
+      // 老数据没有这一项 → null，正好表示"没挂课程"
+      ..courseId = fields[26] as String?;
   }
 }
