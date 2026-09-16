@@ -7,13 +7,12 @@ import 'package:celechron/design/task_priority_color.dart';
 import 'package:celechron/design/task_kind_selector.dart';
 import 'package:celechron/design/task_time_panel.dart';
 import 'package:celechron/model/task.dart';
-import 'package:celechron/model/scholar.dart';
 import 'package:celechron/utils/attachment_helper.dart';
 import 'package:celechron/utils/time_helper.dart';
 import 'package:celechron/utils/utils.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart' show Icons;
-import 'package:get/get.dart';
+import 'package:celechron/mod/course_mount_store.dart';
 import 'package:celechron/mod/ai/ai_compose_sheet.dart';
 import 'package:celechron/mod/ai/ai_task_draft.dart';
 import 'package:celechron/design/dingtalk_sheet.dart';
@@ -210,27 +209,12 @@ class _TaskCreatePageState extends State<TaskCreatePage> {
 
   /// 可选：把这条待办**挂到某门课上**（挂上之后它会出现在那门课的「相关待办」里）。
   ///
-  /// 课程清单来自已抓到的课表（`scholar.semesters[].courses`），
+  /// 课程清单来自已抓到的课表（`courseChoices()`，与 AI 匹配课程名时用的是同一份），
   /// 所以只有登录过、有课表时才显示这一行 —— 没课表就不显示，别给一个空选择器。
   ///
   /// 这里刻意**只提供一个可选字段**，不强制、不猜：
   /// AI 生成待办那边同理（只有输入里明确提到课程才回填，见 `ai_task_draft.dart`）。
-  List<({String id, String name})> _courseChoices() {
-    if (!Get.isRegistered<Rx<Scholar>>(tag: 'scholar')) {
-      return const [];
-    }
-    final scholar = Get.find<Rx<Scholar>>(tag: 'scholar').value;
-    final choices = <({String id, String name})>[];
-    for (final semester in scholar.semesters) {
-      semester.courses.forEach((id, course) {
-        if (id.isEmpty) return;
-        // 同一门课可能跨学期出现，只留一个（按课程代码去重）
-        if (choices.any((choice) => choice.id == id)) return;
-        choices.add((id: id, name: course.name));
-      });
-    }
-    return choices;
-  }
+  List<({String id, String name})> _courseChoices() => courseChoices();
 
   Future<void> _pickCourse() async {
     final choices = _courseChoices();

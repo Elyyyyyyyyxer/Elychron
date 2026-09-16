@@ -13,6 +13,7 @@ void main() {
     String? taskUid,
     int rounds = 1,
     bool completed = true,
+    String? courseId,
   }) =>
       FocusSession(
         taskUid: taskUid,
@@ -22,6 +23,7 @@ void main() {
         focusedTime: Duration(minutes: focusedMinutes),
         rounds: rounds,
         completed: completed,
+        courseId: courseId,
       );
 
   final now = DateTime(2026, 9, 12, 15, 30); // 周六
@@ -227,6 +229,91 @@ void main() {
       );
       expect(list.any((e) => e.label == FocusStats.untaggedLabel), isFalse);
       expect(list.map((e) => e.label).toList(), ['作业', '报告', '论文']);
+    });
+  });
+
+  // ===== 按课程分布（课程挂载的第三件事带来的统计）=====
+  //
+  // 口径：只算**归到课程上**的会话；自由专注不进这里（它们已经在"专注对象"里各自成条）。
+  group('按课程分布', () {
+    final sessions = [
+      session(
+          startedAt: DateTime(2026, 9, 12, 8, 30),
+          focusedMinutes: 45,
+          courseId: 'MATH101'),
+      session(
+          startedAt: DateTime(2026, 9, 12, 10, 30),
+          focusedMinutes: 30,
+          courseId: 'MATH101'),
+      session(
+          startedAt: DateTime(2026, 9, 12, 14, 0),
+          focusedMinutes: 50,
+          courseId: 'CS201'),
+      // 自由专注：不该出现在按课程分布里
+      session(startedAt: DateTime(2026, 9, 12, 16, 0), focusedMinutes: 20),
+      // 上个月归到某门课的：被 from 过滤掉
+      session(
+          startedAt: DateTime(2026, 8, 20, 9, 0),
+          focusedMinutes: 60,
+          courseId: 'PHY110'),
+    ];
+
+    String nameOf(String courseId) => {
+          'MATH101': '线性代数I（H）',
+          'CS201': '程序设计与算法基础',
+          'PHY110': '大学物理（甲）II',
+        }[courseId] ??
+        '已不在课表里的课程';
+
+    test('同一门课的多次专注累加，并按"开始时间"归到当月', () {
+      final list = FocusStats.byCourse(
+        sessions,
+        nameOf: nameOf,
+        from: FocusStats.startOfMonth(DateTime(2026, 9, 12)),
+      );
+      expect(list.length, 2);
+      expect(list.first.label, '线性代数I（H）');
+      expect(list.first.focused, const Duration(minutes: 75));
+      expect(list.first.sessions, 2);
+      expect(list.last.label, '程序设计与算法基础');
+      expect(list.last.focused, const Duration(minutes: 50));
+    });
+
+    test('自由专注与上个月的都不计入', () {
+      final list = FocusStats.byCourse(
+        sessions,
+        nameOf: nameOf,
+        from: FocusStats.startOfMonth(DateTime(2026, 9, 12)),
+      );
+      expect(list.any((e) => e.label == '已不在课表里的课程'), isFalse);
+      // 90 分钟（今日两门课）而不是 110（不该含自由专注的 20 分钟）
+      final sum = list.fold<Duration>(
+          Duration.zero, (acc, item) => acc + item.focused);
+      expect(sum, const Duration(minutes: 125));
+    });
+
+    test('课程表里没有的代码 → 用兜底名，而不是空白（上学期归的课会上这里）', () {
+      final list = FocusStats.byCourse(
+        [
+          session(
+              startedAt: DateTime(2026, 9, 12, 9, 0),
+              focusedMinutes: 30,
+              courseId: 'GONE01'),
+        ],
+        nameOf: nameOf,
+      );
+      expect(list.single.label, '已不在课表里的课程');
+      expect(list.single.focused, const Duration(minutes: 30));
+    });
+
+    test('一条课程归属都没有 → 空列表（界面据此不渲染这一块）', () {
+      final list = FocusStats.byCourse(
+        [
+          session(startedAt: DateTime(2026, 9, 12, 9, 0), focusedMinutes: 30),
+        ],
+        nameOf: nameOf,
+      );
+      expect(list, isEmpty);
     });
   });
 }

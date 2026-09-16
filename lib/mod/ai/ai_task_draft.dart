@@ -2,6 +2,7 @@ import 'package:celechron/database/database_helper.dart';
 import 'package:celechron/mod/ai/ai_image.dart';
 import 'package:celechron/mod/ai/deepseek.dart';
 import 'package:celechron/mod/ai/model_resolver.dart';
+import 'package:celechron/mod/course_mount_store.dart';
 import 'package:celechron/mod/database_mod.dart';
 import 'package:get/get.dart';
 import 'package:celechron/model/task.dart';
@@ -79,6 +80,8 @@ class AiTaskDraft {
     required this.reminderMinutes,
     required this.priority,
     required this.tags,
+    this.courseName,
+    this.courseId,
     required this.location,
     required this.subtasks,
     required this.uncertain,
@@ -102,6 +105,16 @@ class AiTaskDraft {
   final int reminderMinutes;
   final TaskPriority priority;
   final List<String> tags;
+
+  /// ===== MOD: 课程（AI 生成待办挂到课程上）=====
+  ///
+  /// 模型**只回课程名**（它不知道我们的课程代码），我们再用 [resolveCourseId]
+  /// 去课表里匹配成 id。用户要求：**只有原文明确提到课程时才填**，其余一律留空 ——
+  /// 宁可这条待办不挂课程，也不要被硬套一门课。
+  final String? courseName;
+
+  /// 匹配到的课程代码；匹配不上就是 null（不挂课程）
+  final String? courseId;
   final String location;
 
   /// ===== P2：结构化的子步骤（可能带时间/地点）=====
@@ -174,6 +187,9 @@ class AiTaskDraft {
 
   static String _buildSystemPrompt(List<String> existingTags,
       {bool fromImage = false}) {
+    // 课表里的课程名：只作为**候选清单**给模型，让它从中挑一个（见下面的「课程」规则）
+    final availableCourses =
+        courseChoices().map((choice) => choice.name).toList();
     final now = DateTime.now();
     const weekdays = ['一', '二', '三', '四', '五', '六', '日'];
     final weekday = weekdays[now.weekday - 1];
@@ -199,6 +215,7 @@ ${fromImage ? _imageRules : ''}
   "reminderMinutes": 提前多少分钟提醒；用默认值就给 0
   "priority": "只能是 low / normal / high / urgent 之一",
   "tags": ["最多 $maxTagCount 个，每个不超过 $maxTagChars 字"],
+  "courseName": "课程名，**只能从下面给的课表里原样复制一个**；原文没明确提到课程就留空字符串",
   "location": "地点；原文没提就给空字符串",
   "subtasks": ["原文里的执行步骤，**以及要带的东西 / 着装 / 材料这类可打钩的清单**，最多 $maxSubtaskCount 条；都没有才给空数组。格式见下"],
   "uncertain": ["你不确定的字段名，例如 截止时间、地点；没有就给空数组"]
@@ -219,6 +236,16 @@ $_stepSchemaRules
 ${existingTags.isEmpty ? '（现在是空的，可以新建标签）' : existingTags.join('、')}
 - 如果上面某个标签能表达这条待办，就**原样使用它**（例如已有「作业」就不要写「作业提交」）
 - 总数不超过 $maxTagCount 个；确实没有合适的才新建，且最多新建 2 个
+
+关于「课程」——**默认留空，只有原文明确提到课程时才填**：
+- 什么时候填：原文里出现了课程名，例如「高数作业」「计概的实验报告」「思政论文」
+- 怎么填：**从下面课表里原样复制一个名字**，不要改写、不要缩写、不要自己编课程名
+- 什么时候留空：原文没提课程、或者提到的课不在课表里 → 一律留空字符串；
+  **不要因为"这条看起来像作业"就随便挑一门课** —— 挂错课比不挂更糟
+- 拿不准就把「课程」列进 uncertain，并且留空
+
+我的课表（**只能从这里挑**）：
+${availableCourses.isEmpty ? '（现在拿不到课表：courseName 一律留空字符串）' : availableCourses.join('、')}
 
 关于「不确定就留空」——这条比填满更重要：
 - 原文没提到的地点、标签、子步骤，一律留空字符串或空数组，**不要靠常识补全**
@@ -649,6 +676,21 @@ ${task.isEvent ? '''
     // --- uncertain：模型自报没写清的字段名
     final uncertain = _stringList(source["uncertain"], 5, 10);
 
+    // --- 课程：模型只回**课程名**（它不知道我们的课程代码），这里落到代码上
+    //
+    // 用户要求：**只有原文明确提到课程时才填**，所以模型留空时这里也不该补。
+    // 匹配不上（名字对不上课表）就当作没挂课程，并**如实告诉用户**为什么 ——
+    // 静默丢弃会让用户以为 AI 漏了，其实是我们故意不硬套一门课。
+    final courseName = _cleanString(source["courseName"], 40);
+    final courseId = resolveCourseId(courseName, courseChoices());
+    if (courseName.isNotEmpty) {
+      if (courseId == null) {
+        warnings.add("课表里没有「$courseName」，这条待办没有挂课程");
+      } else if (!uncertain.contains("课程")) {
+        warnings.add("已挂到课程「$courseName」");
+      }
+    }
+
     return AiTaskDraft(
       summary: summary,
       description: description,
@@ -662,6 +704,8 @@ ${task.isEvent ? '''
       reminderMinutes: reminderMinutes,
       uncertain: uncertain,
       warnings: warnings,
+      courseName: courseName.isEmpty ? null : courseName,
+      courseId: courseId,
     );
   }
 
@@ -876,6 +920,11 @@ ${task.isEvent ? '''
       // 和手填的一样，只属于这条待办本身。
     }
     if (location.isNotEmpty) task.location = location;
+    // ===== MOD: 课程归属（AI 从原文里认出来的课程，我们已匹配成课程代码）=====
+    // 只有真的匹配到才写；匹配不上时 courseId 是 null，这条待办就是普通待办。
+    if (courseId != null && courseId!.isNotEmpty) {
+      task.courseId = courseId;
+    }
     if (subtasks.isNotEmpty) {
       task.subtasks = <SubTask>[
         for (final step in subtasks) step.toSubTask(),

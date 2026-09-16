@@ -1,4 +1,5 @@
 import 'package:celechron/design/app_accent.dart';
+import 'package:celechron/mod/course_mount_store.dart';
 import 'package:celechron/database/database_helper.dart';
 import 'package:celechron/model/focus_engine.dart';
 import 'package:celechron/model/focus_session.dart';
@@ -49,6 +50,8 @@ class _FocusStatsPageState extends State<FocusStatsPage> {
     final byTask = FocusStats.byLabel(sessions, from: monthStart);
     final byTag = FocusStats.byTag(sessions,
         tagsOfTask: _tagsOfTasks(), from: monthStart);
+    final byCourse = FocusStats.byCourse(sessions,
+        nameOf: _courseName, from: monthStart);
     final list = sessions.where((s) => s.focusedTime > Duration.zero).toList();
 
     return CupertinoPageScaffold(
@@ -67,6 +70,7 @@ class _FocusStatsPageState extends State<FocusStatsPage> {
                   _habit(context, sessions),
                   _weekChart(context, last7),
                   if (byTask.isNotEmpty) _byTask(context, byTask),
+                  if (byCourse.isNotEmpty) _byCourse(context, byCourse),
                   if (byTag.isNotEmpty) _byTag(context, byTag),
                   _sessionList(context, list, all),
                 ],
@@ -467,6 +471,99 @@ class _FocusStatsPageState extends State<FocusStatsPage> {
   }
 
   // ------------------------------------------------------------------ 分布
+
+  /// 课程代码 → 显示名。拿不到课表时给出诚实的兜底文案。
+  ///
+  /// 「已不在课表里」是真实会发生的：上学期归到某门课的专注，这学期课表里没有它了。
+  /// 这时候不能显示空白、也不能编个名字，只能说清楚。
+  String _courseName(String courseId) {
+    for (final choice in courseChoices()) {
+      if (choice.id == courseId) return choice.name;
+    }
+    return '已不在课表里的课程';
+  }
+
+  /// 按课程分布 —— 与「专注对象」同样的条形图，只是口径换成课程。
+  ///
+  /// 只统计**归到课程上**的会话（自由专注不进这里），这一点写在标题下面，
+  /// 免得用户拿它去和总时长对不上。
+  Widget _byCourse(
+    BuildContext context,
+    List<FocusLabelTotal> totals,
+  ) {
+    final labelColor =
+        CupertinoDynamicColor.resolve(CupertinoColors.secondaryLabel, context);
+    final textColor = CupertinoTheme.of(context).textTheme.textStyle.color;
+    final shown = totals.take(6).toList();
+    final max = shown.first.focused.inMinutes;
+    final sum = totals.fold<Duration>(
+        Duration.zero, (acc, item) => acc + item.focused);
+
+    return _card(
+      children: [
+        const Text('本月按课程',
+            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+        const SizedBox(height: 4),
+        Text(
+          '只算挂到课程上的专注，合计 ${focusHuman(sum)}；自由专注不计入这里',
+          style: TextStyle(fontSize: 11, color: labelColor),
+        ),
+        const SizedBox(height: 10),
+        ...shown.map((item) {
+          final ratio = max == 0 ? 0.0 : item.focused.inMinutes / max;
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        item.label,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontSize: 14, color: textColor),
+                      ),
+                    ),
+                    Text(
+                      focusHuman(item.focused),
+                      style: TextStyle(fontSize: 13, color: labelColor),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Stack(
+                  children: [
+                    Container(
+                      height: 6,
+                      decoration: BoxDecoration(
+                        color: CupertinoDynamicColor.resolve(
+                            CupertinoColors.systemFill, context),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                    FractionallySizedBox(
+                      widthFactor: ratio.clamp(0.02, 1.0),
+                      child: Container(
+                        height: 6,
+                        decoration: BoxDecoration(
+                          color: AppAccent.primary,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          );
+        }),
+        if (totals.length > shown.length)
+          Text('……还有 ${totals.length - shown.length} 门课',
+              style: TextStyle(fontSize: 11, color: labelColor)),
+      ],
+    );
+  }
 
   Widget _byTask(
     BuildContext context,

@@ -120,6 +120,38 @@ class FocusStats {
     return list;
   }
 
+  /// 按**课程**聚合（课程挂载的第三件事带来的统计）。
+  ///
+  /// 口径：
+  /// - 只统计**归到课程上**的会话；自由专注（`courseId == null`）**不进这里** ——
+  ///   它们已经在"专注对象"里各自成条了，这里再塞个"未归属"只会让人困惑；
+  /// - 一门课的多次专注**累加**（用户明确要求允许多条归属同一节课）；
+  /// - 分项之和 ≤ 总时长，差额就是自由专注，界面上会写出来。
+  ///
+  /// [nameOf] 把课程代码换成显示名（拿不到课表时调用方可以返回兜底文案）。
+  static List<FocusLabelTotal> byCourse(
+    List<FocusSession> sessions, {
+    required String Function(String courseId) nameOf,
+    DateTime? from,
+  }) {
+    final buckets = <String, FocusLabelTotal>{};
+    for (final s in _real(sessions)) {
+      if (from != null && s.startedAt.isBefore(from)) continue;
+      final courseId = s.courseId;
+      if (courseId == null || courseId.isEmpty) continue;
+      final existing = buckets[courseId];
+      buckets[courseId] = FocusLabelTotal(
+        label: nameOf(courseId),
+        taskUid: null,
+        focused: (existing?.focused ?? Duration.zero) + s.focusedTime,
+        sessions: (existing?.sessions ?? 0) + 1,
+      );
+    }
+    final list = buckets.values.toList()
+      ..sort((a, b) => b.focused.compareTo(a.focused));
+    return list;
+  }
+
   /// 没有正常结束的会话数（崩溃留下的）—— 统计页用它提示一句
   static int interruptedCount(List<FocusSession> sessions) =>
       _real(sessions).where((s) => !s.completed).length;

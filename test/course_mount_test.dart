@@ -97,4 +97,44 @@ void main() {
       expect(tasksForCourse(tasks, ''), isEmpty);
     });
   });
+
+  // ===== AI 生成待办：模型只回课程名，我们负责落到课程代码上 =====
+  //
+  // 为什么不让模型直接回课程代码：那是教务内部的东西，它不知道，硬要只会编造。
+  // 所以让它从我们给的课表里挑名字，这里再做匹配；**匹配不上就不挂课**（宁可不挂，
+  // 不挂错课），这也是用户明确要求的口径。
+  group('课程名 → 课程代码', () {
+    final choices = <({String id, String name})>[
+      (id: 'MATH101', name: '线性代数I（H）'),
+      (id: 'CS201', name: '程序设计与算法基础'),
+      (id: 'PHY110', name: '大学物理（甲）II'),
+    ];
+
+    test('完全一样 → 命中', () {
+      expect(resolveCourseId('程序设计与算法基础', choices), 'CS201');
+    });
+
+    test('全角/半角括号、空格差异 → 仍然命中（归一化后比较）', () {
+      expect(resolveCourseId('线性代数 I (H)', choices), 'MATH101');
+      expect(resolveCourseId('线性代数I(H)', choices), 'MATH101');
+    });
+
+    test('一边包含另一边 → 命中（模型爱写简称）', () {
+      expect(resolveCourseId('线性代数', choices), 'MATH101');
+      expect(resolveCourseId('大学物理', choices), 'PHY110');
+    });
+
+    test('课表里没有这门课 → null（不硬套一门课）', () {
+      expect(resolveCourseId('量子力学导论', choices), isNull);
+    });
+
+    test('模型留空 → null（用户要求：没提到课程就不传这个字段）', () {
+      expect(resolveCourseId('', choices), isNull);
+      expect(resolveCourseId('   ', choices), isNull);
+    });
+
+    test('拿不到课表（候选为空）→ null，不会崩', () {
+      expect(resolveCourseId('线性代数', const []), isNull);
+    });
+  });
 }

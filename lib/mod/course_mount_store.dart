@@ -1,7 +1,9 @@
 import 'package:celechron/database/database_helper.dart';
 import 'package:celechron/model/course_mount.dart';
 import 'package:celechron/model/period.dart';
+import 'package:celechron/model/scholar.dart';
 import 'package:celechron/model/task.dart';
+import 'package:get/get.dart';
 
 /// 课程挂载（资料 / 评论 / 关联待办）的读写入口。
 ///
@@ -40,6 +42,65 @@ extension CourseMountStore on DatabaseHelper {
   List<Task> tasksForCourseOf(Iterable<Task> tasks, String courseId) =>
       tasksForCourse(tasks, courseId);
 }
+
+/// 课表里有哪些课（课程代码 + 课程名），用于"挂到哪门课"的选择器与 AI 匹配。
+///
+/// 同一门课可能跨学期出现 → 按课程代码去重（保留先遇到的那个名字）。
+/// 拿不到课表（没登录 / 还没抓到）就返回空列表，**调用方据此隐藏入口**，
+/// 而不是给用户一个空选择器。
+List<({String id, String name})> courseChoices() {
+  if (!Get.isRegistered<Rx<Scholar>>(tag: 'scholar')) return const [];
+  try {
+    final scholar = Get.find<Rx<Scholar>>(tag: 'scholar').value;
+    final choices = <({String id, String name})>[];
+    for (final semester in scholar.semesters) {
+      semester.courses.forEach((id, course) {
+        if (id.isEmpty) return;
+        if (choices.any((choice) => choice.id == id)) return;
+        choices.add((id: id, name: course.name));
+      });
+    }
+    return choices;
+  } catch (_) {
+    return const [];
+  }
+}
+
+/// 把"一门课的名字"落到课程代码上 —— 给 AI 用。
+///
+/// 为什么不直接让模型回课程代码：**它不知道我们的代码**（那是教务内部的东西），
+/// 硬要它回只会得到编造的字符串。所以让它从我们给的课表里**挑名字**，这里再匹配：
+/// 1. 归一化后完全相等 → 命中；
+/// 2. 否则一边包含另一边（例如模型写「高等数学」而课表里是「高等数学（H）」）→ 命中；
+/// 3. 都命中不了就返回 null —— **宁可不挂，也不挂错课**。
+///
+/// 纯函数、无 IO，可单测（见 `test/course_mount_test.dart`）。
+String? resolveCourseId(
+  String name,
+  List<({String id, String name})> choices,
+) {
+  final target = normalizeCourseName(name);
+  if (target.isEmpty || choices.isEmpty) return null;
+  for (final choice in choices) {
+    if (normalizeCourseName(choice.name) == target) return choice.id;
+  }
+  for (final choice in choices) {
+    final candidate = normalizeCourseName(choice.name);
+    if (candidate.isEmpty) continue;
+    if (candidate.contains(target) || target.contains(candidate)) {
+      return choice.id;
+    }
+  }
+  return null;
+}
+
+/// 课程名归一化：去掉所有空白与常见括号/标点，再转小写。
+///
+/// 只用于"是不是同一门课"的判断，**不用于显示** ——
+/// 「线性代数I（H）」「线性代数 I (H)」归一化后应当相等。
+String normalizeCourseName(String name) => name
+    .replaceAll(RegExp(r'[\s（）()【】\[\]「」·、,，.。:：]'), '')
+    .toLowerCase();
 
 /// 从一堆待办里挑出挂在这门课上的那些。
 /// 规则：
