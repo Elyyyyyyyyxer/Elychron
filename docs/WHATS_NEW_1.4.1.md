@@ -1079,6 +1079,8 @@ if (restoredScholar.isLogan && credentialsMissing) {
   - ✅ **启动路标一声不响**：`_bootProbesEnabled = false` 生效，
     `logcat --pid` 里只剩 Impeller 那一行，没有 `[boot] 1…8`；
   - ✅ 没有异常日志（异常路径那几条日志本来就只在真出事时打）。
+- ✅ 顺手在真机上**点开「闹钟可靠性」面板确认**新加的那句确实渲染出来了
+  （在语义树里查到该节点的真实 bounds，不是"只写进代码没显示"）
 - 这一步的意义：**发布前至少要有一次"用最终二进制 + 真数据"的验证**，
   而不是只信 `flutter test` 和「本地能编过」。
 
