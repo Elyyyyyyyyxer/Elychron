@@ -172,7 +172,7 @@ class DeadlineAdapter extends TypeAdapter<Task> {
   @override
   void write(BinaryWriter writer, Task obj) {
     writer
-      ..writeByte(23) // P5：不再写 4 / 8 / 14 三个废弃序号
+      ..writeByte(24) // 加了 26（课程归属）→ 24；P5 起不再写 4 / 8 / 14 三个废弃序号
       ..writeByte(0)
       ..write(obj.uid)
       ..writeByte(1)

@@ -9,7 +9,7 @@ class FocusSessionAdapter extends TypeAdapter<FocusSession> {
   @override
   void write(BinaryWriter writer, FocusSession obj) {
     writer
-      ..writeByte(11)
+      ..writeByte(12)
       ..writeByte(0)
       ..write(obj.uid)
       ..writeByte(1)
