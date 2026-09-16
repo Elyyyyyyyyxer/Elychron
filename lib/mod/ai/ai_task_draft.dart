@@ -142,7 +142,9 @@ class AiTaskDraft {
   static const int maxTagCount = 3;
   static const int maxTagChars = 12;
   static const int maxLocationChars = 60;
-  static const int maxSubtaskCount = 5;
+  /// 一次最多几条子待办（2026-09-16 用户要求 5 → **7**）。
+  /// 只影响 AI 拆解；手动加子待办没有上限。
+  static const int maxSubtaskCount = 7;
   static const int maxSubtaskChars = 60;
 
   /// 让模型把一段文字整理成草稿。文本过长会被截断，避免烧钱又跑偏。

@@ -1,4 +1,5 @@
 import 'package:celechron/model/task.dart';
+import 'package:celechron/mod/focus_suspend.dart';
 import 'package:celechron/page/focus/focus_page.dart';
 import 'package:flutter/cupertino.dart';
 
@@ -17,6 +18,17 @@ Future<bool?> startFocusFor(
     CupertinoPageRoute<bool>(
       builder: (BuildContext context) =>
           FocusPage(task: task, freeLabel: freeLabel),
+    ),
+  );
+}
+
+/// 继续一次「暂停后离开」的专注（见 `mod/focus_suspend.dart`）。
+///
+/// 用户 2026-09-16 的要求：暂停时能去别的页面办事，回来接着这一次专注做。
+Future<bool?> resumeFocusFor(BuildContext context, SuspendedFocus suspended) {
+  return Navigator.of(context, rootNavigator: true).push<bool>(
+    CupertinoPageRoute<bool>(
+      builder: (BuildContext context) => FocusPage(resume: suspended),
     ),
   );
 }

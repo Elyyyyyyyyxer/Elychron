@@ -14,17 +14,38 @@ import 'package:celechron/model/scholar.dart';
 import 'package:celechron/page/scholar/course_detail/course_mount_sections.dart';
 
 class CourseDetailPage extends StatelessWidget {
-  final _scholar = Get.find<Rx<Scholar>>(tag: 'scholar');
-  late final Course course;
+  final String? courseId;
 
-  CourseDetailPage({required courseId, super.key}) {
-    course = _scholar.value.semesters
-        .firstWhere((e) => e.courses.containsKey(courseId))
-        .courses[courseId]!;
+  /// 找到的课程；**找不到就是 null**（此时页面显示一句人话，不再崩）。
+  ///
+  /// ★ 原来这里是没有 `orElse` 的 `firstWhere(...).courses[courseId]!` ——
+  /// 只要某个 courseId 不在课表里，构造就直接抛 `StateError: No element`，
+  /// 而且是在 `Navigator.push` 的路由构建里抛的 → 页面打不开 + GetX 的 Obx 被毒化
+  /// → App 卡死（系统 ANR，2026-09-16 用户报的「点成绩卡片卡死」是同一个坑的另一半）。
+  ///
+  /// 哪些 courseId 会找不到？最典型的是**成绩卡片**：军训、体育、通识课这些
+  /// **没排进课表**的课照样有成绩，点它就必然找不到课程。
+  final Course? course;
+
+  CourseDetailPage({required this.courseId, super.key})
+      : course = _findCourse(courseId);
+
+  /// 在**所有学期**里按课程代码找这门课（找不到返回 null，绝不抛）
+  static Course? _findCourse(String? id) {
+    if (id == null || id.isEmpty) return null;
+    final scholar = Get.find<Rx<Scholar>>(tag: 'scholar').value;
+    for (final semester in scholar.semesters) {
+      final found = semester.courses[id];
+      if (found != null) return found;
+    }
+    return null;
   }
 
   Widget createSessionCard(context, List<Session> sessions) {
-    sessions.sort((a, b) => a.time.first.compareTo(b.time.first));
+    // 复制一份再排序：原来直接对 `course.sessions`（模型里的那个 List）就地排序，
+    // 等于在 build 里改数据 —— 复制一份既保住顺序稳定，也不动模型。
+    sessions = List<Session>.of(sessions)
+      ..sort((a, b) => a.time.first.compareTo(b.time.first));
     return Column(
       children: [
         SubSubtitleRow(subtitle: '课时'),
@@ -395,8 +416,60 @@ class CourseDetailPage extends StatelessWidget {
     );
   }
 
+  /// 课表里找不到这门课时显示的页面（正常情况下不该出现，但**绝不能**因此崩掉）。
+  ///
+  /// 什么时候会遇到：从**成绩卡片**点进来，而那门课没排进课表（军训、体育、通识课…），
+  /// 或者课表还没刷新出来。以前这里会抛 StateError → 页面打不开 + App 卡死。
+  Widget _buildCourseNotFound(BuildContext context) {
+    final labelColor = CupertinoDynamicColor.resolve(
+        CupertinoColors.secondaryLabel, context);
+    return CupertinoPageScaffold(
+      backgroundColor: CupertinoDynamicColor.resolve(
+          CupertinoColors.systemGroupedBackground, context),
+      child: CustomScrollView(
+        slivers: [
+          const CelechronSliverTextHeader(subtitle: '课程详情'),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+              child: RoundRectangleCard(
+                animate: false,
+                child: Column(
+                  children: [
+                    Icon(CupertinoIcons.info_circle,
+                        size: 30, color: labelColor),
+                    const SizedBox(height: 10),
+                    Text('课表里没有这门课',
+                        style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: labelColor)),
+                    const SizedBox(height: 6),
+                    Text(
+                      '它可能没排进课表（例如军训、体育、通识课），'
+                      '也可能是课表还没刷新。可以在「学业」页刷新一次课表再看看。',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 13, color: labelColor),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          SliverToBoxAdapter(
+            child: SizedBox(
+              height: 16 + MediaQuery.of(context).padding.bottom,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final current = course;
+    if (current == null) return _buildCourseNotFound(context);
     return CupertinoPageScaffold(
       backgroundColor: CupertinoDynamicColor.resolve(
           CupertinoColors.systemGroupedBackground, context),
@@ -409,25 +482,25 @@ class CourseDetailPage extends StatelessWidget {
               child: Column(
                 children: [
                   SubSubtitleRow(subtitle: '基本信息'),
-                  CourseBriefCard(course: course),
+                  CourseBriefCard(course: current),
                 ],
               ),
             ),
           ),
-          if (course.sessions.isNotEmpty)
+          if (current.sessions.isNotEmpty)
             SliverToBoxAdapter(
               child: Container(
                 padding:
                     const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
-                child: createSessionCard(context, course.sessions),
+                child: createSessionCard(context, current.sessions),
               ),
             ),
-          if (course.exams.isNotEmpty)
+          if (current.exams.isNotEmpty)
             SliverToBoxAdapter(
               child: Container(
                 padding:
                     const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
-                child: createExamCard(context, course.exams),
+                child: createExamCard(context, current.exams),
               ),
             ),
           // ===== MOD: 课程挂载（资料 / 评论 / 相关待办）=====
@@ -439,19 +512,19 @@ class CourseDetailPage extends StatelessWidget {
           SliverToBoxAdapter(
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
-              child: CourseMaterialsSection(courseId: course.id ?? ''),
+              child: CourseMaterialsSection(courseId: current.id ?? ''),
             ),
           ),
           SliverToBoxAdapter(
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
-              child: CourseCommentsSection(courseId: course.id ?? ''),
+              child: CourseCommentsSection(courseId: current.id ?? ''),
             ),
           ),
           SliverToBoxAdapter(
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
-              child: CourseTasksSection(courseId: course.id ?? ''),
+              child: CourseTasksSection(courseId: current.id ?? ''),
             ),
           ),
           // ===== MOD ===== 末尾垫出系统导航栏的高度（否则最后一张卡会被压掉一半）

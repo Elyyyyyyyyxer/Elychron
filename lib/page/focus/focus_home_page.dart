@@ -2,6 +2,7 @@ import 'package:celechron/design/app_accent.dart';
 import 'package:celechron/database/database_helper.dart';
 import 'package:celechron/model/focus_engine.dart';
 import 'package:celechron/model/focus_stats.dart';
+import 'package:celechron/mod/focus_suspend.dart';
 import 'package:celechron/model/task.dart';
 import 'package:celechron/page/focus/focus_entry.dart';
 import 'package:celechron/page/focus/focus_stats_page.dart';
@@ -46,6 +47,72 @@ class _FocusHomePageState extends State<FocusHomePage> {
   String get _targetHint {
     if (_task != null) return '结束后时长会记到这条待办上';
     return '不挂任务，只进专注记录';
+  }
+
+  /// 有一次"暂停后离开"的专注还留着吗（见 mod/focus_suspend.dart）
+  SuspendedFocus? get _suspended => _db?.suspendedFocus();
+
+  /// 那张卡上的一句话：叫什么 · 已经专注多久 · 什么时候走开的
+  String get _suspendedHint {
+    final suspended = _suspended;
+    if (suspended == null) return '';
+    final session = _db?.suspendedSession();
+    final name = session?.displayName ?? '专注';
+    final focused = session?.focusedTime ?? Duration.zero;
+    final minutes = DateTime.now().difference(suspended.at).inMinutes;
+    final ago = minutes <= 0
+        ? '刚刚'
+        : (minutes < 60 ? '$minutes 分钟前' : '${minutes ~/ 60} 小时前');
+    return '「$name」· 已专注 ${focusHuman(focused)} · $ago暂停';
+  }
+
+  /// 继续那次暂停中的专注
+  Future<void> _resumeSuspended() async {
+    final suspended = _suspended;
+    if (suspended == null) return;
+    await resumeFocusFor(context, suspended);
+    if (mounted) setState(() {});
+  }
+
+  /// 不想继续了：把那次暂停中的专注结算掉
+  Future<void> _finishSuspended() async {
+    final db = _db;
+    final suspended = _suspended;
+    final session = db?.suspendedSession();
+    if (db == null || suspended == null || session == null) {
+      db?.clearSuspendedFocus();
+      if (mounted) setState(() {});
+      return;
+    }
+    final ok = await showCupertinoDialog<bool>(
+      context: context,
+      builder: (BuildContext context) => CupertinoAlertDialog(
+        title: const Text('结束这次专注？'),
+        content: Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: Text(
+            '已经专注 ${focusHuman(session.focusedTime)}'
+            '${session.taskUid != null ? '，结束后会计入这条待办' : '，结束后只进专注记录'}。',
+            style: const TextStyle(fontSize: 14),
+          ),
+        ),
+        actions: [
+          CupertinoDialogAction(
+            child: const Text('取消'),
+            onPressed: () => Navigator.of(context).pop(false),
+          ),
+          CupertinoDialogAction(
+            isDestructiveAction: true,
+            child: const Text('结束'),
+            onPressed: () => Navigator.of(context).pop(true),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    settleFocusSession(db, session, completed: true);
+    db.clearSuspendedFocus();
+    setState(() {});
   }
 
   Duration get _todayTotal {
@@ -325,6 +392,62 @@ class _FocusHomePageState extends State<FocusHomePage> {
                 style: TextStyle(fontSize: 13, color: labelColor),
               ),
             ),
+
+            // ===== MOD: 「有一次专注还没结束」的继续入口（2026-09-16）=====
+            // 暂停时离开专注页**不会结束**这次专注（见 mod/focus_suspend.dart），
+            // 所以这里要把它显式摆出来，否则用户找不到回去的路。
+            if (_suspended != null) ...[
+              const SizedBox(height: 18),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 18),
+                child: _card(
+                  children: [
+                    Row(
+                      children: [
+                        Icon(CupertinoIcons.pause_circle_fill,
+                            size: 22, color: AppAccent.primary),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            '有一次专注还没结束',
+                            style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: textColor),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Text(_suspendedHint,
+                        style: TextStyle(fontSize: 12, color: labelColor)),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _actionChip(
+                            context,
+                            icon: CupertinoIcons.play_fill,
+                            label: '继续',
+                            onTap: _resumeSuspended,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: _actionChip(
+                            context,
+                            icon: CupertinoIcons.checkmark_alt,
+                            label: '结束并结算',
+                            onTap: _finishSuspended,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                  ],
+                ),
+              ),
+            ],
 
             // 专注对象
             const SizedBox(height: 26),

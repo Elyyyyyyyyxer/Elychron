@@ -49,6 +49,38 @@ void main() async {
   // 绝不放在 widget 构造函数里 —— 那样每次重建都会改全局状态，且已证明会引发卡死。
   ErrorWidget.builder = (FlutterErrorDetails details) =>
       ScholarErrorHandler(errorDetails: details);
+
+  // ===== MOD: GetX 的「中毒」解毒剂（2026-09-16）=====
+  //
+  // 背景：用户报「点击成绩卡片任意位置会卡死」。真机复现出来，这是一条**框架级**的
+  // 放大链路 —— 跟"具体哪一行写错了"无关，所以值得在这里堵死：
+  //
+  //   ① 某个 `Obx` 的 builder 抛异常（那次是成绩页在**空列表**上取下标 → RangeError）；
+  //   ② GetX 4.7.3 `rx_interface.dart` 的 `notifyChildren` 长这样：
+  //        RxInterface.proxy = observer;      // 先设全局代理
+  //        final result = builder();          // ← 在这里抛
+  //        ...
+  //        RxInterface.proxy = oldObserver;   // 夭折：永远不会执行
+  //      ⇒ `RxInterface.proxy` 被**永久留在一个已经构建失败的 Obx 上**；
+  //   ③ 此后全 App 任何一次 Rx 读取都会挂到这个"死观察者"上 → 反复触发它 setState
+  //      → 它每次重建都再抛一次 → **主线程 100% CPU 空转**；
+  //   ④ 5 秒后系统判「Elychron 无响应」，弹 ANR 对话框 —— 用户看到的就是"卡死"。
+  //      （真机 ANR 报告佐证：主线程 state=R、utm=23.5s、全程跑在 libapp.so 里，不是死锁。）
+  //
+  // 我们改不了 GetX，但 `RxInterface.proxy` 是**公开静态字段** —— 在"构建已经出错"的
+  // 这一刻清掉它，就能断掉第 ③ 步。Flutter 捕获构建异常后会调 `FlutterError.onError`，
+  // 时机正好在 builder 抛错之后、重建循环开始之前。
+  //
+  // ⚠️ 这只是**兜底**：真正的修法永远是"别让 builder 抛错"（成绩页那次已单独修，见
+  // `lib/page/scholar/grade_detail/grade_detail_view.dart` 的 build）。
+  FlutterError.onError = (FlutterErrorDetails details) {
+    try {
+      RxInterface.proxy = null;
+    } catch (_) {
+      // 解毒本身绝不能抛
+    }
+    FlutterError.presentError(details);
+  };
   // 尽可能早地声明前台活跃，Workmanager isolate 会据此安全让行。
   await RefreshCoordinator.setForegroundActive(true);
   _bootProbe('[boot] 前台活跃已声明');

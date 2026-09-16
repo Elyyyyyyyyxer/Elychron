@@ -6,11 +6,11 @@ import 'dart:math' as math;
 import 'package:celechron/database/database_helper.dart';
 import 'package:celechron/mod/course_mount_store.dart';
 import 'package:celechron/mod/database_mod.dart';
+import 'package:celechron/mod/focus_suspend.dart';
 import 'package:celechron/model/focus_engine.dart';
 import 'package:celechron/model/focus_session.dart';
 import 'package:celechron/model/scholar.dart';
 import 'package:celechron/model/task.dart';
-import 'package:celechron/page/task/task_controller.dart';
 import 'package:celechron/utils/task_reminder.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:get/get.dart';
@@ -27,7 +27,13 @@ class FocusPage extends StatefulWidget {
   /// 自由专注的名字（如「敲代码」）
   final String? freeLabel;
 
-  const FocusPage({super.key, this.task, this.freeLabel});
+  /// 带着一次「暂停后离开」的专注进来（null = 全新开始）。
+  ///
+  /// 见 `lib/mod/focus_suspend.dart`：暂停时离开**不结束这次专注**，
+  /// 专注首页会给出「继续」入口，点它就把它传进来，原样接着做。
+  final SuspendedFocus? resume;
+
+  const FocusPage({super.key, this.task, this.freeLabel, this.resume});
 
   @override
   State<FocusPage> createState() => _FocusPageState();
@@ -48,6 +54,9 @@ class _FocusPageState extends State<FocusPage> {
   /// 打开页面时结算的「上次没正常结束」的会话（用于提示一句）
   String? _recoveredNotice;
 
+  /// true = 这次是「暂停后离开，回来接着做」（见 [FocusPage.resume]）
+  bool _resumedExisting = false;
+
   DatabaseHelper? get _db {
     if (!Get.isRegistered<DatabaseHelper>(tag: 'db')) return null;
     return Get.find<DatabaseHelper>(tag: 'db');
@@ -63,32 +72,57 @@ class _FocusPageState extends State<FocusPage> {
       return task.summary.trim();
     }
     final free = widget.freeLabel?.trim() ?? '';
-    return free.isEmpty ? '专注' : free;
+    if (free.isNotEmpty) return free;
+    // 「回来接着做」时不会再传 task / freeLabel，就用会话里记着的那个名字
+    // （否则休息提醒会变成干巴巴一句"该休息了"，看不出是哪次专注）
+    if (_resumedExisting) {
+      final name = _session.displayName;
+      if (name.isNotEmpty) return name;
+    }
+    return '专注';
   }
 
   @override
   void initState() {
     super.initState();
+    // 上次被系统杀掉留下的会话按最后记录结算（"暂停后离开"的那条会跳过，见方法内注释）
     _settleStaleSessions();
     _engine = FocusEngine(
       workMinutes: _workMinutes,
       restMinutes: _restMinutes,
     );
-    _engine.start(DateTime.now());
+
+    // ===== 是不是"回来接着做" =====
+    final resumedSession =
+        widget.resume == null ? null : _db?.suspendedSession();
+    if (resumedSession != null) {
+      // 原样接回来：**不新建会话、不重置计时**，停在上次按暂停的地方
+      _session = resumedSession;
+      _resumedExisting = true;
+      _engine.restore(
+        now: DateTime.now(),
+        focused: resumedSession.focusedTime,
+        rested: resumedSession.restTime,
+        rounds: resumedSession.rounds,
+        remaining: widget.resume!.remaining,
+        wasResting: widget.resume!.wasResting,
+      );
+    } else {
+      _engine.start(DateTime.now());
+      final startedAt = DateTime.now();
+      _session = FocusSession(
+        taskUid: widget.task?.uid,
+        label: _label,
+        startedAt: startedAt,
+        workMinutes: _workMinutes,
+        restMinutes: _restMinutes,
+        courseId: _courseIdFor(startedAt),
+      );
+      _db?.saveFocusSession(_session);
+    }
     _lastPhase = _engine.phase;
     // 一开始就把「该休息了」排进系统（锁屏也响）
     _syncRestNotice();
-
-    final startedAt = DateTime.now();
-    _session = FocusSession(
-      taskUid: widget.task?.uid,
-      label: _label,
-      startedAt: startedAt,
-      workMinutes: _workMinutes,
-      restMinutes: _restMinutes,
-      courseId: _courseIdFor(startedAt),
-    );
-    _db?.saveFocusSession(_session);
 
     _ticker = Timer.periodic(const Duration(seconds: 1), (_) => _onTick());
     // 页面关掉时把会话结算掉（正常结束走 _finish，这条路是兜底）
@@ -141,7 +175,13 @@ class _FocusPageState extends State<FocusPage> {
   void _settleStaleSessions() {
     final db = _db;
     if (db == null) return;
-    final stale = db.getUnfinishedFocusSessions();
+    // ★ 「暂停后离开」的那条**不算异常结束**：它是用户主动留着的，
+    //   结算了就等于把"回来接着做"这件事毁掉。
+    final suspendedUid = db.suspendedFocus()?.uid;
+    final stale = db
+        .getUnfinishedFocusSessions()
+        .where((s) => s.uid != suspendedUid)
+        .toList();
     if (stale.isEmpty) return;
     final minutes = stale
         .map((s) => s.focusedTime.inMinutes)
@@ -225,41 +265,9 @@ class _FocusPageState extends State<FocusPage> {
     _db?.saveFocusSession(_session);
   }
 
-  /// 结算一次会话：写终态 + 把专注时长累加到待办的 timeSpent
-  ///
-  /// 专注不到 [minimalSessionSeconds] 的**不留记录** —— 误触、进去看一眼就退出，
-  /// 不该污染统计，也不该往 timeSpent 里塞几秒。
-  static const int minimalSessionSeconds = 10;
-
-  void _settle(FocusSession session, {required bool completed}) {
-    if (session.focusedTime.inSeconds < minimalSessionSeconds) {
-      _db?.deleteFocusSession(session.uid);
-      return;
-    }
-    session
-      ..endedAt = DateTime.now()
-      ..completed = completed;
-    _db?.saveFocusSession(session);
-
-    final taskUid = session.taskUid;
-    if (taskUid == null || session.focusedTime <= Duration.zero) return;
-    try {
-      final list = Get.find<RxList<Task>>(tag: 'taskList');
-      for (final task in list) {
-        if (task.uid != taskUid) continue;
-        task.timeSpent = task.timeSpent + session.focusedTime;
-        task.updatedAt = DateTime.now();
-        break;
-      }
-      if (Get.isRegistered<TaskController>()) {
-        final controller = Get.find<TaskController>();
-        controller.updateDeadlineList();
-        controller.taskList.refresh();
-      }
-    } catch (_) {
-      // 任务列表还没准备好也不影响会话记录本身
-    }
-  }
+  /// 结算一次会话（实现挪到 `mod/focus_suspend.dart`，专注首页也要用同一份）
+  void _settle(FocusSession session, {required bool completed}) =>
+      settleFocusSession(_db, session, completed: completed);
 
   Future<void> _finish() async {
     _ticker?.cancel();
@@ -268,13 +276,45 @@ class _FocusPageState extends State<FocusPage> {
     TaskReminder.cancelFocusRestNotice();
     _flush();
     _settle(_session, completed: true);
+    // 既然结算了，"还有一次专注没结束"的入口就不能再留着
+    _db?.clearSuspendedFocus();
     if (mounted) Navigator.of(context).pop(true);
   }
 
-  Future<bool> _confirmExit() async {
-    // 一秒都没专注、也没休息过，就别问了
-    if (_engine.focused < const Duration(seconds: 30)) return true;
-    final result = await showCupertinoDialog<bool>(
+  /// 暂停着离开：**不结算**这次专注，把它留成"可以继续"，然后关掉页面。
+  ///
+  /// 用户的诉求见 `mod/focus_suspend.dart`：暂停时想去别的页面改条待办，
+  /// 回来还能接着这次专注做。
+  ///
+  /// 为什么安全：暂停状态本来就不计时，离开多久都不影响时长；
+  /// 会话记录在离开前再落一次库（`_flush`），引擎那两个存不进会话的值
+  /// （这一段还剩多久 / 暂停前是工作还是休息）单独存一份。
+  void _suspendAndLeave() {
+    _ticker?.cancel();
+    _flush();
+    _db?.saveSuspendedFocus(SuspendedFocus(
+      uid: _session.uid,
+      remaining: _engine.remaining,
+      wasResting: _engine.pausedFromResting,
+      at: DateTime.now(),
+    ));
+    // 离开页面就不该再弹「该休息了」（回来继续时会重新排）
+    TaskReminder.cancelFocusRestNotice();
+    DoNotDisturb.restore();
+    if (mounted) Navigator.of(context).pop(false);
+  }
+
+  /// 暂停并离开：先按暂停（如果还在跑），再走上面那条路
+  void _pauseAndLeave() {
+    if (!_engine.isPaused) _engine.pause();
+    setState(() {});
+    _suspendAndLeave();
+  }
+
+  Future<_ExitChoice> _confirmExit() async {
+    // 一秒都没专注、也没休息过，就别问了 —— 直接按"结束"处理
+    if (_engine.focused < const Duration(seconds: 30)) return _ExitChoice.finish;
+    final result = await showCupertinoDialog<_ExitChoice>(
       context: context,
       builder: (BuildContext context) => CupertinoAlertDialog(
         title: const Text('结束这次专注？'),
@@ -288,19 +328,25 @@ class _FocusPageState extends State<FocusPage> {
           ),
         ),
         actions: [
+          // ===== MOD: 多一个"暂停并离开"（2026-09-16 用户要求）=====
+          // 以前只有"继续/结束"，想去改一条待办就只能把这次专注结束掉。
+          CupertinoDialogAction(
+            child: const Text('暂停并离开'),
+            onPressed: () => Navigator.of(context).pop(_ExitChoice.suspend),
+          ),
           CupertinoDialogAction(
             child: const Text('继续专注'),
-            onPressed: () => Navigator.of(context).pop(false),
+            onPressed: () => Navigator.of(context).pop(_ExitChoice.stay),
           ),
           CupertinoDialogAction(
             isDestructiveAction: true,
             child: const Text('结束'),
-            onPressed: () => Navigator.of(context).pop(true),
+            onPressed: () => Navigator.of(context).pop(_ExitChoice.finish),
           ),
         ],
       ),
     );
-    return result ?? false;
+    return result ?? _ExitChoice.stay;
   }
 
   // 时间显示统一走 focus_engine 里的 focusClock / focusHuman（那份有单测）
@@ -438,6 +484,18 @@ class _FocusPageState extends State<FocusPage> {
               style: TextStyle(fontSize: 12, color: labelColor),
             ),
             const Spacer(),
+            // ===== MOD: 暂停时明确告诉用户"可以走开"（2026-09-16 用户要求）=====
+            // 不写这一句的话，"返回=结束专注"的旧印象还在，用户根本不敢按返回键。
+            if (_engine.isPaused)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
+                child: Text(
+                  '已暂停，不计时。现在可以直接返回：去改待办、回消息都行，'
+                  '这次专注不会结束，回来在「专注」页点「继续」接着做。',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 12, color: labelColor),
+                ),
+              ),
             // 按钮
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
@@ -504,7 +562,25 @@ class _FocusPageState extends State<FocusPage> {
       canPop: false,
       onPopInvokedWithResult: (didPop, result) async {
         if (didPop) return;
-        if (await _confirmExit()) await _finish();
+        // ===== MOD: 暂停状态下直接放行（2026-09-16 用户要求）=====
+        // 「专注模式暂停状态下应当可以切换到其他页面，方便修改待办之类的」
+        // —— 既然已经暂停了，返回键就不该再劝用户结束这次专注。
+        if (_engine.isPaused) {
+          _suspendAndLeave();
+          return;
+        }
+        final choice = await _confirmExit();
+        if (!mounted) return;
+        switch (choice) {
+          case _ExitChoice.finish:
+            await _finish();
+          case _ExitChoice.suspend:
+            // 先按暂停再离开：这样"暂停前是工作还是休息"被引擎记下来，
+            // 回来时才接得回原来那一段（休息中直接离开会记错）
+            _pauseAndLeave();
+          case _ExitChoice.stay:
+            break;
+        }
       },
       child: page,
     );
@@ -524,6 +600,18 @@ class _FocusPageState extends State<FocusPage> {
       ],
     );
   }
+}
+
+/// 从专注页离开时的三种选择（见 _FocusPageState._confirmExit）
+enum _ExitChoice {
+  /// 暂停并离开：**不结束**这次专注，去别的页面办完事回来接着做
+  suspend,
+
+  /// 继续专注（留在本页）
+  stay,
+
+  /// 结束这次专注并结算
+  finish,
 }
 
 /// 大圆环：底色 + 进度弧

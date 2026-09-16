@@ -168,6 +168,36 @@ class FocusEngine {
     _remaining = Duration(minutes: workMinutes);
   }
 
+  /// 暂停前那一段是「休息」吗（false = 工作段）。
+  ///
+  /// 给"暂停后离开、回来接着做"用：那份存档要记下回来后该接着哪一段。
+  bool get pausedFromResting => _pausedFrom == FocusPhase.resting;
+
+  /// 从「暂停后离开」的存档里**原样接回来**（2026-09-16）。
+  ///
+  /// 为什么要专门一个方法：专注页关掉之后引擎就没了，而"这一段还剩多久 /
+  /// 暂停前是工作还是休息 / 已经专注了多久"这些都得原样恢复，
+  /// 否则回来要么从头开始（白算）、要么时长对不上。
+  ///
+  /// 恢复后停在 [FocusPhase.paused]：让用户自己点「继续」，
+  /// 而不是一进页面就开始计时（他可能只是回来看看）。
+  void restore({
+    required DateTime now,
+    required Duration focused,
+    required Duration rested,
+    required int rounds,
+    required Duration remaining,
+    required bool wasResting,
+  }) {
+    _phase = FocusPhase.paused;
+    _pausedFrom = wasResting ? FocusPhase.resting : FocusPhase.working;
+    _focused = focused.isNegative ? Duration.zero : focused;
+    _rested = rested.isNegative ? Duration.zero : rested;
+    _rounds = rounds < 0 ? 0 : rounds;
+    _remaining = remaining.isNegative ? Duration.zero : remaining;
+    _now = now;
+  }
+
   /// 暂停：记住暂停前是工作还是休息，继续时回到那一段
   void pause() {
     if (_phase != FocusPhase.working && _phase != FocusPhase.resting) return;
