@@ -11,6 +11,7 @@ import 'package:celechron/model/course.dart';
 import 'package:celechron/model/exam.dart';
 import 'package:celechron/model/session.dart';
 import 'package:celechron/model/scholar.dart';
+import 'package:celechron/page/scholar/course_detail/course_mount_sections.dart';
 
 class CourseDetailPage extends StatelessWidget {
   final _scholar = Get.find<Rx<Scholar>>(tag: 'scholar');
@@ -429,6 +430,30 @@ class CourseDetailPage extends StatelessWidget {
                 child: createExamCard(context, course.exams),
               ),
             ),
+          // ===== MOD: 课程挂载（资料 / 评论 / 相关待办）=====
+          //
+          // 三个区块各自管自己的状态（见 course_mount_sections.dart），
+          // 所以这个页面仍然是 StatelessWidget，改动面最小。
+          // 口径：评论与资料挂"课程总体"（键 = 课程代码）；待办走 Task.courseId，
+          // 关系只存一处、不冗余。拍板决定见 docs/BACKLOG.md #24。
+          SliverToBoxAdapter(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
+              child: CourseMaterialsSection(courseId: course.id ?? ''),
+            ),
+          ),
+          SliverToBoxAdapter(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
+              child: CourseCommentsSection(courseId: course.id ?? ''),
+            ),
+          ),
+          SliverToBoxAdapter(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
+              child: CourseTasksSection(courseId: course.id ?? ''),
+            ),
+          ),
           // ===== MOD ===== 末尾垫出系统导航栏的高度（否则最后一张卡会被压掉一半）
           SliverToBoxAdapter(
             child: SizedBox(

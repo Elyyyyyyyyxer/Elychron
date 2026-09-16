@@ -7,11 +7,13 @@ import 'package:celechron/design/task_priority_color.dart';
 import 'package:celechron/design/task_kind_selector.dart';
 import 'package:celechron/design/task_time_panel.dart';
 import 'package:celechron/model/task.dart';
+import 'package:celechron/model/scholar.dart';
 import 'package:celechron/utils/attachment_helper.dart';
 import 'package:celechron/utils/time_helper.dart';
 import 'package:celechron/utils/utils.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart' show Icons;
+import 'package:get/get.dart';
 import 'package:celechron/mod/ai/ai_compose_sheet.dart';
 import 'package:celechron/mod/ai/ai_task_draft.dart';
 import 'package:celechron/design/dingtalk_sheet.dart';
@@ -202,6 +204,67 @@ class _TaskCreatePageState extends State<TaskCreatePage> {
       parts.add('提醒 ${TimeHelper.chineseDateTime(now.reminderTargetTime)}');
     }
     return parts.join(' · ');
+  }
+
+  // ---------------------------------------------------------------- 课程
+
+  /// 可选：把这条待办**挂到某门课上**（挂上之后它会出现在那门课的「相关待办」里）。
+  ///
+  /// 课程清单来自已抓到的课表（`scholar.semesters[].courses`），
+  /// 所以只有登录过、有课表时才显示这一行 —— 没课表就不显示，别给一个空选择器。
+  ///
+  /// 这里刻意**只提供一个可选字段**，不强制、不猜：
+  /// AI 生成待办那边同理（只有输入里明确提到课程才回填，见 `ai_task_draft.dart`）。
+  List<({String id, String name})> _courseChoices() {
+    if (!Get.isRegistered<Rx<Scholar>>(tag: 'scholar')) {
+      return const [];
+    }
+    final scholar = Get.find<Rx<Scholar>>(tag: 'scholar').value;
+    final choices = <({String id, String name})>[];
+    for (final semester in scholar.semesters) {
+      semester.courses.forEach((id, course) {
+        if (id.isEmpty) return;
+        // 同一门课可能跨学期出现，只留一个（按课程代码去重）
+        if (choices.any((choice) => choice.id == id)) return;
+        choices.add((id: id, name: course.name));
+      });
+    }
+    return choices;
+  }
+
+  Future<void> _pickCourse() async {
+    final choices = _courseChoices();
+    final picked = await showDingTalkSheet<String>(
+      context: context,
+      title: '挂到哪门课',
+      subtitle: '挂上之后，它会出现在那门课的「相关待办」里',
+      current: now.courseId,
+      options: [
+        const DingTalkSheetOption(
+          label: '不挂课程',
+          subtitle: '就是一条普通待办',
+          value: '',
+        ),
+        for (final choice in choices)
+          DingTalkSheetOption(
+            label: choice.name,
+            value: choice.id,
+          ),
+      ],
+    );
+    if (picked == null || !mounted) return;
+    setState(() => now.courseId = picked.isEmpty ? null : picked);
+  }
+
+  /// 当前挂的课程名（没挂或课表里找不到都返回空串）
+  String _courseLabel() {
+    final id = now.courseId;
+    if (id == null || id.isEmpty) return '未指定';
+    for (final choice in _courseChoices()) {
+      if (choice.id == id) return choice.name;
+    }
+    // 课表换了、这门课不在了：如实说，别显示一个不存在的名字
+    return '已不在课表里';
   }
 
   // ---------------------------------------------------------------- 优先级
@@ -656,6 +719,39 @@ class _TaskCreatePageState extends State<TaskCreatePage> {
                     child: Text(
                       _timeSummary(),
                       style: TextStyle(fontSize: 13, color: labelColor),
+                    ),
+                  ),
+                ],
+              ),
+
+            // ===== MOD: 挂到某门课（可选；没课表时不显示这一行）=====
+            if (_courseChoices().isNotEmpty)
+              _card(
+                children: [
+                  _iconRow(
+                    icon: CupertinoIcons.book,
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: _chip(
+                        onTap: _pickCourse,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              '课程：${_courseLabel()}',
+                              style: TextStyle(
+                                fontSize: 15,
+                                color: now.courseId == null
+                                    ? labelColor
+                                    : CupertinoColors.systemBlue,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Icon(CupertinoIcons.chevron_right,
+                                size: 14, color: labelColor),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
                 ],
