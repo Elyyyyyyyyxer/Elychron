@@ -3,7 +3,6 @@ import 'package:hive/hive.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import 'package:celechron/model/task.dart';
-import 'package:celechron/model/tombstone.dart';
 import 'package:celechron/worker/fuse.dart';
 import 'package:celechron/model/scholar.dart';
 import 'package:celechron/model/period.dart';
@@ -14,13 +13,10 @@ import 'adapters/scholar_adapter.dart';
 import 'package:celechron/model/focus_session.dart';
 import 'dart:async';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:celechron/utils/data_sync.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:path_provider/path_provider.dart';
-import 'package:hive/src/binary/binary_reader_impl.dart';
-import 'package:hive/src/registry/type_registry_impl.dart';
 import 'package:celechron/mod/ai/deepseek.dart';
 import 'package:uuid/uuid.dart';
 import 'adapters/deadline_adapter.dart';
@@ -28,6 +24,18 @@ import 'adapters/period_adapter.dart';
 import 'adapters/fuse_adapter.dart';
 import 'adapters/course_id_map_adapter.dart';
 import 'adapters/focus_adapter.dart';
+
+/// 启动路标总开关（和 `main.dart` 里那个是**各自文件私有**的同名开关，互不干扰）。
+///
+/// `[boot] 4.1…4.5` 只是"开到第几个盒子了"的路标，发布版保持 false。
+/// 排查启动问题时改成 true 重新构建；**异常日志（自愈/删锁/留档/抢救）不受它控制**，
+/// 那些继续用 `debugPrint` 原样打 —— 它们只在真出事时出现。
+bool _bootProbesEnabled = false;
+
+/// 打一条启动路标（受 [_bootProbesEnabled] 控制）。
+void _bootProbe(String message) {
+  if (_bootProbesEnabled) debugPrint(message);
+}
 
 /// 密钥库（FlutterSecureStorage）调用的**保险丝**：超时就当没有，绝不阻塞启动。
 ///
@@ -261,172 +269,24 @@ Future<void> rescueDamagedTaskBoxOnce(
   }
 }
 
-/// 打开前体检：帧扫一遍，发现坏帧就**就地截断**（原文件先备份）。
-///
-/// 2026-09-16 真实事故：给 `Task` 加了字段（26）却忘了同步 adapter 的**字段计数**
-/// （声明 23 个、实际写 24 个）→ 每次保存待办都写下一个"多一对字节"的坏帧 →
-/// 读取时列表读取器把多出来的那个 `26` 当成下一个元素的 typeId →
-/// `HiveError: Cannot read, unknown typeId: 26` → `openBox` 抛错 →
-/// `main()` 在 `runApp` 之前就死了 → 用户看到的就是「App 打不开」。
-///
-/// 截断的依据是：坏帧都产生于**同一个版本**，所以它们**连续地待在文件末尾**；
-/// 而每次保存写的都是整份列表，因此**最后一个好帧里已经有完整数据**，
-/// 截断只会丢掉坏帧之后的那几次写入，不会丢历史。
-///
-/// 备份文件名带时间戳（`<name>.hive.damaged-<ts>`），**绝不直接删原文件**。
-/// 整个过程包在 try 里：体检本身出任何问题都不该阻止 App 启动。
-Future<void> repairBoxFileIfNeeded(String name, Directory directory) async {
-  final file = File(boxFilePath(directory, name));
-  try {
-    if (!await file.exists()) return;
-    final raf = await file.open();
-    try {
-      final total = await raf.length();
-      if (total <= 0) return;
-
-      // 第一步：**流式**走一遍帧边界 —— 只 seek + 读 4 字节。
-      //
-      // 这里绝不能用 `readAsBytes()` 把整个文件读进内存：待办盒子每次保存都追加
-      // 一整份列表，攒一晚上就能到几十上百 MB，一次读完会让启动直接卡死
-      // （我前两版就是这么被系统的启动看门狗掐掉的：日志停在"体检"之前）。
-      final starts = <int>[];
-      var position = 0;
-      while (position + 4 <= total && starts.length < 200000) {
-        await raf.setPosition(position);
-        final head = await raf.read(4);
-        if (head.length < 4) break;
-        final length =
-            ByteData.sublistView(Uint8List.fromList(head)).getUint32(0, Endian.little);
-        if (length < 8 || position + 4 + length > total) break;
-        starts.add(position);
-        position += 4 + length;
-      }
-      final stamp = DateTime.now().millisecondsSinceEpoch;
-      if (starts.isEmpty) {
-        await raf.close();
-        await file.copy('${file.path}.damaged-$stamp');
-        await file.rename('${file.path}.unreadable-$stamp');
-        debugPrint('[boot] $name 没有完整帧 → 已挪走（原文件留在 .damaged）');
-        return;
-      }
-
-      // 第二步：**从最后一帧往前**找第一个能解码的。
-      // 坏帧产自同一个版本，必然连续待在末尾 —— 通常试一两次就命中。
-      final registry = _repairRegistry();
-      for (var i = starts.length - 1; i >= 0 && i >= starts.length - 50; i--) {
-        final start = starts[i];
-        final end = i + 1 < starts.length ? starts[i + 1] : total;
-        if (end - start > 32 * 1024 * 1024) return; // 单帧异常大：不碰
-        await raf.setPosition(start);
-        final frameBytes = await raf.read(end - start);
-        if (_frameDecodes(Uint8List.fromList(frameBytes), 0, frameBytes.length, registry)) {
-          if (end >= total) return; // 最后一帧就是好的：文件没问题
-          await raf.close();
-          await file.copy('${file.path}.damaged-$stamp');
-          // 截断到这一帧的结尾
-          final keep = await file.open(mode: FileMode.append);
-          await keep.truncate(end);
-          await keep.close();
-          debugPrint(
-              '[boot] $name 有坏帧：已截断到 $end/$total 字节'
-              '（丢了末尾 ${starts.length - 1 - i} 帧，备份 .damaged-$stamp）');
-          return;
-        }
-      }
-      await raf.close();
-      await file.copy('${file.path}.damaged-$stamp');
-      await file.rename('${file.path}.unreadable-$stamp');
-      debugPrint('[boot] $name 末尾 50 帧都读不动 → 已挪走（备份 .damaged-$stamp）');
-    } finally {
-      // raf 可能已经被上面关掉了，重复 close 是安全的
-      try {
-        await raf.close();
-      } catch (_) {}
-    }
-  } catch (error) {
-    debugPrint('[boot] $name 体检失败（继续启动）：$error');
-  }
-}
-
-/// 体检用的类型注册表（与 `init()` 里注册的同一批 adapter）
-TypeRegistryImpl _repairRegistry() => TypeRegistryImpl()
-  ..registerAdapter(DurationAdapter())
-  ..registerAdapter(ScholarAdapter())
-  ..registerAdapter(DeadlineStatusAdapter())
-  ..registerAdapter(DeadlineTypeAdapter())
-  ..registerAdapter(DeadlineRepeatTypeAdapter())
-  ..registerAdapter(TaskPriorityAdapter())
-  ..registerAdapter(SubTaskAdapter())
-  ..registerAdapter(TaskAttachmentAdapter())
-  ..registerAdapter(TaskCommentAdapter())
-  ..registerAdapter(DeadlineAdapter())
-  ..registerAdapter(PeriodTypeAdapter())
-  ..registerAdapter(PeriodAdapter())
-  ..registerAdapter(FuseAdapter())
-  ..registerAdapter(CourseIdMapAdapter())
-  ..registerAdapter(FocusSessionAdapter());
-
-/// 单独解一帧，能解开就是好的（坏帧会抛 unknown typeId）。
-bool _frameDecodes(Uint8List bytes, int start, int end, TypeRegistryImpl registry) {
-  try {
-    final reader = BinaryReaderImpl(Uint8List.sublistView(bytes, start, end), registry);
-    return reader.readFrame() != null;
-  } catch (_) {
-    return false;
-  }
-}
-
-/// 找出"还能读的最长前缀"：**从头逐帧解码**，遇到第一个读不动的帧就停。
-///
-/// 为什么不用"截断 + 试开盒子"那种二分：每次试开都要把整个前缀重新解码一遍，
-/// 文件一大就是十几秒，而**系统会因为启动太久直接把进程判成 AppBootFail**
-/// （我第一版就是这么被掐掉的：日志走到"尝试截断修复"就没了）。
-///
-/// 这里改成一遍扫描：读帧长 → 只解码这一帧 → 好就前进，坏就返回当前位置。
-/// 帧长是帧本身的前 4 字节（小端），所以哪怕不解码也能安全地按帧步进。
-///
-/// 返回的偏移量就是"最后一个好帧的结尾"，也可能落在坏帧内部 —— 都无所谓：
-/// 写回去之后，Hive 会把残缺的尾帧按"上次崩溃"处理并自动裁掉。
-Future<int?> _largestReadablePrefix(String name, Uint8List bytes) async {
-  // 与 init() 里注册的同一批 adapter（解码时要用它们认 typeId）
-  final registry = TypeRegistryImpl()
-    ..registerAdapter(DurationAdapter())
-    ..registerAdapter(ScholarAdapter())
-    ..registerAdapter(DeadlineStatusAdapter())
-    ..registerAdapter(DeadlineTypeAdapter())
-    ..registerAdapter(DeadlineRepeatTypeAdapter())
-    ..registerAdapter(TaskPriorityAdapter())
-    ..registerAdapter(SubTaskAdapter())
-    ..registerAdapter(TaskAttachmentAdapter())
-    ..registerAdapter(TaskCommentAdapter())
-    ..registerAdapter(DeadlineAdapter())
-    ..registerAdapter(PeriodTypeAdapter())
-    ..registerAdapter(PeriodAdapter())
-    ..registerAdapter(FuseAdapter())
-    ..registerAdapter(CourseIdMapAdapter())
-    ..registerAdapter(FocusSessionAdapter());
-
-  var position = 0;
-  while (position + 4 <= bytes.length) {
-    final frameLength =
-        ByteData.sublistView(bytes, position, position + 4).getUint32(0, Endian.little);
-    // 帧长不合理（残缺尾帧 / 已经错位）→ 就停在这里
-    if (frameLength < 8 || position + 4 + frameLength > bytes.length) break;
-    try {
-      final reader = BinaryReaderImpl(
-        Uint8List.sublistView(bytes, position, position + 4 + frameLength),
-        registry,
-      );
-      if (reader.readFrame() == null) break;
-    } catch (_) {
-      // 第一个读不动的帧 —— 正是我们要截断的位置
-      break;
-    }
-    position += 4 + frameLength;
-  }
-  debugPrint('[boot] $name 扫描结果：可读到 $position / ${bytes.length} 字节');
-  return position;
-}
+// ===== 关于"自己按帧扫描修复"这段历史（代码已删，教训留在这里）=====
+//
+// 2026-09-16 处理「App 打不开」时，我写过两版"自己扫帧"的修复，都没成功，代码已删。
+// 写清楚是为了**以后别再来一遍**：
+//
+//   · 第一版：`readAsBytes()` 把整个盒子读进内存，再逐帧做"截断 + 试开盒子"二分。
+//     待办盒子**每次保存都写一整份列表**，攒一晚上就是几十上百 MB ——
+//     一次读完直接超出系统给的启动时间，进程被判 `AppBootFail` 掐掉
+//     （日志停在"体检"之前，什么都看不到）。**任何时候都别把整个 .hive 读进内存。**
+//   · 第二版：只从文件尾往回扫 50 帧，找"最后一个能解码的好帧"。
+//     可是那份备份被 Hive 压缩过，**整个文件只有 1 帧**，而它恰好就是坏的 ——
+//     扫不出任何好帧，功能等于没有。
+//
+// 最后真正管用的是另外两条路：
+//   ① `DeadlineAdapter.read` 里的**兼容读取**（把多写出来的那一对字节吃回去）；
+//   ② 把备份复制成临时盒子，**交给 Hive 自己 `openBox` 解析**
+//      （见 `salvageTasksFromBackupOnce`）。
+// 结论：**不要自己实现 Hive 的帧解析**，让 Hive 自己去读。
 
 class DatabaseHelper {
   /// optionsBox 是否已经开好（自我修复靠它记进度，所以它开好之前不能读 optionsBox ——
@@ -490,7 +350,7 @@ class DatabaseHelper {
     final hiveDirectory = await getApplicationDocumentsDirectory();
     optionsBox = await openBoxResilient(dbOptions, hiveDirectory);
     _optionsOpen = true;
-    debugPrint('[boot] 4.1 optionsBox');
+    _bootProbe('[boot] 1 optionsBox');
     // ===== 一次性抢救：先把已知写坏的待办盒子挪走 =====
     //
     // 2026-09-16 事故：`Task` 加了字段 26 却没同步 adapter 的字段计数 →
@@ -506,19 +366,19 @@ class DatabaseHelper {
     await rescueDamagedTaskBoxOnce(hiveDirectory, optionsBox, dbTask);
     scholarBox = await openBoxResilient(dbScholar, hiveDirectory);
     taskBox = await openBoxResilient(dbTask, hiveDirectory);
-    debugPrint('[boot] 4.2 taskBox');
+    _bootProbe('[boot] 2 taskBox');
     flowBox = await openBoxResilient(dbFlow, hiveDirectory);
     originalWebPageBox = await openBoxResilient(dbOriginalWebPage, hiveDirectory);
     fuseBox = await openBoxResilient(dbFuse, hiveDirectory);
     customGpaBox = await openBoxResilient(dbCustomGpa, hiveDirectory);
     tombstoneBox = await openBoxResilient(dbTombstones, hiveDirectory);
     focusBox = await openBoxResilient(dbFocus, hiveDirectory);
-    debugPrint('[boot] 4.3 focusBox');
+    _bootProbe('[boot] 3 focusBox');
     accountBox = await openBoxResilient(dbAccount, hiveDirectory);
     courseMountBox = await openBoxResilient(dbCourseMount, hiveDirectory);
-    debugPrint('[boot] 4.4 新盒子');
+    _bootProbe('[boot] 4 新盒子');
     secureStorage = const FlutterSecureStorage();
-    debugPrint('[boot] 4.5 密钥库对象建好');
+    _bootProbe('[boot] 5 密钥库对象建好');
 
     // ===== P5：清掉「时间规划」时代留在 optionsBox 里的三个键 =====
     // P1 删功能时只删了访问器，值还躺在盒子里（workTime / restTime / allowTime）。

@@ -7,7 +7,6 @@ import 'package:celechron/model/task.dart';
 // ===== MOD: 魔改逻辑集中在 lib/mod/ 下，本文件只留调用点 =====
 import 'package:celechron/mod/loop_guard.dart';
 import 'package:celechron/mod/task_runtime_mod.dart';
-import 'package:celechron/utils/utils.dart';
 import 'package:celechron/worker/todo_widget_messenger.dart';
 
 class TaskController extends GetxController with TaskListFilterMod {

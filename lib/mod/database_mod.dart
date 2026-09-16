@@ -1,6 +1,5 @@
 import 'package:celechron/database/database_helper.dart';
 import 'package:celechron/model/tombstone.dart';
-import 'package:hive/hive.dart';
 import 'package:celechron/model/option.dart';
 import 'package:get/get.dart';
 

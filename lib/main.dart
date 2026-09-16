@@ -11,7 +11,6 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:celechron/page/scholar/scholar_view.dart';
 import 'package:get/get.dart';
 import 'package:celechron/model/task.dart';
-import 'package:celechron/utils/utils.dart';
 
 import 'package:path_provider/path_provider.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -28,34 +27,47 @@ import 'package:celechron/worker/todo_widget_messenger.dart';
 import 'package:celechron/database/database_helper.dart';
 import 'package:celechron/utils/global.dart';
 
+/// 启动路标总开关。**发布版保持 false。**
+///
+/// `[boot] 1…8`（main.dart）和 `[boot] 4.1…4.5`（database_helper.dart）是"走到哪一步了"
+/// 的路标 —— 2026-09-16 的「App 打不开」就是靠它们定位到"卡在开某个盒子上"的，
+/// 所以**代码留着**；但正常用户不需要每次开机都往 logcat 里灌十几行。
+/// 排查启动问题时：把这里改成 `true` 重新构建（这种诊断包不要发出去）。
+///
+/// ⚠️ **只关路标，不关异常日志** —— 自愈、删锁、留档、抢救那些 `[boot]` 只在真出事时
+/// 才打，继续用 `debugPrint` 原样保留（那才是现场最有用的东西）。
+bool _bootProbesEnabled = false;
+
+/// 打一条启动路标（受 [_bootProbesEnabled] 控制）。
+void _bootProbe(String message) {
+  if (_bootProbesEnabled) debugPrint(message);
+}
+
 void main() async {
-  // ===== 临时启动探针（排查"App 打不开"）=====
-  // 现象：进程活着、无异常、first frame 永远不来。要定位卡在哪个 await，
-  // 只能一步一步打点。定位完就删。
-  debugPrint('[boot] 1 进入 main');
+  _bootProbe('[boot] 1 进入 main');
   // 全局错误组件：只设一次，且必须早于任何 widget 构建。
   // 绝不放在 widget 构造函数里 —— 那样每次重建都会改全局状态，且已证明会引发卡死。
   ErrorWidget.builder = (FlutterErrorDetails details) =>
       ScholarErrorHandler(errorDetails: details);
   // 尽可能早地声明前台活跃，Workmanager isolate 会据此安全让行。
   await RefreshCoordinator.setForegroundActive(true);
-  debugPrint('[boot] 2 前台活跃已声明');
+  _bootProbe('[boot] 前台活跃已声明');
 
   // 初始化数据库
   await Hive.initFlutter();
-  debugPrint('[boot] 3 Hive 就绪');
+  _bootProbe('[boot] Hive 就绪');
   var db = Get.put(DatabaseHelper(), tag: 'db');
   await db.init();
-  debugPrint('[boot] 4 db.init 完成');
+  _bootProbe('[boot] db.init 完成');
 
   final taskList = db.getTaskList();
-  debugPrint('[boot] 5 任务列表读到 ${taskList.length} 条');
+  _bootProbe('[boot] 任务列表读到 ${taskList.length} 条');
   await _applyPendingTodoWidgetCompletions(db, taskList);
-  debugPrint('[boot] 6 小组件队列处理完');
+  _bootProbe('[boot] 小组件队列处理完');
 
   // 注入数据观察项（相当于事件总线，更新这些变量将导致Widget重绘
   final restoredScholar = await db.getScholar();
-  debugPrint('[boot] 7 scholar 读到');
+  _bootProbe('[boot] scholar 读到');
 
   // ===== MOD: 「已登录但没有学号」= 半坏状态，必须当没登录 =====
   //
@@ -96,7 +108,7 @@ void main() async {
   Get.put(db.getFuse().obs, tag: 'fuse');
 
   runApp(const CelechronApp());
-  debugPrint('[boot] 8 runApp 已调用');
+  _bootProbe('[boot] runApp 已调用');
 
   // ===== 一次性抢救：从被打坏的待办盒子备份里把数据捞回来 =====
   //

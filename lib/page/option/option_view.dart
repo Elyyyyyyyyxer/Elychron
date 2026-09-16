@@ -1,16 +1,13 @@
 import 'package:celechron/utils/platform_features.dart';
 import 'package:celechron/worker/fuse.dart';
-import 'package:celechron/design/alarm_theme_picker.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import 'package:url_launcher/url_launcher_string.dart';
 
-import 'package:celechron/utils/utils.dart';
 import 'package:celechron/model/option.dart';
 import 'package:celechron/design/cupertino_async_switch.dart';
 // ===== MOD: 导出/导入实现见 lib/mod/settings_data_actions.dart =====
-import 'package:celechron/mod/settings_data_actions.dart';
 
 import 'course_id_mapping_edit_page.dart';
 import 'credits_page.dart';
