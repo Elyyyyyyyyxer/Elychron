@@ -66,10 +66,9 @@ Future<T?> secureStorageOrNull<T>(Future<T> future) async {
 /// 放在 `runApp` 之后跑（不 await）：抢救可能要扫一会儿，但**不能挡住界面**。
 Future<int> salvageTasksFromBackupOnce(
     Directory directory, Box taskBox, Box options) async {
-  // 换过键：第一版用 `salvagedTaskBox20260916`，但它把"盒子非空"当成"已有数据"，
-  // 而 App 启动后自己就会往盒子里写 `deadlineListUpdateTime` 等进度键 ✗ →
-  // 抢救被误判为"不需要"并顺手用掉了标记。现在改成看**待办列表本身**是否为空。
-  const flagKey = 'salvagedTaskBox20260916b';
+  // 键里带版本号：抢救逻辑每改一次就 +1。否则"上一次那版用掉了标记"会把新版挡住
+  // —— 这件事已经坑了我三次（盒子非空误判、只扫尾部 200 帧、以及现在这次）。
+  const flagKey = 'salvagedTaskBox_v4_20260916';
   try {
     if (options.get(flagKey) == true) return 0;
     // 只在"当前一条待办都没有"时才动手 —— 有数据就一条都不碰，
@@ -84,61 +83,50 @@ Future<int> salvageTasksFromBackupOnce(
     }
     if (backups.isEmpty) {
       await options.put(flagKey, true);
+      debugPrint('[boot] salvage: no backups found');
       return 0;
     }
     // 最新的那个备份（时间戳在文件名里）
     backups.sort((a, b) => a.path.compareTo(b.path));
     final backup = backups.last;
-    debugPrint('[boot] 开始从备份抢救待办：${backup.path}');
+    debugPrint('[boot] salvage: backups=${backups.length} newest=${backup.path}');
 
-    final registry = _repairRegistry();
-    final raf = await backup.open();
+    // ===== 让 Hive 自己去读它 =====
+    //
+    // 前面试过"自己按帧扫描"，但那份备份只有 1 帧（Hive 压缩过），而它恰好是坏帧 ——
+    // 扫不出"好帧"来。其实数据**完好无损**：坏的只是"字段计数写了 23、实际写了 24"，
+    // 而这一点已经在 `DeadlineAdapter.read` 里做了兼容（读完字段后偷看一个字节，
+    // 是 26 就把多出来的那一对吃回去）。
+    //
+    // 所以这里不自己解析了：**把备份复制成一个临时盒子，交给 Hive 打开并读出
+    // `deadlineList`** —— CRC 校验、类型注册、列表还原全由它来做，最不容易错。
+    // 原备份一个字都不改；临时盒子用完就删。
+    final tempName = 'dbsalvage';
+    final tempFile = File(boxFilePath(directory, tempName));
     try {
-      final total = await raf.length();
-      // 第一步：便宜地走一遍帧边界（只读 4 字节）
-      final starts = <int>[];
-      var position = 0;
-      while (position + 4 <= total && starts.length < 200000) {
-        await raf.setPosition(position);
-        final head = await raf.read(4);
-        if (head.length < 4) break;
-        final length =
-            ByteData.sublistView(Uint8List.fromList(head)).getUint32(0, Endian.little);
-        if (length < 8 || position + 4 + length > total) break;
-        starts.add(position);
-        position += 4 + length;
+      await tempFile.writeAsBytes(await backup.readAsBytes(), flush: true);
+      final temp = await Hive.openBox(tempName);
+      final value = temp.get('deadlineList');
+      if (value is List && value.isNotEmpty && value.first is Task) {
+        final tasks = <Task>[for (final item in value) item as Task];
+        await taskBox.put('deadlineList', tasks);
+        await options.put(flagKey, true);
+        debugPrint('[boot] salvage: OK tasks=${tasks.length}');
+        return tasks.length;
       }
-      // 第二步：从最后一帧往前找第一个能解码、且值是一列待办的帧
-      for (var i = starts.length - 1; i >= 0 && i >= starts.length - 200; i--) {
-        final start = starts[i];
-        final end = i + 1 < starts.length ? starts[i + 1] : total;
-        if (end - start > 64 * 1024 * 1024) continue;
-        await raf.setPosition(start);
-        final frameBytes = await raf.read(end - start);
-        Object? value;
-        try {
-          final reader = BinaryReaderImpl(
-              Uint8List.fromList(frameBytes), registry);
-          value = reader.readFrame()?.value;
-        } catch (_) {
-          continue; // 坏帧，继续往前找
-        }
-        if (value is List && value.isNotEmpty && value.first is Task) {
-          final tasks = <Task>[for (final item in value) item as Task];
-          await taskBox.put('deadlineList', tasks);
-          await options.put(flagKey, true);
-          debugPrint('[boot] 抢救成功：恢复到 ${tasks.length} 条待办（第 ${i + 1}/${starts.length} 帧）');
-          return tasks.length;
-        }
-      }
-      await options.put(flagKey, true);
-      debugPrint('[boot] 备份里没找到可用的待办帧（扫描了 ${starts.length} 帧）');
-      return 0;
+      debugPrint('[boot] salvage: temp box has no usable list (type=${value.runtimeType})');
+    } catch (error) {
+      debugPrint('[boot] salvage: temp box read failed: $error');
     } finally {
-      await raf.close();
+      try {
+        await Hive.deleteBoxFromDisk(tempName);
+      } catch (_) {}
     }
+    // 走到这里说明连"兼容读取"都没捞出来：把标记用掉，别每次启动都重扫
+    await options.put(flagKey, true);
+    return 0;
   } catch (error) {
-    debugPrint('[boot] 抢救失败：$error');
+    debugPrint('[boot] salvage failed: $error');
     return 0;
   }
 }

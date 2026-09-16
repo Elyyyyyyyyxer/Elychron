@@ -230,6 +230,27 @@ class DeadlineAdapter extends TypeAdapter<Task> {
     var fields = <int, dynamic>{
       for (var i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
     };
+    // ===== MOD: 兼容事故版本写下的帧（2026-09-16「App 打不开」的善后）=====
+    //
+    // 那一版给 Task 加了字段 26（课程归属）却忘了把字段计数从 23 改成 24，
+    // 于是每条 Task 后面都多留了一对字节 `[26][courseId]`。列表读取器读完 23 对之后，
+    // 会把多出来的那个 26 当成下一个元素的 typeId →
+    // `HiveError: Cannot read, unknown typeId: 26` → 整条列表作废。
+    //
+    // 这里主动把那一对吃回来：读完字段后**偷看**一个字节，是 26 就把它和它的值读掉。
+    // 对正常帧毫无影响：26 是我们给 courseId 的**字段号**，而 26 也不可能是任何
+    // 已注册类型的 typeId（我们用到的最大 typeId 是 20），所以这个位置出现 26
+    // 只可能是那种坏帧。
+    if (reader.availableBytes > 0) {
+      final peeked = reader.peekBytes(1);
+      if (peeked.isNotEmpty && peeked[0] == 26) {
+        reader.readByte();
+        final extra = reader.read();
+        if (extra is String && extra.isNotEmpty) {
+          fields[26] = extra;
+        }
+      }
+    }
     return Task(
       endTime: DateTime.now(),
       startTime: DateTime.now(),
