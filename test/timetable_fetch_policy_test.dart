@@ -2,10 +2,10 @@ import 'package:celechron/http/timetable_fetch_policy.dart';
 import 'package:celechron/http/time_config_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// 「少打几个请求」这套策略的纯逻辑测试（2026-09-17 用户拍板）。
+/// 少打几个请求这套策略的纯逻辑测试（2026-09-17 用户拍板）。
 ///
 /// 起因：教务对**一个时间窗内的请求条数**限流（HTTP 921），而课表是按
-/// 「学年 × 学期」逐个查的 —— 26 级 2×4=8 次、23 级 4×4=16 次，
+/// 学年 × 学期逐个查的， 26 级 2×4=8 次、23 级 4×4=16 次，
 /// 再加上成绩/主修/考试/作业/实践，一次刷新 13~21 个请求，经常撞限流。
 ///
 /// 这里的规则决定"哪些请求不用打"，所以边界必须钉死：
@@ -39,7 +39,7 @@ void main() {
           isFalse);
     });
 
-    test('历史学年（preferCache）不吃这条规则 —— 那条路本来就走缓存', () {
+    test('历史学年（preferCache）不吃这条规则， 那条路本来就走缓存', () {
       expect(
           TimetableFetchPolicy.shouldSkipKnownEmptyTimetable(
               emptyStamp: today, today: today, preferCache: true),

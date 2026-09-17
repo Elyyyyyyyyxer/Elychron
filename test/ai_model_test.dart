@@ -5,7 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 /// 模型名自动解析的回归测试。
 ///
 /// DeepSeek 每次迭代都会换模型名（`deepseek-chat` → `deepseek-flash`），
-/// 这些用例把「换名字之后应用还能不能自己跟上」这件事钉住，
+/// 这些用例把换名字之后应用还能不能自己跟上这件事钉住，
 /// 而且全部离线，不花一分钱 API 费用。
 void main() {
   group('候选排序：别名优先、避开贵档与不适用的模型', () {
@@ -87,7 +87,7 @@ void main() {
     test('不该误判：401 / 网络 / 余额', () {
       expect(ModelResolver.looksLikeModelError('API key 无效或已失效（401）'), isFalse);
       expect(ModelResolver.looksLikeModelError('连不上模型服务：连接被拒绝'), isFalse,
-          reason: '提到「模型服务」但没有"不存在/无效"，不该触发重解析');
+          reason: '提到模型服务但没有"不存在/无效"，不该触发重解析');
       expect(ModelResolver.looksLikeModelError('账户余额不足（402）'), isFalse);
       expect(ModelResolver.looksLikeModelError('请求超时，检查网络后重试'), isFalse);
     });

@@ -19,7 +19,7 @@ import 'package:share_plus/share_plus.dart';
 /// - **从图库选** → `FileType.image`，系统会给图库/相册（按图片过滤，能直接看到缩略图）
 /// - **从文件管理选** → 不限类型，交给手机自带的文件管理
 ///
-/// 注意：这里刻意**不加扩展名过滤** —— 按扩展名过滤会被映射成 MIME 过滤，
+/// 注意：这里刻意**不加扩展名过滤**， 按扩展名过滤会被映射成 MIME 过滤，
 /// 而很多文件没有登记 MIME，会出现"文件明明在却看不见"（iCal 导入踩过这个坑）。
 Future<List<TaskAttachment>> pickAttachments({BuildContext? context}) async {
   var type = FileType.any;

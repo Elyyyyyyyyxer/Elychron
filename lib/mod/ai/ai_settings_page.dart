@@ -6,7 +6,7 @@ import 'package:flutter/cupertino.dart';
 
 /// 设置 → AI 智能助手
 ///
-/// 只做「配置 + 连通性验证」。真正的功能（解析分享内容、拆子待办）在
+/// 只做配置 + 连通性验证。真正的功能（解析分享内容、拆子待办）在
 /// `lib/mod/ai/ai_tasks.dart` 里，把这一页保持成一个纯粹的设置页。
 class AiSettingsPage extends StatefulWidget {
   const AiSettingsPage({super.key});
@@ -94,7 +94,7 @@ class _AiSettingsPageState extends State<AiSettingsPage> {
     });
   }
 
-  /// 重新问官方要模型列表，并按「便宜档优先」挑一个
+  /// 重新问官方要模型列表，并按便宜档优先挑一个
   Future<void> _refreshModels() async {
     if (!mounted) return;
     setState(() {
@@ -104,8 +104,7 @@ class _AiSettingsPageState extends State<AiSettingsPage> {
     try {
       final picked = await ModelResolver.resolve(force: true);
       if (picked.isEmpty && !AiConfig.isManualModel && mounted) {
-        setState(
-            () => _modelError = '未获取到模型列表。请手动填模型名。');
+        setState(() => _modelError = '未获取到模型列表。请手动填模型名。');
       }
     } on AiException catch (error) {
       if (mounted) setState(() => _modelError = error.message);
@@ -198,7 +197,7 @@ class _AiSettingsPageState extends State<AiSettingsPage> {
             // ===== MOD ===== 底部留出系统导航栏的高度
             // 不留的话，最后一块内容会被底部导航栏压住一半（用户反馈的截图就是这样）。
             // `MediaQuery.padding.bottom` 正好是这个高度：全屏页面等于系统导航栏，
-            // 标签页里则是「标签栏 + 系统导航栏」（首页会把它注入 MediaQuery）。
+            // 标签页里则是标签栏 + 系统导航栏（首页会把它注入 MediaQuery）。
             padding: EdgeInsets.only(
               top: 12,
               bottom: 12 + MediaQuery.of(context).padding.bottom,

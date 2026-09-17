@@ -6,7 +6,7 @@ import 'package:get/get.dart';
 
 /// ============ 待办的批量编辑 ============
 ///
-/// 入口在待办页右上角 ⋯ 菜单里的「批量编辑」：进入后每张卡片左边出现勾选框，
+/// 入口在待办页右上角 ⋯ 菜单里的批量编辑：进入后每张卡片左边出现勾选框，
 /// 点卡片是选中/取消（**不是**打开详情），底部出现操作栏：
 /// **删除 / 完成 / 未完成**。
 ///
@@ -113,7 +113,7 @@ class TaskBatchEdit {
   ///
   /// 原来这里用 `splitCompletable` 把活动型剔除（理由写的是"活动不算完成"），
   /// 但用户要求活动类也能右滑完成/恢复之后，两条路的规则就该一致：
-  /// 详情页的完成按钮、列表右滑、批量完成 —— 四种类型一视同仁。
+  /// 详情页的完成按钮、列表右滑、批量完成， 四种类型一视同仁。
   /// 这个函数以前是个纯函数（为了单测钉住那条规则），现在规则没了，
   /// 直接返回 `resolve` 的结果，也就顺手把那个函数删掉了。
   static Future<void> setCompleted(
@@ -167,8 +167,7 @@ class TaskBatchEdit {
     }
 
     for (final task in tasks) {
-      task.status =
-          completed ? TaskStatus.completed : TaskStatus.running;
+      task.status = completed ? TaskStatus.completed : TaskStatus.running;
     }
     _persist(controller);
     exit();
@@ -203,7 +202,8 @@ class TaskBatchEdit {
               padding: EdgeInsets.zero,
               minimumSize: const Size(52, 34),
               onPressed: exit,
-              child: Text('取消', style: TextStyle(color: textColor, fontSize: 15)),
+              child:
+                  Text('取消', style: TextStyle(color: textColor, fontSize: 15)),
             ),
             Expanded(
               child: Text(

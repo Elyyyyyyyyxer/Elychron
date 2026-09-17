@@ -5,7 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 /// 课程挂载（资料 / 评论）的存取口径。
 ///
-/// 这一层没有界面、也不碰 Hive 盒子，所以能纯单测 —— 而这正是它值得测的地方：
+/// 这一层没有界面、也不碰 Hive 盒子，所以能纯单测， 而这正是它值得测的地方：
 /// 序列化一旦写错，用户存进去的评论/资料就会**静默消失**（读回来是空的），
 /// 那种 bug 只有在真机上丢数据时才被发现。
 void main() {
@@ -14,7 +14,8 @@ void main() {
       final mount = CourseMount(
         courseId: 'CS101',
         attachments: [
-          TaskAttachment(name: '课件1.pdf', path: '/data/files/a.pdf', size: 1234),
+          TaskAttachment(
+              name: '课件1.pdf', path: '/data/files/a.pdf', size: 1234),
           TaskAttachment(name: '板书.jpg', path: '/data/files/b.jpg', size: 99),
         ],
         comments: [
@@ -34,7 +35,8 @@ void main() {
     });
 
     test('空挂载往返后仍然空（并且 isEmpty 为真，界面据此不渲染这一块）', () {
-      final restored = CourseMount.fromMap('CS101', CourseMount(courseId: 'CS101').toMap());
+      final restored =
+          CourseMount.fromMap('CS101', CourseMount(courseId: 'CS101').toMap());
       expect(restored.isEmpty, isTrue);
       expect(restored.attachments, isEmpty);
       expect(restored.comments, isEmpty);

@@ -121,7 +121,7 @@ class _TagManagerSheetState extends State<_TagManagerSheet> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('「$tag」的颜色',
+                Text('$tag的颜色',
                     style: const TextStyle(
                         fontSize: 17, fontWeight: FontWeight.w600)),
                 const SizedBox(height: 16),
@@ -237,7 +237,7 @@ class _TagManagerSheetState extends State<_TagManagerSheet> {
             Expanded(
               child: _tags.isEmpty
                   ? Center(
-                      child: Text('还没有标签，在上面输入后点「添加」',
+                      child: Text('还没有标签，在上面输入后点添加',
                           style: TextStyle(fontSize: 14, color: labelColor)),
                     )
                   : ReorderableListView.builder(

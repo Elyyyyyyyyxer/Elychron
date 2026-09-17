@@ -9,7 +9,7 @@ import 'package:flutter_test/flutter_test.dart';
 ///
 /// 重点钉三件事：
 /// 1. **老备份仍然能导入**（只加字段不改老字段）；
-/// 2. **密钥白名单是机制**，不是约定 —— 非白名单的键（比如教务网密码）塞进去也进不来；
+/// 2. **密钥白名单是机制**，不是约定， 非白名单的键（比如教务网密码）塞进去也进不来；
 /// 3. 专注记录的合并规则（会话的删除暂不参与同步，已知局限）。
 void main() {
   final t0 = DateTime(2026, 9, 12, 10, 0);
@@ -60,13 +60,16 @@ void main() {
         focusRestNotify: false,
         reminderLeadMinutes: 15,
         brightnessMode: 2,
-        courseIdMapping: [<String, dynamic>{'id1': 'A', 'id2': 'B', 'comment': '算法'}],
+        courseIdMapping: [
+          <String, dynamic>{'id1': 'A', 'id2': 'B', 'comment': '算法'}
+        ],
       );
 
       final back = DataBundle.decode(bundle.encode())!;
       expect(back.deviceId, 'device-abc');
       expect(back.tasks.single.summary, '写报告');
-      expect(back.focusSessions.single.focusedTime, const Duration(minutes: 60));
+      expect(
+          back.focusSessions.single.focusedTime, const Duration(minutes: 60));
       expect(back.focusWorkMinutes, 45);
       expect(back.focusRestMinutes, 10);
       expect(back.focusRestNotify, isFalse);
@@ -79,7 +82,7 @@ void main() {
     });
 
     test('version 1 的老备份（没有新字段）仍然能导入，新字段取默认值', () {
-      // 手工造一份「老版本」的包：只有原来的那些键
+      // 手工造一份老版本的包：只有原来的那些键
       final legacy = jsonEncode({
         'format': 'celechron-mod',
         'version': 1,
@@ -140,7 +143,7 @@ void main() {
     });
 
     test('★ 非白名单的键（例如教务网密码）塞进去也进不来', () {
-      // 模拟「有人把凭据写进了包」
+      // 模拟有人把凭据写进了包
       final raw = jsonEncode({
         'format': 'celechron-mod',
         'version': 2,
@@ -181,7 +184,9 @@ void main() {
     test('只在本端 / 只在对方：都保留（按 uid 去重）', () {
       final merged = DataMerge.mergeFocusSessions(
         local: [makeSession(uid: 'a', startedAt: t0)],
-        remote: [makeSession(uid: 'b', startedAt: t0.add(const Duration(hours: 1)))],
+        remote: [
+          makeSession(uid: 'b', startedAt: t0.add(const Duration(hours: 1)))
+        ],
       );
       expect(merged.map((s) => s.uid).toSet(), {'a', 'b'});
     });
@@ -189,7 +194,8 @@ void main() {
     test('同 uid：结束得晚的那条赢', () {
       final local = makeSession(uid: 'a', startedAt: t0, focusedMinutes: 30);
       final remote = makeSession(uid: 'a', startedAt: t0, focusedMinutes: 60);
-      final merged = DataMerge.mergeFocusSessions(local: [local], remote: [remote]);
+      final merged =
+          DataMerge.mergeFocusSessions(local: [local], remote: [remote]);
       expect(merged.single.focusedTime, const Duration(minutes: 60));
     });
 
@@ -270,7 +276,7 @@ void main() {
       expect(result.conflictUids, isEmpty);
     });
 
-    test('设置按「谁导出得更晚」取舍', () {
+    test('设置按谁导出得更晚取舍', () {
       final incoming = DataBundle(
         exportedAt: t0.add(const Duration(hours: 1)),
         tasks: const [],

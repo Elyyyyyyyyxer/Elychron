@@ -45,8 +45,8 @@ void main() {
 
     test('教程里引用的图片真的能读出来（路径写错 / 文件忘了放会红）', () async {
       // 为什么不能只查"路径以 assets/ 开头"：
-      // 图片没放进仓库、或者文件名拼错时，用户点进教程只会看到一个「这张图还没放进来」
-      // 的占位框，而测试全绿 —— 2026-09-17 之前就是这种情况（框架支持图片，但一张图都没有）。
+      // 图片没放进仓库、或者文件名拼错时，用户点进教程只会看到一个这张图还没放进来
+      // 的占位框，而测试全绿， 2026-09-17 之前就是这种情况（框架支持图片，但一张图都没有）。
       // 这里真的用 rootBundle 去加载每一个引用到的路径，读不出来就让测试红。
       TestWidgetsFlutterBinding.ensureInitialized();
       var checked = 0;
@@ -74,7 +74,7 @@ void main() {
     });
 
     test('sealed 步骤类型都被渲染器覆盖（这里穷尽列举一次，防漏）', () {
-      // 只要新增了 TutorialStep 子类而这里没补，编译期就会报错 ——
+      // 只要新增了 TutorialStep 子类而这里没补，编译期就会报错，
       // 这是"步骤类型可扩展"的护栏。
       const steps = <TutorialStep>[
         TutorialTextStep(title: 't', body: ['b']),
@@ -138,7 +138,7 @@ void main() {
     });
   });
 
-  group('「已看过 / 不再提示 / 进度」的规则', () {
+  group('已看过 / 不再提示 / 进度的规则', () {
     Tutorial sample({int version = 1}) => Tutorial(
           id: 'sample',
           title: '样例',
@@ -177,7 +177,7 @@ void main() {
       expect(state.hasSeen(sample(version: 2)), isFalse);
     });
 
-    test('「不再提示」之后不再出现在待提示列表里', () {
+    test('不再提示之后不再出现在待提示列表里', () {
       final state = TutorialState();
       final tutorial = sample();
       expect(state.pendingOf([tutorial]).length, 1);
@@ -187,7 +187,7 @@ void main() {
       expect(state.isMuted(tutorial), isTrue);
     });
 
-    test('看完会清掉「不再提示」（用户主动看完就是想继续收到提示）', () {
+    test('看完会清掉不再提示（用户主动看完就是想继续收到提示）', () {
       final state = TutorialState();
       final tutorial = sample();
       state.mute(tutorial);

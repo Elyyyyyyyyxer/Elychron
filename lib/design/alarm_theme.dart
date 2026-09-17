@@ -27,7 +27,7 @@ class AlarmTheme {
   });
 }
 
-/// 天依蓝取自「天依蓝」标准色 #66CCFF；爱莉粉取爱莉希雅标志性柔粉。
+/// 天依蓝取自天依蓝标准色 #66CCFF；爱莉粉取爱莉希雅标志性柔粉。
 const List<AlarmTheme> kAlarmThemes = [
   AlarmTheme(
     id: 'tianyi',

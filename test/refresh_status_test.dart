@@ -6,7 +6,7 @@ void main() {
   group('moduleStatusesFromErrors', () {
     const labels = ['校历', '课表', '考试', '成绩', '主修', '作业', '实践'];
 
-    test('null 为成功、「查询进行中」为进行中、其余为失败，且按下标对应标签', () {
+    test('null 为成功、查询进行中为进行中、其余为失败，且按下标对应标签', () {
       final statuses = moduleStatusesFromErrors([
         null,
         '课表查询进行中',
@@ -29,7 +29,7 @@ void main() {
       expect(statuses[6].state, FetchModuleState.pending);
     });
 
-    test('最终态（无「查询进行中」标记）只区分成功与失败', () {
+    test('最终态（无查询进行中标记）只区分成功与失败', () {
       final statuses = moduleStatusesFromErrors(
           [null, null, '考试查询出错：500', null, null, null, null], labels);
       expect(

@@ -30,11 +30,11 @@ import 'package:celechron/utils/global.dart';
 /// 启动路标总开关。**发布版保持 false。**
 ///
 /// `[boot] 1…8`（main.dart）和 `[boot] 4.1…4.5`（database_helper.dart）是"走到哪一步了"
-/// 的路标 —— 2026-09-16 的「App 打不开」就是靠它们定位到"卡在开某个盒子上"的，
+/// 的路标， 2026-09-16 的App 打不开就是靠它们定位到"卡在开某个盒子上"的，
 /// 所以**代码留着**；但正常用户不需要每次开机都往 logcat 里灌十几行。
 /// 排查启动问题时：把这里改成 `true` 重新构建（这种诊断包不要发出去）。
 ///
-/// ⚠️ **只关路标，不关异常日志** —— 自愈、删锁、留档、抢救那些 `[boot]` 只在真出事时
+/// ⚠️ **只关路标，不关异常日志**， 自愈、删锁、留档、抢救那些 `[boot]` 只在真出事时
 /// 才打，继续用 `debugPrint` 原样保留（那才是现场最有用的东西）。
 bool _bootProbesEnabled = false;
 
@@ -46,14 +46,14 @@ void _bootProbe(String message) {
 void main() async {
   _bootProbe('[boot] 1 进入 main');
   // 全局错误组件：只设一次，且必须早于任何 widget 构建。
-  // 绝不放在 widget 构造函数里 —— 那样每次重建都会改全局状态，且已证明会引发卡死。
+  // 绝不放在 widget 构造函数里， 那样每次重建都会改全局状态，且已证明会引发卡死。
   ErrorWidget.builder = (FlutterErrorDetails details) =>
       ScholarErrorHandler(errorDetails: details);
 
-  // ===== MOD: GetX 的「中毒」解毒剂（2026-09-16）=====
+  // ===== MOD: GetX 的中毒解毒剂（2026-09-16）=====
   //
-  // 背景：用户报「点击成绩卡片任意位置会卡死」。真机复现出来，这是一条**框架级**的
-  // 放大链路 —— 跟"具体哪一行写错了"无关，所以值得在这里堵死：
+  // 背景：用户报点击成绩卡片任意位置会卡死。真机复现出来，这是一条**框架级**的
+  // 放大链路， 跟"具体哪一行写错了"无关，所以值得在这里堵死：
   //
   //   ① 某个 `Obx` 的 builder 抛异常（那次是成绩页在**空列表**上取下标 → RangeError）；
   //   ② GetX 4.7.3 `rx_interface.dart` 的 `notifyChildren` 长这样：
@@ -64,10 +64,10 @@ void main() async {
   //      ⇒ `RxInterface.proxy` 被**永久留在一个已经构建失败的 Obx 上**；
   //   ③ 此后全 App 任何一次 Rx 读取都会挂到这个"死观察者"上 → 反复触发它 setState
   //      → 它每次重建都再抛一次 → **主线程 100% CPU 空转**；
-  //   ④ 5 秒后系统判「Elychron 无响应」，弹 ANR 对话框 —— 用户看到的就是"卡死"。
+  //   ④ 5 秒后系统判Elychron 无响应，弹 ANR 对话框， 用户看到的就是"卡死"。
   //      （真机 ANR 报告佐证：主线程 state=R、utm=23.5s、全程跑在 libapp.so 里，不是死锁。）
   //
-  // 我们改不了 GetX，但 `RxInterface.proxy` 是**公开静态字段** —— 在"构建已经出错"的
+  // 我们改不了 GetX，但 `RxInterface.proxy` 是**公开静态字段**， 在"构建已经出错"的
   // 这一刻清掉它，就能断掉第 ③ 步。Flutter 捕获构建异常后会调 `FlutterError.onError`，
   // 时机正好在 builder 抛错之后、重建循环开始之前。
   //
@@ -101,13 +101,13 @@ void main() async {
   final restoredScholar = await db.getScholar();
   _bootProbe('[boot] scholar 读到');
 
-  // ===== MOD: 「已登录但没有学号」= 半坏状态，必须当没登录 =====
+  // ===== MOD: 已登录但没有学号= 半坏状态，必须当没登录 =====
   //
-  // 用户反复反馈（原话：「基本上每次推送更新的时候登录态会变成一种诡异的样子，
+  // 用户反复反馈（原话：基本上每次推送更新的时候登录态会变成一种诡异的样子，
   // 显示"已登录"但是没有学号，同时学业页面刷新不出来。退出登录后再次重新登陆时
-  // 不会保存上次的账号密码，重新登陆之后一切恢复正常」）。
+  // 不会保存上次的账号密码，重新登陆之后一切恢复正常）。
   //
-  // 成因：**两套存储的存活期不一样** ——
+  // 成因：**两套存储的存活期不一样**，
   //   · `isLogan`（以及课程/成绩等）跟着 Scholar 存进 Hive 数据库，覆盖安装后还在；
   //   · `username`/`password` 存在**系统密钥库**（FlutterSecureStorage），
   //     某些 ROM / 机型在覆盖安装后读不出来（读回 null，不报错）。
@@ -119,7 +119,7 @@ void main() async {
   //   ① `if (scholar.value.isLogan)` 不会再去跑注定失败的自动刷新；
   //   ② `sessionInvalid = true` 会让设置页给出"重新登录"入口（option_view 已有该 UI）；
   //   ③ 登录页会读我们另存的 `mod_last_*` 去预填账号密码（数据库里那份，不依赖密钥库
-  //      读得到——但如果连它也读不出来，用户至少知道要重新登录，而不是干瞪眼）。
+  //      读得到，但如果连它也读不出来，用户至少知道要重新登录，而不是干瞪眼）。
   final restoredUsername = restoredScholar.username ?? '';
   final restoredPassword = restoredScholar.password ?? '';
   final credentialsMissing =
@@ -226,8 +226,8 @@ DateTime? _latestModuleUpdate(Scholar scholar) {
 Future<void> _refreshRestoredScholar(Rx<Scholar> scholar) async {
   // ===== MOD 2026-09-17：**刚刷新过就别再刷一次** =====
   //
-  // 用户问「为什么校历和课表总是难以连接上」，其中一条原因就是：
-  // 后台刷新（WorkManager）和"打开 App 自动刷新"以前各打一整套请求 ——
+  // 用户问为什么校历和课表总是难以连接上，其中一条原因就是：
+  // 后台刷新（WorkManager）和"打开 App 自动刷新"以前各打一整套请求，
   // 7 个模块并发、光课表就要按 4 个学期分别查，叠起来极易被教务限流（HTTP 921）。
   //
   // 这里加一道"最小间隔"：最近 5 分钟内成功更新过，就跳过启动自动刷新。
@@ -239,7 +239,7 @@ Future<void> _refreshRestoredScholar(Rx<Scholar> scholar) async {
       module: 'refresh',
       operation: 'startupRefreshSkipped',
       message: '最近一次更新在 ${DateTime.now().difference(lastUpdated).inMinutes} 分钟前'
-          '（不足 5 分钟），跳过启动自动刷新 —— 避免和后台刷新叠在一起被教务限流',
+          '（不足 5 分钟），跳过启动自动刷新， 避免和后台刷新叠在一起被教务限流',
     );
     return;
   }
@@ -264,9 +264,9 @@ Future<void> _refreshRestoredScholar(Rx<Scholar> scholar) async {
 
 /// 系统栏（状态栏 + 导航栏）的样式。
 ///
-/// 关键点是那个外观位：光设 `systemNavigationBarColor` 不够 ——
+/// 关键点是那个外观位：光设 `systemNavigationBarColor` 不够，
 /// 系统（尤其 EMUI）会忽略它，仍按自己的默认画成黑的。
-/// 必须同时声明「导航栏用浅色外观」（`systemNavigationBarIconBrightness: dark`
+/// 必须同时声明导航栏用浅色外观（`systemNavigationBarIconBrightness: dark`
 /// 对应 Android 的 `LIGHT_NAVIGATION_BAR`），底下那三条才会变白底深色。
 /// 参考实测：钉钉的窗口 `vsysui` 里就带着 `LIGHT_NAVIGATION_BAR`。
 SystemUiOverlayStyle systemOverlayStyleFor(Brightness brightness) {
@@ -278,7 +278,7 @@ SystemUiOverlayStyle systemOverlayStyleFor(Brightness brightness) {
     systemNavigationBarColor:
         light ? const Color(0xFFF2F2F7) : const Color(0xFF1C1C1E),
     systemNavigationBarDividerColor: Colors.transparent,
-    // 关掉系统「为了对比度」自动加的半透明黑底
+    // 关掉系统为了对比度自动加的半透明黑底
     systemNavigationBarContrastEnforced: false,
     systemNavigationBarIconBrightness:
         light ? Brightness.dark : Brightness.light,
@@ -401,10 +401,10 @@ class _CelechronAppState extends State<CelechronApp>
           // ===== MOD：系统栏（状态栏 + 导航栏）外观 =====
           // 用 AnnotatedRegion 而不是只调一次 SystemChrome：
           // 它是**每帧**按当前主题亮度生效的，能可靠地带上
-          // `LIGHT_NAVIGATION_BAR`（浅底 + 深色图标）—— 实测对比过钉钉的窗口属性，
+          // `LIGHT_NAVIGATION_BAR`（浅底 + 深色图标）， 实测对比过钉钉的窗口属性，
           // 它正是靠这个外观位让底下那三条变白的。
           builder: (context, child) {
-            // CupertinoTheme 的亮度已经反映了用户「浅色 / 深色 / 跟随系统」的设置
+            // CupertinoTheme 的亮度已经反映了用户浅色 / 深色 / 跟随系统的设置
             final brightness = CupertinoTheme.brightnessOf(context);
             return AnnotatedRegion<SystemUiOverlayStyle>(
               value: systemOverlayStyleFor(brightness),

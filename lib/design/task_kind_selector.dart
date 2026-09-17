@@ -3,10 +3,10 @@ import 'package:flutter/cupertino.dart';
 
 /// ===== P1：四种时间语义的选择器 =====
 ///
-/// 创建页、详情页、「其他日期」面板三处共用同一份 UI 与同一份切换逻辑
+/// 创建页、详情页、其他日期面板三处共用同一份 UI 与同一份切换逻辑
 /// （逻辑在 [Task.applyKind] 里），避免三处各写一套渐渐走样。
 ///
-/// 用法：放进自己页面的卡片里 ——
+/// 用法：放进自己页面的卡片里，
 /// ```dart
 /// _card(children: [taskKindControl(now, (kind) => setState(() => now.applyKind(kind)))])
 /// ```
@@ -19,7 +19,7 @@ Widget taskKindControl(
     builder: (BuildContext context) {
       final labelColor = CupertinoDynamicColor.resolve(
           CupertinoColors.secondaryLabel, context);
-      // fixedlegacy（内部值）在界面上当成「活动」显示
+      // fixedlegacy（内部值）在界面上当成活动显示
       final current =
           task.type == TaskType.fixedlegacy ? TaskType.fixed : task.type;
       return Column(

@@ -74,13 +74,13 @@ class TaskController extends GetxController with TaskListFilterMod {
     Set<String> existingUid = {};
     List<Task> newDeadlineList = [];
     for (var deadline in taskList) {
-      // ===== MOD: 兼容旧数据（早期版本会把 DDL 写成「截止前 1 分钟」）=====
+      // ===== MOD: 兼容旧数据（早期版本会把 DDL 写成截止前 1 分钟）=====
       if (normalizeLegacyTask(deadline)) changed = true;
       final oldStatus = deadline.status;
       final oldEndTime = deadline.endTime;
       deadline.refreshStatus();
       if (deadline.type == TaskType.deadline) {
-        // 不再按「用时」自动完成；完成只由打钩决定
+        // 不再按用时自动完成；完成只由打钩决定
         if (deadline.status != TaskStatus.completed &&
             deadline.endTime.isBefore(DateTime.now())) {
           deadline.status = TaskStatus.failed;
@@ -111,8 +111,8 @@ class TaskController extends GetxController with TaskListFilterMod {
         changed = true;
       }
 
-      // ===== P1：活动结束后自动归档到「我已处理」=====
-      // 不重复的活动一旦过了 endTime 就不再挂在「待我处理」里：
+      // ===== P1：活动结束后自动归档到我已处理=====
+      // 不重复的活动一旦过了 endTime 就不再挂在待我处理里：
       // 没做完的子待办由详情页/卡片单独标出来（不新增存储字段）。
       if (deadline.needsAutoArchive) {
         deadline.status = TaskStatus.completed;
@@ -165,11 +165,10 @@ class TaskController extends GetxController with TaskListFilterMod {
   void removeCompletedDeadline(context) {
     // ===== MOD：活动（日程）也算 =====
     //
-    // 原来这里写着「活动日程不算」，于是**已完成的活动永远清不掉**。
+    // 原来这里写着活动日程不算，于是**已完成的活动永远清不掉**。
     // 用户要求活动类也能右滑完成/恢复之后，口径就该跟上：
-    // 既然能完成，就得能一起清掉，否则「清除已完成」对活动型是条死路。
-    TaskTombstoneStore.remove(
-        taskList,
+    // 既然能完成，就得能一起清掉，否则清除已完成对活动型是条死路。
+    TaskTombstoneStore.remove(taskList,
         taskList.where((element) => element.status == TaskStatus.completed));
     saveDeadlineListToDb();
   }

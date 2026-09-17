@@ -172,7 +172,7 @@ class _HomePageState extends State<HomePage> {
     if (update == null) return;
     if (!mounted) return;
 
-    // 大版本 → 强制更新：没有「忽略」，只能去下载（或退出应用）。
+    // 大版本 → 强制更新：没有忽略，只能去下载（或退出应用）。
     // 小版本 → 普通提醒，可忽略；同一个版本只提醒一次（由 Fuse 记录）。
     showCupertinoDialog(
         context: context,
@@ -205,7 +205,7 @@ class _HomePageState extends State<HomePage> {
                 onPressed: () async {
                   // 打开**实际回答的那个源**的 Release 页：
                   // 国内用户多半连不上 GitHub；如果这次是 Gitee 查到的更新，
-                  // 就必须跳 Gitee —— 否则他看得到更新却打不开下载页。
+                  // 就必须跳 Gitee， 否则他看得到更新却打不开下载页。
                   await launchUrlString(
                     update.downloadUrl,
                     mode: LaunchMode.externalApplication,

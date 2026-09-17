@@ -10,7 +10,7 @@ import 'package:celechron/mod/friendly_error.dart';
 
 /// 粘贴一段文字 → AI 整理成待办草稿 → 用户确认后填入新建页。
 ///
-/// 这里刻意做成「两段式」：先看 AI 读出了什么，再决定要不要填进去。
+/// 这里刻意做成两段式：先看 AI 读出了什么，再决定要不要填进去。
 /// 草稿里的每一处越界（时间在过去、优先级不认识）都会在黄色区域里列出来，
 /// 不做静默修补。
 Future<AiTaskDraft?> showAiComposeSheet(
@@ -35,7 +35,7 @@ class _AiComposeSheet extends StatefulWidget {
 
   final String initialText;
 
-  /// 非空表示这次是「识别截图」模式
+  /// 非空表示这次是识别截图模式
   final List<String> imagePaths;
 
   @override
@@ -86,8 +86,8 @@ class _AiComposeSheetState extends State<_AiComposeSheet> {
     } catch (error) {
       if (!mounted) return;
       // 说人话（超时/密钥错/连不上…），细节留给诊断日志
-      setState(() => _error =
-          FriendlyError.short(error, fallback: 'AI 没能整理出结果，请稍后重试'));
+      setState(() =>
+          _error = FriendlyError.short(error, fallback: 'AI 没能整理出结果，请稍后重试'));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -116,8 +116,8 @@ class _AiComposeSheetState extends State<_AiComposeSheet> {
       });
     } catch (error) {
       if (mounted) {
-        setState(() => _error =
-            '选图失败：${FriendlyError.short(error, fallback: '这张图读不出来')}');
+        setState(() =>
+            _error = '选图失败：${FriendlyError.short(error, fallback: '这张图读不出来')}');
       }
     }
   }
@@ -196,7 +196,8 @@ class _AiComposeSheetState extends State<_AiComposeSheet> {
               : 'AI 功能还没打开。打开开关后即可使用。',
           style: TextStyle(
             fontSize: 14,
-            color: CupertinoDynamicColor.resolve(CupertinoColors.secondaryLabel, context),
+            color: CupertinoDynamicColor.resolve(
+                CupertinoColors.secondaryLabel, context),
           ),
         ),
         const SizedBox(height: 16),
@@ -222,7 +223,8 @@ class _AiComposeSheetState extends State<_AiComposeSheet> {
             : 'AI 会读出图里的文字（通知、群消息、海报、课表截图都行），整理成待办。',
         style: TextStyle(
           fontSize: 13,
-          color: CupertinoDynamicColor.resolve(CupertinoColors.secondaryLabel, context),
+          color: CupertinoDynamicColor.resolve(
+              CupertinoColors.secondaryLabel, context),
         ),
       ),
       const SizedBox(height: 12),
@@ -307,7 +309,8 @@ class _AiComposeSheetState extends State<_AiComposeSheet> {
                   '已选 ${_images.length} 张 · 最多 ${AiTaskDraft.maxImages} 张',
                   style: TextStyle(
                     fontSize: 12.5,
-                    color: CupertinoDynamicColor.resolve(CupertinoColors.secondaryLabel, context),
+                    color: CupertinoDynamicColor.resolve(
+                        CupertinoColors.secondaryLabel, context),
                   ),
                 ),
             ],
@@ -356,6 +359,7 @@ class _AiComposeSheetState extends State<_AiComposeSheet> {
 
     return children;
   }
+
   Widget _kv(BuildContext context, String key, String value) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 5),
@@ -368,7 +372,8 @@ class _AiComposeSheetState extends State<_AiComposeSheet> {
               key,
               style: TextStyle(
                 fontSize: 13.5,
-                color: CupertinoDynamicColor.resolve(CupertinoColors.secondaryLabel, context),
+                color: CupertinoDynamicColor.resolve(
+                    CupertinoColors.secondaryLabel, context),
               ),
             ),
           ),
@@ -413,7 +418,7 @@ class _AiComposeSheetState extends State<_AiComposeSheet> {
     return '${minutes ~/ 60} 小时 ${minutes % 60} 分钟';
   }
 
-  /// 「2026-09-12 23:59（后天）」——加个相对说法，方便一眼判断对不对
+  /// 2026-09-12 23:59（后天），加个相对说法，方便一眼判断对不对
   static String _describeTime(DateTime time) {
     String two(int value) => value.toString().padLeft(2, '0');
     final stamp = '${time.year}-${two(time.month)}-${two(time.day)} '

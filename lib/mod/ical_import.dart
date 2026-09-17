@@ -97,16 +97,18 @@ class IcalImporter {
     final text = value.trim();
     if (text.isEmpty) return null;
 
-    final isDateOnly = (params?.toUpperCase().contains('VALUE=DATE') ?? false) ||
-        !text.contains('T');
-    final match = RegExp(r'^(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2})(\d{2})?)?(Z)?$')
-        .firstMatch(text);
+    final isDateOnly =
+        (params?.toUpperCase().contains('VALUE=DATE') ?? false) ||
+            !text.contains('T');
+    final match =
+        RegExp(r'^(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2})(\d{2})?)?(Z)?$')
+            .firstMatch(text);
     if (match == null) return null;
     final year = int.parse(match.group(1)!);
     final month = int.parse(match.group(2)!);
     final day = int.parse(match.group(3)!);
     if (isDateOnly || match.group(4) == null) {
-      // 全天事件：按当天 23:59 处理（与「只给日期」的待办语义一致）
+      // 全天事件：按当天 23:59 处理（与只给日期的待办语义一致）
       return DateTime(year, month, day, 23, 59);
     }
     final hour = int.parse(match.group(4)!);

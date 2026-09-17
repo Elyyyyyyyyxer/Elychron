@@ -1,7 +1,7 @@
 import 'package:celechron/model/period.dart';
 import 'package:celechron/model/task.dart';
 
-/// 「接下来」列表里一条的性质 —— 决定图标与配色。
+/// 接下来列表里一条的性质， 决定图标与配色。
 enum UpcomingKind {
   /// 课程（来自教务网课表）
   course,
@@ -19,7 +19,7 @@ enum UpcomingKind {
   remind,
 }
 
-/// 「接下来」列表里的一条。
+/// 接下来列表里的一条。
 ///
 /// **排序索引**（用户定的口径）：
 /// - 课程 / 考试 / 日程 → 它们的**开始时间**
@@ -43,7 +43,7 @@ class UpcomingItem {
   /// 备注里的一行（课程显示教师/课程代码里的有用部分，待办显示描述首行）
   final String detail;
 
-  /// 属于待办时带上它 —— 点这条就打开待办的详情页
+  /// 属于待办时带上它， 点这条就打开待办的详情页
   final Task? task;
 
   /// 属于日程（课程/考试/自己安排的日程）时带上它
@@ -66,7 +66,7 @@ class UpcomingItem {
     return end != null && !at.isAfter(now) && end.isAfter(now);
   }
 
-  /// 同一条在数据里可能既有待办又有生成的日程 —— 用来去重
+  /// 同一条在数据里可能既有待办又有生成的日程， 用来去重
   String get dedupeKey {
     final own = task?.uid;
     if (own != null) return 'task:$own';
@@ -77,16 +77,16 @@ class UpcomingItem {
 
 /// 挑出所有**正在进行中**的条目（保持 `at` 升序，即 [buildUpcoming] 的顺序）。
 ///
-/// 为什么需要它：同一时刻可能有好几件事在进行 —— 比如第 3-4 节上课的同时
-/// 还有个「组会」的日程，或者两门课撞在同一节。原先界面只认 `items.first`，
-/// 于是第二件进行中的事会掉进「之后还有」里，而且那一行还**故意不显示
-/// 「进行中」**（`_row` 里的旧条件），用户根本看不出它也正在进行。
+/// 为什么需要它：同一时刻可能有好几件事在进行， 比如第 3-4 节上课的同时
+/// 还有个组会的日程，或者两门课撞在同一节。原先界面只认 `items.first`，
+/// 于是第二件进行中的事会掉进之后还有里，而且那一行还**故意不显示
+/// 进行中**（`_row` 里的旧条件），用户根本看不出它也正在进行。
 List<UpcomingItem> runningUpcoming(List<UpcomingItem> items, DateTime now) =>
     items.where((item) => item.isRunningAt(now)).toList();
 
 /// 顶层默认给谁：**课程优先**，没有课程就按开始时间最早的那个。
 ///
-/// 用户定的口径：「没有选择时，默认课程优先」。上课时那一节课才是他此刻
+/// 用户定的口径：没有选择时，默认课程优先。上课时那一节课才是他此刻
 /// 真正在做的事，哪怕另一条日程开始得更早（比如早上 7:00 的晨跑日程和
 /// 8:00 开始的专业课同时进行，顶层应该是专业课）。
 int defaultTopRunningIndex(List<UpcomingItem> running) {
@@ -95,15 +95,15 @@ int defaultTopRunningIndex(List<UpcomingItem> running) {
   return course >= 0 ? course : 0;
 }
 
-/// 「接下来」页被切成的三段。
+/// 接下来页被切成的三段。
 ///
 /// - [head]：顶层那张大卡（进行中的一条，或最近的一条）
-/// - [otherRunning]：**其它**进行中的条目 —— 界面上折叠成一叠小卡，点一下换到顶层
-/// - [later]：还没开始的「之后还有」
+/// - [otherRunning]：**其它**进行中的条目， 界面上折叠成一叠小卡，点一下换到顶层
+/// - [later]：还没开始的之后还有
 class UpcomingLayout {
   final UpcomingItem head;
 
-  /// 顶层这条是不是「进行中」
+  /// 顶层这条是不是进行中
   final bool headIsRunning;
 
   /// 顶层在 [running] 里的下标（测试用；界面不需要）
@@ -128,7 +128,7 @@ class UpcomingLayout {
   });
 }
 
-/// 把排好序的条目切成「顶层 / 折叠的其它进行中 / 之后还有」。
+/// 把排好序的条目切成顶层 / 折叠的其它进行中 / 之后还有。
 ///
 /// [pinnedKey] 是用户点着换到顶层的那一条的 [UpcomingItem.dedupeKey]：
 /// 只在**进行中**的条目里生效，找不到（那条已经结束了）就回到默认口径。
@@ -170,7 +170,7 @@ UpcomingLayout? layoutUpcoming(
       for (var i = 0; i < running.length; i++)
         if (i != top) running[i],
     ],
-    // 进行中的**不再**落进「之后还有」，否则同一条会同时出现在折叠堆和下面
+    // 进行中的**不再**落进之后还有，否则同一条会同时出现在折叠堆和下面
     later: [
       for (final item in items)
         if (!runningKeys.contains(item.dedupeKey)) item,
@@ -178,11 +178,11 @@ UpcomingLayout? layoutUpcoming(
   );
 }
 
-/// 「接下来」的**纯逻辑**：过滤 + 排序 + 限量。界面只负责画。
+/// 接下来的**纯逻辑**：过滤 + 排序 + 限量。界面只负责画。
 ///
 /// - [horizon] 时间上取多远（默认 7 天）
 /// - [limit] 最多几条（默认 8 条）
-/// - 进行中的一条**保留**（否则正在上课时会显示「下一节」，反直觉）
+/// - 进行中的一条**保留**（否则正在上课时会显示下一节，反直觉）
 List<UpcomingItem> buildUpcoming({
   required List<Period> periods,
   required List<Task> tasks,
@@ -220,9 +220,9 @@ List<UpcomingItem> buildUpcoming({
         task.status == TaskStatus.deleted) {
       continue;
     }
-    if (task.isMemo) continue; // 备忘永远不进「接下来」
+    if (task.isMemo) continue; // 备忘永远不进接下来
     if (task.type == TaskType.fixedlegacy && task.fromUid != null) {
-      // 《过去日程》副本不是「接下来」，跳过
+      // 《过去日程》副本不是接下来，跳过
       continue;
     }
 
@@ -258,7 +258,7 @@ List<UpcomingItem> buildUpcoming({
 
   items.sort((a, b) => a.at.compareTo(b.at));
 
-  // 去重（同一个 uid 只留最早的一条 —— 比如活动型待办的多个生成块）
+  // 去重（同一个 uid 只留最早的一条， 比如活动型待办的多个生成块）
   final seen = <String>{};
   final result = <UpcomingItem>[];
   for (final item in items) {
@@ -277,7 +277,7 @@ String _firstLine(String text) {
   return line.length > 40 ? '${line.substring(0, 40)}…' : line;
 }
 
-/// 课程备注里第一行通常是「教师: xxx」；课程代码那一行对「接下来」没用，丢掉。
+/// 课程备注里第一行通常是教师: xxx；课程代码那一行对接下来没用，丢掉。
 String _courseDetail(String description) {
   for (final raw in description.split('\n')) {
     final line = raw.trim();
@@ -291,9 +291,9 @@ String _courseDetail(String description) {
 
 /// 大字那条的倒计时文案。
 ///
-/// - 进行中 → 「进行中」
-/// - 不到一分钟 → 「马上开始」
-/// - 否则 → 「还有 3 小时 20 分」
+/// - 进行中 → 进行中
+/// - 不到一分钟 → 马上开始
+/// - 否则 → 还有 3 小时 20 分
 String upcomingCountdown(UpcomingItem item, DateTime now) {
   if (item.isRunningAt(now)) return '进行中';
   final gap = item.at.difference(now);
@@ -309,7 +309,7 @@ String upcomingCountdown(UpcomingItem item, DateTime now) {
   return restHours > 0 ? '还有 $days 天 $restHours 小时' : '还有 $days 天';
 }
 
-/// 「今天 14:30」/「明天 08:00」/「9 月 15 日 13:30」这种一眼能读的时刻
+/// 今天 14:30/明天 08:00/9 月 15 日 13:30这种一眼能读的时刻
 String upcomingWhen(UpcomingItem item, DateTime now) {
   final at = item.at;
   String two(int value) => value.toString().padLeft(2, '0');

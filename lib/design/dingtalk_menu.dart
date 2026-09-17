@@ -15,7 +15,7 @@ class DingTalkMenuItem {
   });
 }
 
-/// 钉钉风格的「⋯」菜单：圆角卡片 + 竖排图标行 + 独立的「取消」块
+/// 钉钉风格的⋯菜单：圆角卡片 + 竖排图标行 + 独立的取消块
 Future<void> showDingTalkMenu(
   BuildContext context, {
   required List<DingTalkMenuItem> items,

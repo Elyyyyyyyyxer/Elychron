@@ -34,7 +34,7 @@ class GradeDetailController extends GetxController {
   /// 当前选中的学期下标，**保证落在合法范围内**。
   ///
   /// ★ 为什么必须有它（2026-09-16 的真机事故）：
-  /// `semestersWithGrades` 会随刷新变化 —— 成绩还没出、被清空、或者某个学期被过滤掉时
+  /// `semestersWithGrades` 会随刷新变化， 成绩还没出、被清空、或者某个学期被过滤掉时
   /// 它的长度会是 **0**，而 `semesterIndex` 是独立存的一个数字。
   /// 页面里原来到处直接写 `semestersWithGrades[semesterIndex.value]`，
   /// 于是**一门成绩都没有的人点开成绩页 → RangeError → App 卡死（系统 ANR）**。

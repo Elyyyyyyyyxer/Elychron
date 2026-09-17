@@ -31,7 +31,7 @@ import 'package:celechron/design/dingtalk_sheet.dart';
 class CalendarToSystemManager {
   /// 系统日历里显示的名字。
   ///
-  /// 历史版本叫「Celechron课表」—— 那个名字会出现在用户的日历 App 里，
+  /// 历史版本叫Celechron课表， 那个名字会出现在用户的日历 App 里，
   /// 让人以为装的是官方 Celechron，所以改成本应用的品牌名。
   static const String elychronCalendarName = 'Elychron课表';
 
@@ -140,10 +140,10 @@ class CalendarToSystemManager {
           return existingCalendar.id;
         }
 
-        // 认领老版本留下的「Celechron课表」：删掉它（事件由同步逻辑重写），
+        // 认领老版本留下的Celechron课表：删掉它（事件由同步逻辑重写），
         // 再用新名字重建。不认领的话用户手机上会并排出现两份课表日历。
-        final legacy = calendars.firstWhereOrNull(
-            (cal) => legacyCalendarNames.contains(cal.name));
+        final legacy = calendars
+            .firstWhereOrNull((cal) => legacyCalendarNames.contains(cal.name));
         if (legacy != null && legacy.id != null) {
           await _deviceCalendarPlugin.deleteCalendar(legacy.id!);
         }
@@ -355,8 +355,9 @@ class CalendarToSystemManager {
       if (_celechronCalendarId == null) {
         var calendarsResult = await _deviceCalendarPlugin.retrieveCalendars();
         if (calendarsResult.isSuccess) {
-          var existingCalendar = calendarsResult.data!
-              .firstWhereOrNull((cal) => cal.name == elychronCalendarName || legacyCalendarNames.contains(cal.name));
+          var existingCalendar = calendarsResult.data!.firstWhereOrNull((cal) =>
+              cal.name == elychronCalendarName ||
+              legacyCalendarNames.contains(cal.name));
           if (existingCalendar != null) {
             _celechronCalendarId = existingCalendar.id;
           }
@@ -615,8 +616,9 @@ class CalendarToSystemManager {
 
       var calendarsResult = await _deviceCalendarPlugin.retrieveCalendars();
       if (calendarsResult.isSuccess) {
-        var existingCalendar = calendarsResult.data!
-            .firstWhereOrNull((cal) => cal.name == elychronCalendarName || legacyCalendarNames.contains(cal.name));
+        var existingCalendar = calendarsResult.data!.firstWhereOrNull((cal) =>
+            cal.name == elychronCalendarName ||
+            legacyCalendarNames.contains(cal.name));
 
         if (existingCalendar != null) {
           // 如果找到了Celechron日历，说明之前可能开启过同步

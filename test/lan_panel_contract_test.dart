@@ -6,7 +6,8 @@ void main() {
     expect(lanPanelHtml, contains("fetch('/pair'"));
     expect(lanPanelHtml, contains("api('/bundle'"));
     // 通知钉在整个浏览器视口的右下角，而不是跟着卡片滚动
-    expect(lanPanelHtml, contains('position: fixed; right: 24px; bottom: 24px;'));
+    expect(
+        lanPanelHtml, contains('position: fixed; right: 24px; bottom: 24px;'));
     expect(lanPanelHtml, contains('Notification.requestPermission'));
     expect(lanPanelHtml, contains('AbortController'));
     expect(lanPanelHtml, contains('visibilitychange'));
@@ -34,7 +35,8 @@ void main() {
     // 保存前必须从 DOM 读回草稿：漏掉没触发过事件的输入就会把用户改的时间丢掉
     expect(lanPanelHtml, contains('syncSubtasksEditor'));
     // 子待办容器是 div（没有 value），旧版直接给它赋 value 是死代码
-    expect(lanPanelHtml, isNot(contains("getElementById('editSubtasks').value")));
+    expect(
+        lanPanelHtml, isNot(contains("getElementById('editSubtasks').value")));
   });
 
   test('LAN panel shows subtask reminders the same way the app does', () {
@@ -44,7 +46,7 @@ void main() {
     expect(lanPanelHtml, contains('subIsOngoing'));
     expect(lanPanelHtml, contains('subIsMissed'));
     expect(lanPanelHtml, contains('nearestSubReminder'));
-    // 默认提前量取手机上「默认提醒提前量」（DataBackup 的 settings.reminderLeadMinutes）
+    // 默认提前量取手机上默认提醒提前量（DataBackup 的 settings.reminderLeadMinutes）
     expect(lanPanelHtml, contains('reminderLeadMinutes'));
     // 任务级与子待办都要排电脑提醒
     expect(lanPanelHtml, contains("'sub|'"));
@@ -56,7 +58,8 @@ void main() {
     // 让 updatedAt 的比较（以及以后的字符串比较）判错新旧。
     expect(lanPanelHtml, contains('function isoLocal('));
     expect(lanPanelHtml, isNot(contains('.toISOString()')));
-    expect(lanPanelHtml, contains('stampMs(local.updatedAt) >= stampMs(t.updatedAt)'));
+    expect(lanPanelHtml,
+        contains('stampMs(local.updatedAt) >= stampMs(t.updatedAt)'));
   });
 
   test('网页端配色与手机端一致', () {
@@ -70,7 +73,7 @@ void main() {
     expect(lanPanelHtml, contains('prefers-color-scheme: dark'));
     // 动效偏好要尊重系统设置
     expect(lanPanelHtml, contains('prefers-reduced-motion: reduce'));
-    // 正文用的「深一档」语义色：系统橙 / 系统红 / 强调粉直接当文字用对比度不够
+    // 正文用的深一档语义色：系统橙 / 系统红 / 强调粉直接当文字用对比度不够
     // （实测 #ff9500 在白底只有 2.2:1、#ff699a 上压白字只有 2.7:1），
     // 所以这几处必须走 *-text 令牌，别退回原始色。
     expect(lanPanelHtml, contains('--warn-text'));
@@ -79,7 +82,8 @@ void main() {
   });
 
   test('网页端保留宽屏工作台与窄屏单栏两种布局', () {
-    expect(lanPanelHtml, contains('grid-template-columns: minmax(0, 340px) minmax(0, 1fr)'));
+    expect(lanPanelHtml,
+        contains('grid-template-columns: minmax(0, 340px) minmax(0, 1fr)'));
     expect(lanPanelHtml, contains('@media (max-width: 900px)'));
     // 弹层复用一个 sheet 容器，配对与编辑不再各写一套样式
     expect(lanPanelHtml, contains('class="overlay"'));

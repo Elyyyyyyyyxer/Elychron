@@ -35,7 +35,7 @@ class HomeModHooks {
     required this.jumpToTab,
   });
 
-  /// 切到「待办」标签页（首页那边是 _pageController.jumpToPage(1)）
+  /// 切到待办标签页（首页那边是 _pageController.jumpToPage(1)）
   final void Function() jumpToTaskTab;
 
   /// 切到任意底部标签（教程的"去试试"按钮要用）
@@ -55,20 +55,22 @@ class HomeModHooks {
       WidgetsBinding.instance.addPostFrameCallback((_) => _onAlarm());
     }
     // 免打扰兜底：若上次专注期间 App 被系统杀掉，手机可能还停在静音档。
-    // 这里发现「我们改过却没还原」就立刻还原（用户自己开的免打扰不会被碰）。
+    // 这里发现我们改过却没还原就立刻还原（用户自己开的免打扰不会被碰）。
     DoNotDisturb.restoreIfStale();
-    // 一次性迁移：把「异步刷新」改成默认开启（老用户也会被迁移一次）。
+    // 一次性迁移：把异步刷新改成默认开启（老用户也会被迁移一次）。
     _migrateOnce();
-    // 补记「上次登录的账号密码」：老用户是在这个功能之前登录的，
+    // 补记上次登录的账号密码：老用户是在这个功能之前登录的，
     // 不补的话他们一退出登录就没得预填。控制器可能还没注册，所以延后再试一次。
     _backfillRememberedAccount();
-    Future<void>.delayed(const Duration(seconds: 3), _backfillRememberedAccount);
-    // 教程里的「去试试」按钮要能跳到对应页面（映射集中在这里，教程内容保持纯数据）
+    Future<void>.delayed(
+        const Duration(seconds: 3), _backfillRememberedAccount);
+    // 教程里的去试试按钮要能跳到对应页面（映射集中在这里，教程内容保持纯数据）
     _wireTutorialRouter();
     // 桌面小组件（PR #4）：冷启动也可能是从小组件点进来的，
     // ValueNotifier 不会补发旧值，所以这里也主动看一眼当前值。
     if (TodoWidgetActionCenter.current.value != null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => _onTodoWidgetAction());
+      WidgetsBinding.instance
+          .addPostFrameCallback((_) => _onTodoWidgetAction());
     }
   }
 
@@ -86,7 +88,7 @@ class HomeModHooks {
         case TutorialTarget.dataSection:
         case TutorialTarget.aiSettings:
           _jumpToTab(4); // 设置（数据/教程/AI 都在设置里）
-        }
+      }
     };
   }
 
@@ -255,8 +257,8 @@ class HomeModHooks {
 
   /// ===== MOD: 专注期间不打断 =====
   ///
-  /// 用户反馈：「如果在专注期间通过外部分享进入 Elychron，会强行打断并提示未正常退出」。
-  /// 原因：分享流程会切到待办页并弹出新建面板 —— 直接压在专注页上，把这次专注打断，
+  /// 用户反馈：如果在专注期间通过外部分享进入 Elychron，会强行打断并提示未正常退出。
+  /// 原因：分享流程会切到待办页并弹出新建面板， 直接压在专注页上，把这次专注打断，
   /// 而专注会话是"未完成"状态，于是再进专注页就会提示"上次没有正常结束"。
   ///
   /// 现在：专注进行中先把分享内容**存起来**，等专注结束再自动弹出来处理。
@@ -306,16 +308,16 @@ class HomeModHooks {
         }
       }
 
-      // 切到「待办」页
+      // 切到待办页
       jumpToTaskTab();
       await Future.delayed(const Duration(milliseconds: 260));
       final context = Get.context;
       if (context == null) return;
 
-      // ===== MOD: 先问一句「新建」还是「加到已有待办」=====
+      // ===== MOD: 先问一句新建还是加到已有待办=====
       //
-      // 以前分享进来只能新建一条待办 —— 但"把这张图/这个文件补到已有的那件事上"
-      // 是很常见的诉求（比如往「写报告」里丢一份参考资料），所以加一个去向选择。
+      // 以前分享进来只能新建一条待办， 但"把这张图/这个文件补到已有的那件事上"
+      // 是很常见的诉求（比如往写报告里丢一份参考资料），所以加一个去向选择。
       final target = await showDingTalkSheet<_ShareTarget>(
         context: context,
         title: '分享到 Elychron',
@@ -423,7 +425,7 @@ class HomeModHooks {
     List<TaskAttachment> attachments,
   ) async {
     final all = Get.find<RxList<Task>>(tag: 'taskList');
-    // 只列「还活着」的待办，按「进行中优先、截止时间近的靠前」排
+    // 只列还活着的待办，按进行中优先、截止时间近的靠前排
     final candidates = all
         .where((task) =>
             task.status != TaskStatus.deleted &&

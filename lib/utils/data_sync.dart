@@ -5,12 +5,12 @@ import 'package:celechron/model/task.dart';
 import 'package:celechron/model/tombstone.dart';
 import 'package:celechron/utils/task_json.dart';
 
-/// ===== 同步用的「密钥白名单」=====
+/// ===== 同步用的密钥白名单=====
 ///
-/// 只有这里列出的键才允许进 [DataBundle.secrets]。**教务网账号密码永远不在这里** ——
+/// 只有这里列出的键才允许进 [DataBundle.secrets]。**教务网账号密码永远不在这里**，
 /// 这是机制上的保证：就算以后有人手滑把凭据塞进 secrets，[DataBundle] 也会把它过滤掉。
 ///
-/// 用「字符串键 + 映射」而不是一个个字段，是为了**以后加新 key 不用改契约**：
+/// 用字符串键 + 映射而不是一个个字段，是为了**以后加新 key 不用改契约**：
 /// 高德、坚果云（WebDAV）的键都已经留好位置了。
 class SyncSecrets {
   SyncSecrets._();
@@ -18,7 +18,7 @@ class SyncSecrets {
   /// AI（DeepSeek）key
   static const String aiApiKey = 'ai.apiKey';
 
-  /// 高德 Web 服务 key —— 导航时间计算用（功能还没做，键先留好）
+  /// 高德 Web 服务 key， 导航时间计算用（功能还没做，键先留好）
   static const String amapKey = 'nav.amapKey';
 
   /// 坚果云 / WebDAV 的三个字段（跨网络同步那条路线用）
@@ -52,14 +52,14 @@ class SyncSecrets {
 /// - 不要：从学校服务器拉下来的课表/考试/成绩/校园卡（各端各自去拉最干净）、
 ///   教务网账号密码、诊断日志
 ///
-/// 这是「导出 / 导入」和「多端同步」共用的载体 —— 本地导出导入跑通之后，
+/// 这是导出 / 导入和多端同步共用的载体， 本地导出导入跑通之后，
 /// 把它整份 PUT/GET 到坚果云就是跨网络同步。
 class DataBundle {
   static const String format = 'celechron-mod';
 
   /// 契约版本：2 = 加了 deviceId / 专注记录 / 更多设置 / 密钥白名单
   ///
-  /// 只加字段、不改老字段 —— 所以 version 1 的老备份**照样能导入** ✓
+  /// 只加字段、不改老字段， 所以 version 1 的老备份**照样能导入** ✓
   static const int version = 2;
 
   final DateTime exportedAt;
@@ -81,6 +81,7 @@ class DataBundle {
   final bool focusRestNotify;
   final int reminderLeadMinutes;
   final int brightnessMode;
+
   /// 课程代码自定义映射（用户在设置里手配的，所以要同步）。用 CourseIdMap 的 JSON 形式。
   final List<Map<String, dynamic>> courseIdMapping;
 
@@ -135,8 +136,7 @@ class DataBundle {
   static int _int(Object? raw, int fallback) =>
       raw is int ? raw : (raw is num ? raw.toInt() : fallback);
 
-  static bool _bool(Object? raw, bool fallback) =>
-      raw is bool ? raw : fallback;
+  static bool _bool(Object? raw, bool fallback) => raw is bool ? raw : fallback;
 
   /// 解析失败返回 null（文件不是本应用导出的、或内容损坏）
   static DataBundle? decode(String text) {
@@ -242,7 +242,7 @@ class DataBundle {
   }
 }
 
-/// 合并结果，用于给用户看「新增了几条、更新了几条、删除了几条」
+/// 合并结果，用于给用户看新增了几条、更新了几条、删除了几条
 class MergeResult {
   final List<Task> tasks;
   final List<TaskTombstone> tombstones;
@@ -254,7 +254,7 @@ class MergeResult {
   /// ===== S1：附带合并回来的其它数据 =====
   final List<FocusSession> focusSessions;
 
-  /// 本端设置是否被对方覆盖了（设置项按「谁导出的更晚谁说了算」整组替换）
+  /// 本端设置是否被对方覆盖了（设置项按谁导出的更晚谁说了算整组替换）
   final bool settingsTakenFromRemote;
 
   /// 两边都改过、最后按时间取舍的待办 uid（**如实汇报，不静默丢弃**）
@@ -289,7 +289,7 @@ class DataMerge {
   /// - 同 uid 两边都有 → **本端还在跑（`endedAt == null`）就以本端为准**
   ///   （会话的归属设备才有发言权），否则比 `endedAt`，晚的赢
   ///
-  /// ⚠️ 已知局限：**专注记录的「删除」不参与同步**（没有会话墓碑），
+  /// ⚠️ 已知局限：**专注记录的删除不参与同步**（没有会话墓碑），
   /// 所以在一端长按删掉的记录，可能被另一端同步回来。留到下一阶段补。
   static List<FocusSession> mergeFocusSessions({
     required List<FocusSession> local,
@@ -324,7 +324,7 @@ class DataMerge {
   /// - 同 uid 比 updatedAt，新者胜
   /// - 墓碑时间晚于待办更新时间 → 该待办保持删除
   /// - 墓碑取并集，同 uid 取更晚的时间
-  /// - 专注记录见 [mergeFocusSessions]；设置整组按「谁导出得更晚」取舍
+  /// - 专注记录见 [mergeFocusSessions]；设置整组按谁导出得更晚取舍
   static MergeResult merge({
     required List<Task> local,
     required List<TaskTombstone> localTombstones,
@@ -404,7 +404,7 @@ class DataMerge {
         local: localFocusSessions,
         remote: incoming.focusSessions,
       ),
-      // 设置项是一个整体，按「谁导出的更晚」取舍（两端同时改设置的场景极少，
+      // 设置项是一个整体，按谁导出的更晚取舍（两端同时改设置的场景极少，
       // 而且设置项都很小，冲突代价远低于逐项比较的复杂度）
       settingsTakenFromRemote: localExportedAt == null ||
           incoming.exportedAt.isAfter(localExportedAt),

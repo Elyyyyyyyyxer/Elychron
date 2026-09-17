@@ -8,8 +8,8 @@
 /// - 可选中列表（行：标题 + 副标题 + 粉色对勾）
 /// - 底部整宽按钮：主操作粉色、取消灰色
 ///
-/// 与 `tag_picker` / `system_alarm_picker` 的观感一致 —— 那两个已经是这个样式了，
-/// 这里把它抽出来，让「默认提前量 / 专注时长 / 闹钟可靠性 / 导出课程表」也用同一套。
+/// 与 `tag_picker` / `system_alarm_picker` 的观感一致， 那两个已经是这个样式了，
+/// 这里把它抽出来，让默认提前量 / 专注时长 / 闹钟可靠性 / 导出课程表也用同一套。
 library;
 
 import 'package:celechron/design/app_accent.dart';
@@ -57,8 +57,8 @@ class DingTalkSheetShell extends StatelessWidget {
   Widget build(BuildContext context) {
     final textColor = CupertinoTheme.of(context).textTheme.textStyle.color ??
         CupertinoColors.label;
-    final labelColor = CupertinoDynamicColor.resolve(
-        CupertinoColors.secondaryLabel, context);
+    final labelColor =
+        CupertinoDynamicColor.resolve(CupertinoColors.secondaryLabel, context);
 
     return Container(
       decoration: BoxDecoration(
@@ -106,7 +106,7 @@ class DingTalkSheetShell extends StatelessWidget {
 /// 钉钉风格的选择弹层：给一组选项，返回选中的值（取消返回 null）。
 ///
 /// [current] 传 null 表示**没有预选项**（适合"选择一个动作"这类弹层，
-/// 比如「新建待办 / 添加到已有待办」）；传值时那一项右侧会打粉色对勾。
+/// 比如新建待办 / 添加到已有待办）；传值时那一项右侧会打粉色对勾。
 Future<T?> showDingTalkSheet<T>({
   required BuildContext context,
   required String title,
@@ -170,8 +170,8 @@ class DingTalkSheetRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final textColor = CupertinoTheme.of(context).textTheme.textStyle.color ??
         CupertinoColors.label;
-    final labelColor = CupertinoDynamicColor.resolve(
-        CupertinoColors.secondaryLabel, context);
+    final labelColor =
+        CupertinoDynamicColor.resolve(CupertinoColors.secondaryLabel, context);
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -280,7 +280,7 @@ class DingTalkSheetSecondary extends StatelessWidget {
   }
 }
 
-/// 底部的「取消」（实为次级按钮，语义上关闭弹层）
+/// 底部的取消（实为次级按钮，语义上关闭弹层）
 class DingTalkSheetCancel extends StatelessWidget {
   final String label;
   final VoidCallback onTap;
@@ -296,7 +296,7 @@ class DingTalkSheetCancel extends StatelessWidget {
       DingTalkSheetSecondary(label: label, onTap: onTap);
 }
 
-/// 面板里的一行「标签 —— 值」，可选状态图标（✅ / ⚠️）
+/// 面板里的一行标签， 值，可选状态图标（✅ / ⚠️）
 class DingTalkInfoRow extends StatelessWidget {
   final String label;
   final String value;
@@ -313,8 +313,8 @@ class DingTalkInfoRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final labelColor = CupertinoDynamicColor.resolve(
-        CupertinoColors.secondaryLabel, context);
+    final labelColor =
+        CupertinoDynamicColor.resolve(CupertinoColors.secondaryLabel, context);
     final textColor = CupertinoTheme.of(context).textTheme.textStyle.color ??
         CupertinoColors.label;
     final statusColor = ok == null
@@ -360,8 +360,8 @@ class DingTalkPanelNote extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final labelColor = CupertinoDynamicColor.resolve(
-        CupertinoColors.secondaryLabel, context);
+    final labelColor =
+        CupertinoDynamicColor.resolve(CupertinoColors.secondaryLabel, context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 6, 20, 6),
       child: Text(
@@ -372,7 +372,7 @@ class DingTalkPanelNote extends StatelessWidget {
   }
 }
 
-/// 钉钉风格的「面板」：标题 + 任意内容 + 主按钮 + 若干次级按钮。
+/// 钉钉风格的面板：标题 + 任意内容 + 主按钮 + 若干次级按钮。
 ///
 /// 用于闹钟可靠性这类"报告 + 跳转"的内容（不是单纯的选择列表）。
 Future<void> showDingTalkPanel({
@@ -408,8 +408,8 @@ Future<void> showDingTalkPanel({
               children: [
                 for (final action in secondaryActions)
                   CupertinoButton(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 8),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     minimumSize: Size.zero,
                     color: CupertinoDynamicColor.resolve(
                         CupertinoColors.tertiarySystemFill, context),

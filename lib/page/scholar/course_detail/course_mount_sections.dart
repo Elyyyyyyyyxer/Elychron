@@ -16,7 +16,7 @@ import 'package:get/get.dart';
 ///
 /// 需求与拍板决定见 `docs/BACKLOG.md` #24：评论与资料挂在**课程总体**上
 /// （键 = 课程代码），"某个待办也可以挂到课程上"则走 `Task.courseId`
-/// —— 于是这门课的待办是**查出来的**，不在这里冗余存一份。
+///， 于是这门课的待办是**查出来的**，不在这里冗余存一份。
 ///
 /// 三个区块各自是独立的小组件（自带状态），这样课程详情页那个 StatelessWidget
 /// 不用为了挂载改成 StatefulWidget，改动面最小。
@@ -119,8 +119,8 @@ class _CourseMaterialsSectionState extends State<CourseMaterialsSection> {
               Align(
                 alignment: Alignment.centerLeft,
                 child: CupertinoButton(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 12, vertical: 6),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   color: CupertinoColors.systemBlue.withValues(alpha: 0.12),
                   onPressed: _busy ? null : _add,
                   child: Row(
@@ -183,8 +183,8 @@ class _CourseMaterialsSectionState extends State<CourseMaterialsSection> {
               padding: EdgeInsets.zero,
               minimumSize: const Size(32, 32),
               onPressed: () => _remove(index),
-              child: Icon(CupertinoIcons.clear_thick,
-                  size: 16, color: labelColor),
+              child:
+                  Icon(CupertinoIcons.clear_thick, size: 16, color: labelColor),
             ),
           ],
         ),
@@ -315,7 +315,8 @@ class _CourseCommentsSectionState extends State<CourseCommentsSection> {
                         padding: EdgeInsets.zero,
                         minimumSize: const Size(30, 30),
                         // 注意：显示顺序是反的，删除时要换算回原始下标
-                        onPressed: () => _remove(_mount.comments.length - 1 - i),
+                        onPressed: () =>
+                            _remove(_mount.comments.length - 1 - i),
                         child: Icon(CupertinoIcons.clear_thick,
                             size: 16, color: labelColor),
                       ),
@@ -332,13 +333,10 @@ class _CourseCommentsSectionState extends State<CourseCommentsSection> {
   static String _stamp(DateTime time) {
     String two(int value) => value.toString().padLeft(2, '0');
     final now = DateTime.now();
-    final sameDay = time.year == now.year &&
-        time.month == now.month &&
-        time.day == now.day;
+    final sameDay =
+        time.year == now.year && time.month == now.month && time.day == now.day;
     final clock = '${two(time.hour)}:${two(time.minute)}';
-    return sameDay
-        ? '今天 $clock'
-        : '${time.month} 月 ${time.day} 日 $clock';
+    return sameDay ? '今天 $clock' : '${time.month} 月 ${time.day} 日 $clock';
   }
 }
 
@@ -412,8 +410,8 @@ class _CourseTasksSectionState extends State<CourseTasksSection> {
                 Align(
                   alignment: Alignment.centerLeft,
                   child: CupertinoButton(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 6),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     color: CupertinoColors.systemBlue.withValues(alpha: 0.12),
                     onPressed: _create,
                     child: const Row(
@@ -424,7 +422,8 @@ class _CourseTasksSectionState extends State<CourseTasksSection> {
                         SizedBox(width: 6),
                         Text('新建待办并挂到这门课',
                             style: TextStyle(
-                                fontSize: 14, color: CupertinoColors.systemBlue)),
+                                fontSize: 14,
+                                color: CupertinoColors.systemBlue)),
                       ],
                     ),
                   ),
@@ -444,9 +443,7 @@ class _CourseTasksSectionState extends State<CourseTasksSection> {
       child: Row(
         children: [
           Icon(
-            done
-                ? CupertinoIcons.checkmark_circle
-                : CupertinoIcons.circle,
+            done ? CupertinoIcons.checkmark_circle : CupertinoIcons.circle,
             size: 18,
             color: done ? CupertinoColors.systemGreen : labelColor,
           ),

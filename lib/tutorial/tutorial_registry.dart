@@ -23,7 +23,7 @@ class TutorialRegistry {
   /// 全部教程。**这里是唯一的登记处。**
   static const List<Tutorial> _all = <Tutorial>[
     // ===== 入门 =====
-    // 顺序 = 「教程中心」的展示顺序：用「配置」打头（那是用之前要做的事），
+    // 顺序 = 教程中心的展示顺序：用配置打头（那是用之前要做的事），
     // 然后是待办、数据两篇。往这里加一行就多一篇教程。
     tutorialSetup,
     tutorialBasics,
@@ -90,7 +90,7 @@ class TutorialRegistry {
         switch (step) {
           case TutorialTextStep(:final body):
             // ⚠️ 这里**不再要求每步都有标题**（2026-09-17）：
-            // 教程文案是用户手写的，"同一节的续页"本来就不该硬编一个小标题 ——
+            // 教程文案是用户手写的，"同一节的续页"本来就不该硬编一个小标题，
             // 空标题的步骤渲染器会直接不画标题行。只要求整篇第一步有标题。
             if (i == 0 && body.isEmpty) {
               issues.add('教程 ${tutorial.id} 第 1 步没有正文');

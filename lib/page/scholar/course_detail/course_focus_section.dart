@@ -5,17 +5,17 @@ import 'package:celechron/model/focus_session.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:get/get.dart';
 
-/// 课程页的「专注」区块：**这门课一共专注了多久、最近几次是什么时候**。
+/// 课程页的专注区块：**这门课一共专注了多久、最近几次是什么时候**。
 ///
 /// ## 为什么要加它（用户 2026-09-17）
 ///
-/// 用户报「当现在有课的时候，自由专注不会自动计入当前课程？」——
+/// 用户报当现在有课的时候，自由专注不会自动计入当前课程？，
 /// 真机实测下来归属其实是**好的**（在一节 16:15–17:50 的课里开自由专注，
 /// 结束后确实算到了那门课），问题出在**看不见**：
 ///
 /// - 专注页当时一声不吭，不告诉你这次算到了哪门课（现在会写了）；
 /// - 专注记录列表里也只有名字和时长，没有课程（现在也带上了）；
-/// - 而课程页本身**完全没有专注的影子** —— 用户点进"当前这门课"，
+/// - 而课程页本身**完全没有专注的影子**， 用户点进"当前这门课"，
 ///   自然觉得"根本没计入"。
 ///
 /// 所以这个区块就是把归属**落到课程这一侧**：这门课我一共专注了多少、
@@ -36,7 +36,7 @@ class CourseFocusSection extends StatelessWidget {
         .toList();
   }
 
-  /// 「1 小时 20 分」这种口语化时长（与专注页同一套写法）
+  /// 1 小时 20 分这种口语化时长（与专注页同一套写法）
   String _human(Duration d) {
     final hours = d.inHours;
     final minutes = d.inMinutes % 60;
@@ -51,8 +51,8 @@ class CourseFocusSection extends StatelessWidget {
         CupertinoDynamicColor.resolve(CupertinoColors.secondaryLabel, context);
     final textColor = CupertinoTheme.of(context).textTheme.textStyle.color;
     final sessions = _sessions();
-    final total = sessions.fold<Duration>(
-        Duration.zero, (acc, s) => acc + s.focusedTime);
+    final total =
+        sessions.fold<Duration>(Duration.zero, (acc, s) => acc + s.focusedTime);
 
     return Column(
       children: [

@@ -6,14 +6,14 @@ import 'package:celechron/model/session.dart';
 import 'package:celechron/services/diagnostic_log_service.dart';
 import 'package:celechron/utils/tuple.dart';
 
-/// 智慧研工（eta）—— 课表的**备用来源**。
+/// 智慧研工（eta）， 课表的**备用来源**。
 ///
-/// 为什么需要它：本科教务（zdbk）在选课、排课期间会出现「请求成功但课表为空」，
+/// 为什么需要它：本科教务（zdbk）在选课、排课期间会出现请求成功但课表为空，
 /// 这时 zdbk 一条课次都给不出来（实测 2026-09-13 一次刷新里 8 个学期查询全部 0 行），
 /// 而 eta 的课表接口同期是有数据的。
 ///
 /// 与 zdbk 相比，这个接口的返回干净得多：直接给周几、半学期、起止节次、单双周，
-/// 还带课程代码（[kcdm]）—— zdbk 不给课号，App 只能拿「学期 + 课程名」拼 key。
+/// 还带课程代码（[kcdm]）， zdbk 不给课号，App 只能拿学期 + 课程名拼 key。
 ///
 /// 局限：它只提供**当前学年学期**的课表，历史学期一律返回空。所以只当兜底，
 /// 正常路径仍然走 zdbk。
@@ -22,7 +22,7 @@ class Eta {
   static const String _baseUrl = 'https://eta.zju.edu.cn/zftal-xgxt-web';
 
   /// 站点自己用的 CAS service 地址，照抄即可（换成别的路径会被判未登录）。
-  /// 这里保持 http —— 与站点一致，票据才认；跳转回来时再升到 https。
+  /// 这里保持 http， 与站点一致，票据才认；跳转回来时再升到 https。
   static const String _loginService =
       'http://eta.zju.edu.cn/zftal-xgxt-web/teacher/xtgl/index/check.zf';
 
@@ -46,8 +46,7 @@ class Eta {
     request.cookies.add(ssoCookie);
     var response = await request.close().timeout(const Duration(seconds: 8),
         onTimeout: () => throw requestTimeout());
-    final firstBody =
-        await readResponseBody(response, context: '智慧研工 CAS 登录');
+    final firstBody = await readResponseBody(response, context: '智慧研工 CAS 登录');
 
     var location = response.headers.value(HttpHeaders.locationHeader);
     if (!response.isRedirect || location == null) {
@@ -128,7 +127,8 @@ class Eta {
         requestUri: uri,
       );
 
-      final payload = decodeJsonMap(body, context: '$context；HTTP ${response.statusCode}');
+      final payload =
+          decodeJsonMap(body, context: '$context；HTTP ${response.statusCode}');
       final sessions = parseEtaTimetable(payload);
       DiagnosticLogService.instance.record(
         module: '课表',
@@ -181,8 +181,8 @@ List<Session> parseEtaTimetable(Map<String, dynamic> payload) {
     }
   }
   // ===== MOD: 半学期诊断上报（只读）=====
-  // 把本次解析里"xxq 缺失、于是被判成两半都上"的课程记进日志 ——
-  // 真实反馈「只有冬学期的课显示到了秋学期」最可能就是这一条。
+  // 把本次解析里"xxq 缺失、于是被判成两半都上"的课程记进日志，
+  // 真实反馈只有冬学期的课显示到了秋学期最可能就是这一条。
   try {
     final bothHalves = sessions
         .where((e) => e.firstHalf && e.secondHalf)
@@ -191,7 +191,7 @@ List<Session> parseEtaTimetable(Map<String, dynamic> payload) {
         .toList();
     final line = '半学期诊断（智慧研工）：共 ${sessions.length} 条；'
         '两半都上 ${bothHalves.length} 门'
-          '（其中靠猜的 ${etaHalfDiag.length} 条）'
+        '（其中靠猜的 ${etaHalfDiag.length} 条）'
         '${bothHalves.isEmpty ? '' : '（${bothHalves.take(6).join("、")}）'}；'
         'xxq 缺失 ${etaHalfDiag.length} 条'
         '${etaHalfDiag.isEmpty ? '' : '（${etaHalfDiag.take(6).join("、")}）'}';
@@ -218,9 +218,8 @@ Session? sessionFromEtaEntry(Map<String, dynamic> entry) {
   if (dayOfWeek == null || firstPeriod == null || firstPeriod <= 0) return null;
 
   final courses = asDynamicList(entry['ke']);
-  final first = courses == null || courses.isEmpty
-      ? null
-      : asStringMap(courses.first);
+  final first =
+      courses == null || courses.isEmpty ? null : asStringMap(courses.first);
   final name = asString(first?['kcmc']);
   if (name == null || name.trim().isEmpty) return null;
 
@@ -237,11 +236,11 @@ Session? sessionFromEtaEntry(Map<String, dynamic> entry) {
     ..location = asString(first?['jsmc'])
     ..time = List<int>.generate(span, (index) => firstPeriod + index);
 
-  // 半学期：**能读出来就按它分**（秋冬 = 两半都上，只写「秋」/「冬」时各归各的）；
+  // 半学期：**能读出来就按它分**（秋冬 = 两半都上，只写秋/冬时各归各的）；
   // 读不出来才退回"两半都上"，并打上"这是猜的"标记（见 Session.halfGuessed）。
   //
-  // ⚠️ 回答用户 2026-09-17 的疑问「eta 不能够分清楚各个半学期吗」：
-  // **能** —— eta 的每一条都带 `xxq`（形如 `秋冬` / `秋` / `冬`），上面这几行就是读它。
+  // ⚠️ 回答用户 2026-09-17 的疑问eta 不能够分清楚各个半学期吗：
+  // **能**， eta 的每一条都带 `xxq`（形如 `秋冬` / `秋` / `冬`），上面这几行就是读它。
   // 只有当它缺失/写法不认识时才会退化成"两半都上"。
   final half = asString(entry['xxq']) ?? '';
   final firstHalf = half.contains('秋') || half.contains('春');
@@ -252,7 +251,7 @@ Session? sessionFromEtaEntry(Map<String, dynamic> entry) {
 
   // ===== MOD: 半学期诊断（只读，不写数据）=====
   // 与 zdbk 那条同源：`xxq` 缺失时这里会把课程**算成两半都上**（上面两行的 `!` 兜底），
-  // 于是一门口径上"只有冬学期"的课会同时出现在秋与冬 —— 真实反馈的现象。
+  // 于是一门口径上"只有冬学期"的课会同时出现在秋与冬， 真实反馈的现象。
   // 教务最近常返回 921（限流），课表很可能来自智慧研工这条路，所以两边都要能看到。
   if (!firstHalf && !secondHalf) {
     etaHalfDiag.add('${session.name}(xxq=${half.isEmpty ? "缺失" : half})');

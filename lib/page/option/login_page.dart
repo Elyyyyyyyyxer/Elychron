@@ -124,15 +124,15 @@ class _LoginFormState extends State<LoginForm> {
                           controller: passwordController,
                           // ===== MOD: 密码框在部分国产 ROM 上弹不出键盘 =====
                           //
-                          // 用户反馈（小米 17 PM / HyperOS）：「输学号正常，但输密码键盘
-                          // 会跳不出来」，而**粘贴是能贴进去的** —— 说明输入框本身能聚焦、
+                          // 用户反馈（小米 17 PM / HyperOS）：输学号正常，但输密码键盘
+                          // 会跳不出来，而**粘贴是能贴进去的**， 说明输入框本身能聚焦、
                           // 也能收文本，卡住的是"向系统要输入法"这一步。这类 ROM 对
                           // **密码类输入框**会挂自己的"安全输入法"，那个键盘起不来时
                           // 系统就什么都不弹。
                           //
                           // 所以这里：① 输入类型显式声明成 visiblePassword（而不是
                           // 让引擎按 obscureText 推成 textPassword），尽量走普通文本框那条路；
-                          // ② 关掉联想/自动更正；③ 给一个「显示密码」开关 ——
+                          // ② 关掉联想/自动更正；③ 给一个显示密码开关，
                           // 万一还是弹不出来，切成明文一般就能正常输入（也能让用户
                           // 自己确认密码有没有打错）。
                           keyboardType: TextInputType.visiblePassword,
@@ -183,7 +183,7 @@ class _LoginFormState extends State<LoginForm> {
                             val.password = passwordController.value.text;
                             val.login().then((value) async {
                               // ===== MOD: 判据只看统一身份认证（见 LoginCriteria）=====
-                              // 以前要求所有子站都登录成功，教务网一崩就「登录失败」并
+                              // 以前要求所有子站都登录成功，教务网一崩就登录失败并
                               // 卡在登录页；现在身份通过就进 App，子站失败只做提示。
                               if (LoginCriteria.succeeded(value)) {
                                 await val.refresh(
@@ -195,20 +195,19 @@ class _LoginFormState extends State<LoginForm> {
                                 if (context.mounted) {
                                   Navigator.of(context).pop();
                                 }
-                                final hint =
-                                    LoginCriteria.degradedHint(value);
+                                final hint = LoginCriteria.degradedHint(value);
                                 if (hint.isNotEmpty && context.mounted) {
                                   showCupertinoDialog(
                                       context: context,
-                                      builder: (context) => CupertinoAlertDialog(
+                                      builder: (context) =>
+                                          CupertinoAlertDialog(
                                             title: const Text('部分模块暂不可用'),
                                             content: Text(hint),
                                             actions: [
                                               CupertinoDialogAction(
                                                 child: const Text('知道了'),
-                                                onPressed: () => Navigator.of(
-                                                        context)
-                                                    .pop(),
+                                                onPressed: () =>
+                                                    Navigator.of(context).pop(),
                                               ),
                                             ],
                                           ));
@@ -219,7 +218,7 @@ class _LoginFormState extends State<LoginForm> {
                                 // ===== MOD: 报错只说人话 =====
                                 // 以前把异常原文整段贴出来（含 URL / 状态码 / 响应片段），
                                 // 一屏都放不下，用户完全看不懂。现在压成一句，
-                                // 细节去「设置 → 诊断与测试」里看。
+                                // 细节去设置 → 诊断与测试里看。
                                 final raw = value.firstWhere(
                                     (e) => e != null && e.trim().isNotEmpty,
                                     orElse: () => null);
@@ -234,8 +233,8 @@ class _LoginFormState extends State<LoginForm> {
                                           child: Text(
                                             FriendlyError.short(raw,
                                                 fallback: '登录没成功，请稍后重试'),
-                                            style: const TextStyle(
-                                                fontSize: 15),
+                                            style:
+                                                const TextStyle(fontSize: 15),
                                           ),
                                         ),
                                         actions: [

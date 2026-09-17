@@ -45,12 +45,12 @@ class LanSyncServer {
 
   /// 最近一次把本机数据交出去（面板拉取）的时刻。
   ///
-  /// 用途：判断对方推回来的那份是不是比「我们给出去的」更新 —— 设置项整组取舍要用
-  /// （见 DataMerge.merge 的 localExportedAt）。从没拉过（null）就按「对方更新」处理，
+  /// 用途：判断对方推回来的那份是不是比我们给出去的更新， 设置项整组取舍要用
+  /// （见 DataMerge.merge 的 localExportedAt）。从没拉过（null）就按对方更新处理，
   /// 也就是首次同步以对方为准。
   DateTime? lastPullAt;
 
-  /// 最近一次推送给我们的数据来自哪台设备（面板上显示「最后同步来自 X」）
+  /// 最近一次推送给我们的数据来自哪台设备（面板上显示最后同步来自 X）
   String lastSyncDeviceId = '';
   String lastSyncSummary = '';
 
@@ -132,8 +132,10 @@ class LanSyncServer {
     if (request.method == 'OPTIONS') {
       response.statusCode = HttpStatus.noContent;
       response.headers.set('Access-Control-Allow-Origin', '*');
-      response.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-      response.headers.set('Access-Control-Allow-Headers', 'Content-Type, X-Lan-Token');
+      response.headers
+          .set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+      response.headers
+          .set('Access-Control-Allow-Headers', 'Content-Type, X-Lan-Token');
       await response.close();
       return;
     }
@@ -289,7 +291,8 @@ class LanSyncServer {
         ContentType('application', 'json', charset: 'utf-8');
     response.headers.set('Cache-Control', 'no-store');
     response.headers.set('Access-Control-Allow-Origin', '*');
-    response.headers.set('Access-Control-Allow-Headers', 'Content-Type, X-Lan-Token');
+    response.headers
+        .set('Access-Control-Allow-Headers', 'Content-Type, X-Lan-Token');
     response.write(jsonEncode(data));
     await response.close();
   }

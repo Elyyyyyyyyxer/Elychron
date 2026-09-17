@@ -101,7 +101,7 @@ class SubTaskAdapter extends TypeAdapter<SubTask> {
           (fields[7] as List?)?.map((e) => e as TaskAttachment).toList() ??
               <TaskAttachment>[],
       location: fields[8] as String? ?? '',
-      // 老数据没有这两项 → null，就是「清单型」步骤，行为不变
+      // 老数据没有这两项 → null，就是清单型步骤，行为不变
       startTime: fields[9] as DateTime?,
       reminderMinutes: fields[10] as int?,
     );
@@ -230,7 +230,7 @@ class DeadlineAdapter extends TypeAdapter<Task> {
     var fields = <int, dynamic>{
       for (var i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
     };
-    // ===== MOD: 兼容事故版本写下的帧（2026-09-16「App 打不开」的善后）=====
+    // ===== MOD: 兼容事故版本写下的帧（2026-09-16App 打不开的善后）=====
     //
     // 那一版给 Task 加了字段 26（课程归属）却忘了把字段计数从 23 改成 24，
     // 于是每条 Task 后面都多留了一对字节 `[26][courseId]`。列表读取器读完 23 对之后，

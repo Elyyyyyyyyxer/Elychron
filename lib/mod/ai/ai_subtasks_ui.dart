@@ -44,7 +44,7 @@ Future<bool> _ensureAiReady(BuildContext context) async {
   return false;
 }
 
-/// 「AI 拆成子待办」的界面流程。
+/// AI 拆成子待办的界面流程。
 ///
 /// 刻意放在这里而不是塞进 `task_edit_page.dart`：那个文件以后跟上游合并时能少改一点。
 /// 详情页只需要在 ⋯ 菜单里加一项、调一次 [runAiSubtasks]。

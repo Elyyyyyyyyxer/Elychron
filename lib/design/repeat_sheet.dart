@@ -15,7 +15,7 @@ const Map<RepeatUnit, String> repeatUnitName = {
 };
 
 /// 重复规则的界面表示：把 Task 里的 repeatType / repeatPeriod / repeatEndsTime
-/// 组合成「每天重复 / 每 2 周重复 / 每周工作日 …」这种可读形式。
+/// 组合成每天重复 / 每 2 周重复 / 每周工作日 …这种可读形式。
 class RepeatSetting {
   final TaskRepeatType type;
   final int period;
@@ -42,7 +42,7 @@ class RepeatSetting {
     task.repeatEndsTime = endless ? kRepeatEndlessDate : dateOnly(endsDate);
   }
 
-  /// 自定义重复里的「每 N 单位」——把 period 还原成 N + 单位。
+  /// 自定义重复里的每 N 单位，把 period 还原成 N + 单位。
   RepeatUnit get unit {
     switch (type) {
       case TaskRepeatType.month:
@@ -64,7 +64,7 @@ class RepeatSetting {
     return period < 1 ? 1 : period;
   }
 
-  /// 由「每 N 单位」构造出模型层需要的 type + period。
+  /// 由每 N 单位构造出模型层需要的 type + period。
   static RepeatSetting fromUnit({
     required RepeatUnit unit,
     required int interval,

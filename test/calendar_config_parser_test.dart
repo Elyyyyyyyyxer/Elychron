@@ -83,9 +83,9 @@ void main() {
   });
 
   test('半学期字段缺失时用请求参数兜底（否则整张课表会被滤空）', () {
-    // 教务的 xxq 并不总是给「秋/冬/春/夏」：实测会缺失或只给数字码。
+    // 教务的 xxq 并不总是给秋/冬/春/夏：实测会缺失或只给数字码。
     // 一旦如此，firstHalf / secondHalf 会一起留在 false，课表把它整个滤掉，
-    // 现象就是「课程列表有课、课时 0.0、课表空白」。
+    // 现象就是课程列表有课、课时 0.0、课表空白。
     Map<String, dynamic> row([Object? xxq]) => {
           'kcb': '虚构课程<br>虚构教学班<br>虚构教师<br>虚构教室zwf',
           'sfqd': '1',
@@ -150,7 +150,7 @@ void main() {
 
   test('教务返回空课表时沿用上一次的课程安排（不清空）', () {
     // 实测故障形态：一次刷新里 8 个学期查询全部返回 0 行，App 把空的学期对象
-    // 整体替换进去，课表就「凭空消失」了（课程列表还在，因为那是别的字段）。
+    // 整体替换进去，课表就凭空消失了（课程列表还在，因为那是别的字段）。
     Semester withCourse(String name, String id) {
       final semester = Semester(name);
       applyCalendarConfig(
@@ -185,7 +185,8 @@ void main() {
 
   test('真的没有旧数据时不会被凭空造出课表', () {
     final incoming = [Semester('2026-2027秋冬')];
-    expect(carryOverTimetablesFrom(incoming, [Semester('2026-2027秋冬')]), isEmpty);
+    expect(
+        carryOverTimetablesFrom(incoming, [Semester('2026-2027秋冬')]), isEmpty);
     expect(incoming.single.sessions, isEmpty);
   });
 

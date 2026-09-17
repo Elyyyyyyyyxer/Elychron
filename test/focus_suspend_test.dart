@@ -2,16 +2,16 @@ import 'package:celechron/mod/focus_suspend.dart';
 import 'package:celechron/model/focus_engine.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// 「暂停后离开，回来接着专注」（2026-09-16 用户要求）里两块**纯逻辑**的测试：
-///  1. «FocusEngine.restore» —— 从存档里原样接回计时状态；
-///  2. «SuspendedFocus» 的序列化 —— 它存在 optionsBox 里，读回来的可能是任何东西。
+/// 暂停后离开，回来接着专注（2026-09-16 用户要求）里两块**纯逻辑**的测试：
+///  1. «FocusEngine.restore»， 从存档里原样接回计时状态；
+///  2. «SuspendedFocus» 的序列化， 它存在 optionsBox 里，读回来的可能是任何东西。
 ///
 /// 为什么这两块值得单独测：接不回来 = 用户白专注一段（或者反过来多算），
 /// 而脏数据读崩 = 专注首页直接打不开。都属于"再也不想遇到第二次"的那类。
 void main() {
   final t0 = DateTime(2026, 9, 16, 20, 0, 0);
 
-  group('FocusEngine.restore：从「暂停后离开」的存档里接回来', () {
+  group('FocusEngine.restore：从暂停后离开的存档里接回来', () {
     test('数值原样恢复，并且停在暂停态（不自己跑起来）', () {
       final engine = FocusEngine(workMinutes: 45, restMinutes: 10);
       engine.restore(
@@ -31,7 +31,7 @@ void main() {
       expect(engine.pausedFromResting, isFalse);
     });
 
-    test('「暂停前是休息」记得住：继续后走的是休息段，只加休息时长', () {
+    test('暂停前是休息记得住：继续后走的是休息段，只加休息时长', () {
       final engine = FocusEngine(workMinutes: 45, restMinutes: 10);
       engine.restore(
         now: t0,
@@ -63,7 +63,7 @@ void main() {
         remaining: const Duration(minutes: 35),
         wasResting: false,
       );
-      // 用户走开一小时，回来点「继续」，又专注了 2 分钟
+      // 用户走开一小时，回来点继续，又专注了 2 分钟
       final back = t0.add(const Duration(hours: 1));
       engine.resume(back);
       engine.tick(back.add(const Duration(minutes: 2)));
@@ -106,7 +106,7 @@ void main() {
       expect(back.at, at);
     });
 
-    test('读不出来的一律当「没有暂停中的专注」，绝不抛', () {
+    test('读不出来的一律当没有暂停中的专注，绝不抛', () {
       expect(SuspendedFocus.fromMap(null), isNull);
       expect(SuspendedFocus.fromMap('nonsense'), isNull);
       expect(SuspendedFocus.fromMap(<String, dynamic>{}), isNull);

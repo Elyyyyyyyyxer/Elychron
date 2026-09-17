@@ -19,10 +19,10 @@ class CourseDetailPage extends StatelessWidget {
 
   /// 找到的课程；**找不到就是 null**（此时页面显示一句人话，不再崩）。
   ///
-  /// ★ 原来这里是没有 `orElse` 的 `firstWhere(...).courses[courseId]!` ——
+  /// ★ 原来这里是没有 `orElse` 的 `firstWhere(...).courses[courseId]!`，
   /// 只要某个 courseId 不在课表里，构造就直接抛 `StateError: No element`，
   /// 而且是在 `Navigator.push` 的路由构建里抛的 → 页面打不开 + GetX 的 Obx 被毒化
-  /// → App 卡死（系统 ANR，2026-09-16 用户报的「点成绩卡片卡死」是同一个坑的另一半）。
+  /// → App 卡死（系统 ANR，2026-09-16 用户报的点成绩卡片卡死是同一个坑的另一半）。
   ///
   /// 哪些 courseId 会找不到？最典型的是**成绩卡片**：军训、体育、通识课这些
   /// **没排进课表**的课照样有成绩，点它就必然找不到课程。
@@ -44,7 +44,7 @@ class CourseDetailPage extends StatelessWidget {
 
   Widget createSessionCard(context, List<Session> sessions) {
     // 复制一份再排序：原来直接对 `course.sessions`（模型里的那个 List）就地排序，
-    // 等于在 build 里改数据 —— 复制一份既保住顺序稳定，也不动模型。
+    // 等于在 build 里改数据， 复制一份既保住顺序稳定，也不动模型。
     sessions = List<Session>.of(sessions)
       ..sort((a, b) => a.time.first.compareTo(b.time.first));
     return Column(
@@ -422,8 +422,8 @@ class CourseDetailPage extends StatelessWidget {
   /// 什么时候会遇到：从**成绩卡片**点进来，而那门课没排进课表（军训、体育、通识课…），
   /// 或者课表还没刷新出来。以前这里会抛 StateError → 页面打不开 + App 卡死。
   Widget _buildCourseNotFound(BuildContext context) {
-    final labelColor = CupertinoDynamicColor.resolve(
-        CupertinoColors.secondaryLabel, context);
+    final labelColor =
+        CupertinoDynamicColor.resolve(CupertinoColors.secondaryLabel, context);
     return CupertinoPageScaffold(
       backgroundColor: CupertinoDynamicColor.resolve(
           CupertinoColors.systemGroupedBackground, context),
@@ -448,7 +448,7 @@ class CourseDetailPage extends StatelessWidget {
                     const SizedBox(height: 6),
                     Text(
                       '它可能没排进课表（例如军训、体育、通识课），'
-                      '也可能是课表还没刷新。可以在「学业」页刷新一次课表再看看。',
+                      '也可能是课表还没刷新。可以在学业页刷新一次课表再看看。',
                       textAlign: TextAlign.center,
                       style: TextStyle(fontSize: 13, color: labelColor),
                     ),
@@ -528,8 +528,8 @@ class CourseDetailPage extends StatelessWidget {
               child: CourseTasksSection(courseId: current.id ?? ''),
             ),
           ),
-          // ===== MOD: 「专注」区块（2026-09-17）=====
-          // 用户反馈"自由专注看不出有没有计入当前课程" —— 把归属落到课程这一侧：
+          // ===== MOD: 专注区块（2026-09-17）=====
+          // 用户反馈"自由专注看不出有没有计入当前课程"， 把归属落到课程这一侧：
           // 这门课一共专注了多久、最近几次是哪天。按 FocusSession.courseId 查，不存冗余。
           SliverToBoxAdapter(
             child: Container(

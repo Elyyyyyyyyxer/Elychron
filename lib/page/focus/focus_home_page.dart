@@ -10,12 +10,12 @@ import 'package:celechron/page/task/task_controller.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:get/get.dart';
 
-/// ===== 专注标签页：一个「坐下就能按」的入口 =====
+/// ===== 专注标签页：一个坐下就能按的入口 =====
 ///
 /// 中间那个大圆就是唯一的主操作：按它就开始专注。
-/// 上面选定「专注对象」——要么挑一条待办，要么给这次专注起个名字；
-/// 什么都不选也能直接开始（就叫「专注」）。
-/// 下面那条进「专注记录」。
+/// 上面选定专注对象，要么挑一条待办，要么给这次专注起个名字；
+/// 什么都不选也能直接开始（就叫专注）。
+/// 下面那条进专注记录。
 class FocusHomePage extends StatefulWidget {
   const FocusHomePage({super.key});
 
@@ -63,7 +63,7 @@ class _FocusHomePageState extends State<FocusHomePage> {
     final ago = minutes <= 0
         ? '刚刚'
         : (minutes < 60 ? '$minutes 分钟前' : '${minutes ~/ 60} 小时前');
-    return '「$name」· 已专注 ${focusHuman(focused)} · $ago暂停';
+    return '$name· 已专注 ${focusHuman(focused)} · $ago暂停';
   }
 
   /// 继续那次暂停中的专注
@@ -137,7 +137,7 @@ class _FocusHomePageState extends State<FocusHomePage> {
 
   // ------------------------------------------------------------ 选专注对象
 
-  /// 从「待我处理」里挑一条
+  /// 从待我处理里挑一条
   Future<void> _pickTask() async {
     List<Task> candidates = const [];
     try {
@@ -152,7 +152,7 @@ class _FocusHomePageState extends State<FocusHomePage> {
           title: const Text('没有可选的待办'),
           content: const Padding(
             padding: EdgeInsets.only(top: 8),
-            child: Text('「待我处理」里现在是空的。先去待办页建一条，或者直接开始自由专注。',
+            child: Text('待我处理里现在是空的。先去待办页建一条，或者直接开始自由专注。',
                 style: TextStyle(fontSize: 14)),
           ),
           actions: [
@@ -239,10 +239,10 @@ class _FocusHomePageState extends State<FocusHomePage> {
                                 '截止 ${task.endTime.month}-${task.endTime.day} '
                                     '${task.endTime.hour.toString().padLeft(2, '0')}:'
                                     '${task.endTime.minute.toString().padLeft(2, '0')}',
-                                if (already) '已专注 ${focusHuman(task.timeSpent)}',
+                                if (already)
+                                  '已专注 ${focusHuman(task.timeSpent)}',
                               ].where((e) => e.isNotEmpty).join(' · '),
-                              style:
-                                  TextStyle(fontSize: 12, color: labelColor),
+                              style: TextStyle(fontSize: 12, color: labelColor),
                             ),
                           ],
                         ),
@@ -276,8 +276,7 @@ class _FocusHomePageState extends State<FocusHomePage> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('比如「敲代码」「看书」「写报告」：',
-                  style: TextStyle(fontSize: 13)),
+              const Text('比如敲代码看书写报告：', style: TextStyle(fontSize: 13)),
               const SizedBox(height: 8),
               CupertinoTextField(
                 controller: controller,
@@ -317,7 +316,7 @@ class _FocusHomePageState extends State<FocusHomePage> {
       task: task,
       freeLabel: task == null ? _freeLabel : null,
     );
-    if (mounted) setState(() {}); // 回来刷新「今天已专注」
+    if (mounted) setState(() {}); // 回来刷新今天已专注
   }
 
   // ------------------------------------------------------------------ UI
@@ -393,7 +392,7 @@ class _FocusHomePageState extends State<FocusHomePage> {
               ),
             ),
 
-            // ===== MOD: 「有一次专注还没结束」的继续入口（2026-09-16）=====
+            // ===== MOD: 有一次专注还没结束的继续入口（2026-09-16）=====
             // 暂停时离开专注页**不会结束**这次专注（见 mod/focus_suspend.dart），
             // 所以这里要把它显式摆出来，否则用户找不到回去的路。
             if (_suspended != null) ...[
@@ -531,8 +530,7 @@ class _FocusHomePageState extends State<FocusHomePage> {
                 onTap: () async {
                   await Navigator.of(context, rootNavigator: true).push(
                     CupertinoPageRoute<void>(
-                      builder: (BuildContext context) =>
-                          const FocusStatsPage(),
+                      builder: (BuildContext context) => const FocusStatsPage(),
                     ),
                   );
                   if (mounted) setState(() {});
@@ -544,7 +542,7 @@ class _FocusHomePageState extends State<FocusHomePage> {
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Text(
                 '点中间的大圆开始。工作与休息会自动交替，'
-                '时长可在「设置 → 专注时长」里改（现在是 '
+                '时长可在设置 → 专注时长里改（现在是 '
                 '${_db?.getFocusWorkMinutes() ?? 60} 分钟工作 / '
                 '${_db?.getFocusRestMinutes() ?? 15} 分钟休息）。',
                 style: TextStyle(fontSize: 12, color: labelColor),

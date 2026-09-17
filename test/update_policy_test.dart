@@ -17,8 +17,10 @@ void main() {
   });
 
   test('build 号更高也算有新版本（同一版本号内测包）', () {
-    expect(Fuse.isNewer([1, 4, 0], local, remoteBuild: 6, localBuild: 5), isTrue);
-    expect(Fuse.isNewer([1, 4, 0], local, remoteBuild: 5, localBuild: 5), isFalse);
+    expect(
+        Fuse.isNewer([1, 4, 0], local, remoteBuild: 6, localBuild: 5), isTrue);
+    expect(
+        Fuse.isNewer([1, 4, 0], local, remoteBuild: 5, localBuild: 5), isFalse);
   });
 
   test('主版本号变大 → 强制更新', () {
@@ -42,18 +44,24 @@ void main() {
     // 第二次：已经提醒过同一个 tag → 安静
     expect(
       Fuse.shouldPrompt(
-          hasNew: true, forced: false, tag: 'v1.5.0', lastPromptedTag: 'v1.5.0'),
+          hasNew: true,
+          forced: false,
+          tag: 'v1.5.0',
+          lastPromptedTag: 'v1.5.0'),
       isFalse,
     );
     // 出了更新的小版本 → 再提醒一次
     expect(
       Fuse.shouldPrompt(
-          hasNew: true, forced: false, tag: 'v1.5.1', lastPromptedTag: 'v1.5.0'),
+          hasNew: true,
+          forced: false,
+          tag: 'v1.5.1',
+          lastPromptedTag: 'v1.5.0'),
       isTrue,
     );
   });
 
-  test('大版本：不看「提醒过没有」，每次启动都提醒', () {
+  test('大版本：不看提醒过没有，每次启动都提醒', () {
     expect(
       Fuse.shouldPrompt(
           hasNew: true, forced: true, tag: 'v2.0.0', lastPromptedTag: 'v2.0.0'),

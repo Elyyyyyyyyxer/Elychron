@@ -2,7 +2,7 @@ import 'package:celechron/tutorial/tutorial_model.dart';
 
 /// ============ 教程内容：课程相关 ============
 ///
-/// **内容全部来自用户手写的 `docs/GUIDE_V1.4.1.md`「二、课程相关」一节**，一句话都没改。
+/// **内容全部来自用户手写的 `docs/GUIDE_V1.4.1.md`二、课程相关一节**，一句话都没改。
 /// 图片按他稿子里的要求（"只需要显示我提到的三个功能"）拍：
 /// 真机进课程详情页，裁到只剩 资料 / 评论 / 相关待办 那三块。
 const Tutorial tutorialCourses = Tutorial(

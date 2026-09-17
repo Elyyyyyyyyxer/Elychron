@@ -197,8 +197,8 @@ class TaskPage extends StatelessWidget {
 
   /// 卡片上子待办那一行的文案。
   ///
-  /// 行程型（有任何一步带时间）直接显示**下一步** —— 「下一步 17:50 探鱼吃饭」，
-  /// 比光秃秃一句「子待办 0/3」有用得多；清单型还是老样子。
+  /// 行程型（有任何一步带时间）直接显示**下一步**， 下一步 17:50 探鱼吃饭，
+  /// 比光秃秃一句子待办 0/3有用得多；清单型还是老样子。
   String _subtaskSummary(Task task) {
     final next = task.nextItineraryStep;
     if (next != null) {
@@ -220,7 +220,7 @@ class TaskPage extends StatelessWidget {
   /// 卡片上的一行时间信息（图标 + 文案），四类语义共用同一套样式。
   /// 批量删除前的二次确认。
   ///
-  /// 顺手把条数写在标题里（「删除 8 条已完成的待办？」）—— 批量操作最怕的是
+  /// 顺手把条数写在标题里（删除 8 条已完成的待办？）， 批量操作最怕的是
   /// 不知道自己会删掉多少。没有可删的就不问，直接什么都不做。
   Future<bool> _confirmBulkDelete(
     BuildContext context,
@@ -254,11 +254,10 @@ class TaskPage extends StatelessWidget {
 
   /// 划过删除前的二次确认。
   ///
-  /// 顺手把「会一起删掉什么」说清楚 —— 待办是连子待办/评论/附件一起走的，
-  /// 只说「删除待办？」用户不知道代价。
+  /// 顺手把会一起删掉什么说清楚， 待办是连子待办/评论/附件一起走的，
+  /// 只说删除待办？用户不知道代价。
   Future<bool> _confirmDelete(BuildContext context, Task task) async {
-    final name =
-        task.summary.trim().isEmpty ? '(未命名待办)' : task.summary.trim();
+    final name = task.summary.trim().isEmpty ? '(未命名待办)' : task.summary.trim();
     final extras = <String>[
       if (task.subtasks.isNotEmpty) '${task.subtasks.length} 个子待办',
       if (task.comments.isNotEmpty) '${task.comments.length} 条评论',
@@ -271,7 +270,7 @@ class TaskPage extends StatelessWidget {
         content: Padding(
           padding: const EdgeInsets.only(top: 8),
           child: Text(
-            '「$name」${extras.isEmpty ? '' : '（含 ${extras.join('、')}）'}\n删除后无法撤销。',
+            '$name${extras.isEmpty ? '' : '（含 ${extras.join('、')}）'}\n删除后无法撤销。',
             style: const TextStyle(fontSize: 14),
           ),
         ),
@@ -292,8 +291,8 @@ class TaskPage extends StatelessWidget {
   }
 
   Widget _cardTimeRow(BuildContext context, IconData icon, String text) {
-    final baseColor =
-        CupertinoTheme.of(context).textTheme.textStyle.color ?? CupertinoColors.label;
+    final baseColor = CupertinoTheme.of(context).textTheme.textStyle.color ??
+        CupertinoColors.label;
     return Row(
       children: [
         Icon(
@@ -332,11 +331,12 @@ class TaskPage extends StatelessWidget {
           // ===== MOD: 活动（日程）也要能右滑 =====
           //
           // 上游这里对活动型只给了 `endToStart`（只能从右往左滑 = 删除），
-          // 所以「右滑完成 / 右滑恢复」在活动型上**永远收不到手势** ——
-          // 用户反馈的「活动类待办无法右滑完成及右滑恢复」就是它。
+          // 所以右滑完成 / 右滑恢复在活动型上**永远收不到手势**，
+          // 用户反馈的活动类待办无法右滑完成及右滑恢复就是它。
           // 详情页（`task_edit_page` 的完成按钮）本来就不分类型，口径不一致。
           // 现在四种类型一视同仁：向右滑 = 完成 / 取消完成，向左滑 = 删除。
-          direction: batch ? DismissDirection.none : DismissDirection.horizontal,
+          direction:
+              batch ? DismissDirection.none : DismissDirection.horizontal,
           movementDuration: const Duration(milliseconds: 300),
           resizeDuration: const Duration(milliseconds: 300),
           dismissThresholds: const {
@@ -346,30 +346,30 @@ class TaskPage extends StatelessWidget {
           crossAxisEndOffset: 0.0,
           // 完成背景对所有类型都一样（原来活动型是 null，等于右滑时没有任何提示）
           background: Container(
-              alignment: Alignment.centerLeft,
-              padding: const EdgeInsets.only(left: 16),
+            alignment: Alignment.centerLeft,
+            padding: const EdgeInsets.only(left: 16),
+            decoration: BoxDecoration(
+              color: deadline.status == TaskStatus.completed
+                  ? CupertinoColors.systemOrange
+                  : CupertinoColors.systemGreen,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Container(
+              width: 36,
+              height: 36,
               decoration: BoxDecoration(
-                color: deadline.status == TaskStatus.completed
-                    ? CupertinoColors.systemOrange
-                    : CupertinoColors.systemGreen,
-                borderRadius: BorderRadius.circular(12),
+                color: CupertinoColors.white.withValues(alpha: 0.2),
+                shape: BoxShape.circle,
               ),
-              child: Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: CupertinoColors.white.withValues(alpha: 0.2),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  deadline.status == TaskStatus.completed
-                      ? CupertinoIcons.arrow_counterclockwise
-                      : CupertinoIcons.check_mark_circled_solid,
-                  color: CupertinoColors.white,
-                  size: 20,
-                ),
+              child: Icon(
+                deadline.status == TaskStatus.completed
+                    ? CupertinoIcons.arrow_counterclockwise
+                    : CupertinoIcons.check_mark_circled_solid,
+                color: CupertinoColors.white,
+                size: 20,
               ),
             ),
+          ),
           secondaryBackground: Container(
             alignment: Alignment.centerRight,
             padding: const EdgeInsets.only(right: 16),
@@ -393,14 +393,14 @@ class TaskPage extends StatelessWidget {
           ),
           confirmDismiss: (direction) async {
             if (direction == DismissDirection.startToEnd) {
-              // 向右滑（从左到右）：完成 / 取消完成 —— 不真正 dismiss，只更新状态。
+              // 向右滑（从左到右）：完成 / 取消完成， 不真正 dismiss，只更新状态。
               //
               // ===== MOD: 活动（日程）也要能滑 =====
               //
-              // 原来这里挡着 `if (!deadline.isEvent)`，注释写的是「活动不算"完成"」。
-              // 但卡片上那个「点圆圈打勾」的按钮已经被我们删掉了（用户要求），
-              // 于是**活动型待办在列表里再没有任何完成入口** —— 用户反馈：
-              // 「活动类待办无法实现右滑完成及右滑恢复」。
+              // 原来这里挡着 `if (!deadline.isEvent)`，注释写的是活动不算"完成"。
+              // 但卡片上那个点圆圈打勾的按钮已经被我们删掉了（用户要求），
+              // 于是**活动型待办在列表里再没有任何完成入口**， 用户反馈：
+              // 活动类待办无法实现右滑完成及右滑恢复。
               // 而且详情页/批量编辑本来就允许完成活动型，口径不一致。
               // 所以现在四种类型一视同仁：右滑 = 完成，已完成再右滑 = 取消完成。
               //
@@ -409,7 +409,7 @@ class TaskPage extends StatelessWidget {
               // 这个回调正是在**手指抬起的那一刻**被调用的。原来的写法在这里
               // `await confirmCompleteTask(...)`（有未完成子待办时会弹确认框），
               // 于是弹框刚出现就被同一个抬手事件误触关闭 → 返回 false → 什么都不发生。
-              // 现象就是「**有子待办的待办无法右滑完成**」，而没有子待办的（不弹框）正常。
+              // 现象就是**有子待办的待办无法右滑完成**，而没有子待办的（不弹框）正常。
               //
               // 现在：不在这里 await，先把卡片弹回去，等这一帧结束再走完成流程
               // （复用 _toggleDone：它内部会处理确认框、状态与刷新）。
@@ -420,7 +420,7 @@ class TaskPage extends StatelessWidget {
               });
               return false; // 阻止真正的 dismiss
             } else if (direction == DismissDirection.endToStart) {
-              // 向左滑（从右到左）：删除 —— **必须二次确认**，
+              // 向左滑（从右到左）：删除， **必须二次确认**，
               // 手一抖就丢一条待办（连带它的子待办、评论、附件）太狠了
               return await _confirmDelete(context, deadline);
             }
@@ -450,7 +450,7 @@ class TaskPage extends StatelessWidget {
                 ),
               );
               if (res != null) {
-                // 详情页里点了「删除任务」：这里必须真的把它标成已删除
+                // 详情页里点了删除任务：这里必须真的把它标成已删除
                 if (res.status == TaskStatus.deleted) {
                   deadline.status = TaskStatus.deleted;
                 } else {
@@ -480,16 +480,15 @@ class TaskPage extends StatelessWidget {
                                 color: TaskBatchEdit.isSelected(deadline)
                                     ? AppAccent.primary
                                     : CupertinoDynamicColor.resolve(
-                                        CupertinoColors.tertiaryLabel,
-                                        context),
+                                        CupertinoColors.tertiaryLabel, context),
                               ),
                             )),
-                      // ===== MOD: 删掉卡片上的「点击完成」圆圈按钮 =====
+                      // ===== MOD: 删掉卡片上的点击完成圆圈按钮 =====
                       //
                       // 用户指出它多余：上游的设计就是**右滑完成**（而且卡片上那个
                       // 圆圈长得像勾选框，容易让人以为要点它，与右滑重复）。
-                      // 完成/取消完成现在的入口：右滑、长按弹窗里的「标记为完成」、
-                      // 以及详情页的「完成待办」。
+                      // 完成/取消完成现在的入口：右滑、长按弹窗里的标记为完成、
+                      // 以及详情页的完成待办。
                       Container(
                         width: 12.0,
                         height: 12.0,
@@ -528,8 +527,8 @@ class TaskPage extends StatelessWidget {
                         } else {
                           // ===== MOD: 活动（日程）的标签要把"完成"算进去 =====
                           //
-                          // 原来这里只看时间轴 —— 于是一条**已右滑完成**的活动，
-                          // 进了「我已处理」却还写着「进行中」，看着像右滑没生效
+                          // 原来这里只看时间轴， 于是一条**已右滑完成**的活动，
+                          // 进了我已处理却还写着进行中，看着像右滑没生效
                           // （真机实测见过一次，很容易误判成 bug）。
                           // 完成状态优先，其次才是时间轴。
                           label = deadline.status == TaskStatus.completed
@@ -540,8 +539,7 @@ class TaskPage extends StatelessWidget {
                                       ? '已结束'
                                       : '进行中'));
                         }
-                        return Text(
-                            label,
+                        return Text(label,
                             style: CupertinoTheme.of(context)
                                 .textTheme
                                 .textStyle
@@ -645,7 +643,7 @@ class TaskPage extends StatelessWidget {
                           ),
                           Expanded(
                             child: Text(
-                              // ===== P2：行程型直接告诉用户「下一步」是什么 =====
+                              // ===== P2：行程型直接告诉用户下一步是什么 =====
                               _subtaskSummary(deadline),
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
@@ -682,149 +680,152 @@ class TaskPage extends StatelessWidget {
           children: [
             CustomScrollView(
               slivers: [
-            CupertinoSliverNavigationBar(
-              largeTitle: const Text('待办'),
-              border: null,
-              stretch: true,
-              bottomMode: NavigationBarBottomMode.always,
-              // 分类标签页贴在标题下方，间距更紧凑
-              bottom: PreferredSize(
-                // 高度跟着系统字号走，避免大字号时标签行顶到下面的筛选行；
-                // 留白压到最小，让下面的胶囊整体上移
-                preferredSize: Size.fromHeight(
-                    MediaQuery.textScalerOf(context).scale(15) + 14),
-                child: _buildTabs(context),
-              ),
-              trailing: // Two buttons in the nav bar.
-                  Row(
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  // 专注入口已经独立成底部「专注」标签页，这里不再重复放图标
+                CupertinoSliverNavigationBar(
+                  largeTitle: const Text('待办'),
+                  border: null,
+                  stretch: true,
+                  bottomMode: NavigationBarBottomMode.always,
+                  // 分类标签页贴在标题下方，间距更紧凑
+                  bottom: PreferredSize(
+                    // 高度跟着系统字号走，避免大字号时标签行顶到下面的筛选行；
+                    // 留白压到最小，让下面的胶囊整体上移
+                    preferredSize: Size.fromHeight(
+                        MediaQuery.textScalerOf(context).scale(15) + 14),
+                    child: _buildTabs(context),
+                  ),
+                  trailing: // Two buttons in the nav bar.
+                      Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      // 专注入口已经独立成底部专注标签页，这里不再重复放图标
 
-                  CupertinoButton(
-                    padding: EdgeInsets.zero,
-                    child: const Icon(
-                      CupertinoIcons.add_circled,
-                      semanticLabel: 'Add',
-                    ),
-                    onPressed: () async {
-                      await newDeadline(context);
-                      _taskController.updateDeadlineList();
-                      _taskController.taskList.refresh();
-                    },
-                  ),
-                  CupertinoButton(
-                    padding: EdgeInsets.zero,
-                    child: const Icon(
-                      CupertinoIcons.ellipsis_circle,
-                      semanticLabel: 'More',
-                    ),
-                    onPressed: () async {
-                      await showDingTalkMenu(
-                        context,
-                        items: [
-                          DingTalkMenuItem(
-                            label: '删除已完成待办',
-                            icon: CupertinoIcons.checkmark_circle,
-                            onTap: () async {
-                              // 批量删除比单条滑动更需要确认：一次可能删掉十几条
-                              final count =
-                                  _taskController.doneDeadlineList.length;
-                              if (!await _confirmBulkDelete(
-                                  context, '已完成的待办', count)) {
-                                return;
-                              }
-                              _taskController.removeCompletedDeadline(context);
-                              _taskController.updateDeadlineList();
-                              _taskController.taskList.refresh();
-                            },
-                          ),
-                          DingTalkMenuItem(
-                            label: '删除已过期待办',
-                            icon: CupertinoIcons.clock,
-                            onTap: () async {
-                              final count = _taskController.taskList
-                                  .where((t) => t.status == TaskStatus.failed)
-                                  .length;
-                              if (!await _confirmBulkDelete(
-                                  context, '已过期的待办', count)) {
-                                return;
-                              }
-                              _taskController.removeFailedDeadline(context);
-                              _taskController.updateDeadlineList();
-                              _taskController.taskList.refresh();
-                            },
-                          ),
-                          // ===== MOD: 删掉「暂停所有待办 / 继续所有待办」=====
-                          // 这两个功能属于早期的"时间规划"概念，那个概念已经不存在了，
-                          // 留着只会让人困惑（用户点名要求删除）。
-                          // 换成批量编辑入口 —— 那些事（完成/删除）本来就更常用。
-                          DingTalkMenuItem(
-                            label: '批量编辑',
-                            icon: CupertinoIcons.checkmark_alt_circle,
-                            onTap: TaskBatchEdit.enter,
-                          ),
-                        ],
-                      );
-                    },
-                  ),
-                ],
-              ),
-            ),
-            _buildFilterRow(context),
-            _buildTagRow(context),
-            Obx(
-              () {
-                final list = _taskController.visibleTaskList;
-                // ===== MOD: 让这段也依赖"批量模式" =====
-                // 否则进了批量模式卡片不会重画（这个 Obx 原本只跟踪列表内容）
-                TaskBatchEdit.active.value;
-                if (list.isEmpty) {
-                  return SliverToBoxAdapter(
-                    child: SizedBox(
-                      height: 320,
-                      child: Column(
-                        children: [
-                          const Spacer(),
-                          Text(
-                            '没有待办',
-                            style:
-                                CupertinoTheme.of(context).textTheme.textStyle,
-                            textAlign: TextAlign.center,
-                          ),
-                          const Spacer(),
-                        ],
-                      ),
-                    ),
-                  );
-                }
-                return SliverList(
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) {
-                      final task = list[index];
-                      return Container(
-                        padding: EdgeInsets.only(
-                          top: index == 0 ? 4 : 5,
-                          bottom: 5,
-                          left: 16,
-                          right: 16,
+                      CupertinoButton(
+                        padding: EdgeInsets.zero,
+                        child: const Icon(
+                          CupertinoIcons.add_circled,
+                          semanticLabel: 'Add',
                         ),
-                        child: createCard(context, task,
-                            UidColors.colorFromUid(task.uid), null),
-                      );
-                    },
-                    childCount: list.length,
+                        onPressed: () async {
+                          await newDeadline(context);
+                          _taskController.updateDeadlineList();
+                          _taskController.taskList.refresh();
+                        },
+                      ),
+                      CupertinoButton(
+                        padding: EdgeInsets.zero,
+                        child: const Icon(
+                          CupertinoIcons.ellipsis_circle,
+                          semanticLabel: 'More',
+                        ),
+                        onPressed: () async {
+                          await showDingTalkMenu(
+                            context,
+                            items: [
+                              DingTalkMenuItem(
+                                label: '删除已完成待办',
+                                icon: CupertinoIcons.checkmark_circle,
+                                onTap: () async {
+                                  // 批量删除比单条滑动更需要确认：一次可能删掉十几条
+                                  final count =
+                                      _taskController.doneDeadlineList.length;
+                                  if (!await _confirmBulkDelete(
+                                      context, '已完成的待办', count)) {
+                                    return;
+                                  }
+                                  _taskController
+                                      .removeCompletedDeadline(context);
+                                  _taskController.updateDeadlineList();
+                                  _taskController.taskList.refresh();
+                                },
+                              ),
+                              DingTalkMenuItem(
+                                label: '删除已过期待办',
+                                icon: CupertinoIcons.clock,
+                                onTap: () async {
+                                  final count = _taskController.taskList
+                                      .where(
+                                          (t) => t.status == TaskStatus.failed)
+                                      .length;
+                                  if (!await _confirmBulkDelete(
+                                      context, '已过期的待办', count)) {
+                                    return;
+                                  }
+                                  _taskController.removeFailedDeadline(context);
+                                  _taskController.updateDeadlineList();
+                                  _taskController.taskList.refresh();
+                                },
+                              ),
+                              // ===== MOD: 删掉暂停所有待办 / 继续所有待办=====
+                              // 这两个功能属于早期的"时间规划"概念，那个概念已经不存在了，
+                              // 留着只会让人困惑（用户点名要求删除）。
+                              // 换成批量编辑入口， 那些事（完成/删除）本来就更常用。
+                              DingTalkMenuItem(
+                                label: '批量编辑',
+                                icon: CupertinoIcons.checkmark_alt_circle,
+                                onTap: TaskBatchEdit.enter,
+                              ),
+                            ],
+                          );
+                        },
+                      ),
+                    ],
                   ),
-                );
-              },
-            ),
-            SliverToBoxAdapter(
-              // ===== MOD: 批量模式下给底部操作栏留出空间 =====
-              child: Obx(() => Container(
-                    height: TaskBatchEdit.active.value ? 190 : 100,
-                  )),
-            ),
-          ],
+                ),
+                _buildFilterRow(context),
+                _buildTagRow(context),
+                Obx(
+                  () {
+                    final list = _taskController.visibleTaskList;
+                    // ===== MOD: 让这段也依赖"批量模式" =====
+                    // 否则进了批量模式卡片不会重画（这个 Obx 原本只跟踪列表内容）
+                    TaskBatchEdit.active.value;
+                    if (list.isEmpty) {
+                      return SliverToBoxAdapter(
+                        child: SizedBox(
+                          height: 320,
+                          child: Column(
+                            children: [
+                              const Spacer(),
+                              Text(
+                                '没有待办',
+                                style: CupertinoTheme.of(context)
+                                    .textTheme
+                                    .textStyle,
+                                textAlign: TextAlign.center,
+                              ),
+                              const Spacer(),
+                            ],
+                          ),
+                        ),
+                      );
+                    }
+                    return SliverList(
+                      delegate: SliverChildBuilderDelegate(
+                        (context, index) {
+                          final task = list[index];
+                          return Container(
+                            padding: EdgeInsets.only(
+                              top: index == 0 ? 4 : 5,
+                              bottom: 5,
+                              left: 16,
+                              right: 16,
+                            ),
+                            child: createCard(context, task,
+                                UidColors.colorFromUid(task.uid), null),
+                          );
+                        },
+                        childCount: list.length,
+                      ),
+                    );
+                  },
+                ),
+                SliverToBoxAdapter(
+                  // ===== MOD: 批量模式下给底部操作栏留出空间 =====
+                  child: Obx(() => Container(
+                        height: TaskBatchEdit.active.value ? 190 : 100,
+                      )),
+                ),
+              ],
             ),
             // ===== MOD: 底部操作栏（批量模式下才显示）=====
             Positioned(
@@ -973,8 +974,8 @@ class TaskPage extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(16, 2, 16, 3),
           child: Row(
             children: [
-              // 「全部分类」已删除：它只是「清空标签筛选」，而标签行里
-              // 再点一下选中的标签就能取消，位置又被「全部类型」取代了。
+              // 全部分类已删除：它只是清空标签筛选，而标签行里
+              // 再点一下选中的标签就能取消，位置又被全部类型取代了。
               _filterChip(
                 context,
                 label: _taskController.kindFilterLabel,
@@ -1034,7 +1035,7 @@ class TaskPage extends StatelessWidget {
                   ),
                 ),
                 // 选中了标签才出现：一键把标签筛选全清掉
-                // （原来这件事是「全部分类」那枚 chip 干的，它已经删掉了）
+                // （原来这件事是全部分类那枚 chip 干的，它已经删掉了）
                 if (_taskController.selectedTags.isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.only(right: 8),

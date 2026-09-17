@@ -3,7 +3,7 @@ import 'package:celechron/model/task.dart';
 import 'package:celechron/model/upcoming.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// 「接下来」的排序/过滤逻辑测试。
+/// 接下来的排序/过滤逻辑测试。
 ///
 /// 口径（用户定的）：课程/考试/日程按**开始时间**，非备忘待办按**提醒时间**，
 /// 备忘永远不出现。
@@ -198,8 +198,10 @@ void main() {
         periods: [
           for (var i = 0; i < 12; i++)
             period(
-              start: DateTime(2026, 9, 12, 13, 0).add(Duration(days: i % 3, hours: i)),
-              end: DateTime(2026, 9, 12, 14, 0).add(Duration(days: i % 3, hours: i)),
+              start: DateTime(2026, 9, 12, 13, 0)
+                  .add(Duration(days: i % 3, hours: i)),
+              end: DateTime(2026, 9, 12, 14, 0)
+                  .add(Duration(days: i % 3, hours: i)),
               summary: '第 $i 节',
             ),
         ],
@@ -259,12 +261,13 @@ void main() {
       expect(upcomingWhen(at(DateTime(2026, 9, 12, 14, 30)), now), '今天 14:30');
       expect(upcomingWhen(at(DateTime(2026, 9, 13, 8, 0)), now), '明天 08:00');
       expect(upcomingWhen(at(DateTime(2026, 9, 14, 8, 0)), now), '后天 08:00');
-      expect(upcomingWhen(at(DateTime(2026, 9, 17, 13, 30)), now), '9 月 17 日 13:30');
+      expect(upcomingWhen(at(DateTime(2026, 9, 17, 13, 30)), now),
+          '9 月 17 日 13:30');
     });
   });
 
   group('文案细节', () {
-    test('课程备注丢掉「课程代码」那几行，留教师', () {
+    test('课程备注丢掉课程代码那几行，留教师', () {
       final items = build(periods: [
         period(
           start: DateTime(2026, 9, 12, 14, 0),
@@ -298,12 +301,12 @@ void main() {
     });
   });
 
-  // ===== 「同时有好几件在进行中」：顶层 / 折叠堆 / 之后还有 三段划分 =====
+  // ===== 同时有好几件在进行中：顶层 / 折叠堆 / 之后还有 三段划分 =====
   //
   // 用户遇到的实际情况：同一时刻有两件事在进行（比如上课 + 一个日程），
-  // 页面上却只有一条看得出「进行中」。这里把口径钉死。
+  // 页面上却只有一条看得出进行中。这里把口径钉死。
   group('多个进行中', () {
-    /// 直接造条目 —— 只测切分口径，不掺 buildUpcoming 的过滤规则
+    /// 直接造条目， 只测切分口径，不掺 buildUpcoming 的过滤规则
     UpcomingItem item({
       required String key,
       required UpcomingKind kind,
@@ -332,7 +335,7 @@ void main() {
           ),
         );
 
-    test('buildUpcoming 会把两件进行中的都留下（原来第二条只能掉进「之后还有」）', () {
+    test('buildUpcoming 会把两件进行中的都留下（原来第二条只能掉进之后还有）', () {
       final items = build(periods: [
         period(
           start: DateTime(2026, 9, 12, 8, 0),
@@ -358,7 +361,7 @@ void main() {
       );
     });
 
-    test('没有进行中的：顶层就是最近那条，其余进「之后还有」', () {
+    test('没有进行中的：顶层就是最近那条，其余进之后还有', () {
       final items = [
         item(
           key: 'a',
@@ -410,7 +413,7 @@ void main() {
       expect(layout.head.title, '专业课');
       expect(layout.topIndex, 0);
       expect(layout.otherRunning.map((e) => e.title), ['组会']);
-      // 进行中的不能同时出现在「之后还有」里（否则同一条会显示两遍）
+      // 进行中的不能同时出现在之后还有里（否则同一条会显示两遍）
       expect(layout.later.map((e) => e.title), ['later']);
     });
 
@@ -476,8 +479,7 @@ void main() {
         ),
         meeting,
       ];
-      final pinned =
-          layoutUpcoming(items, now, pinnedKey: meeting.dedupeKey)!;
+      final pinned = layoutUpcoming(items, now, pinnedKey: meeting.dedupeKey)!;
       expect(pinned.head.title, '组会');
       expect(pinned.topIndex, 1);
       expect(pinned.otherRunning.map((e) => e.title), ['专业课']);
@@ -498,7 +500,7 @@ void main() {
       expect(layout.topIndex, defaultTopRunningIndex(layout.running));
     });
 
-    test('只有一件进行中：折叠堆是空的（就不会显示「同时还有」那行）', () {
+    test('只有一件进行中：折叠堆是空的（就不会显示同时还有那行）', () {
       final items = [
         item(
           key: 'course',

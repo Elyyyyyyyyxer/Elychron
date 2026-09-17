@@ -4,7 +4,7 @@ import 'package:flutter/cupertino.dart';
 
 /// ============ 步骤渲染器 ============
 ///
-/// 所有"长什么样"的决定都在这个文件里 —— 教程内容文件只写数据。
+/// 所有"长什么样"的决定都在这个文件里， 教程内容文件只写数据。
 /// 想统一调整教程的观感（字号、间距、配色），改这里就够了。
 ///
 /// ⚠️ **新增一种步骤类型时**：在 `tutorial_model.dart` 加子类，
@@ -251,7 +251,7 @@ class _CompareColumn extends StatelessWidget {
 ///
 /// 为什么要限高：手机截图是竖长条（1080×2376 这种），按宽度铺满会占掉两屏多，
 /// 用户得一直往下拉才能看到下一步的按钮。这里给一个高度上限，
-/// 想看清细节就**点图**——全屏、可捏合缩放，这也是教程里最常用的动作。
+/// 想看清细节就**点图**，全屏、可捏合缩放，这也是教程里最常用的动作。
 ///
 /// 右下角那个小角标不是装饰：没有它，用户不知道这张图可以点。
 class _TutorialImage extends StatelessWidget {
@@ -267,8 +267,8 @@ class _TutorialImage extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // 「点图放大」这四个字**放在图片外面**（右上角）。
-        // 第一版是压在图的右下角 —— 真机一看就发现问题：短图会被挡住正文那行字。
+        // 点图放大这四个字**放在图片外面**（右上角）。
+        // 第一版是压在图的右下角， 真机一看就发现问题：短图会被挡住正文那行字。
         Align(
           alignment: Alignment.centerRight,
           child: Padding(
@@ -313,7 +313,7 @@ class _TutorialImage extends StatelessWidget {
                       ? child
                       : const Center(
                           child: CupertinoActivityIndicator(radius: 12)),
-                  // 图片还没准备好时给一个"占位说明"，而不是红叉 ——
+                  // 图片还没准备好时给一个"占位说明"，而不是红叉，
                   // 框架先搭、内容后补的阶段全靠它撑着
                   errorBuilder: (context, error, stackTrace) =>
                       _MissingImage(asset: asset),
@@ -327,7 +327,7 @@ class _TutorialImage extends StatelessWidget {
   }
 }
 
-/// 全屏看图：捏合缩放 + 拖动，点「完成」返回
+/// 全屏看图：捏合缩放 + 拖动，点完成返回
 class _TutorialImageFullScreen extends StatelessWidget {
   final String asset;
 
@@ -340,11 +340,11 @@ class _TutorialImageFullScreen extends StatelessWidget {
       navigationBar: CupertinoNavigationBar(
         backgroundColor: CupertinoColors.black.withValues(alpha: 0.85),
         border: null,
-        // ⚠️ 别写「双击放大」：InteractiveViewer **自带**的只有捏合缩放与拖动，
+        // ⚠️ 别写双击放大：InteractiveViewer **自带**的只有捏合缩放与拖动，
         // 双击缩放要自己接手势。写了做不到的话，用户会以为坏了。
         middle: const Text('捏合放大 · 拖动查看',
             style: TextStyle(fontSize: 13, color: CupertinoColors.white)),
-        // 左上角给一个返回箭头：原来是 fullscreenDialog 自动生成的「取消」，
+        // 左上角给一个返回箭头：原来是 fullscreenDialog 自动生成的取消，
         // 而"看图"这件事没有"取消"可言，文案不对。
         leading: CupertinoButton(
           padding: EdgeInsets.zero,

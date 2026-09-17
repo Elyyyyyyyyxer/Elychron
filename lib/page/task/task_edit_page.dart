@@ -57,7 +57,7 @@ class _TaskEditPageState extends State<TaskEditPage> {
     if (now.startTime.isAfter(now.endTime)) {
       now.startTime = now.endTime;
     }
-    // 「无限重复」用哨兵日期表示，不能被当成非法值清掉
+    // 无限重复用哨兵日期表示，不能被当成非法值清掉
     if (!isRepeatEndless(now.repeatEndsTime) &&
         dateOnly(now.repeatEndsTime).isBefore(dateOnly(now.startTime))) {
       now.repeatEndsTime = dateOnly(now.startTime);
@@ -153,7 +153,7 @@ class _TaskEditPageState extends State<TaskEditPage> {
 
   bool get _isCompleted => now.status == TaskStatus.completed;
 
-  /// 导航栏 ⋯ 菜单：星标 / 删除待办（钉钉风格，本地版没有「投诉」）
+  /// 导航栏 ⋯ 菜单：星标 / 删除待办（钉钉风格，本地版没有投诉）
   Future<void> _showMoreActions() async {
     await showDingTalkMenu(
       context,
@@ -201,7 +201,8 @@ class _TaskEditPageState extends State<TaskEditPage> {
     if (now.isRemind) return Duration.zero;
     if (Get.isRegistered<DatabaseHelper>(tag: 'db')) {
       return Duration(
-          minutes: Get.find<DatabaseHelper>(tag: 'db').getReminderLeadMinutes());
+          minutes:
+              Get.find<DatabaseHelper>(tag: 'db').getReminderLeadMinutes());
     }
     return const Duration(minutes: 30);
   }
@@ -215,7 +216,7 @@ class _TaskEditPageState extends State<TaskEditPage> {
 
   /// 时间或类型变了之后，把失效的提醒时间按新锚点重算一次。
   ///
-  /// 活动锚「开始」、截止锚「截止」、提醒型就是那一刻；备忘不调度。
+  /// 活动锚开始、截止锚截止、提醒型就是那一刻；备忘不调度。
   void _syncReminder() {
     if (!now.schedulesReminder) return;
     final anchor = now.reminderAnchor;
@@ -241,7 +242,7 @@ class _TaskEditPageState extends State<TaskEditPage> {
     });
   }
 
-  /// 提醒型的「那一刻」：直接改 endTime（= 锚点），提醒时间继续跟随锚点。
+  /// 提醒型的那一刻：直接改 endTime（= 锚点），提醒时间继续跟随锚点。
   Future<void> _pickRemindMoment() async {
     final result = await showDateTimeSheet(
       context,
@@ -295,7 +296,7 @@ class _TaskEditPageState extends State<TaskEditPage> {
     if (!now.reminderEnabled) {
       setState(() {
         now.reminderEnabled = true;
-        // 活动锚开始、截止锚截止，各自再提前「默认提前量」
+        // 活动锚开始、截止锚截止，各自再提前默认提前量
         now.reminderTime = now.isRemind ? null : _defaultReminderTime();
       });
     } else {
@@ -331,7 +332,7 @@ class _TaskEditPageState extends State<TaskEditPage> {
 
   // --------------------------------------------------------------- 子待办
 
-  /// 点「添加子待办」：先弹小窗口选「选择现有待办 / 新建子待办」
+  /// 点添加子待办：先弹小窗口选选择现有待办 / 新建子待办
   /// 添加子待办：钉钉风格弹窗，三种方式（选现有的 / 新建 / 让 AI 拆）
   Future<void> _addSubtask() async {
     String? action;
@@ -367,7 +368,7 @@ class _TaskEditPageState extends State<TaskEditPage> {
     }
   }
 
-  /// 新建子待办：用「和新建待办一样」的窗口
+  /// 新建子待办：用和新建待办一样的窗口
   Future<void> _createNewSubtask() async {
     final draft = Task(
       endTime: now.endTime,
@@ -515,7 +516,7 @@ class _TaskEditPageState extends State<TaskEditPage> {
     return null;
   }
 
-  /// 子待办自己的时间已经过去、又没勾完 —— 标红（行程子待办过期标红）。
+  /// 子待办自己的时间已经过去、又没勾完， 标红（行程子待办过期标红）。
   bool _subtaskOverdue(SubTask subtask) {
     final end = subtask.endTime;
     return !subtask.done && end != null && end.isBefore(DateTime.now());
@@ -523,7 +524,7 @@ class _TaskEditPageState extends State<TaskEditPage> {
 
   // ------------------------------------------------- P2：行程型时间轴
 
-  /// 只要**有一步带时间**，这一组子待办就按「行程表」画。
+  /// 只要**有一步带时间**，这一组子待办就按行程表画。
   ///
   /// 清单型（写论文 → 查文献 / 写提纲）没有时间，仍然走老的两行式列表。
   bool get _isItinerary => now.subtasks.any((s) => s.hasTime);
@@ -555,8 +556,8 @@ class _TaskEditPageState extends State<TaskEditPage> {
     return '${_hm(when)} 已提醒过';
   }
 
-  /// 时间轴的显示顺序：**清单类（没有时间的）放最上面** —— 它们是「先要做完的
-  /// 准备」，然后才是按时间排好的行程步骤。
+  /// 时间轴的显示顺序：**清单类（没有时间的）放最上面**， 它们是先要做完的
+  /// 准备，然后才是按时间排好的行程步骤。
   ///
   /// 只影响显示，不改存储顺序（用户没手动排序时保持他原来的顺序）。
   List<SubTask> _timelineOrder() {
@@ -565,18 +566,17 @@ class _TaskEditPageState extends State<TaskEditPage> {
         .where((s) => s.hasTime && s.anchorTime != null)
         .toList()
       ..sort((a, b) => a.anchorTime!.compareTo(b.anchorTime!));
-    // 理论上不会有「有时间但算不出时刻」的，真有也别让它消失
-    final rest = now.subtasks
-        .where((s) => s.hasTime && s.anchorTime == null)
-        .toList();
+    // 理论上不会有有时间但算不出时刻的，真有也别让它消失
+    final rest =
+        now.subtasks.where((s) => s.hasTime && s.anchorTime == null).toList();
     return <SubTask>[...timeless, ...timed, ...rest];
   }
 
   /// 行程型子待办：时间列 + 竖线圆点 + 内容（进行中高亮、已过去未完成标红）
   List<Widget> _buildSubtaskTimeline(BuildContext context) {
     final current = DateTime.now();
-    final labelColor = CupertinoDynamicColor.resolve(
-        CupertinoColors.secondaryLabel, context);
+    final labelColor =
+        CupertinoDynamicColor.resolve(CupertinoColors.secondaryLabel, context);
     final textColor = CupertinoTheme.of(context).textTheme.textStyle.color ??
         CupertinoColors.label;
     final separator =
@@ -592,12 +592,11 @@ class _TaskEditPageState extends State<TaskEditPage> {
       final ongoing = sub.isOngoingAt(current);
       final missed = sub.isMissedAt(current);
       final flagged = widget.highlightSubtaskUid == sub.uid;
-      // 连线只在「连续的行程步骤之间」画
-      final hasNextTimed =
-          i < ordered.length - 1 && ordered[i + 1].hasTime;
+      // 连线只在连续的行程步骤之间画
+      final hasNextTimed = i < ordered.length - 1 && ordered[i + 1].hasTime;
       final isLast = !hasNextTimed;
 
-      // 第一段行程步骤之前插一句「行程」，让「上面是清单、下面是行程」看得懂
+      // 第一段行程步骤之前插一句行程，让上面是清单、下面是行程看得懂
       if (!plain && !itineraryHeaderAdded) {
         itineraryHeaderAdded = true;
         if (ordered.any((s) => !s.hasTime)) {
@@ -608,8 +607,7 @@ class _TaskEditPageState extends State<TaskEditPage> {
                 children: [
                   Icon(CupertinoIcons.time, size: 13, color: labelColor),
                   const SizedBox(width: 4),
-                  Text('行程',
-                      style: TextStyle(fontSize: 12, color: labelColor)),
+                  Text('行程', style: TextStyle(fontSize: 12, color: labelColor)),
                 ],
               ),
             ),
@@ -635,8 +633,7 @@ class _TaskEditPageState extends State<TaskEditPage> {
                     color: sub.done
                         ? labelColor
                         : (missed ? CupertinoColors.systemRed : textColor),
-                    decoration:
-                        sub.done ? TextDecoration.lineThrough : null,
+                    decoration: sub.done ? TextDecoration.lineThrough : null,
                   ),
                 ),
               ),
@@ -670,8 +667,7 @@ class _TaskEditPageState extends State<TaskEditPage> {
               padding: const EdgeInsets.only(top: 3),
               child: Row(
                 children: [
-                  Icon(CupertinoIcons.location_solid,
-                      size: 12, color: accent),
+                  Icon(CupertinoIcons.location_solid, size: 12, color: accent),
                   const SizedBox(width: 4),
                   Expanded(
                     child: Text(
@@ -731,9 +727,8 @@ class _TaskEditPageState extends State<TaskEditPage> {
                               textAlign: TextAlign.right,
                               style: TextStyle(
                                 fontSize: 11.5,
-                                fontWeight: ongoing
-                                    ? FontWeight.w600
-                                    : FontWeight.w400,
+                                fontWeight:
+                                    ongoing ? FontWeight.w600 : FontWeight.w400,
                                 color: accent,
                               ),
                             ),
@@ -773,8 +768,8 @@ class _TaskEditPageState extends State<TaskEditPage> {
               Expanded(
                 child: Container(
                   margin: const EdgeInsets.only(bottom: 12),
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 8, vertical: 6),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                   decoration: BoxDecoration(
                     color: ongoing || flagged
                         ? CupertinoColors.systemBlue.withValues(alpha: 0.08)
@@ -794,8 +789,7 @@ class _TaskEditPageState extends State<TaskEditPage> {
                       CupertinoButton(
                         padding: EdgeInsets.zero,
                         minimumSize: const Size(32, 32),
-                        onPressed: () =>
-                            setState(() => sub.done = !sub.done),
+                        onPressed: () => setState(() => sub.done = !sub.done),
                         child: Icon(
                           sub.done
                               ? CupertinoIcons.checkmark_circle_fill
@@ -1099,7 +1093,7 @@ class _TaskEditPageState extends State<TaskEditPage> {
                       await startFocusFor(context, task: now);
                       if (!mounted) return;
                       // 专注时长是累加到**任务列表里那条**上的，详情页手上这份是副本。
-                      // 不把新值取回来，用户接着按「√」保存就会用旧的 timeSpent
+                      // 不把新值取回来，用户接着按√保存就会用旧的 timeSpent
                       // 把刚记下的专注时长覆盖掉。
                       final fresh = _taskFromList(now.uid);
                       setState(() {
@@ -1185,7 +1179,7 @@ class _TaskEditPageState extends State<TaskEditPage> {
                 }),
                 if (!now.isMemo) ...[
                   _divider(),
-                  // 「结束 / 截止」：活动与截止型才有；提醒型的时间由下面那行负责
+                  // 结束 / 截止：活动与截止型才有；提醒型的时间由下面那行负责
                   if (!now.isRemind)
                     _iconRow(
                       icon: CupertinoIcons.time,
@@ -1234,7 +1228,7 @@ class _TaskEditPageState extends State<TaskEditPage> {
                           )
                         : null,
                   ),
-                  // 开始时间：只有活动型才有「时段」
+                  // 开始时间：只有活动型才有时段
                   if (now.isEvent) ...[
                     _divider(),
                     _iconRow(
@@ -1383,7 +1377,7 @@ class _TaskEditPageState extends State<TaskEditPage> {
                     ],
                   ),
                 ),
-                // ===== P1：活动已结束还在「我已处理」里，没做完的子待办红字点出来 =====
+                // ===== P1：活动已结束还在我已处理里，没做完的子待办红字点出来 =====
                 if (now.hasUnfinishedSubtasks)
                   Padding(
                     padding: const EdgeInsets.only(left: 32, bottom: 6),
@@ -1423,93 +1417,94 @@ class _TaskEditPageState extends State<TaskEditPage> {
                   ..._buildSubtaskTimeline(context),
                 ] else
                   ...now.subtasks.map((subtask) {
-                  return Column(
-                    children: [
-                      _divider(),
-                      Padding(
-                        padding: const EdgeInsets.only(left: 32),
-                        child: Row(
-                          children: [
-                            CupertinoButton(
-                              padding: EdgeInsets.zero,
-                              minimumSize: const Size(32, 40),
-                              onPressed: () {
-                                setState(() => subtask.done = !subtask.done);
-                              },
-                              child: Icon(
-                                subtask.done
-                                    ? CupertinoIcons.checkmark_circle_fill
-                                    : CupertinoIcons.circle,
-                                size: 20,
-                                color: subtask.done
-                                    ? CupertinoColors.systemGreen
-                                    : CupertinoDynamicColor.resolve(
-                                        CupertinoColors.tertiaryLabel, context),
+                    return Column(
+                      children: [
+                        _divider(),
+                        Padding(
+                          padding: const EdgeInsets.only(left: 32),
+                          child: Row(
+                            children: [
+                              CupertinoButton(
+                                padding: EdgeInsets.zero,
+                                minimumSize: const Size(32, 40),
+                                onPressed: () {
+                                  setState(() => subtask.done = !subtask.done);
+                                },
+                                child: Icon(
+                                  subtask.done
+                                      ? CupertinoIcons.checkmark_circle_fill
+                                      : CupertinoIcons.circle,
+                                  size: 20,
+                                  color: subtask.done
+                                      ? CupertinoColors.systemGreen
+                                      : CupertinoDynamicColor.resolve(
+                                          CupertinoColors.tertiaryLabel,
+                                          context),
+                                ),
                               ),
-                            ),
-                            Expanded(
-                              child: GestureDetector(
-                                onTap: () => _editSubtask(subtask),
-                                child: Padding(
-                                  padding:
-                                      const EdgeInsets.symmetric(vertical: 10),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        subtask.title.isEmpty
-                                            ? '(未命名子待办)'
-                                            : subtask.title,
-                                        style: TextStyle(
-                                          fontSize: 15,
-                                          color: subtask.done
-                                              ? labelColor
-                                              : (_subtaskOverdue(subtask)
-                                                  ? CupertinoColors.systemRed
-                                                  : textColor),
-                                          decoration: subtask.done
-                                              ? TextDecoration.lineThrough
-                                              : null,
-                                        ),
-                                      ),
-                                      if (_subtaskMeta(subtask).isNotEmpty)
-                                        Padding(
-                                          padding:
-                                              const EdgeInsets.only(top: 2),
-                                          child: Text(
-                                            _subtaskMeta(subtask),
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              color: _subtaskOverdue(subtask)
-                                                  ? CupertinoColors.systemRed
-                                                  : labelColor,
-                                            ),
+                              Expanded(
+                                child: GestureDetector(
+                                  onTap: () => _editSubtask(subtask),
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                        vertical: 10),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          subtask.title.isEmpty
+                                              ? '(未命名子待办)'
+                                              : subtask.title,
+                                          style: TextStyle(
+                                            fontSize: 15,
+                                            color: subtask.done
+                                                ? labelColor
+                                                : (_subtaskOverdue(subtask)
+                                                    ? CupertinoColors.systemRed
+                                                    : textColor),
+                                            decoration: subtask.done
+                                                ? TextDecoration.lineThrough
+                                                : null,
                                           ),
                                         ),
-                                    ],
+                                        if (_subtaskMeta(subtask).isNotEmpty)
+                                          Padding(
+                                            padding:
+                                                const EdgeInsets.only(top: 2),
+                                            child: Text(
+                                              _subtaskMeta(subtask),
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                color: _subtaskOverdue(subtask)
+                                                    ? CupertinoColors.systemRed
+                                                    : labelColor,
+                                              ),
+                                            ),
+                                          ),
+                                      ],
+                                    ),
                                   ),
                                 ),
                               ),
-                            ),
-                            CupertinoButton(
-                              padding: EdgeInsets.zero,
-                              minimumSize: const Size(32, 40),
-                              onPressed: () {
-                                setState(() => now.subtasks.remove(subtask));
-                              },
-                              child: Icon(
-                                CupertinoIcons.xmark,
-                                size: 16,
-                                color: labelColor,
+                              CupertinoButton(
+                                padding: EdgeInsets.zero,
+                                minimumSize: const Size(32, 40),
+                                onPressed: () {
+                                  setState(() => now.subtasks.remove(subtask));
+                                },
+                                child: Icon(
+                                  CupertinoIcons.xmark,
+                                  size: 16,
+                                  color: labelColor,
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
-                  );
-                }),
+                      ],
+                    );
+                  }),
                 _divider(),
                 _iconRow(
                   icon: CupertinoIcons.add,

@@ -4,8 +4,8 @@ import 'package:flutter_test/flutter_test.dart';
 
 /// 界面报错必须**短且是人话**。
 ///
-/// 用户原话：「请简化所有的用户容易看到的报错提示，不然看到一老长串非常吓人……
-/// 统一认证账号登录时如果输错了会产生很长很长的报错表。」
+/// 用户原话：请简化所有的用户容易看到的报错提示，不然看到一老长串非常吓人……
+/// 统一认证账号登录时如果输错了会产生很长很长的报错表。
 ///
 /// 那些又长又吓人的文本来自 `ExceptionWithMessage.toString()`：
 /// `消息 + '\n<<<CELECHRON_ERROR_DETAIL>>>\n' + 详情`（详情里有 URL、状态码、响应片段）。
@@ -28,15 +28,13 @@ void main() {
   test('连不上 / 超时 / 服务器挂 各有各的人话', () {
     expect(FriendlyError.short('SocketException: Failed host lookup'),
         '连不上学校服务器，请检查网络后重试');
-    expect(FriendlyError.short('TimeoutException after 0:00:08'),
-        '网络超时，请稍后重试');
+    expect(FriendlyError.short('TimeoutException after 0:00:08'), '网络超时，请稍后重试');
     expect(FriendlyError.short('HTTP 503 Service Unavailable'),
         '学校服务器暂时不可用，请稍后再试');
   });
 
   test('登录态失效单独一句（提示重新登录）', () {
-    expect(FriendlyError.short('未获得 CAS ticket'),
-        '登录状态已失效，请重新登录');
+    expect(FriendlyError.short('未获得 CAS ticket'), '登录状态已失效，请重新登录');
   });
 
   test('不认识的错误也会被截短，绝不撑满屏', () {
@@ -59,7 +57,8 @@ void main() {
 
   test('能识别出"是账号密码问题"（登录页据此给引导）', () {
     expect(FriendlyError.looksLikeCredentialProblem('用户名或密码错误'), isTrue);
-    expect(FriendlyError.looksLikeCredentialProblem('SocketException'), isFalse);
+    expect(
+        FriendlyError.looksLikeCredentialProblem('SocketException'), isFalse);
   });
 
   test('异常类名前缀会被去掉', () {

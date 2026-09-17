@@ -6,7 +6,7 @@ import 'package:get/get.dart';
 /// ============ 魔改在数据库层新增的读写（墓碑 / 标签库 / 配色 / 提醒方式）============
 ///
 /// 上游的 `lib/database/database_helper.dart` 也被持续维护，所以这些成员不再写在
-/// 那个类里，而是用 extension 挂在它上面——`optionsBox` / `tombstoneBox` 都是
+/// 那个类里，而是用 extension 挂在它上面，`optionsBox` / `tombstoneBox` 都是
 /// public 字段，extension 能直接访问。
 /// 上游文件里只留 4 行 adapter 注册与 1 行开箱。
 /// 删除墓碑的 Hive key
@@ -24,19 +24,19 @@ const String kFocusAttributeToCourseKey = 'focusAttributeToCourse';
 
 /// 开启免打扰**之前**的系统档位。
 ///
-/// 落盘是为了防「App 被杀导致手机永久静音」：下次启动时如果发现这个键还在，
+/// 落盘是为了防App 被杀导致手机永久静音：下次启动时如果发现这个键还在，
 /// 说明我们改过却没来得及还原，就立刻还原（见 `DoNotDisturb.restoreIfStale`）。
 const String kDndSavedFilterKey = 'dndSavedFilter';
 
-/// 一次性迁移的标记：避免每次启动都强行打开「异步刷新」
+/// 一次性迁移的标记：避免每次启动都强行打开异步刷新
 const String kAsyncRefreshMigratedKey = 'asyncRefreshDefaultOnMigrated';
 
-/// 「上次登录用的账号密码」——**故意与 username/password 分开存**。
+/// 上次登录用的账号密码，**故意与 username/password 分开存**。
 ///
 /// 为什么：退出登录走的是 `removeScholar()`，它会把 `username`/`password`
 /// 两个键从系统密钥库删掉，于是退出后登录页是空的、每次都得重打一遍。
-/// 用户要求「主动退出之后依然能预填账号密码」，所以这里另存一份：
-/// **退出登录不删它**，只有「忘记账号」时才清。
+/// 用户要求主动退出之后依然能预填账号密码，所以这里另存一份：
+/// **退出登录不删它**，只有忘记账号时才清。
 ///
 /// 存的是同一套系统密钥库（Keystore / Keychain），不落明文数据库。
 const String kLastUsernameKey = 'mod_last_username';
@@ -99,7 +99,7 @@ extension DatabaseModExt on DatabaseHelper {
     return (username: username, password: password);
   }
 
-  /// 用户主动「忘记账号」时清掉（退出登录**不**调用它）——两处一起清。
+  /// 用户主动忘记账号时清掉（退出登录**不**调用它），两处一起清。
   Future<void> forgetAccount() async {
     try {
       await secureStorage.delete(key: kLastUsernameKey);
@@ -111,12 +111,12 @@ extension DatabaseModExt on DatabaseHelper {
     } catch (_) {}
   }
 
-  // ===== 一次性迁移：把「异步刷新」改成默认开启 =====
+  // ===== 一次性迁移：把异步刷新改成默认开启 =====
 
-  /// 用户反馈：「刷新的时候很卡，都是退出重进才能刷新好，网络请求容易超时」。
+  /// 用户反馈：刷新的时候很卡，都是退出重进才能刷新好，网络请求容易超时。
   ///
   /// 排查结论：抓取本身是**并行**的（`Future.wait`），单请求超时 8 秒、
-  /// 最多重试一次 —— 架构没问题。真正的原因是**异步刷新默认关闭**：
+  /// 最多重试一次， 架构没问题。真正的原因是**异步刷新默认关闭**：
   /// 界面要等所有模块全部刷完（最坏接近 20 秒）才一次性更新，看着就像卡死。
   ///
   /// 所以改为默认开启（数据边刷出来边显示），设置里的开关保留，

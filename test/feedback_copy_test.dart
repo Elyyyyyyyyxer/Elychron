@@ -1,9 +1,9 @@
 import 'package:celechron/mod/feedback_copy.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// 「复制反馈信息」的文本裁剪规则。
+/// 复制反馈信息的文本裁剪规则。
 ///
-/// 反馈会发生在 QQ 群、论坛帖这类地方 —— 粘太长没人看，粘太短又定位不了问题，
+/// 反馈会发生在 QQ 群、论坛帖这类地方， 粘太长没人看，粘太短又定位不了问题，
 /// 所以日志取**尾部**固定行数，且要剔掉空行。
 void main() {
   test('日志行数不够时原样返回（剔除空行）', () {
@@ -11,7 +11,7 @@ void main() {
     expect(FeedbackCopy.tailLines(text, 10), '第一行\n第二行\n第三行');
   });
 
-  test('超长时取尾部 —— 现场在最后，所以要截尾不是截头', () {
+  test('超长时取尾部， 现场在最后，所以要截尾不是截头', () {
     final lines = List.generate(10, (i) => 'line$i');
     final result = FeedbackCopy.tailLines(lines.join('\n'), 3);
     expect(result, 'line7\nline8\nline9');

@@ -21,7 +21,7 @@ class ModuleFetchStatus {
 }
 
 /// 由 getEverything 的抓取错误列表（中间态或最终态）推导各模块状态。
-/// null=成功；以「查询进行中」结尾=进行中；其余=失败。
+/// null=成功；以查询进行中结尾=进行中；其余=失败。
 /// 两表长度不等时视为不可信，返回空列表。
 List<ModuleFetchStatus> moduleStatusesFromErrors(
     List<String?> errors, List<String> labels) {

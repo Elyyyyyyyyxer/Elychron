@@ -19,10 +19,10 @@ class Session {
   /// `firstHalf / secondHalf` **是不是"猜"出来的**（2026-09-17 加）。
   ///
   /// 教务的 `xxq` 读不出来时，我们只能**按本次查询用的季节猜**
-  /// （`1|秋` → 上半、「1|冬` → 下半，见 [fromZdbk]）。
+  /// （`1|秋` → 上半、1|冬` → 下半，见 [fromZdbk]）。
   /// 两次查询都会返回同一门课，于是 `Course.completeSession` 里那个
-  /// `a || b` 就把"猜出来的秋"和"猜出来的冬"合成**两半都上** ——
-  /// 用户看到的就是「秋冬的课混在一起、还报冲突」，而且下次刷新（xxq 又能读了）
+  /// `a || b` 就把"猜出来的秋"和"猜出来的冬"合成**两半都上**，
+  /// 用户看到的就是秋冬的课混在一起、还报冲突，而且下次刷新（xxq 又能读了）
   /// 自己就好了，极难复现（真实反馈："问当事人的时候已经正常了"）。
   ///
   /// 所以这里记一笔"这条是猜的"，合并时让**确定的**说了算。
@@ -76,9 +76,9 @@ class Session {
     }
   }*/
 
-  /// 从文本里读出「上/下半学期」。
+  /// 从文本里读出上/下半学期。
   ///
-  /// 教务返回的半学期字段（`xxq`）并不可靠：可能是「秋/冬/春/夏」，也可能缺失或
+  /// 教务返回的半学期字段（`xxq`）并不可靠：可能是秋/冬/春/夏，也可能缺失或
   /// 只给数字码。所以除了它，还接受本次请求用的学期参数（形如 `1|秋`）。
   static ({bool first, bool second}) _halfFlagsFrom(Object? text) {
     final value = text?.toString() ?? '';
@@ -91,10 +91,11 @@ class Session {
   /// 解析一条教务课表条目。
   ///
   /// [requestedSeason] 是本次查询用的学期参数（`1|秋` / `1|冬` / `2|春` / `2|夏`）。
-  /// **行内 `xxq` 说不清半学期时必须回落到它** —— 否则 firstHalf / secondHalf 会一起
+  /// **行内 `xxq` 说不清半学期时必须回落到它**， 否则 firstHalf / secondHalf 会一起
   /// 留在 false，这节课就被 `firstHalfTimetable` / `secondHalfTimetable` 整个滤掉：
   /// 课程列表里有课、课时却是 0.0、课表空白，就是这个症状。
-  factory Session.fromZdbk(Map<String, dynamic> json, {String? requestedSeason}) {
+  factory Session.fromZdbk(Map<String, dynamic> json,
+      {String? requestedSeason}) {
     // kcb 将课程名、教学班、教师和地点编码在 HTML 换行块中；
     // xxq 表示半学期，djj/skcd 分别提供起始节次和连续节数。
     final session = Session.empty()

@@ -3,8 +3,8 @@ import 'package:uuid/uuid.dart';
 
 /// ===== P3：一次专注的会话记录 =====
 ///
-/// 这是「专注」功能唯一新增的持久化结构。设计要点：
-/// - 与「时间规划」彻底无关：它只回答**我实际花了多久**，不回答「什么时候做」；
+/// 这是专注功能唯一新增的持久化结构。设计要点：
+/// - 与时间规划彻底无关：它只回答**我实际花了多久**，不回答什么时候做；
 /// - `endedAt == null` 表示**还没正常结束**（App 被杀掉时留下的），
 ///   下次启动会按最后一次 flush 的进度**如实结算**，不让用户白干；
 /// - 任务侧只累加 `Task.timeSpent`（那个 Hive 字段一直被留着，正好复用），
@@ -14,7 +14,7 @@ class FocusSession {
   @HiveField(0)
   String uid;
 
-  /// 关联的待办；null = 自由专注（比如「敲代码」）
+  /// 关联的待办；null = 自由专注（比如敲代码）
   @HiveField(1)
   String? taskUid;
 
@@ -37,7 +37,7 @@ class FocusSession {
   @HiveField(6)
   Duration restTime;
 
-  /// 完成的轮数（完整走完的「工作」段数）
+  /// 完成的轮数（完整走完的工作段数）
   @HiveField(7)
   int rounds;
 
@@ -56,7 +56,7 @@ class FocusSession {
   ///
   /// 课程挂载的第三件事（用户 2026-09-14 拍板）：
   /// - 自由专注若**开始时间**落在某节课里，自动记成那门课的专注（**按开始时间判定**，
-  ///   不是按重叠比例 —— 这样一次专注永远不会被拆到两门课上）；
+  ///   不是按重叠比例， 这样一次专注永远不会被拆到两门课上）；
   /// - 挂在**带了课程归属的待办**上时，直接继承那个课程（比按时间猜更准）；
   /// - 整体做成开关（默认开），见 `getFocusAttributeToCourse`。
   ///
@@ -84,7 +84,7 @@ class FocusSession {
   /// 这次专注一共经过的时间（含休息）
   Duration get totalTime => focusedTime + restTime;
 
-  /// 会话显示名：自由专注没起名就叫「专注」
+  /// 会话显示名：自由专注没起名就叫专注
   String get displayName => label.trim().isEmpty ? '专注' : label.trim();
 
   Map<String, dynamic> toJson() => {
@@ -116,7 +116,8 @@ class FocusSession {
         workMinutes: _int(json['workMinutes'], fallback: 60),
         restMinutes: _int(json['restMinutes'], fallback: 15),
         completed: json['completed'] == true,
-        courseId: json['courseId'] is String ? json['courseId'] as String : null,
+        courseId:
+            json['courseId'] is String ? json['courseId'] as String : null,
       );
 
   static int _int(Object? raw, {int fallback = 0}) {

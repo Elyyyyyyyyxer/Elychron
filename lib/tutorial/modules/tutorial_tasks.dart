@@ -15,7 +15,7 @@ import 'package:celechron/tutorial/tutorial_model.dart';
 /// - **一步只说一件事**，宁可多几步，也不要把手机屏幕塞满；
 /// - 段落之间用 `body: ['第一段', '第二段']`，不要在一个字符串里换行；
 /// - 截图放 `assets/tutorial/tasks/xxx.png`；
-///   图还没准备好也没关系 —— 播放器会显示占位框并写出期望路径；
+///   图还没准备好也没关系， 播放器会显示占位框并写出期望路径；
 /// - 想跳去某个功能用 [TutorialActionStep]。
 const Tutorial tutorialTasks = Tutorial(
   id: 'tasks',

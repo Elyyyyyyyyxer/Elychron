@@ -10,10 +10,10 @@ import 'grade.dart';
 import 'session.dart';
 import 'package:celechron/mod/class_half_rule.dart';
 
-/// 把「上一次的课程安排」补回本次返回空课表的学期。
+/// 把上一次的课程安排补回本次返回空课表的学期。
 ///
 /// 教务的课表接口会**成功但返回空**（选课/排课期间很常见）。这属于没拿到新数据，
-/// 不能拿空课表覆盖已有安排 —— 否则就会出现「上午还有课、刷新一下课表全没了」。
+/// 不能拿空课表覆盖已有安排， 否则就会出现上午还有课、刷新一下课表全没了。
 /// 只会增不会删，所以拿旧数据补进来是安全的。
 ///
 /// 返回被补回的学期名，便于调用方记诊断日志。
@@ -365,9 +365,9 @@ class Semester {
             day = _dayOfWeekToDays.last.last.last.last
                 .add(Duration(days: (week - 17) * 7 + session.dayOfWeek));
           } else {
-            day = _dayOfWeekToDays[
-                    ClassHalfRule.halfIndexForWeek(week, baseHalfIndex: baseHalf)][
-                1 - week % 2][session.dayOfWeek][(week - 1) % 8 ~/ 2];
+            day = _dayOfWeekToDays[ClassHalfRule.halfIndexForWeek(week,
+                    baseHalfIndex: baseHalf)][1 - week % 2][session.dayOfWeek]
+                [(week - 1) % 8 ~/ 2];
           }
           var period = Period(
               uid:
@@ -409,11 +409,12 @@ class Semester {
       return DateTime.now();
     }
   }
+
   /// 是否已经套用过校历（也就是 [firstDay] / [lastDay] 是真实日期）。
   ///
-  /// ⚠️ 没套过校历的学期，[firstDay] 会**退化成「现在」**这个占位值。
-  /// 判断「今天在哪个学期」或「哪个学期即将开学」之前必须先用它排除掉，
-  /// 否则这种学期会被当成「正好现在开始」——实测就出现过「未开学 · 25-26春夏」
+  /// ⚠️ 没套过校历的学期，[firstDay] 会**退化成现在**这个占位值。
+  /// 判断今天在哪个学期或哪个学期即将开学之前必须先用它排除掉，
+  /// 否则这种学期会被当成正好现在开始，实测就出现过未开学 · 25-26春夏
   /// 这种张冠李戴的标题。
   bool get hasCalendar {
     try {

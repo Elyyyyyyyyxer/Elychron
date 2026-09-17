@@ -6,10 +6,10 @@ import 'package:flutter/cupertino.dart';
 ///
 /// ## 三个设计要点（都是踩过坑才明白的）
 ///
-/// **1）每一面必须由「面」算出来，不能是活的 widget**
+/// **1）每一面必须由面算出来，不能是活的 widget**
 ///
 /// 最初的实现是把上一面的 widget 存起来"冻结"，但那个 widget 树里还有 `Obx`
-/// 读着 controller —— 状态一变它就跟着重建，于是「点完立刻变成新页面，然后才开始转」✗
+/// 读着 controller， 状态一变它就跟着重建，于是点完立刻变成新页面，然后才开始转✗
 /// 所以这里接的是 [faceBuilder]：旧面 = `faceBuilder(旧的面)`，
 /// 内容是**算出来的**，跟 controller 无关。只有"是哪个面"被冻结，其它数据照常实时 ✓
 ///
@@ -21,13 +21,13 @@ import 'package:flutter/cupertino.dart';
 /// **3）厚度感来自"光照 + 速度曲线 + 一条页边"，不是靠加边**
 ///
 /// - 光照：越接近侧面越暗（`sin(|angle|)`），平面立刻变成"表面"
-/// - 曲线：默认 [Curves.easeInOutSine] —— 角速度在侧面（换面那一刻）最大且
+/// - 曲线：默认 [Curves.easeInOutSine]， 角速度在侧面（换面那一刻）最大且
 ///   两侧对称，卡片不会在开始/结束处顿一下；整段只有一个速度峰，比"前半
 ///   easeInCubic + 后半 easeOutCubic"少一次二次加速的顿挫
 /// - 页边：卡片最外侧露出的一条很窄的"页边"（[paperEdgeColor]），宽度按
 ///   `cos(angle)` 跟着卡片的可见宽度一起收缩，颜色浓度按 `sin(|angle|)` 渐显渐隐
 class CardFlipSwitcher extends StatefulWidget {
-  /// 变了才翻。用来区分「该翻的切换」和「不该翻的切换」
+  /// 变了才翻。用来区分该翻的切换和不该翻的切换
   /// （比如日程页里切到课表就不该翻）。
   final Object flipKey;
 
@@ -35,21 +35,21 @@ class CardFlipSwitcher extends StatefulWidget {
   /// 翻转时会先用**上一个面**渲染，转到侧面后才换成这个。
   final Object face;
 
-  /// 由「面」构建那一面的内容
+  /// 由面构建那一面的内容
   final Widget Function(Object face) faceBuilder;
 
-  /// 翻转时长。默认 620ms —— 慢一点能看清「翻过去」的过程。
+  /// 翻转时长。默认 620ms， 慢一点能看清翻过去的过程。
   final Duration duration;
 
   /// 两半共用的缓动。默认 [Curves.easeInOutSine]：在侧面（换面处）角速度最大、
   /// 两侧对称，没有二次加速的顿挫感。
   final Curve curve;
 
-  /// 卡片最外侧那条「页边」的底色。默认取 [CupertinoColors.systemGrey6]
+  /// 卡片最外侧那条页边的底色。默认取 [CupertinoColors.systemGrey6]
   /// （浅色下 242,242,247、深色下 28,28,30）再叠一点点黑：浅色下与白色页面
   /// 拉开约一档灰度，深色下比卡片略深一档，两边都能看出"纸的厚度"。
   ///
-  /// ⚠️ **它必须是"还没解析"的动态色**（默认值就是），解析在 build 里做 ——
+  /// ⚠️ **它必须是"还没解析"的动态色**（默认值就是），解析在 build 里做，
   /// 见下面关于"深色模式变白"的注释。
   final Color paperEdgeColor;
 
@@ -128,9 +128,9 @@ class _CardFlipSwitcherState extends State<CardFlipSwitcher>
         //
         // 现象：**深色模式下翻卡片，整张卡会先变白再恢复。**
         //
-        // 原因：这条「页边」是铺满整张卡的圆角矩形（靠偏移 3dp 让它在卡片外面
+        // 原因：这条页边是铺满整张卡的圆角矩形（靠偏移 3dp 让它在卡片外面
         // 露出薄薄一条），而卡片的各个面是**页面内容**（背景是透明的）。
-        // 于是翻转时，页边的颜色会从卡片底下透出来 —— 浅色模式下它是 242,242,247
+        // 于是翻转时，页边的颜色会从卡片底下透出来， 浅色模式下它是 242,242,247
         // （和页面底色几乎一样，看不出来），深色模式下如果没解析成深色，
         // 它就是那块"白"。
         //
@@ -190,8 +190,8 @@ class _CardFlipSwitcherState extends State<CardFlipSwitcher>
                   offset: Offset(side * paperThickness, 0),
                   child: DecoratedBox(
                     // 纸边只比页面内容深一档：浅色下别发灰、深色下别发亮。
-                    // 底色用 withValues 而不是写死 rgb —— CupertinoDynamicColor
-                    // 要保留「浅色 / 深色 / 高对比」三套值，让它在绘制时自己解析。
+                    // 底色用 withValues 而不是写死 rgb， CupertinoDynamicColor
+                    // 要保留浅色 / 深色 / 高对比三套值，让它在绘制时自己解析。
                     decoration: BoxDecoration(
                       // 用上面解析过的 edgeColor（深色下必须是深色那套）
                       color: edgeColor.withValues(alpha: depth),

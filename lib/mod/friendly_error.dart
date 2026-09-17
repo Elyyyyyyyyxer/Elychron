@@ -4,13 +4,13 @@ import 'package:celechron/http/zjuServices/exceptions.dart';
 ///
 /// ## 为什么要做这个
 ///
-/// 用户反馈：「请简化所有的用户容易看到的报错提示，不然看到一老长串非常吓人……
-/// 统一认证账号登录时如果输错了会产生很长很长的报错表。」
+/// 用户反馈：请简化所有的用户容易看到的报错提示，不然看到一老长串非常吓人……
+/// 统一认证账号登录时如果输错了会产生很长很长的报错表。
 ///
 /// 原因是界面上直接把 `异常.toString()` 贴出来了，而 [ExceptionWithMessage] 的
 /// toString 会拼成
 /// `消息 + '\n<<<CELECHRON_ERROR_DETAIL>>>\n' + 详情`，
-/// 详情里往往还有 URL、HTTP 状态、响应片段 —— 一行能撑满整屏，用户完全看不懂。
+/// 详情里往往还有 URL、HTTP 状态、响应片段， 一行能撑满整屏，用户完全看不懂。
 ///
 /// 规则很简单：**界面只给人话，细节去日志里找**（诊断与测试里能看到原文）。
 /// 所以这里做三件事：
@@ -103,7 +103,8 @@ class FriendlyError {
     if (newline >= 0) text = text.substring(0, newline);
     // 3) 去掉异常类名与常见前缀
     text = text
-        .replaceFirst(RegExp(r'^(Exception|LoginException|ExceptionWithMessage):\s*'), '')
+        .replaceFirst(
+            RegExp(r'^(Exception|LoginException|ExceptionWithMessage):\s*'), '')
         .replaceFirst(RegExp(r'^无法登录[^：:]*[：:]\s*'), '')
         .trim();
     return text;

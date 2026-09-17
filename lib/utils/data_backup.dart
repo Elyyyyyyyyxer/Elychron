@@ -41,9 +41,8 @@ class DataBackup {
       brightnessMode: db.getBrightnessMode().index,
       courseIdMapping:
           db.getCourseIdMappingList().map((item) => item.toJson()).toList(),
-      secrets: includeSecrets
-          ? await db.getSyncSecrets()
-          : const <String, String>{},
+      secrets:
+          includeSecrets ? await db.getSyncSecrets() : const <String, String>{},
     );
   }
 
@@ -104,7 +103,7 @@ class DataBackup {
     await db.setTaskList(taskList);
     await db.setTombstones(result.tombstones);
 
-    // 专注记录（合并结果里已经是「按 uid 去重 + 本端在跑优先」之后的）
+    // 专注记录（合并结果里已经是按 uid 去重 + 本端在跑优先之后的）
     if (result.focusSessions.isNotEmpty) {
       for (final session in result.focusSessions) {
         await db.saveFocusSession(session);
@@ -127,7 +126,7 @@ class DataBackup {
     });
     await db.setTagColors(colors);
 
-    // 设置项：整组按「谁导出的更晚」取舍（见 DataMerge.merge）
+    // 设置项：整组按谁导出的更晚取舍（见 DataMerge.merge）
     if (result.settingsTakenFromRemote) {
       db.setReminderMode(bundle.reminderMode);
       db.setAlarmTheme(bundle.alarmTheme);

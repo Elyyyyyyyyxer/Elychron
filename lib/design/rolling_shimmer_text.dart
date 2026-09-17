@@ -68,7 +68,7 @@ class _RollingShimmerTextState extends State<RollingShimmerText>
             switchOutCurve: Curves.easeInCubic,
             // 此闭包必须内联：AnimatedSwitcher 只在 transitionBuilder 身份变化时
             // 才为旧字重建过渡（见框架 AnimatedSwitcher.didUpdateWidget），每次
-            // build 产生新闭包恰好让旧字落入「从上方滑出」分支（其动画反向播放，
+            // build 产生新闭包恰好让旧字落入从上方滑出分支（其动画反向播放，
             // 即 0 → (0,-1) 向上顶出）。不要提成 static 或顶层函数。
             transitionBuilder: (child, animation) {
               final incoming = child.key == ValueKey<String>(widget.text);

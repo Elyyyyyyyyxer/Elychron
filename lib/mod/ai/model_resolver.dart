@@ -9,15 +9,15 @@ import 'package:celechron/mod/ai/deepseek.dart';
 ///
 /// 官方提供了机器可读的 `GET /models`（返回当前可用模型 id 列表），所以主路径是
 /// **运行时问官方**，这里只负责：
-///   1. 从返回的列表里挑一个「便宜档、适合文本任务」的（成本取向见下）
-///   2. 缓存结果，并在调用报「模型不存在」时自愈重取
+///   1. 从返回的列表里挑一个便宜档、适合文本任务的（成本取向见下）
+///   2. 缓存结果，并在调用报模型不存在时自愈重取
 ///
 /// 成本取向（用户选择）：**默认只自动选便宜档**；`pro` / `reasoner` 这类贵模型
-/// 只有在用户手动指定时才会用——避免因为官方改名而悄悄变贵。
+/// 只有在用户手动指定时才会用，避免因为官方改名而悄悄变贵。
 class ModelResolver {
   ModelResolver._();
 
-  /// 明显不适合「把通知解析成待办」的模型：多模态、实验版、嵌入、语音图像等
+  /// 明显不适合把通知解析成待办的模型：多模态、实验版、嵌入、语音图像等
   static const List<String> excludedKeywords = <String>[
     'vision',
     'vl',
@@ -64,8 +64,8 @@ class ModelResolver {
   /// 规则（按权重）：
   /// 1. 排除 `excludedKeywords`
   /// 2. 非贵档优先（除非 [allowExpensive]）
-  /// 3. **别名式名字优先**——不含版本数字（`deepseek-flash` 优于 `deepseek-v4-flash`），
-  ///    因为官方会持续把别名指向最新，这正是我们要的「evergreen」
+  /// 3. **别名式名字优先**，不含版本数字（`deepseek-flash` 优于 `deepseek-v4-flash`），
+  ///    因为官方会持续把别名指向最新，这正是我们要的evergreen
   /// 4. 命中 `cheapKeywords` 加分
   /// 5. 名字短的优先（别名通常更短）
   static List<String> rank(
@@ -110,7 +110,7 @@ class ModelResolver {
     return reasons.join('，');
   }
 
-  /// 判断一条错误信息是不是「模型名不对」这一类——这类错误可以自愈重试
+  /// 判断一条错误信息是不是模型名不对这一类，这类错误可以自愈重试
   static bool looksLikeModelError(String message) {
     final lower = message.toLowerCase();
     const hints = <String>[
@@ -128,7 +128,7 @@ class ModelResolver {
       '不存在',
       '无效',
     ];
-    // 「model」单独出现太宽泛，必须配上"不存在/无效"之类的词
+    // model单独出现太宽泛，必须配上"不存在/无效"之类的词
     final hasModelWord = lower.contains('model') || lower.contains('模型');
     final hasProblemWord = hints
         .where((hint) => hint != 'model')
@@ -192,9 +192,9 @@ class ModelResolver {
   /// 最近一次自动选择的原因（界面展示用）
   static String lastAutoPickReason = '';
 
-  /// 执行一次调用；若因「模型名失效」失败，则重新解析模型名并重试一次。
+  /// 执行一次调用；若因模型名失效失败，则重新解析模型名并重试一次。
   ///
-  /// 这是「改名了用户也不会卡住」的关键：官方换名字后，第一次调用失败会被这里
+  /// 这是改名了用户也不会卡住的关键：官方换名字后，第一次调用失败会被这里
   /// 识别出来，自动换成新名字重试，用户全程无感。
   static Future<T> withModelHealing<T>(Future<T> Function() action) async {
     try {

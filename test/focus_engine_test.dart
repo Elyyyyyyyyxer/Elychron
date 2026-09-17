@@ -165,21 +165,23 @@ void main() {
 
     test('withHours：整段格式稳定，不到一小时也带小时位', () {
       // 工作 60 分钟时，倒计时从 1:00:00 走到 0:59:58 都不该突然变成 59:58
+      expect(focusClock(const Duration(seconds: 3600), withHours: true),
+          '1:00:00');
+      expect(focusClock(const Duration(seconds: 3598), withHours: true),
+          '0:59:58');
       expect(
-          focusClock(const Duration(seconds: 3600), withHours: true), '1:00:00');
-      expect(
-          focusClock(const Duration(seconds: 3598), withHours: true), '0:59:58');
-      expect(focusClock(const Duration(seconds: 59), withHours: true), '0:00:59');
+          focusClock(const Duration(seconds: 59), withHours: true), '0:00:59');
       // 不带 withHours 时维持老行为
       expect(focusClock(const Duration(seconds: 3598)), '59:58');
     });
 
-    test('秒数向上取整：定时器晚几十毫秒也不会「跳秒」', () {
+    test('秒数向上取整：定时器晚几十毫秒也不会跳秒', () {
       // 整秒不受影响
       expect(focusClock(const Duration(minutes: 59, seconds: 58)), '59:58');
       // 剩 59:58.7 → 59:59（截断会显示 59:58，看着像一次跳两秒）
       expect(
-          focusClock(const Duration(minutes: 59, seconds: 58, milliseconds: 700)),
+          focusClock(
+              const Duration(minutes: 59, seconds: 58, milliseconds: 700)),
           '59:59');
     });
 

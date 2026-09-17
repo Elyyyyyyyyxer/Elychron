@@ -8,7 +8,7 @@ import 'package:flutter/foundation.dart';
 ///
 /// ⚠️ 这是本应用唯一还依赖上游的地方，公开分发前请知悉：
 /// - 它由上游 Celechron 提供，只读、只含公开的校历信息，**不含任何用户数据**；
-/// - 抓不到时 [TimeConfigService] 会依次退回「同学期缓存 → 本地推算」，
+/// - 抓不到时 [TimeConfigService] 会依次退回同学期缓存 → 本地推算，
 ///   所以上游关停也**不会让功能坏掉**，只是假期/考试周标注可能不准；
 /// - 如果要彻底摆脱上游，把这份 JSON 自建或随包内置即可（改这一个常量）。
 const calendarConfigBaseUrl = 'http://calendar.celechron.top/';
@@ -93,7 +93,7 @@ Uri calendarConfigUriForSemester(String semesterId) {
 ///
 /// 为什么要节流：那个第三方站实测长期不稳，每次刷新都去敲它 =
 /// 徒增一次失败 + 一段等待；而校历在一个学期里几乎不会变。
-/// 记的是"上次**尝试**"而不是"上次成功" —— 否则对着一个长期的死站会每次都重试。
+/// 记的是"上次**尝试**"而不是"上次成功"， 否则对着一个长期的死站会每次都重试。
 ///
 /// 纯函数，可单测（见 `test/calendar_bundled_test.dart`）。
 bool isCalendarRemoteUpdateDue({
@@ -110,7 +110,7 @@ bool isCalendarRemoteUpdateDue({
 ///
 /// 实测（就这么写下来，省得以后重复查）：那一站
 /// `https://calendar.celechron.top/…` **TLS 握手直接失败**
-/// （Windows 侧报「未能创建 SSL/TLS 安全通道」），所以实际一直走的是 HTTP。
+/// （Windows 侧报未能创建 SSL/TLS 安全通道），所以实际一直走的是 HTTP。
 /// 先试一次 HTTPS 的成本很低（而且现在**一周才试一次**，见 TimeConfigService），
 /// 哪天上游把证书修好就自动受益；失败也只在诊断里留一行。
 List<Uri> calendarConfigUriCandidates(String semesterId) {
@@ -121,7 +121,7 @@ List<Uri> calendarConfigUriCandidates(String semesterId) {
     http.replace(scheme: 'https'),
     // ② 上游原站：HTTP（实际能用的那一个）
     http,
-    // ③④ 我们自己的镜像（**HTTPS**）：内容和随包内置的那份同源 ——
+    // ③④ 我们自己的镜像（**HTTPS**）：内容和随包内置的那份同源，
     //     仓库里就有 assets/calendar/*.json，所以 raw 地址天然可用。
     //     国内直连 Gitee 更快，GitHub 作为第二个备选。
     Uri.parse(

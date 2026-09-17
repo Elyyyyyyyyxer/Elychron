@@ -19,8 +19,8 @@ import 'package:timezone/timezone.dart' as tz;
 /// 后台 Flutter 引擎来执行这个入口，带 `vm:entry-point` 才不会被 tree-shake 掉。
 ///
 /// 这里跑在**独立的后台 isolate**里：碰不到前台界面，也读不到前台的静态状态
-/// （比如 `TaskAlarmCenter`、`_synced`）。所以只做后台能做的事 ——
-/// 目前唯一那种按钮（通知模式下的「划掉」）要的效果是"别弹 App、把通知收掉"，
+/// （比如 `TaskAlarmCenter`、`_synced`）。所以只做后台能做的事，
+/// 目前唯一那种按钮（通知模式下的划掉）要的效果是"别弹 App、把通知收掉"，
 /// 而通知已经由插件自己的广播接收器按 `cancelNotification: true` 取消掉了，
 /// 这里不需要再做什么。留着它的意义是**别让这次点击静默消失**，
 /// 将来要加"纯后台动作"也从这里接。
@@ -32,9 +32,9 @@ void notificationTapBackground(NotificationResponse response) {
 
 /// 任务截止提醒：把开启提醒的任务同步成本地通知。
 ///
-/// 两种形态（由设置里的「提醒方式」决定）：
+/// 两种形态（由设置里的提醒方式决定）：
 /// - [modeNotification]：横幅通知 + 响铃（类似钉钉）
-/// - [modeAlarm]：闹钟模式，全屏提醒，可「延迟提醒 / 划掉」
+/// - [modeAlarm]：闹钟模式，全屏提醒，可延迟提醒 / 划掉
 class TaskReminder {
   TaskReminder._();
 
@@ -56,39 +56,37 @@ class TaskReminder {
   static final Map<String, DateTime> _snoozed = <String, DateTime>{};
 
   /// 通知上的两个按钮（随当前提醒方式变，见 [actionsFor]）。
-  static List<AndroidNotificationAction> actionsFor(int mode) =>
-      mode == modeAlarm
-          ? const [
-              AndroidNotificationAction('snooze', '延迟提醒',
-                  showsUserInterface: true),
-              // 闹钟模式必须 true：见下面那段注释
-              AndroidNotificationAction('dismiss', '划掉',
-                  showsUserInterface: true, cancelNotification: true),
-            ]
-          : const [
-              AndroidNotificationAction('snooze', '延迟提醒',
-                  showsUserInterface: true),
-              AndroidNotificationAction('dismiss', '划掉',
-                  showsUserInterface: false, cancelNotification: true),
-            ];
+  static List<AndroidNotificationAction> actionsFor(int mode) => mode ==
+          modeAlarm
+      ? const [
+          AndroidNotificationAction('snooze', '延迟提醒', showsUserInterface: true),
+          // 闹钟模式必须 true：见下面那段注释
+          AndroidNotificationAction('dismiss', '划掉',
+              showsUserInterface: true, cancelNotification: true),
+        ]
+      : const [
+          AndroidNotificationAction('snooze', '延迟提醒', showsUserInterface: true),
+          AndroidNotificationAction('dismiss', '划掉',
+              showsUserInterface: false, cancelNotification: true),
+        ];
 
-  /// 「划掉」这个按钮为什么要分模式设置 `showsUserInterface`：
+  /// 划掉这个按钮为什么要分模式设置 `showsUserInterface`：
   ///
   /// `showsUserInterface: false` 的按钮**不会把 App 拉到前台**，响应只会送到
   /// **后台 isolate**（插件会为它单独起一个引擎执行
-  /// `onDidReceiveBackgroundNotificationResponse`），而后台 isolate 碰不到前台界面 ——
-  /// 于是「通知上的划掉」只能把通知取消掉，**全屏闹钟照样响、铃声也不停**。
-  /// 用户的原话：「横幅通知点划掉没有反应，只能点击延迟」
-  /// （「延迟提醒」本来就是 `true`，它会把 App 拉起来，所以那条一直能用 ——
+  /// `onDidReceiveBackgroundNotificationResponse`），而后台 isolate 碰不到前台界面，
+  /// 于是通知上的划掉只能把通知取消掉，**全屏闹钟照样响、铃声也不停**。
+  /// 用户的原话：横幅通知点划掉没有反应，只能点击延迟
+  /// （延迟提醒本来就是 `true`，它会把 App 拉起来，所以那条一直能用，
   /// 这个"只有一条好用"的现象正好印证了上面的机制）。
   ///
-  /// 闹钟模式改成 `true` 之后，点「划掉」会把 App 唤到前台，
+  /// 闹钟模式改成 `true` 之后，点划掉会把 App 唤到前台，
   /// 走 `_onResponse` 的 `dismiss` 分支清掉闹钟中心，闹钟页跟着关、铃声在
   /// `dispose` 里停掉。
   ///
   /// 通知模式（普通横幅）没有全屏闹钟要停，就保持 `false`：
   /// 插件自己的广播接收器会按 `cancelNotification` 把通知取消掉，
-  /// 点「划掉」不必把 App 弹出来。
+  /// 点划掉不必把 App 弹出来。
   static AndroidNotificationDetails get _notificationDetails =>
       AndroidNotificationDetails(
         // 注意：Android 的通知渠道一旦创建就**不可修改**（重要度/声音/音量流都锁死）。
@@ -114,7 +112,7 @@ class TaskReminder {
         fullScreenIntent: true,
         playSound: true,
         enableVibration: true,
-        // 走「闹钟」音量流：否则默认用通知音量流，静音模式/音量低时就听不见，
+        // 走闹钟音量流：否则默认用通知音量流，静音模式/音量低时就听不见，
         // 也不会像系统闹钟那样绕过免打扰
         audioAttributesUsage: AudioAttributesUsage.alarm,
         ongoing: true,
@@ -160,7 +158,7 @@ class TaskReminder {
 
       // 冷启动路径：App 是被闹钟通知（全屏 Intent）拉起来的。
       // 这种情况 **不会** 走 onDidReceiveNotificationResponse，必须读这个接口，
-      // 否则用户必须先手动打开 App 才会响 —— 这正是「不像系统闹钟」的原因。
+      // 否则用户必须先手动打开 App 才会响， 这正是不像系统闹钟的原因。
       try {
         final launch = await _plugin.getNotificationAppLaunchDetails();
         final response = launch?.notificationResponse;
@@ -183,7 +181,7 @@ class TaskReminder {
     final payload = response.payload;
     if (payload == null || payload.isEmpty) return;
 
-    // 「延迟 / 划掉」只可能来自任务级通知（子待办只走普通通知，没有按钮）
+    // 延迟 / 划掉只可能来自任务级通知（子待办只走普通通知，没有按钮）
     if (response.actionId == 'snooze') {
       final task = _findTask(payload);
       if (task != null) await snooze(task, const Duration(minutes: 10));
@@ -209,7 +207,7 @@ class TaskReminder {
     if (task == null) return;
     // 闹钟模式：弹全屏闹钟；通知模式：直接进这条待办的详情页
     if (mode == modeAlarm) {
-      // 与前台 tick 共用同一套「按提醒时刻去重」（见 TaskAlarmCenter），
+      // 与前台 tick 共用同一套按提醒时刻去重（见 TaskAlarmCenter），
       // 所以点通知弹出来的这次不会被 tick 再弹一遍，反之亦然。
       TaskAlarmCenter.fire(
         task,
@@ -253,7 +251,7 @@ class TaskReminder {
   // ===== P2：行程型子待办的通知调度 =====
   //
   // 单独一套 key（`sub:<任务uid>:<子待办uid>`）与通知 id，避免和任务级撞车。
-  // 子待办**只走普通通知**，不走全屏闹钟 —— 否则一上午会被闹钟连炸。
+  // 子待办**只走普通通知**，不走全屏闹钟， 否则一上午会被闹钟连炸。
 
   static const String subtaskPayloadPrefix = 'sub:';
 
@@ -263,7 +261,7 @@ class TaskReminder {
   static String _subPayload(String taskUid, String subUid) =>
       '$subtaskPayloadPrefix$taskUid:$subUid';
 
-  /// 设置里的「默认提醒提前量」（分钟）；拿不到就用 30。
+  /// 设置里的默认提醒提前量（分钟）；拿不到就用 30。
   static int get _defaultLeadMinutes {
     try {
       if (Get.isRegistered<DatabaseHelper>(tag: 'db')) {
@@ -332,18 +330,15 @@ class TaskReminder {
 
   /// 排定/取消失败是否写诊断日志。
   ///
-  /// 只在**失败**时写（成功不写，免得日志被刷爆）——为的是下次有人反馈
-  /// 「闹钟没响」时，诊断报告里能看到到底有没有排上、失败原因是什么。
+  /// 只在**失败**时写（成功不写，免得日志被刷爆），为的是下次有人反馈
+  /// 闹钟没响时，诊断报告里能看到到底有没有排上、失败原因是什么。
   static bool _syncLogEnabled = true;
 
   @visibleForTesting
   static set syncLogEnabled(bool value) => _syncLogEnabled = value;
 
-  static void _logScheduled(
-    String what,
-    DateTime when,
-    {required bool ok, Object? error}
-  ) {
+  static void _logScheduled(String what, DateTime when,
+      {required bool ok, Object? error}) {
     try {
       if (!Get.isRegistered<DiagnosticLogService>()) return;
       final stamp = '${when.month}/${when.day} '
@@ -353,9 +348,7 @@ class TaskReminder {
         level: ok ? CelechronLogLevel.info : CelechronLogLevel.warning,
         module: '待办提醒',
         operation: 'schedule',
-        message: ok
-            ? '已排定「$what」于 $stamp'
-            : '排定「$what」（$stamp）失败：$error',
+        message: ok ? '已排定$what于 $stamp' : '排定$what（$stamp）失败：$error',
       );
     } catch (_) {
       // 日志本身不该影响提醒
@@ -384,11 +377,12 @@ class TaskReminder {
             if (_syncLogEnabled) _logScheduled(task.summary, when, ok: true);
           }
           // ⚠️ 只有成功才记签名：失败时留空，下次同步会重试。
-          // （以前放在 finally 里，一次失败就再也不重试 —— 症状就是"闹钟不响"却查不出原因）
+          // （以前放在 finally 里，一次失败就再也不重试， 症状就是"闹钟不响"却查不出原因）
           _synced[task.uid] = signature;
         } catch (error) {
           if (_syncLogEnabled) {
-            _logScheduled(task.summary, _fireTimeOf(task), ok: false, error: error);
+            _logScheduled(task.summary, _fireTimeOf(task),
+                ok: false, error: error);
           }
         }
       }
@@ -465,7 +459,7 @@ class TaskReminder {
     }
   }
 
-  /// 行程型子待办的通知：只有「通知」这一条路，永远不用闹钟那套详情。
+  /// 行程型子待办的通知：只有通知这一条路，永远不用闹钟那套详情。
   static Future<void> _scheduleSubtask(
     Task task,
     SubTask sub,
@@ -515,7 +509,7 @@ class TaskReminder {
   ///
   /// 工作段走完、进入休息时弹一条普通通知，提醒起来走走。
   /// 刻意**不走闹钟那套**（休息提示不该像闹钟一样炸），也刻意不走
-  /// 「待办提醒」渠道 —— 它是另一件事，用户想单独静音也方便。
+  /// 待办提醒渠道， 它是另一件事，用户想单独静音也方便。
   static const NotificationDetails _focusDetails = NotificationDetails(
     android: AndroidNotificationDetails(
       'focus_rest_v1',
@@ -531,10 +525,10 @@ class TaskReminder {
   /// 休息提示的固定通知 id：一次专注只该有一条，新的覆盖旧的、不堆一屏
   static const int focusRestNoticeId = 0x5f0c5;
 
-  /// **预先把「该休息了」排进系统**（专注页进入工作段时调用）。
+  /// **预先把该休息了排进系统**（专注页进入工作段时调用）。
   ///
-  /// 为什么不能「等页面 tick 到点再弹」：锁屏 / 切后台之后 Dart 定时器会被
-  /// 系统挂起，那一秒根本不会到来 —— 等用户回到前台才补弹，已经错过时机。
+  /// 为什么不能等页面 tick 到点再弹：锁屏 / 切后台之后 Dart 定时器会被
+  /// 系统挂起，那一秒根本不会到来， 等用户回到前台才补弹，已经错过时机。
   /// 而专注最典型的用法恰好就是**扣在桌上锁屏**。
   ///
   /// [at] 已经过去（比如剩余不到一秒）时就直接弹一条。
@@ -547,7 +541,7 @@ class TaskReminder {
       await _plugin.cancel(focusRestNoticeId);
       final body = (label == null || label.trim().isEmpty)
           ? '这一轮工作了 ${_focusWorkLabel()}，起来走走、喝口水。'
-          : '「${label.trim()}」这一轮结束了，起来走走、喝口水。';
+          : '${label.trim()}这一轮结束了，起来走走、喝口水。';
       if (!at.isAfter(DateTime.now())) {
         await _plugin.show(focusRestNoticeId, '该休息了', body, _focusDetails);
         return;
@@ -582,7 +576,7 @@ class TaskReminder {
     }
   }
 
-  /// 撤销还没到点的「该休息了」（暂停 / 跳过休息 / 提前结束 / 离开页面时用）
+  /// 撤销还没到点的该休息了（暂停 / 跳过休息 / 提前结束 / 离开页面时用）
   static Future<void> cancelFocusRestNotice() async {
     try {
       await _ensureInit();
@@ -596,7 +590,7 @@ class TaskReminder {
       await _ensureInit();
       final body = (label == null || label.trim().isEmpty)
           ? '这一轮工作了 ${_focusWorkLabel()}，起来走走、喝口水。'
-          : '「${label.trim()}」这一轮结束了，起来走走、喝口水。';
+          : '${label.trim()}这一轮结束了，起来走走、喝口水。';
       await _plugin.show(focusRestNoticeId, '该休息了', body, _focusDetails);
     } catch (_) {
       // 通知不可用时静默降级：专注本身照常计时
@@ -606,7 +600,8 @@ class TaskReminder {
   static String _focusWorkLabel() {
     try {
       if (Get.isRegistered<DatabaseHelper>(tag: 'db')) {
-        final minutes = Get.find<DatabaseHelper>(tag: 'db').getFocusWorkMinutes();
+        final minutes =
+            Get.find<DatabaseHelper>(tag: 'db').getFocusWorkMinutes();
         if (minutes % 60 == 0) return '${minutes ~/ 60} 小时';
         return '$minutes 分钟';
       }
@@ -615,7 +610,7 @@ class TaskReminder {
   }
 
   /// 延迟提醒：推迟 [delay] 后再响一次。
-  /// 是否处于「已延迟」状态（前台每秒检查要用它，否则刚延迟完又会立刻弹）
+  /// 是否处于已延迟状态（前台每秒检查要用它，否则刚延迟完又会立刻弹）
   static DateTime? snoozedUntil(String uid) => _snoozed[uid];
 
   static Future<void> snooze(Task task, Duration delay) async {

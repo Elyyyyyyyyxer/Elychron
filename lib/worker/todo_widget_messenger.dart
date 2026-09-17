@@ -21,12 +21,12 @@ class TodoWidgetMessenger {
   static const _channel = MethodChannel('celechron/todoWidget');
   static const int maxVisibleTasks = 20;
 
-  /// ===== 已尘封：桌面小组件「最近待办」=====
+  /// ===== 已尘封：桌面小组件最近待办=====
   ///
   /// 2026-09-15 深夜决定尘封（`AndroidManifest.xml` 里的接收器也一并注释掉了，
   /// 所以它不会出现在桌面小组件列表里）。原因见 `docs/WHATS_NEW_1.4.1.md` 11.9：
   /// 在华为鸿蒙上，"勾选后画面不刷新"是系统电池优化挡住了 Glance 的会话任务
-  /// （WorkManager）——加白名单能好，但要求每个用户手动去系统里放行，代价太大。
+  /// （WorkManager），加白名单能好，但要求每个用户手动去系统里放行，代价太大。
   ///
   /// 代码全部保留、只是不再推数据：把这里改成 `true`、并且把 manifest 里那段
   /// receiver 放回来，功能就回来了（后端逻辑这轮已经全部验证过是对的）。
@@ -114,8 +114,8 @@ class TodoWidgetMessenger {
               'title': task.summary.trim().isEmpty ? '未命名待办' : task.summary,
               // ===== 小组件自己算文案要用的两个字段 =====
               //
-              // `kind` + `at` 是给小组件**在本地按当前时间重算**「今天 10:00 截止」
-              // 「已逾期」用的：原来这两句是 App 推快照时算好的，App 不开就永远停在
+              // `kind` + `at` 是给小组件**在本地按当前时间重算**今天 10:00 截止
+              // 已逾期用的：原来这两句是 App 推快照时算好的，App 不开就永远停在
               // 旧值（用户实测："小组件像是死的"）。`at` 的取值口径与 [_timeLabel]
               // 完全一致（活动取开始、其余取结束），逾期判定也基于它。
               'kind': _kindOf(task),

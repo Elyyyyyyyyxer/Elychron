@@ -12,7 +12,7 @@ import 'package:get/get.dart';
 
 /// ===== P4：专注记录 / 统计页 =====
 ///
-/// 回答「我的时间去哪了」：今日 / 本周 / 本月总时长、最近七天的柱子、
+/// 回答我的时间去哪了：今日 / 本周 / 本月总时长、最近七天的柱子、
 /// 按专注对象（任务名或自由专注的名字）的分布，以及每一次的记录明细。
 ///
 /// 数据全部来自 `dbFocus`，口径见 [FocusStats]（按会话**开始时间**归档）。
@@ -50,8 +50,8 @@ class _FocusStatsPageState extends State<FocusStatsPage> {
     final byTask = FocusStats.byLabel(sessions, from: monthStart);
     final byTag = FocusStats.byTag(sessions,
         tagsOfTask: _tagsOfTasks(), from: monthStart);
-    final byCourse = FocusStats.byCourse(sessions,
-        nameOf: _courseName, from: monthStart);
+    final byCourse =
+        FocusStats.byCourse(sessions, nameOf: _courseName, from: monthStart);
     final list = sessions.where((s) => s.focusedTime > Duration.zero).toList();
 
     return CupertinoPageScaffold(
@@ -81,8 +81,8 @@ class _FocusStatsPageState extends State<FocusStatsPage> {
 
   /// 任务 uid → 标签，用来把专注记录按标签归类。
   ///
-  /// 拿不到任务列表（极早期启动）就返回空表 —— 那样所有会话都会落进
-  /// 「未打标签」，数字仍然对，只是没法按标签细分。
+  /// 拿不到任务列表（极早期启动）就返回空表， 那样所有会话都会落进
+  /// 未打标签，数字仍然对，只是没法按标签细分。
   Map<String, List<String>> _tagsOfTasks() {
     final result = <String, List<String>>{};
     try {
@@ -108,8 +108,7 @@ class _FocusStatsPageState extends State<FocusStatsPage> {
         Row(
           children: [
             _stat(context, '完整走完', '${(rate * 100).round()}%'),
-            _stat(context, '平均每轮',
-                avg == null ? '—' : focusHuman(avg)),
+            _stat(context, '平均每轮', avg == null ? '—' : focusHuman(avg)),
             _stat(context, '总轮数', '$rounds'),
           ],
         ),
@@ -231,14 +230,13 @@ class _FocusStatsPageState extends State<FocusStatsPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(CupertinoIcons.timer,
-                size: 44, color: AppAccent.primary),
+            Icon(CupertinoIcons.timer, size: 44, color: AppAccent.primary),
             const SizedBox(height: 14),
             const Text('还没有专注记录',
                 style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
             const SizedBox(height: 8),
             Text(
-              '在待办详情页点「开始专注」，或者到待办页右上角点计时器图标开一段自由专注。'
+              '在待办详情页点开始专注，或者到待办页右上角点计时器图标开一段自由专注。'
               '结束后这里就会有记录和统计。',
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 13, color: labelColor),
@@ -247,8 +245,7 @@ class _FocusStatsPageState extends State<FocusStatsPage> {
             CupertinoButton(
               color: AppAccent.primary,
               borderRadius: BorderRadius.circular(22),
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 28, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 12),
               onPressed: () async {
                 await startFreeFocus(context);
                 if (mounted) setState(() {});
@@ -266,9 +263,10 @@ class _FocusStatsPageState extends State<FocusStatsPage> {
 
   /// 长按一条记录 → 删掉它。
   ///
-  /// 连带把这条记录占用的时长从任务的 `timeSpent` 里减掉 ——
-  /// 否则「删了记录但待办上还挂着 40 分钟」，账对不上。
-  Future<void> _confirmDelete(BuildContext context, FocusSession session) async {
+  /// 连带把这条记录占用的时长从任务的 `timeSpent` 里减掉，
+  /// 否则删了记录但待办上还挂着 40 分钟，账对不上。
+  Future<void> _confirmDelete(
+      BuildContext context, FocusSession session) async {
     final ok = await showCupertinoDialog<bool>(
       context: context,
       builder: (BuildContext context) => CupertinoAlertDialog(
@@ -364,7 +362,7 @@ class _FocusStatsPageState extends State<FocusStatsPage> {
     final textColor = CupertinoTheme.of(context).textTheme.textStyle.color;
     final labelColor =
         CupertinoDynamicColor.resolve(CupertinoColors.secondaryLabel, context);
-    // 不到一分钟就显示秒，别写成「0 分钟」让人以为没记上
+    // 不到一分钟就显示秒，别写成0 分钟让人以为没记上
     final String big;
     final String sub;
     if (value.inSeconds <= 0) {
@@ -423,9 +421,8 @@ class _FocusStatsPageState extends State<FocusStatsPage> {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: days.map((d) {
-              final ratio = maxMinutes == 0
-                  ? 0.0
-                  : d.focused.inMinutes / maxMinutes;
+              final ratio =
+                  maxMinutes == 0 ? 0.0 : d.focused.inMinutes / maxMinutes;
               return Expanded(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.end,
@@ -440,8 +437,7 @@ class _FocusStatsPageState extends State<FocusStatsPage> {
                               : (d.focused.inMinutes >= 60
                                   ? '${(d.focused.inMinutes / 60).toStringAsFixed(1)}h'
                                   : '${d.focused.inMinutes}m'),
-                          style: TextStyle(
-                              fontSize: 10, color: labelColor),
+                          style: TextStyle(fontSize: 10, color: labelColor),
                         ),
                       ),
                     Container(
@@ -474,7 +470,7 @@ class _FocusStatsPageState extends State<FocusStatsPage> {
 
   /// 课程代码 → 显示名。拿不到课表时给出诚实的兜底文案。
   ///
-  /// 「已不在课表里」是真实会发生的：上学期归到某门课的专注，这学期课表里没有它了。
+  /// 已不在课表里是真实会发生的：上学期归到某门课的专注，这学期课表里没有它了。
   /// 这时候不能显示空白、也不能编个名字，只能说清楚。
   String _courseName(String courseId) {
     for (final choice in courseChoices()) {
@@ -483,7 +479,7 @@ class _FocusStatsPageState extends State<FocusStatsPage> {
     return '已不在课表里的课程';
   }
 
-  /// 按课程分布 —— 与「专注对象」同样的条形图，只是口径换成课程。
+  /// 按课程分布， 与专注对象同样的条形图，只是口径换成课程。
   ///
   /// 只统计**归到课程上**的会话（自由专注不进这里），这一点写在标题下面，
   /// 免得用户拿它去和总时长对不上。
@@ -496,8 +492,8 @@ class _FocusStatsPageState extends State<FocusStatsPage> {
     final textColor = CupertinoTheme.of(context).textTheme.textStyle.color;
     final shown = totals.take(6).toList();
     final max = shown.first.focused.inMinutes;
-    final sum = totals.fold<Duration>(
-        Duration.zero, (acc, item) => acc + item.focused);
+    final sum =
+        totals.fold<Duration>(Duration.zero, (acc, item) => acc + item.focused);
 
     return _card(
       children: [
@@ -505,7 +501,7 @@ class _FocusStatsPageState extends State<FocusStatsPage> {
             style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
         const SizedBox(height: 4),
         Text(
-          // 原来的写法是「只算挂到课程上的专注；（自由专注）不计入这里」——
+          // 原来的写法是只算挂到课程上的专注；（自由专注）不计入这里，
           // 用户 2026-09-17 反馈说看不懂，以为"自由专注永远不归属课程"。
           // 其实自由专注只要**开始时正在上课**就会算到那门课上，所以这里说清楚。
           '自由专注只要开始时正在上课，也会算到那门课上；合计 ${focusHuman(sum)}',
@@ -665,7 +661,7 @@ class _FocusStatsPageState extends State<FocusStatsPage> {
         ...sessions.take(60).map((s) {
           final started = s.startedAt;
           // ===== MOD: 每次专注也算上"算到了哪门课"（2026-09-17）=====
-          // 用户反馈"看不出自由专注有没有计入当前课程" —— 记录列表原来只有
+          // 用户反馈"看不出自由专注有没有计入当前课程"， 记录列表原来只有
           // 名字和时长，算没算课程完全看不出来，只能去翻上面的按课程统计。
           final courseId = s.courseId;
           final course = (courseId == null || courseId.isEmpty)
@@ -699,7 +695,9 @@ class _FocusStatsPageState extends State<FocusStatsPage> {
                   ),
                   Expanded(
                     child: Text(
-                      course == null ? s.displayName : '${s.displayName} · $course',
+                      course == null
+                          ? s.displayName
+                          : '${s.displayName} · $course',
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(fontSize: 14, color: textColor),
                     ),

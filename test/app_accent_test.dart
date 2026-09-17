@@ -2,7 +2,7 @@ import 'package:celechron/design/app_accent.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// 主题色是**唯一来源**，而且已经为「主题色设置」留好了接口。
+/// 主题色是**唯一来源**，而且已经为主题色设置留好了接口。
 ///
 /// 这里锁两件事：
 /// 1. 换主色之后，浅端 / 深端 / 文字色会自动推出来（不用逐个手调）；

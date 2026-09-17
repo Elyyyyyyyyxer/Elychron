@@ -10,11 +10,11 @@ import 'package:get/get.dart';
 ///
 /// 三个使用姿势（后续新功能按需挑一个）：
 ///
-/// 1. **教程中心**：`openTutorialCenter(context)` —— 设置页那个入口；
+/// 1. **教程中心**：`openTutorialCenter(context)`， 设置页那个入口；
 /// 2. **某功能的帮助按钮**：`TutorialHelpButton(tutorialId: 'tasks')`，
 ///    放在功能页的导航栏或标题旁；
 /// 3. **首次使用自动弹一次**：`await showTutorialOnce(context, 'tasks')`，
-///    用户看完或点「不再提示」之后就不会再打扰。
+///    用户看完或点不再提示之后就不会再打扰。
 ///
 /// 三者共用同一份"已看过"记录（[TutorialStore]），所以不会出现
 /// "中心里显示已看、进功能又弹一次"这种不一致。
@@ -37,7 +37,7 @@ Future<void> openTutorialCenter(BuildContext context) async {
   );
 }
 
-/// 首用提示：没看过才弹，看完/「不再提示」之后不再打扰。
+/// 首用提示：没看过才弹，看完/不再提示之后不再打扰。
 ///
 /// 返回是否真的弹了（调用方可以据此决定要不要接着做别的事）。
 Future<bool> showTutorialOnce(
@@ -62,7 +62,7 @@ Future<bool> showTutorialOnce(
   return true;
 }
 
-/// 放在功能页上的「?」按钮：点开这篇教程
+/// 放在功能页上的?按钮：点开这篇教程
 class TutorialHelpButton extends StatelessWidget {
   final String tutorialId;
 
@@ -95,7 +95,7 @@ class TutorialCenterPage extends StatelessWidget {
     return CupertinoPageScaffold(
       // ⚠️ 必须显式给分组灰底色（2026-09-17 用户指出"条目边上有一圈灰色的东西"）：
       // 不给的话页面底色是纯白，而 CupertinoListSection 自己会在每个区块下面画一块
-      // 浅灰圆角背景 —— 白底 + 灰块 = 每条外面套了一圈灰。
+      // 浅灰圆角背景， 白底 + 灰块 = 每条外面套了一圈灰。
       // 设置页（option_view）一直写着这一行，所以那边看起来才正常。
       backgroundColor: CupertinoColors.systemGroupedBackground,
       navigationBar: const CupertinoNavigationBar(

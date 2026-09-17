@@ -19,18 +19,18 @@ import 'package:get/get.dart';
 ///
 /// 一个页面就是一次专注会话：打开即开始，离开即结算。
 /// 计时逻辑全在 [FocusEngine]（纯函数、可单测），这里只负责
-/// 「每秒 tick 一次 + 画圆环 + 落库」。
+/// 每秒 tick 一次 + 画圆环 + 落库。
 class FocusPage extends StatefulWidget {
   /// 关联的待办（null = 自由专注）
   final Task? task;
 
-  /// 自由专注的名字（如「敲代码」）
+  /// 自由专注的名字（如敲代码）
   final String? freeLabel;
 
-  /// 带着一次「暂停后离开」的专注进来（null = 全新开始）。
+  /// 带着一次暂停后离开的专注进来（null = 全新开始）。
   ///
   /// 见 `lib/mod/focus_suspend.dart`：暂停时离开**不结束这次专注**，
-  /// 专注首页会给出「继续」入口，点它就把它传进来，原样接着做。
+  /// 专注首页会给出继续入口，点它就把它传进来，原样接着做。
   final SuspendedFocus? resume;
 
   const FocusPage({super.key, this.task, this.freeLabel, this.resume});
@@ -51,20 +51,20 @@ class _FocusPageState extends State<FocusPage> {
   /// 只用来判断"要不要动系统设置"，见 [_onTick] 里的对齐检查。
   bool? _lastSilenced;
 
-  /// 打开页面时结算的「上次没正常结束」的会话（用于提示一句）
+  /// 打开页面时结算的上次没正常结束的会话（用于提示一句）
   String? _recoveredNotice;
 
-  /// true = 这次是「暂停后离开，回来接着做」（见 [FocusPage.resume]）
+  /// true = 这次是暂停后离开，回来接着做（见 [FocusPage.resume]）
   bool _resumedExisting = false;
 
-  /// 「专注自动计入课程」这个开关这次是开着的吗（关掉时页面上要说明）
+  /// 专注自动计入课程这个开关这次是开着的吗（关掉时页面上要说明）
   bool _attributeEnabled = true;
 
   /// 这次专注算到了哪门课上（课程名；null = 没有归属）。
   ///
   /// ★ 为什么要在页面上显示（用户 2026-09-17）：
   /// 归属是"拿开始时间在课表里找那一节课"，命中与否取决于**当时有没有课**。
-  /// 原来页面上一声不吭，用户只能事后去统计页翻「按月按课程」猜 ——
+  /// 原来页面上一声不吭，用户只能事后去统计页翻按月按课程猜，
   /// 于是就有了"当现在有课的时候，自由专注不会自动计入当前课程？"这个疑问。
   /// 现在开始专注时就把结果显示出来：一眼就能看出这次算到了哪门课。
   String? _attributedCourseName;
@@ -85,7 +85,7 @@ class _FocusPageState extends State<FocusPage> {
     }
     final free = widget.freeLabel?.trim() ?? '';
     if (free.isNotEmpty) return free;
-    // 「回来接着做」时不会再传 task / freeLabel，就用会话里记着的那个名字
+    // 回来接着做时不会再传 task / freeLabel，就用会话里记着的那个名字
     // （否则休息提醒会变成干巴巴一句"该休息了"，看不出是哪次专注）
     if (_resumedExisting) {
       final name = _session.displayName;
@@ -139,7 +139,7 @@ class _FocusPageState extends State<FocusPage> {
         : courseNameOf(attributedId);
 
     _lastPhase = _engine.phase;
-    // 一开始就把「该休息了」排进系统（锁屏也响）
+    // 一开始就把该休息了排进系统（锁屏也响）
     _syncRestNotice();
 
     _ticker = Timer.periodic(const Duration(seconds: 1), (_) => _onTick());
@@ -154,7 +154,7 @@ class _FocusPageState extends State<FocusPage> {
   /// 页面上那句归属说明（永远给出一个**明确**的答案，不留悬念）。
   String get _attributionLine {
     if (!_attributeEnabled) return '专注自动计入课程：已关闭（设置 → 专注里可打开）';
-    // 判断依据是**会话里真的记了 courseId**，而不是"名字查得到" ——
+    // 判断依据是**会话里真的记了 courseId**，而不是"名字查得到"，
     // 课表没刷出来时名字可能查不到，但归属本身是发生的。
     final id = _session.courseId;
     if (id != null && id.isNotEmpty) {
@@ -170,7 +170,7 @@ class _FocusPageState extends State<FocusPage> {
   /// - 否则拿**开始时间**去课表里找那一节，命中才算（口径见 [courseIdForFocusStart]）。
   ///
   /// 课表拿不到（没登录 / 还没抓到数据）就只保留"继承待办"这一条，
-  /// **绝不因为归属失败而影响专注本身** —— 这是个锦上添花的功能。
+  /// **绝不因为归属失败而影响专注本身**， 这是个锦上添花的功能。
   String? _courseIdFor(DateTime startedAt) {
     final explicit = widget.task?.courseId;
     try {
@@ -193,19 +193,19 @@ class _FocusPageState extends State<FocusPage> {
   @override
   void dispose() {
     _ticker?.cancel();
-    // 离开页面就把还没到点的「该休息了」撤掉，别让它半夜响
+    // 离开页面就把还没到点的该休息了撤掉，别让它半夜响
     TaskReminder.cancelFocusRestNotice();
     // 还原免打扰（只还原我们改过的；用户自己开着的话不动）
     DoNotDisturb.restore();
     super.dispose();
   }
 
-  /// App 上次被系统杀掉时留下的「进行中」会话：按最后一次记录的进度如实结算，
+  /// App 上次被系统杀掉时留下的进行中会话：按最后一次记录的进度如实结算，
   /// 并把专注时长补进对应待办，不让用户白干。
   void _settleStaleSessions() {
     final db = _db;
     if (db == null) return;
-    // ★ 「暂停后离开」的那条**不算异常结束**：它是用户主动留着的，
+    // ★ 暂停后离开的那条**不算异常结束**：它是用户主动留着的，
     //   结算了就等于把"回来接着做"这件事毁掉。
     final suspendedUid = db.suspendedFocus()?.uid;
     final stale = db
@@ -227,24 +227,24 @@ class _FocusPageState extends State<FocusPage> {
     _engine.tick(now);
     _ticks++;
 
-    // 段切换（工作→休息 / 休息→工作）时同步「该休息了」的系统排程
+    // 段切换（工作→休息 / 休息→工作）时同步该休息了的系统排程
     if (_engine.phase != _lastPhase) {
       _lastPhase = _engine.phase;
       _syncRestNotice();
       // ===== MOD: 休息期间要把免打扰**关掉** =====
       //
-      // 用户反馈：「切休息模式时不会自动关掉免打扰，导致无通知，我也不知道我要休息了」。
+      // 用户反馈：切休息模式时不会自动关掉免打扰，导致无通知，我也不知道我要休息了。
       // 原因：免打扰只在进/出专注页时开关（进=静音、走=还原），中间段切换没管它。
-      // 语义上这也是对的：专注段静音，休息段要能收到消息 —— 否则休息提醒本身也可能被挡。
+      // 语义上这也是对的：专注段静音，休息段要能收到消息， 否则休息提醒本身也可能被挡。
       _syncDoNotDisturbForPhase();
     }
 
-    // ===== MOD: 免打扰再按「当前是不是工作段」对齐一次 =====
+    // ===== MOD: 免打扰再按当前是不是工作段对齐一次 =====
     //
-    // 为什么不只靠上面那个「段变了」：暂停/继续、跳过休息这些按钮会**手动对齐**
-    // `_lastPhase = _engine.phase`，那条路上的段切换收不到通知 —— 真机实测过：
-    // 工作中点「暂停」，免打扰仍然是开的（本该还原成能收通知）。
-    // 这里每秒只看一次「该不该静音」，任何路径换段都会在 1 秒内被纠正；
+    // 为什么不只靠上面那个段变了：暂停/继续、跳过休息这些按钮会**手动对齐**
+    // `_lastPhase = _engine.phase`，那条路上的段切换收不到通知， 真机实测过：
+    // 工作中点暂停，免打扰仍然是开的（本该还原成能收通知）。
+    // 这里每秒只看一次该不该静音，任何路径换段都会在 1 秒内被纠正；
     // 而且只在状态**变化**时才真的动系统设置（enableForFocus/restore 本身也幂等）。
     if (_lastSilenced != _engine.isWorking) {
       _syncDoNotDisturbForPhase();
@@ -269,12 +269,12 @@ class _FocusPageState extends State<FocusPage> {
     }
   }
 
-  /// 把「该休息了」按当前状态同步到**系统通知排程**。
+  /// 把该休息了按当前状态同步到**系统通知排程**。
   ///
-  /// 只在「进入工作段」时排一条，时间 = 现在 + 这一段还剩多久；
+  /// 只在进入工作段时排一条，时间 = 现在 + 这一段还剩多久；
   /// 不在工作段（休息中 / 暂停 / 已结束）就撤销它。
   ///
-  /// 只在段切换或用户操作时调用 —— 每秒都调会把通知反复取消重排。
+  /// 只在段切换或用户操作时调用， 每秒都调会把通知反复取消重排。
   void _syncRestNotice() {
     if (!_restNotify || !_engine.isWorking) {
       TaskReminder.cancelFocusRestNotice();
@@ -301,7 +301,7 @@ class _FocusPageState extends State<FocusPage> {
   Future<void> _finish() async {
     _ticker?.cancel();
     _engine.stop();
-    // 结束后不该再弹「该休息了」
+    // 结束后不该再弹该休息了
     TaskReminder.cancelFocusRestNotice();
     _flush();
     _settle(_session, completed: true);
@@ -327,7 +327,7 @@ class _FocusPageState extends State<FocusPage> {
       wasResting: _engine.pausedFromResting,
       at: DateTime.now(),
     ));
-    // 离开页面就不该再弹「该休息了」（回来继续时会重新排）
+    // 离开页面就不该再弹该休息了（回来继续时会重新排）
     TaskReminder.cancelFocusRestNotice();
     DoNotDisturb.restore();
     if (mounted) Navigator.of(context).pop(false);
@@ -341,7 +341,7 @@ class _FocusPageState extends State<FocusPage> {
   }
 
   Future<_ExitChoice> _confirmExit() async {
-    // 一秒都没专注、也没休息过，就别问了 —— 直接按"结束"处理
+    // 一秒都没专注、也没休息过，就别问了， 直接按"结束"处理
     if (_engine.focused < const Duration(seconds: 30))
       return _ExitChoice.finish;
     final result = await showCupertinoDialog<_ExitChoice>(
@@ -404,7 +404,7 @@ class _FocusPageState extends State<FocusPage> {
   }
 
   String get _phaseHint {
-    if (_engine.isPaused) return '点「继续」接着计时';
+    if (_engine.isPaused) return '点继续接着计时';
     if (_engine.isResting) return '起来走走、喝口水';
     return '别碰手机，专心做完这一段';
   }
@@ -524,7 +524,7 @@ class _FocusPageState extends State<FocusPage> {
                 padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
                 child: Text(
                   '已暂停，不计时。现在可以直接返回：去改待办、回消息都行，'
-                  '这次专注不会结束，回来在「专注」页点「继续」接着做。',
+                  '这次专注不会结束，回来在专注页点继续接着做。',
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 12, color: labelColor),
                 ),
@@ -553,7 +553,7 @@ class _FocusPageState extends State<FocusPage> {
                         // ===== MOD: 按钮换段也要同步免打扰 =====
                         //
                         // 上面那行 `_lastPhase = _engine.phase` 是**手动对齐**，
-                        // 于是 `_onTick` 里的「段变了」判断不会成立 —— 免打扰同步
+                        // 于是 `_onTick` 里的段变了判断不会成立， 免打扰同步
                         // 就被跳过了（真机实测：工作中点暂停，免打扰仍然是开的）。
                         // 语义同休息段：不在工作段就该能收到通知。
                         _syncDoNotDisturbForPhase();
@@ -574,7 +574,7 @@ class _FocusPageState extends State<FocusPage> {
                               setState(() => _engine.skipRest());
                               _lastPhase = _engine.phase;
                               _syncRestNotice(); // 回到工作段：重排下一次休息提示
-                              // ===== MOD: 同上 —— 回到工作段要重新静音 =====
+                              // ===== MOD: 同上， 回到工作段要重新静音 =====
                               _syncDoNotDisturbForPhase();
                             }
                           : () => setState(() {}),
@@ -596,8 +596,8 @@ class _FocusPageState extends State<FocusPage> {
       onPopInvokedWithResult: (didPop, result) async {
         if (didPop) return;
         // ===== MOD: 暂停状态下直接放行（2026-09-16 用户要求）=====
-        // 「专注模式暂停状态下应当可以切换到其他页面，方便修改待办之类的」
-        // —— 既然已经暂停了，返回键就不该再劝用户结束这次专注。
+        // 专注模式暂停状态下应当可以切换到其他页面，方便修改待办之类的
+        //， 既然已经暂停了，返回键就不该再劝用户结束这次专注。
         if (_engine.isPaused) {
           _suspendAndLeave();
           return;

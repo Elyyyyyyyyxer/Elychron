@@ -18,7 +18,7 @@ import 'package:get/get.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:celechron/mod/friendly_error.dart';
 
-/// ============ 设置页里「数据（导出 / 导入）」的实现 ============
+/// ============ 设置页里数据（导出 / 导入）的实现 ============
 ///
 /// 上游的 `lib/page/option/option_view.dart` 一直在更新（1.3 就加了 36 行），
 /// 所以这段实现放在这里，那个文件里只留两个调用点（见 `// ===== MOD =====`）。
@@ -36,9 +36,9 @@ Future<void> modExportData(BuildContext context) async {
     ));
   } catch (e) {
     if (context.mounted) {
-      // 只说人话；细节在「设置 → 诊断与测试」里能看
-      modAlert(context, '导出失败',
-          FriendlyError.short(e, fallback: '导出没成功，请稍后重试'));
+      // 只说人话；细节在设置 → 诊断与测试里能看
+      modAlert(
+          context, '导出失败', FriendlyError.short(e, fallback: '导出没成功，请稍后重试'));
     }
   }
 }
@@ -72,7 +72,7 @@ Future<void> modImportData(BuildContext context) async {
     local: taskList.toList(),
     localTombstones: db.getTombstones(),
     incoming: bundle,
-    // 文件导入是用户显式的「恢复」动作，专注记录也要跟着合，
+    // 文件导入是用户显式的恢复动作，专注记录也要跟着合，
     // 并且设置以文件里的为准（不传 localExportedAt）
     localFocusSessions: db.getFocusSessions(),
   );
@@ -128,7 +128,7 @@ Future<void> modImportIcal(BuildContext context) async {
       // 为什么用 any 而不是按扩展名过滤：
       // Android 上 `allowedExtensions: ['ics']` 会被映射成 MIME 过滤（text/calendar），
       // 而很多 .ics（浏览器直下、聊天软件转发、adb 推的）**没有登记 MIME**，
-      // 于是文件明明在那儿、选择器里却看不到 —— 实测就是这么翻车的。
+      // 于是文件明明在那儿、选择器里却看不到， 实测就是这么翻车的。
       // 所以放开选择，读出来之后再校验内容（下面会检查有没有 VEVENT）。
       type: FileType.any,
       withData: true,
@@ -163,11 +163,10 @@ Future<void> modImportIcal(BuildContext context) async {
     }
 
     // 确认：列前几条标题，让用户知道要进来什么
-    final preview = plan.tasks
-        .take(5)
-        .map((task) => '· ${task.summary}')
-        .join('\n');
-    final more = plan.tasks.length > 5 ? '\n…… 还有 ${plan.tasks.length - 5} 条' : '';
+    final preview =
+        plan.tasks.take(5).map((task) => '· ${task.summary}').join('\n');
+    final more =
+        plan.tasks.length > 5 ? '\n…… 还有 ${plan.tasks.length - 5} 条' : '';
     final confirmed = await showCupertinoDialog<bool>(
       context: context,
       builder: (BuildContext context) => CupertinoAlertDialog(
@@ -183,8 +182,8 @@ Future<void> modImportIcal(BuildContext context) async {
               Text('$preview$more', style: const TextStyle(fontSize: 13)),
               const SizedBox(height: 8),
               const Text(
-                '有起止的会导入成「活动」，只有一个时刻的按「提醒」或「截止」，'
-                '都没有的按「备忘」。重复导入同一个文件不会产生重复待办。',
+                '有起止的会导入成活动，只有一个时刻的按提醒或截止，'
+                '都没有的按备忘。重复导入同一个文件不会产生重复待办。',
                 style: TextStyle(fontSize: 12),
               ),
             ],
@@ -216,7 +215,7 @@ Future<void> modImportIcal(BuildContext context) async {
         context,
         '导入完成',
         '新增 ${plan.tasks.length} 条待办'
-        '${plan.skipped.isEmpty ? '' : '，跳过 ${plan.skipped.length} 条已存在的'}。',
+            '${plan.skipped.isEmpty ? '' : '，跳过 ${plan.skipped.length} 条已存在的'}。',
       );
     }
   } catch (e) {
@@ -227,9 +226,9 @@ Future<void> modImportIcal(BuildContext context) async {
   }
 }
 
-/// 一键复制「反馈信息」：机型 / 系统 / 版本 + 脱敏日志 + 反馈模板。
+/// 一键复制反馈信息：机型 / 系统 / 版本 + 脱敏日志 + 反馈模板。
 ///
-/// 目的是把反馈门槛压到最低 —— 用户粘一段文字就能在 QQ 群 / 论坛帖里说清楚，
+/// 目的是把反馈门槛压到最低， 用户粘一段文字就能在 QQ 群 / 论坛帖里说清楚，
 /// 我们也不用再追问"你什么机型、什么版本、日志呢"。
 Future<void> modCopyFeedback(BuildContext context) async {
   try {
@@ -240,16 +239,16 @@ Future<void> modCopyFeedback(BuildContext context) async {
         context,
         '已复制反馈信息',
         '机型、系统版本、App 版本与最近 ${FeedbackCopy.logTailLines} 行'
-        '已脱敏日志已保存进剪贴板。\n\n'
-        '请粘贴到反馈渠道（QQ 群 / 论坛帖 / Gitee Issue），'
-        '再补上复现步骤即可。\n\n'
-        '日志里的密码、Cookie、学号已自动隐藏。',
+            '已脱敏日志已保存进剪贴板。\n\n'
+            '请粘贴到反馈渠道（QQ 群 / 论坛帖 / Gitee Issue），'
+            '再补上复现步骤即可。\n\n'
+            '日志里的密码、Cookie、学号已自动隐藏。',
       );
     }
   } catch (e) {
     if (context.mounted) {
-      modAlert(context, '复制失败',
-          FriendlyError.short(e, fallback: '复制没成功，请稍后重试'));
+      modAlert(
+          context, '复制失败', FriendlyError.short(e, fallback: '复制没成功，请稍后重试'));
     }
   }
 }

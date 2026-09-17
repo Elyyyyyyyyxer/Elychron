@@ -97,7 +97,8 @@ END:VEVENT''';
         ' 折成两行\n'
         'DTSTART:20260914T100000\n'
         'END:VEVENT';
-    expect(IcalImporter.parseIcal(ics).first.summary, '这是一个很长的标题，长到 iCal 会把它折成两行');
+    expect(
+        IcalImporter.parseIcal(ics).first.summary, '这是一个很长的标题，长到 iCal 会把它折成两行');
   });
 
   test('转义字符还原（\\, \\; \\n）', () {
@@ -152,7 +153,8 @@ END:VEVENT''';
     final a = IcalImporter.parseIcal(basic).first;
     final b = IcalImporter.parseIcal(basic).first;
     expect(IcalImporter.localUidFor(a), IcalImporter.localUidFor(b));
-    expect(IcalImporter.localUidFor(a).startsWith(IcalImporter.uidPrefix), isTrue);
+    expect(
+        IcalImporter.localUidFor(a).startsWith(IcalImporter.uidPrefix), isTrue);
   });
 
   test('没有 UID 的事件用标题+时间兜底生成 uid', () {

@@ -3,13 +3,13 @@ import 'package:celechron/model/semester.dart';
 import 'package:celechron/page/calendar/calendar_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// 右上角「切换视图」按钮的方向。
+/// 右上角切换视图按钮的方向。
 ///
 /// 这里锁的是一个真实出现过的方向错：原来是
-/// `current == calendar ? schedule : calendar`，在「接下来」时落到 else，
+/// `current == calendar ? schedule : calendar`，在接下来时落到 else，
 /// 一点就跳到**日历**，而不是用户想看的**课表**。
 void main() {
-  test('在「接下来」时点它 → 去课表（不是日历）', () {
+  test('在接下来时点它 → 去课表（不是日历）', () {
     expect(
       CalendarController.toggledViewMode(
           CalendarViewMode.upcoming, CalendarViewMode.upcoming),
@@ -17,7 +17,7 @@ void main() {
     );
   });
 
-  test('在「日历」时点它 → 去课表', () {
+  test('在日历时点它 → 去课表', () {
     expect(
       CalendarController.toggledViewMode(
           CalendarViewMode.calendar, CalendarViewMode.calendar),
@@ -48,14 +48,14 @@ void main() {
     expect(current, CalendarViewMode.upcoming);
   });
 
-  test('没套过校历的学期不能被当成「即将开学」', () {
-    // 陷阱：Semester.firstDay 在没有校历时返回「求值那一刻的现在」，
-    // 而判断时捕获的 now 更早 —— 于是它恒满足 isAfter(now)。
-    // 实测后果：课表页标题出现「未开学 · 25-26春夏」这种张冠李戴。
+  test('没套过校历的学期不能被当成即将开学', () {
+    // 陷阱：Semester.firstDay 在没有校历时返回求值那一刻的现在，
+    // 而判断时捕获的 now 更早， 于是它恒满足 isAfter(now)。
+    // 实测后果：课表页标题出现未开学 · 25-26春夏这种张冠李戴。
     final bare = Semester('2025-2026春夏');
     expect(bare.hasCalendar, isFalse);
 
-    // firstDay 退化成「求值那一刻的现在」——这就是它恒满足 isAfter(now) 的原因。
+    // firstDay 退化成求值那一刻的现在，这就是它恒满足 isAfter(now) 的原因。
     // 不断言严格先后（两次取 now 可能落在同一毫秒），只断言它约等于当下。
     final now = DateTime.now();
     expect(bare.firstDay.difference(now).inSeconds.abs(), lessThan(5));

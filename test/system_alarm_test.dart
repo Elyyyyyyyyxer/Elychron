@@ -2,7 +2,7 @@ import 'package:celechron/model/task.dart';
 import 'package:celechron/mod/system_alarm.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// 「把待办交给系统闹钟」的挑选规则。
+/// 把待办交给系统闹钟的挑选规则。
 ///
 /// 这个功能只做手动入口，所以**挑错待办**是主要风险：把备忘型或已过期的列出来，
 /// 用户点了会得到"立刻响"或"根本不该响"的闹钟。

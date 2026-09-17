@@ -54,7 +54,7 @@ class UgrsSpider implements Spider {
 
   /// 教务给不出课表时改问智慧研工。
   ///
-  /// 只在 zdbk 返回空时才调用（正常路径不多打一次），并且失败一律吞掉 ——
+  /// 只在 zdbk 返回空时才调用（正常路径不多打一次），并且失败一律吞掉，
   /// 兜底来源不可用不该影响整次刷新。
   Future<List<Session>> _timetableFromEta(String xnxq) async {
     final cached = _etaTimetableCache[xnxq];
@@ -342,7 +342,7 @@ class UgrsSpider implements Spider {
         // ===== MOD 2026-09-17：被限流（教务 HTTP 921）要**退避重试** =====
         //
         // 教务网的反爬在"请求太密"时返回 921（不是标准 HTTP 码）。它以前不在任何
-        // 重试名单里 —— 一次被限流就整块落缓存，用户看到的就是"课表/校历老是连不上"。
+        // 重试名单里， 一次被限流就整块落缓存，用户看到的就是"课表/校历老是连不上"。
         // 这里退避几秒再试一次：多数限流是短时的，等一等就过去了。
         final rateLimited = errStr.contains('921') ||
             errStr.contains('429') ||
@@ -442,8 +442,8 @@ class UgrsSpider implements Spider {
     var calendarFallback = 0;
     var timetableFetches = <Future<String?>>[];
     var cancelTimetableFetch = false;
-    // 课表诊断：让「抓到了多少 / 能显示多少」直接出现在易读报告里 ——
-    // 排查「课程有、课时 0.0、课表空白」这类问题时，一眼就能分清是抓取、
+    // 课表诊断：让抓到了多少 / 能显示多少直接出现在易读报告里，
+    // 排查课程有、课时 0.0、课表空白这类问题时，一眼就能分清是抓取、
     // 解析还是过滤环节吃掉的，不必导出原始日志。
     var timetableParsed = 0;
     var timetableConfirmed = 0;
@@ -460,7 +460,7 @@ class UgrsSpider implements Spider {
       // ===== MOD 2026-09-17：历史学年**先吃缓存**，不再每次刷新都去查 =====
       //
       // 背景：教务对"一个时间窗内的请求条数"限流（HTTP 921），而课表是**按学年 × 学期**
-      // 逐个查的（`1|秋``1|冬``2|春``2|夏`），学年范围又是"入学年 → 当前年（+探针年）"——
+      // 逐个查的（`1|秋``1|冬``2|春``2|夏`），学年范围又是"入学年 → 当前年（+探针年）"，
       // 26 级 = 2×4 = 8 次，23 级 = 4×4 = 16 次，一次刷新极易撞限流。
       //
       // 过去学年的课表**基本不会变**，所以：有缓存就吃缓存（不联网），
@@ -587,7 +587,7 @@ class UgrsSpider implements Spider {
               isExpectedTimetableProbeMiss(value.item1)) {
             return null;
           }
-          // 教务在选课/排课期间会「成功但返回空」。这种时候改问智慧研工 ——
+          // 教务在选课/排课期间会成功但返回空。这种时候改问智慧研工，
           // 它是同一份课表的另一个来源，实测在 zdbk 空的时候有数据。
           var fromEta = false;
           if (sessions.isEmpty && !isProbeYear) {
@@ -607,7 +607,7 @@ class UgrsSpider implements Spider {
           for (var e in sessions) {
             outSemesters[semesterIndexMap[semKey]!].addSession(e, semKey);
           }
-          // 「解析出来了」不等于「能显示」：课表还要求 confirmed 且属于某个半学期。
+          // 解析出来了不等于能显示：课表还要求 confirmed 且属于某个半学期。
           // 这三个数字分开记，出问题时才分得清是抓取、解析还是过滤掉的。
           final onTimetable = sessions
               .where((e) =>
@@ -645,7 +645,7 @@ class UgrsSpider implements Spider {
         } on Object catch (error, stackTrace) {
           // ===== 探针学年：被限流（921）**不该**把整个课表标成失败 =====
           // 2026-09-17 真机复现：探针学年 2027-2028 的某个学期撞了 921，
-          // 结果面板上「课表」直接显示"没连上" —— 可实际上当前学年的
+          // 结果面板上课表直接显示"没连上"， 可实际上当前学年的
           // 22 + 21 条课都好好拿到了。探针只是"看看下学年开没开"，
           // 问不到就当没开，别把真实数据一起否定掉。
           if (isProbeYear &&
@@ -660,7 +660,7 @@ class UgrsSpider implements Spider {
 
       for (var season in ['1|秋', '1|冬', '2|春', '2|夏']) {
         // ===== 探针学年：只探第一个学期（2026-09-17 用户要求少打请求）=====
-        // 探针的目的只有一个 —— "下个学年开没开"。问「1|秋」就够了；
+        // 探针的目的只有一个， "下个学年开没开"。问1|秋就够了；
         // 其余三个学期等这个学年真的变成当前学年时再查。
         // 每天因此少打 3 个请求，而且探针本来就天天返回 0 行。
         if (isProbeYear && season != '1|秋') continue;

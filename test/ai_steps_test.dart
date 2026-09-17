@@ -2,7 +2,7 @@ import 'package:celechron/mod/ai/ai_task_draft.dart';
 import 'package:celechron/model/task.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// P2：AI 把「一段行程」拆成**带时间/地点**的步骤。
+/// P2：AI 把一段行程拆成**带时间/地点**的步骤。
 ///
 /// 关键是解析层不信任模型：时间越界、顺序颠倒、把时间写进标题、
 /// 重复步骤，都要在这里被处理掉，而且每一次处理都要留一条 warning。
@@ -13,7 +13,7 @@ void main() {
     return '${d.year}-${two(d.month)}-${two(d.day)}T${two(hour)}:${two(minute)}:00';
   }
 
-  /// 一条「明天的团建」：14:20 到 19:50
+  /// 一条明天的团建：14:20 到 19:50
   Map<String, dynamic> teamBuild({
     required List<Object> steps,
   }) =>
@@ -60,7 +60,8 @@ void main() {
 
       final second = draft.subtasks[1];
       expect(second.hasTime, isTrue);
-      expect(second.endTime!.difference(second.startTime!), const Duration(hours: 3));
+      expect(second.endTime!.difference(second.startTime!),
+          const Duration(hours: 3));
     });
 
     test('applyTo 把时间/地点/注意事项都写进子待办', () {
@@ -100,8 +101,7 @@ void main() {
         {'title': '17:50 探鱼吃饭', 'startTime': iso(1, 17, 50)},
       ]));
       // 时间被抢救出来之后按时间排序：14:30 的唱歌在前
-      expect(draft.subtasks.map((s) => s.title).toList(),
-          ['嗦歌KTV唱歌', '探鱼吃饭']);
+      expect(draft.subtasks.map((s) => s.title).toList(), ['嗦歌KTV唱歌', '探鱼吃饭']);
       final sing = draft.subtasks.first;
       expect(sing.startTime, isNotNull);
       expect(sing.endTime, isNotNull);
@@ -143,7 +143,9 @@ void main() {
       final step = draft.subtasks.single;
       expect(step.startTime, isNotNull);
       expect(step.endTime, isNull);
-      expect(draft.warnings.any((w) => w.contains('丢掉了结束时间') || w.contains('超出了')), isTrue);
+      expect(
+          draft.warnings.any((w) => w.contains('丢掉了结束时间') || w.contains('超出了')),
+          isTrue);
     });
 
     test('按时间排序，没时间的排最后', () {
@@ -177,7 +179,7 @@ void main() {
       expect(draft.subtasks.first.title, '查文献');
     });
 
-    test('交付型待办没有时间范围时，步骤时间不会因为「父范围」被误删', () {
+    test('交付型待办没有时间范围时，步骤时间不会因为父范围被误删', () {
       final draft = AiTaskDraft.fromJsonForTest(<String, dynamic>{
         'summary': '交实验报告',
         'kind': '截止',
@@ -206,7 +208,7 @@ void main() {
       expect(AiStepDraft(title: '查文献').timeLabel, '');
     });
 
-    test('withoutTime：预览里「全部不要时间」用', () {
+    test('withoutTime：预览里全部不要时间用', () {
       final step = AiStepDraft(
         title: '唱歌',
         note: '带身份证',
@@ -253,7 +255,8 @@ void main() {
       final anchor = DateTime(2026, 9, 12, 14, 30);
       final sub = SubTask(title: '唱歌', startTime: anchor);
       expect(sub.reminderAt(30), DateTime(2026, 9, 12, 14, 0));
-      final custom = SubTask(title: '唱歌', startTime: anchor, reminderMinutes: 120);
+      final custom =
+          SubTask(title: '唱歌', startTime: anchor, reminderMinutes: 120);
       expect(custom.reminderAt(30), DateTime(2026, 9, 12, 12, 30));
     });
 
@@ -262,5 +265,4 @@ void main() {
       expect(SubTask(title: '查文献').hasTime, isFalse);
     });
   });
-
 }

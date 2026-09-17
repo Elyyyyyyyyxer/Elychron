@@ -4,7 +4,7 @@ import 'package:celechron/page/calendar/upcoming_view.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// 「接下来」页在**同时有好几件在进行中**时的样子与交互。
+/// 接下来页在**同时有好几件在进行中**时的样子与交互。
 ///
 /// 口径（用户定 + 后来亲手纠正过）：
 /// - 顶层只放一张大卡，点它是"看这条的信息"

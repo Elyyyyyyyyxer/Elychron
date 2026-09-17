@@ -27,8 +27,8 @@ const Map<String, String> taskDueFilters = {
 
 /// ===== P1：四种时间语义的筛选顺序 =====
 ///
-/// 活动 / 截止 / 提醒 / 备忘 —— 就是界面上那一排的顺序，
-/// `fixedlegacy`（内部《过去日程》）不出现，筛选时按「活动」归类。
+/// 活动 / 截止 / 提醒 / 备忘， 就是界面上那一排的顺序，
+/// `fixedlegacy`（内部《过去日程》）不出现，筛选时按活动归类。
 const List<TaskType> taskKindFilterKinds = [
   TaskType.fixed,
   TaskType.deadline,
@@ -36,7 +36,7 @@ const List<TaskType> taskKindFilterKinds = [
   TaskType.memo,
 ];
 
-/// 点「类型」那一枚 chip 弹出来的小面板：只看某几种时间语义。
+/// 点类型那一枚 chip 弹出来的小面板：只看某几种时间语义。
 Future<void> showKindFilterSheet(
   BuildContext context,
   TaskController controller,
@@ -116,8 +116,8 @@ class _KindFilterSheetState extends State<_KindFilterSheet> {
                 }),
                 child: Container(
                   margin: const EdgeInsets.symmetric(vertical: 2),
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 14, vertical: 12),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                   decoration: BoxDecoration(
                     color: active
                         ? CupertinoDynamicColor.resolve(

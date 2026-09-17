@@ -93,8 +93,7 @@ void main() {
           ),
         ),
       );
-      await tester.drag(
-          find.byType(ModSwipePager), Offset(dx, dy),
+      await tester.drag(find.byType(ModSwipePager), Offset(dx, dy),
           warnIfMissed: false);
       await tester.pumpAndSettle();
       return shifted;

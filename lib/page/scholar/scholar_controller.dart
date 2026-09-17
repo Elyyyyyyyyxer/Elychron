@@ -21,7 +21,7 @@ class ScholarController extends GetxController {
 
   Timer? _timer;
 
-  // —— 刷新状态文案 ——
+  //， 刷新状态文案，
   // 刷新超过约 5 秒（第 _statusFirstShowTick 个周期）才开始展示，
   // 之后每个周期轮换一条；文案基于 Scholar.refresh 上报的真实模块进度
   static const int _statusFirstShowTick = 2;

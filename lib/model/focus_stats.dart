@@ -13,7 +13,7 @@ class FocusDayTotal {
   });
 }
 
-/// 按「专注对象」聚合的合计（任务名 / 自由专注名）
+/// 按专注对象聚合的合计（任务名 / 自由专注名）
 class FocusLabelTotal {
   final String label;
   final String? taskUid;
@@ -31,7 +31,7 @@ class FocusLabelTotal {
 /// ===== P4：专注统计（纯函数，方便单测）=====
 ///
 /// 口径：**按会话的开始时间归档**。跨午夜的会话整段算在开始的那一天
-/// （每小时切一刀反而会让「昨天今天各半小时」这种数字看不懂）。
+/// （每小时切一刀反而会让昨天今天各半小时这种数字看不懂）。
 class FocusStats {
   FocusStats._();
 
@@ -123,7 +123,7 @@ class FocusStats {
   /// 按**课程**聚合（课程挂载的第三件事带来的统计）。
   ///
   /// 口径：
-  /// - 只统计**归到课程上**的会话；自由专注（`courseId == null`）**不进这里** ——
+  /// - 只统计**归到课程上**的会话；自由专注（`courseId == null`）**不进这里**，
   ///   它们已经在"专注对象"里各自成条了，这里再塞个"未归属"只会让人困惑；
   /// - 一门课的多次专注**累加**（用户明确要求允许多条归属同一节课）；
   /// - 分项之和 ≤ 总时长，差额就是自由专注，界面上会写出来。
@@ -152,7 +152,7 @@ class FocusStats {
     return list;
   }
 
-  /// 没有正常结束的会话数（崩溃留下的）—— 统计页用它提示一句
+  /// 没有正常结束的会话数（崩溃留下的）， 统计页用它提示一句
   static int interruptedCount(List<FocusSession> sessions) =>
       _real(sessions).where((s) => !s.completed).length;
 
@@ -179,17 +179,17 @@ class FocusStats {
     return Duration(seconds: total(sessions).inSeconds ~/ rounds);
   }
 
-  /// 「未打标签」这一档的名字 —— 自由专注、以及关联待办没有标签的会话都归这里，
+  /// 未打标签这一档的名字， 自由专注、以及关联待办没有标签的会话都归这里，
   /// 免得它们的时长在标签视图里凭空消失。
   static const String untaggedLabel = '未打标签';
 
   /// 按标签聚合。
   ///
   /// ⚠️ 口径：一条会话会**计入它关联待办的每一个标签**，
-  /// 所以分项之和通常大于总时长（一条待办挂两个标签就贡献两次）——
+  /// 所以分项之和通常大于总时长（一条待办挂两个标签就贡献两次），
   /// 界面上必须把这句话写出来，否则用户会以为数字算错了。
   ///
-  /// [tagsOfTask] 是 taskUid → 标签列表；查不到的（自由专注）算「未打标签」。
+  /// [tagsOfTask] 是 taskUid → 标签列表；查不到的（自由专注）算未打标签。
   static List<FocusLabelTotal> byTag(
     List<FocusSession> sessions, {
     required Map<String, List<String>> tagsOfTask,
@@ -209,8 +209,9 @@ class FocusStats {
     for (final s in _real(sessions)) {
       if (from != null && s.startedAt.isBefore(from)) continue;
       final uid = s.taskUid;
-      final tags =
-          uid == null ? const <String>[] : (tagsOfTask[uid] ?? const <String>[]);
+      final tags = uid == null
+          ? const <String>[]
+          : (tagsOfTask[uid] ?? const <String>[]);
       if (tags.isEmpty) {
         add(untaggedLabel, s.focusedTime);
         continue;

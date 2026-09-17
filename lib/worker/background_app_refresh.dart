@@ -182,7 +182,7 @@ Future<void> refreshScholar() async {
           await flutterLocalNotificationsPlugin.show(
               notificationId++,
               '作业截止提醒',
-              '「${todo.course}」的作业「${todo.name}」将于$timeDesc截止',
+              '${todo.course}的作业${todo.name}将于$timeDesc截止',
               ddlNotificationDetails);
           notifiedDdlIds.add(todo.id);
         }

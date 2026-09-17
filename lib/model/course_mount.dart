@@ -8,9 +8,9 @@ import 'package:celechron/model/task.dart';
 /// 课程要能**加评论 / 挂附件 / 挂待办**，但**不能让课程跑进待办列表**。
 ///
 /// 三条决定的落地方式：
-/// 1. **评论与附件挂在「课程总体」**（不做"某一次课"的分级）——
+/// 1. **评论与附件挂在课程总体**（不做"某一次课"的分级），
 ///    所以本结构以**课程代码**（`Session.id`）为键，一门课一份；
-/// 2. **某个待办也可以挂到课程上** —— 那件事走 `Task.courseId`（Hive 只追加字段，
+/// 2. **某个待办也可以挂到课程上**， 那件事走 `Task.courseId`（Hive 只追加字段，
 ///    不插队），所以这门课的"关联待办"是**查出来的**，不在这里冗余存一份；
 /// 3. 走**折中路径**：资料/评论用独立轻量结构（就是本类），
 ///    "提醒/专注归属"那类需要复用管线的能力留给后续（专注侧给 `FocusSession`
@@ -19,7 +19,7 @@ import 'package:celechron/model/task.dart';
 /// ===== 为什么不写 @HiveType + adapter =====
 ///
 /// 复用的两个结构（[TaskAttachment] / [TaskComment]）本身是 Hive 类型，
-/// 但它们**只作为值**被塞进一个 Map 里存 —— 和 `CourseIdMap` 用的是同一招
+/// 但它们**只作为值**被塞进一个 Map 里存， 和 `CourseIdMap` 用的是同一招
 /// （见 `database/adapters/course_id_map_adapter.dart`）：**存 JSON/Map，
 /// 不新增 typeId**。好处是零 schema 风险、零 adapter 注册，
 /// 而且以后加字段（比如"资料分组"）不用再动 Hive 编号。
@@ -74,7 +74,7 @@ class CourseMount {
       };
 
   /// 从存下来的 Map 还原。**任何一项读不动就丢掉那一项，绝不让整门课报错**
-  /// —— 这是用户数据，宁可少显示一条评论，也不能让课程详情页崩掉。
+  ///， 这是用户数据，宁可少显示一条评论，也不能让课程详情页崩掉。
   factory CourseMount.fromMap(String courseId, Map<dynamic, dynamic>? raw) {
     if (raw == null) return CourseMount(courseId: courseId);
     final attachments = <TaskAttachment>[];

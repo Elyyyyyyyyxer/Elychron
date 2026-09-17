@@ -85,15 +85,15 @@ class OptionPage extends StatelessWidget {
                     // ===== MOD: 改成 <Widget>，好让魔改的行（默认提前量）能混进来 =====
                     children: <Widget>[
                       if (_optionController.scholar.value.isLogan) ...{
-                        // 长按 = 查看「哪些接口是通的」（用户 2026-09-17 要求）。
+                        // 长按 = 查看哪些接口是通的（用户 2026-09-17 要求）。
                         // CupertinoListTile 没有 onLongPress，所以外面套一层
-                        // GestureDetector —— 点按仍然走列表项自己的 onTap。
+                        // GestureDetector， 点按仍然走列表项自己的 onTap。
                         GestureDetector(
                           onLongPress: () =>
                               showLoginConnectivityPanel(context),
                           child: CupertinoListTile(
                               // ===== MOD: 登录态真的失效时要如实说 =====
-                              // 用户反馈「软件保持着登录状态，但实际上已经连不上了」。
+                              // 用户反馈软件保持着登录状态，但实际上已经连不上了。
                               // sessionInvalid 由刷新时检测认证/会话类错误置位（见 Scholar）。
                               title: Text(_optionController.scholar.value.sessionInvalid
                                   ? '登录已失效'
@@ -107,7 +107,7 @@ class OptionPage extends StatelessWidget {
                                       ? const Text('连不上学校服务器，请点右侧重新登录')
                                       // ===== MOD: 让"长按看连通性"这件事被发现（2026-09-17）=====
                                       // 用户要求的功能，但没人会去长按一个看起来只是显示状态的列表项
-                                      // —— 所以把提示写在副标题里。
+                                      //， 所以把提示写在副标题里。
                                       : const Text('长按可查看各接口是否连通'),
                               trailing: BackChervonRow(
                                   child: Text(
@@ -413,7 +413,7 @@ class OptionPage extends StatelessWidget {
                                     const CustomLicensePage()));
                       },
                     ),
-                    // ===== MOD：这一行原来叫「前往项目网站」并指向上游 celechron.top，
+                    // ===== MOD：这一行原来叫前往项目网站并指向上游 celechron.top，
                     // 会把用户送错地方（那是上游官网）。改成我们自己的 Release 页。=====
                     CupertinoListTile(
                       title: const Text('检查更新 / 项目主页'),

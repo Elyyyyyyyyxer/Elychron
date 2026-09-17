@@ -5,17 +5,17 @@ import 'package:get/get.dart';
 
 /// 专注时自动免打扰（DND）。
 ///
-/// ## 为什么要记录「改之前是什么档位」
+/// ## 为什么要记录改之前是什么档位
 ///
 /// 免打扰是**系统级**状态：如果只是在开始时切成静音、结束时还原成固定值，
-/// 那原本就开着免打扰（或设成「仅允许闹钟」）的用户会被我们改掉。
+/// 那原本就开着免打扰（或设成仅允许闹钟）的用户会被我们改掉。
 /// 更麻烦的是**中途被杀**：App 被系统清掉时结束回调不会执行，
-/// 用户的手机就永久静音了 —— 所以当前档位要落盘，
+/// 用户的手机就永久静音了， 所以当前档位要落盘，
 /// 下次启动时发现"我们改过但没还原"就立刻还原（见 [restoreIfStale]）。
 ///
 /// ## 权限
 ///
-/// 「勿扰访问权限」是特殊权限，装机时不会自动授予，得用户自己去系统设置里开。
+/// 勿扰访问权限是特殊权限，装机时不会自动授予，得用户自己去系统设置里开。
 /// 没授权时所有写操作返回 false，由界面引导用户去授权（不静默失败）。
 class DoNotDisturb {
   DoNotDisturb._();
@@ -51,7 +51,7 @@ class DoNotDisturb {
     }
   }
 
-  /// 当前档位（拿不到时按「全部允许」处理，尽量保守）
+  /// 当前档位（拿不到时按全部允许处理，尽量保守）
   static Future<int> currentFilter() async {
     try {
       return await _channel.invokeMethod<int>('currentFilter') ?? filterAll;
@@ -71,8 +71,9 @@ class DoNotDisturb {
 
   static Future<bool> _setFilter(int filter) async {
     try {
-      return await _channel.invokeMethod<bool>('setFilter', {'filter': filter})
-          ?? false;
+      return await _channel
+              .invokeMethod<bool>('setFilter', {'filter': filter}) ??
+          false;
     } on Object {
       return false;
     }
@@ -91,8 +92,8 @@ class DoNotDisturb {
     if (before == filterNone) {
       // 本来就已经静音了：什么都不用改。
       //
-      // ⚠️ 这里**绝不能清掉「改之前是什么档位」那条记录**：如果现在这个静音
-      // 正是我们自己刚才设的（记录还在），清了就再也不会还原 —— 用户手机会
+      // ⚠️ 这里**绝不能清掉改之前是什么档位那条记录**：如果现在这个静音
+      // 正是我们自己刚才设的（记录还在），清了就再也不会还原， 用户手机会
       // 一直静音下去，正好是最不能出的那个事故。用户自己开的免打扰本来就没
       // 有记录，也就不存在"该清"的情况。
       return true;
@@ -116,7 +117,7 @@ class DoNotDisturb {
 
   /// 启动时调用：如果上次改过却没还原（App 被系统杀掉了），现在就还原。
   ///
-  /// 只处理「我们确实留了记录」的情况 —— 用户自己开的免打扰不动。
+  /// 只处理我们确实留了记录的情况， 用户自己开的免打扰不动。
   static Future<void> restoreIfStale() async {
     final db = _db;
     if (db == null) return;
@@ -128,6 +129,6 @@ class DoNotDisturb {
     }
   }
 
-  /// 「专注时自动免打扰」这个开关本身是否打开
+  /// 专注时自动免打扰这个开关本身是否打开
   static bool autoEnabled() => _db?.getFocusDndEnabled() ?? true;
 }

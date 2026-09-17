@@ -9,9 +9,9 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 /// ============ AI 功能配置 ============
 ///
 /// 三条硬规矩：
-/// 1. **绝不把 API key 硬编码进 APK**——只能由用户在设置里自己填
+/// 1. **绝不把 API key 硬编码进 APK**，只能由用户在设置里自己填
 /// 2. key 存在系统密钥库（Android Keystore / iOS Keychain），不进 Hive、不进备份
-/// 3. 功能默认关闭；开启即意味着「待办文本会发给你配置的模型服务商」，必须告知
+/// 3. 功能默认关闭；开启即意味着待办文本会发给你配置的模型服务商，必须告知
 class AiConfig {
   AiConfig._();
 
@@ -83,7 +83,7 @@ class AiConfig {
   static String _apiKey = '';
   static String _baseUrl = defaultBaseUrl;
 
-  /// 用户手动选定的模型；空字符串表示「自动」
+  /// 用户手动选定的模型；空字符串表示自动
   static String _manualModel = '';
 
   /// 自动解析出来的模型名（来自官方 /models）
@@ -121,7 +121,7 @@ class AiConfig {
     await _write(_kModel, _manualModel);
   }
 
-  /// 回到「自动选择」
+  /// 回到自动选择
   static Future<void> setAutoModel() async {
     _manualModel = '';
     await _write(_kModel, '');
@@ -178,7 +178,7 @@ class AiConfig {
       // 手里存着已退役的模型名就静默迁移，否则用户会在不知情的情况下调用失败
       if (_manualModel.isNotEmpty) {
         _manualModel = _legacyModels[_manualModel] ?? _manualModel;
-        // 有可用列表时，用户手选的名字如果已经不在列表里就退回「自动」
+        // 有可用列表时，用户手选的名字如果已经不在列表里就退回自动
         if (_availableModels.isNotEmpty &&
             !_availableModels.contains(_manualModel)) {
           _manualModel = '';
@@ -186,7 +186,7 @@ class AiConfig {
         await _write(_kModel, _manualModel);
       }
     } catch (_) {
-      // 密钥库不可用时退化为「未配置」，不阻断 App
+      // 密钥库不可用时退化为未配置，不阻断 App
     }
     _loaded = true;
     revision.value++;
@@ -347,7 +347,7 @@ class DeepSeekClient {
 
   /// 拉取官方当前可用的模型列表（GET /models，OpenAI 兼容）
   ///
-  /// 这是「模型名会变」这个问题的正解：不问代码里写死的名字，直接问官方。
+  /// 这是模型名会变这个问题的正解：不问代码里写死的名字，直接问官方。
   Future<List<String>> listModels({Duration? timeout}) async {
     if (_apiKey.isEmpty) {
       throw AiException('还没有填 API key（设置 → AI 智能助手）');

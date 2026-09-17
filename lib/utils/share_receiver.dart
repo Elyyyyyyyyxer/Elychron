@@ -10,7 +10,7 @@ class SharedItem {
   const SharedItem({this.text, this.path, this.name, this.mime});
 }
 
-/// 接收系统「分享」面板发来的内容（由原生 MainActivity 转交）。
+/// 接收系统分享面板发来的内容（由原生 MainActivity 转交）。
 class ShareReceiver {
   ShareReceiver._();
 

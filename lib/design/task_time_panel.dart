@@ -7,7 +7,7 @@ import 'package:celechron/database/database_helper.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:get/get.dart';
 
-/// 钉钉「其他日期」里的时间面板：截止时间 / 提醒时间 / 设置重复。
+/// 钉钉其他日期里的时间面板：截止时间 / 提醒时间 / 设置重复。
 ///
 /// 三个子项各自弹出自己的选择器；改动直接写在 [task] 上，并通过 [onChanged]
 /// 通知调用方刷新。
@@ -68,7 +68,7 @@ class _TaskTimePanelState extends State<_TaskTimePanel> {
       // 截止时间不晚于开始时间：取消时段，退化为普通待办
       _task.startTime = _task.endTime;
     }
-    // 时间变了：失效的提醒时间按「该类型的锚点 − 提前量」重算。
+    // 时间变了：失效的提醒时间按该类型的锚点 − 提前量重算。
     // 活动锚开始时间；截止与提醒锚那一刻。
     if (_task.reminderEnabled) {
       final anchor = _task.reminderAnchor;
@@ -90,6 +90,7 @@ class _TaskTimePanelState extends State<_TaskTimePanel> {
     }
     return const Duration(minutes: 30);
   }
+
   /// 按类型算默认提醒时间：锚点 − 提前量；若已过去则退回锚点本身。
   DateTime _defaultReminderTime() {
     final anchor = _task.reminderAnchor;
@@ -215,7 +216,7 @@ class _TaskTimePanelState extends State<_TaskTimePanel> {
                 ),
               ),
             ),
-            // P1：四种时间语义 —— 创建/编辑时明确选择，时间输入随类型变化
+            // P1：四种时间语义， 创建/编辑时明确选择，时间输入随类型变化
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 2, 16, 0),
               child: taskKindControl(_task, _pickKind),

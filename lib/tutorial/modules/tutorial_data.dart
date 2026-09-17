@@ -2,7 +2,7 @@ import 'package:celechron/tutorial/tutorial_model.dart';
 
 /// ============ 教程内容：数据与备份 ============
 ///
-/// 另一篇示例，主要用来演示 [TutorialCompareStep]（两栏对比）这种步骤类型 ——
+/// 另一篇示例，主要用来演示 [TutorialCompareStep]（两栏对比）这种步骤类型，
 /// 它适合讲"和官方版的区别""以前和现在的区别"。
 ///
 /// 注意 [TutorialCompareStep] 只是形态，别拿它当宣传位：
@@ -37,8 +37,8 @@ const Tutorial tutorialData = Tutorial(
     ),
     TutorialImageStep(
       assets: <String>['assets/tutorial/data/export.png'],
-      title: '这两个入口在「设置 → 数据」里',
-      caption: '「导出数据」是完整备份，「导出为 iCal 文件」是给别的日历用的。点图可以放大看。',
+      title: '这两个入口在设置 → 数据里',
+      caption: '导出数据是完整备份，导出为 iCal 文件是给别的日历用的。点图可以放大看。',
     ),
     TutorialCompareStep(
       title: '两种导入格式',
@@ -57,7 +57,7 @@ const Tutorial tutorialData = Tutorial(
     ),
     TutorialActionStep(
       title: '先导出一份放着',
-      body: '建议现在就去导出一次 JSON 存到网盘 —— 换手机、刷机、误删都能救回来。',
+      body: '建议现在就去导出一次 JSON 存到网盘， 换手机、刷机、误删都能救回来。',
       buttonLabel: '打开数据设置',
       target: TutorialTarget.dataSection,
     ),

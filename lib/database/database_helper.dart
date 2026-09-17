@@ -29,7 +29,7 @@ import 'adapters/focus_adapter.dart';
 ///
 /// `[boot] 4.1…4.5` 只是"开到第几个盒子了"的路标，发布版保持 false。
 /// 排查启动问题时改成 true 重新构建；**异常日志（自愈/删锁/留档/抢救）不受它控制**，
-/// 那些继续用 `debugPrint` 原样打 —— 它们只在真出事时出现。
+/// 那些继续用 `debugPrint` 原样打， 它们只在真出事时出现。
 bool _bootProbesEnabled = false;
 
 /// 打一条启动路标（受 [_bootProbesEnabled] 控制）。
@@ -41,13 +41,13 @@ void _bootProbe(String message) {
 ///
 /// ===== 为什么要这个 =====
 ///
-/// 用户实测（2026-09-16）：「更新之后 Elychron 打不开了」——
+/// 用户实测（2026-09-16）：更新之后 Elychron 打不开了，
 /// 现象是**进程活着、日志里没有任何异常、first frame 永远不来**，
 /// 系统侧记为 `AppBootFail` + 一条 ANR：说明启动路径被某个 await 卡死了。
 ///
 /// 嫌疑最集中的就是密钥库：这台 ROM（华为）在**覆盖安装后**密钥库会"失忆"，
 /// 我们之前已经确认过它读回 null（就是"显示已登录但没有学号"那个老毛病），
-/// 而 `init()` 里那段迁移写的是 `await secureStorage.readAll(...)` ——
+/// 而 `init()` 里那段迁移写的是 `await secureStorage.readAll(...)`，
 /// **一个没有 try、没有超时的 await**，平台侧一旦不返回，`main()` 就永远走不到 `runApp`。
 ///
 /// 所以统一加保险：**最多等 3 秒**，超时或抛错都当"读不到"。
@@ -63,23 +63,23 @@ Future<T?> secureStorageOrNull<T>(Future<T> future) async {
 /// 一次性抢救：从 `.damaged-*` 备份里把待办捞回来。
 ///
 /// 原理：待办盒子**每次保存都写一整份列表**，所以**最后一个能解码的帧里装的就是
-/// 完整的待办列表** —— 只要从文件尾往前找第一个读得动的帧，把它的值写回新盒子即可。
+/// 完整的待办列表**， 只要从文件尾往前找第一个读得动的帧，把它的值写回新盒子即可。
 /// 丢的只是"坏帧之后的那几次保存"，历史数据绝大部分还在。
 ///
 /// 安全前提（三条都满足才动手）：
 ///   1. 只做一次（optionsBox 里的标记）；
-///   2. **当前待办盒子是空的**才恢复 —— 已经有数据时绝不覆盖；
+///   2. **当前待办盒子是空的**才恢复， 已经有数据时绝不覆盖；
 ///   3. 只读备份文件，**绝不修改或删除它**。
 ///
 /// 放在 `runApp` 之后跑（不 await）：抢救可能要扫一会儿，但**不能挡住界面**。
 Future<int> salvageTasksFromBackupOnce(
     Directory directory, Box taskBox, Box options) async {
   // 键里带版本号：抢救逻辑每改一次就 +1。否则"上一次那版用掉了标记"会把新版挡住
-  // —— 这件事已经坑了我三次（盒子非空误判、只扫尾部 200 帧、以及现在这次）。
+  //， 这件事已经坑了我三次（盒子非空误判、只扫尾部 200 帧、以及现在这次）。
   const flagKey = 'salvagedTaskBox_v4_20260916';
   try {
     if (options.get(flagKey) == true) return 0;
-    // 只在"当前一条待办都没有"时才动手 —— 有数据就一条都不碰，
+    // 只在"当前一条待办都没有"时才动手， 有数据就一条都不碰，
     // 而且**不设标记**（万一是别的原因导致空列表，下次还有机会）。
     final current = taskBox.get('deadlineList');
     if (current is List && current.isNotEmpty) return 0;
@@ -97,17 +97,18 @@ Future<int> salvageTasksFromBackupOnce(
     // 最新的那个备份（时间戳在文件名里）
     backups.sort((a, b) => a.path.compareTo(b.path));
     final backup = backups.last;
-    debugPrint('[boot] salvage: backups=${backups.length} newest=${backup.path}');
+    debugPrint(
+        '[boot] salvage: backups=${backups.length} newest=${backup.path}');
 
     // ===== 让 Hive 自己去读它 =====
     //
-    // 前面试过"自己按帧扫描"，但那份备份只有 1 帧（Hive 压缩过），而它恰好是坏帧 ——
+    // 前面试过"自己按帧扫描"，但那份备份只有 1 帧（Hive 压缩过），而它恰好是坏帧，
     // 扫不出"好帧"来。其实数据**完好无损**：坏的只是"字段计数写了 23、实际写了 24"，
     // 而这一点已经在 `DeadlineAdapter.read` 里做了兼容（读完字段后偷看一个字节，
     // 是 26 就把多出来的那一对吃回去）。
     //
     // 所以这里不自己解析了：**把备份复制成一个临时盒子，交给 Hive 打开并读出
-    // `deadlineList`** —— CRC 校验、类型注册、列表还原全由它来做，最不容易错。
+    // `deadlineList`**， CRC 校验、类型注册、列表还原全由它来做，最不容易错。
     // 原备份一个字都不改；临时盒子用完就删。
     final tempName = 'dbsalvage';
     final tempFile = File(boxFilePath(directory, tempName));
@@ -122,7 +123,8 @@ Future<int> salvageTasksFromBackupOnce(
         debugPrint('[boot] salvage: OK tasks=${tasks.length}');
         return tasks.length;
       }
-      debugPrint('[boot] salvage: temp box has no usable list (type=${value.runtimeType})');
+      debugPrint(
+          '[boot] salvage: temp box has no usable list (type=${value.runtimeType})');
     } catch (error) {
       debugPrint('[boot] salvage: temp box read failed: $error');
     } finally {
@@ -157,13 +159,13 @@ String boxFilePath(Directory directory, String name) =>
 ///
 /// Hive 用 `<box>.lock` 文件做互斥，而 `openBox` 在拿不到锁时会**无限等待**。
 /// 我们的 App 有不止一个 isolate 会开同一批盒子：UI 进程、WorkManager 后台刷新、
-/// （之前还有桌面小组件的 Glance 会话）。只要有一个把锁拿着不放 ——
-/// 后台 isolate 卡住、或者上一轮被系统杀掉时留下了死锁 ——
+/// （之前还有桌面小组件的 Glance 会话）。只要有一个把锁拿着不放，
+/// 后台 isolate 卡住、或者上一轮被系统杀掉时留下了死锁，
 /// **UI 进程就会永远卡在启动**，用户看到的就是"App 打不开"：
 /// 进程活着、日志里没有任何异常、first frame 永远不来（系统记 AppBootFail + ANR）。
 ///
 /// 当时的探针输出停在 `[boot] 4.1 optionsBox` 之后，也就是**卡在
-/// `openBox(dbUser)` 上**，前面 optionsBox 一秒不到就开好了 —— 完美吻合"锁被占"。
+/// `openBox(dbUser)` 上**，前面 optionsBox 一秒不到就开好了， 完美吻合"锁被占"。
 ///
 /// 所以这里：先正常开，最多等 5 秒；**超时就删掉锁文件再试一次**。
 /// 理由：启动这一刻我们这一侧没有别的写手，锁本来只是防并发写；
@@ -188,7 +190,8 @@ Future<Box> openBoxResilientImpl(
       debugPrint('[boot] 上次卡在 $name → 留档并挪走');
       await _setBoxAside(name, directory);
     }
-    await options.put('openIntent:$name', DateTime.now().millisecondsSinceEpoch);
+    await options.put(
+        'openIntent:$name', DateTime.now().millisecondsSinceEpoch);
   }
 
   try {
@@ -271,15 +274,15 @@ Future<void> rescueDamagedTaskBoxOnce(
 
 // ===== 关于"自己按帧扫描修复"这段历史（代码已删，教训留在这里）=====
 //
-// 2026-09-16 处理「App 打不开」时，我写过两版"自己扫帧"的修复，都没成功，代码已删。
+// 2026-09-16 处理App 打不开时，我写过两版"自己扫帧"的修复，都没成功，代码已删。
 // 写清楚是为了**以后别再来一遍**：
 //
 //   · 第一版：`readAsBytes()` 把整个盒子读进内存，再逐帧做"截断 + 试开盒子"二分。
-//     待办盒子**每次保存都写一整份列表**，攒一晚上就是几十上百 MB ——
+//     待办盒子**每次保存都写一整份列表**，攒一晚上就是几十上百 MB，
 //     一次读完直接超出系统给的启动时间，进程被判 `AppBootFail` 掐掉
 //     （日志停在"体检"之前，什么都看不到）。**任何时候都别把整个 .hive 读进内存。**
 //   · 第二版：只从文件尾往回扫 50 帧，找"最后一个能解码的好帧"。
-//     可是那份备份被 Hive 压缩过，**整个文件只有 1 帧**，而它恰好就是坏的 ——
+//     可是那份备份被 Hive 压缩过，**整个文件只有 1 帧**，而它恰好就是坏的，
 //     扫不出任何好帧，功能等于没有。
 //
 // 最后真正管用的是另外两条路：
@@ -289,7 +292,7 @@ Future<void> rescueDamagedTaskBoxOnce(
 // 结论：**不要自己实现 Hive 的帧解析**，让 Hive 自己去读。
 
 class DatabaseHelper {
-  /// optionsBox 是否已经开好（自我修复靠它记进度，所以它开好之前不能读 optionsBox ——
+  /// optionsBox 是否已经开好（自我修复靠它记进度，所以它开好之前不能读 optionsBox，
   /// 用普通 bool 而不是去碰 `late` 字段，读未初始化的 late 字段会抛 LateInitializationError）。
   bool _optionsOpen = false;
 
@@ -312,11 +315,11 @@ class DatabaseHelper {
   late final Box tombstoneBox;
   late final Box focusBox;
 
-  /// ===== MOD: 「记住的账号密码」的持久化副本 =====
+  /// ===== MOD: 记住的账号密码的持久化副本 =====
   ///
   /// 用户反馈：更新之后登录页不再预填上次的账号密码。原因是那份副本
   /// （`mod_last_*`）原来只写在**系统密钥库**里，而某些 ROM 在覆盖安装后
-  /// 读密钥库会返回 null（不报错）——和"显示已登录但没有学号"是同一个坑。
+  /// 读密钥库会返回 null（不报错），和"显示已登录但没有学号"是同一个坑。
   /// 用户拍板：**另存一份到数据库，永远能预填**。
   ///
   /// 取舍（重要，别以后当惊喜发现）：密钥库那份仍然写、仍然优先读；
@@ -325,7 +328,7 @@ class DatabaseHelper {
   late final Box accountBox;
 
   /// 课程挂载（资料 / 评论）：**键 = 课程代码**，值是一份 Map（见 `CourseMount`）。
-  /// 不新增 typeId、不注册 adapter —— 与 `CourseIdMap` 同一套做法。
+  /// 不新增 typeId、不注册 adapter， 与 `CourseIdMap` 同一套做法。
   late final Box courseMountBox;
 
   late final FlutterSecureStorage secureStorage;
@@ -361,14 +364,15 @@ class DatabaseHelper {
     //   · 而 Hive 会缓存"打开失败"的结果，先试开再修这条路走不通。
     // 所以在**第一次打开它之前**就挪走（用户已确认接受"先能打开、数据随后抢救"）。
     //
-    // 原文件一律**整份复制**成 `.damaged-<时间戳>` 留档，绝不删 —— 之后
+    // 原文件一律**整份复制**成 `.damaged-<时间戳>` 留档，绝不删， 之后
     // App 里会有一支后台抢救流程去那几个备份里把好帧里的待办捞回来。
     await rescueDamagedTaskBoxOnce(hiveDirectory, optionsBox, dbTask);
     scholarBox = await openBoxResilient(dbScholar, hiveDirectory);
     taskBox = await openBoxResilient(dbTask, hiveDirectory);
     _bootProbe('[boot] 2 taskBox');
     flowBox = await openBoxResilient(dbFlow, hiveDirectory);
-    originalWebPageBox = await openBoxResilient(dbOriginalWebPage, hiveDirectory);
+    originalWebPageBox =
+        await openBoxResilient(dbOriginalWebPage, hiveDirectory);
     fuseBox = await openBoxResilient(dbFuse, hiveDirectory);
     customGpaBox = await openBoxResilient(dbCustomGpa, hiveDirectory);
     tombstoneBox = await openBoxResilient(dbTombstones, hiveDirectory);
@@ -380,7 +384,7 @@ class DatabaseHelper {
     secureStorage = const FlutterSecureStorage();
     _bootProbe('[boot] 5 密钥库对象建好');
 
-    // ===== P5：清掉「时间规划」时代留在 optionsBox 里的三个键 =====
+    // ===== P5：清掉时间规划时代留在 optionsBox 里的三个键 =====
     // P1 删功能时只删了访问器，值还躺在盒子里（workTime / restTime / allowTime）。
     // 一次性、幂等：有就删，没有就算了。删掉它们不会影响任何现有功能。
     for (final legacyKey in const ['workTime', 'restTime', 'allowTime']) {
@@ -392,20 +396,19 @@ class DatabaseHelper {
     //
     // ===== MOD：整段加保险，且**绝不阻塞启动** =====
     // 原来这里是裸的 `await secureStorage.readAll(...)`：密钥库一旦不返回
-    // （某些 ROM 覆盖安装后就会这样），main() 就永远走不到 runApp ——
+    // （某些 ROM 覆盖安装后就会这样），main() 就永远走不到 runApp，
     // 用户看到的就是"App 打不开"（进程活着、无异常、无首帧，系统记 AppBootFail/ANR）。
     // 现在：最多等 3 秒，拿不到就当没东西要迁移，直接继续启动。
     final legacyIOSOptions = const IOSOptions(
         accessibility: KeychainAccessibility.first_unlock,
         accountName: 'Celechron');
-    final secureStorageItems =
-        await secureStorageOrNull(secureStorage.readAll(
-              iOptions: legacyIOSOptions,
-            )) ??
-            const <String, String>{};
+    final secureStorageItems = await secureStorageOrNull(secureStorage.readAll(
+          iOptions: legacyIOSOptions,
+        )) ??
+        const <String, String>{};
     for (final e in secureStorageItems.entries) {
-      await secureStorageOrNull(secureStorage.delete(
-          key: e.key, iOptions: legacyIOSOptions));
+      await secureStorageOrNull(
+          secureStorage.delete(key: e.key, iOptions: legacyIOSOptions));
       await secureStorageOrNull(secureStorage.write(
           key: e.key, value: e.value, iOptions: secureStorageIOSOptions));
     }
@@ -420,7 +423,7 @@ class DatabaseHelper {
   /// ===== P3：专注会话记录 =====
   final String dbFocus = 'dbFocus';
 
-  /// 「记住的账号密码」的数据库副本（见 [accountBox] 的注释）
+  /// 记住的账号密码的数据库副本（见 [accountBox] 的注释）
   final String dbAccount = 'dbAccount';
 
   /// 课程挂载（资料 / 评论），键 = 课程代码
@@ -436,6 +439,7 @@ class DatabaseHelper {
   // P1：默认提醒提前量（分钟）。活动与截止用它；提醒型就是那一刻本身。
   final String kReminderLeadMinutes = 'reminderLeadMinutes';
   final String kBrightnessMode = 'brightnessMode';
+
   /// S1：设备身份（首次读取时生成一次，之后固定）
   final String kDeviceId = 'deviceId';
   final String kCourseIdMappingList = 'courseIdMappingList';
@@ -471,8 +475,8 @@ class DatabaseHelper {
 
   /// ===== 设备身份 =====
   ///
-  /// 首次读取时生成一次、之后固定。用途：同步时告诉对方「这份数据来自哪台设备」，
-  /// 面板上显示「最后同步来自 X」，以后排查「谁把我这条改了」也有据可依。
+  /// 首次读取时生成一次、之后固定。用途：同步时告诉对方这份数据来自哪台设备，
+  /// 面板上显示最后同步来自 X，以后排查谁把我这条改了也有据可依。
   /// 只存本地，**不会**被对方的 deviceId 覆盖（见 DataMerge 的调用方）。
   String getDeviceId() {
     final existing = optionsBox.get(kDeviceId);
@@ -579,9 +583,7 @@ class DatabaseHelper {
 
   /// 全部专注会话（按开始时间倒序）
   List<FocusSession> getFocusSessions() {
-    final list = focusBox.values
-        .whereType<FocusSession>()
-        .toList()
+    final list = focusBox.values.whereType<FocusSession>().toList()
       ..sort((a, b) => b.startedAt.compareTo(a.startedAt));
     return list;
   }
@@ -732,10 +734,10 @@ class DatabaseHelper {
     // 与 init() 里那段同理：平台侧不返回时，裸 await 会让 App 卡在启动画面。
     // 读不到就当没存过，凭据缺失由 main.dart 统一按"需要重新登录"处理。
     final stored = await Future.wait([
-      secureStorageOrNull(
-          secureStorage.read(key: kUsername, iOptions: secureStorageIOSOptions)),
-      secureStorageOrNull(
-          secureStorage.read(key: kPassword, iOptions: secureStorageIOSOptions)),
+      secureStorageOrNull(secureStorage.read(
+          key: kUsername, iOptions: secureStorageIOSOptions)),
+      secureStorageOrNull(secureStorage.read(
+          key: kPassword, iOptions: secureStorageIOSOptions)),
     ]);
     if (stored[0] != null) scholar.username = stored[0];
     if (stored[1] != null) scholar.password = stored[1];

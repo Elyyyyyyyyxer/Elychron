@@ -106,7 +106,8 @@ void main() {
   // （用户实测"小组件像是死的"）。现在小组件拿原始时间戳自己算，
   // 这两个字段的**口径**就成了跨语言约定（Kotlin 侧 TodoWidget.kt 同步实现），
   // 所以在这里钉死：活动=开始时间、其余=结束时间、备忘不带时间。
-  test('snapshot carries kind + raw time for the widget to recompute labels', () {
+  test('snapshot carries kind + raw time for the widget to recompute labels',
+      () {
     final event = task(
       id: 'event',
       title: '晨会',

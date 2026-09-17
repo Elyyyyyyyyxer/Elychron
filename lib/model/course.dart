@@ -140,9 +140,9 @@ class Course {
       // ===== MOD: 半学期不要再"无脑或"（2026-09-17）=====
       //
       // 教务行的 `xxq` 读不出来时，我们按**本次查询的季节**猜：
-      // 「1|秋」那次全猜上半、「1|冬」那次全猜下半（见 Session.fromZdbk）。
+      // 1|秋那次全猜上半、1|冬那次全猜下半（见 Session.fromZdbk）。
       // 两次查询都会返回同一门课，于是原来这个 `a || b` 把"猜出来的秋"和
-      // "猜出来的冬"合成了**两半都上** —— 用户看到「秋冬的课混在一起、还报冲突」，
+      // "猜出来的冬"合成了**两半都上**， 用户看到秋冬的课混在一起、还报冲突，
       // 而下次刷新（xxq 又能读出来）就自己好了，所以极难复现
       // （真实反馈原话："我问他们的时候已经正常了"）。
       //
@@ -153,7 +153,8 @@ class Course {
       final currentKnown = !currentSession.halfGuessed;
       final incomingKnown = !session.halfGuessed;
       if (currentKnown && incomingKnown) {
-        currentSession.firstHalf = currentSession.firstHalf || session.firstHalf;
+        currentSession.firstHalf =
+            currentSession.firstHalf || session.firstHalf;
         currentSession.secondHalf =
             currentSession.secondHalf || session.secondHalf;
       } else if (currentKnown != incomingKnown) {
@@ -165,7 +166,8 @@ class Course {
         }
         // 进来的是猜的、已有的是确定的 → 什么都不做（保留确定的结论）
       } else {
-        currentSession.firstHalf = currentSession.firstHalf || session.firstHalf;
+        currentSession.firstHalf =
+            currentSession.firstHalf || session.firstHalf;
         currentSession.secondHalf =
             currentSession.secondHalf || session.secondHalf;
       }

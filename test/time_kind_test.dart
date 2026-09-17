@@ -2,7 +2,7 @@ import 'package:celechron/model/task.dart';
 import 'package:celechron/mod/task_runtime_mod.dart' show normalizeLegacyTask;
 import 'package:flutter_test/flutter_test.dart';
 
-/// P1「四种时间语义」的数据层测试。
+/// P1四种时间语义的数据层测试。
 ///
 /// 这四类全部由 `TaskType` 映射得到，不新增存储字段（Hive 按序号存，
 /// 只允许往后追加枚举值）。这里把映射规则、提醒锚点、逾期与日历可见性钉住，
@@ -139,7 +139,7 @@ void main() {
       expect(t.startTime, t.endTime);
       expect(t.reminderEnabled, isTrue);
       expect(t.reminderTime, isNull);
-      // reminderTime 为空就用锚点本身 —— 也就是「那一刻」
+      // reminderTime 为空就用锚点本身， 也就是那一刻
       expect(t.reminderTargetTime, t.endTime);
     });
 
@@ -233,14 +233,15 @@ void main() {
     test('humanDuration 写成人话', () {
       expect(humanDuration(const Duration(seconds: 30)), '不到 1 分钟');
       expect(humanDuration(const Duration(minutes: 5)), '5 分钟');
-      expect(humanDuration(const Duration(hours: 3, minutes: 20)), '3 小时 20 分钟');
+      expect(
+          humanDuration(const Duration(hours: 3, minutes: 20)), '3 小时 20 分钟');
       expect(humanDuration(const Duration(days: 2, hours: 3)), '2 天 3 小时');
     });
   });
 
   // ===== Step 5：活动结束后自动归档 =====
 
-  group('needsAutoArchive：只有「不重复的活动结束了」才归档', () {
+  group('needsAutoArchive：只有不重复的活动结束了才归档', () {
     Task endedEvent() {
       final t = moment(DateTime.now().subtract(const Duration(hours: 1)));
       t.applyKind(TaskType.fixed);
@@ -278,7 +279,7 @@ void main() {
       expect(t.needsAutoArchive, isFalse);
     });
 
-    test('截止过期仍留在「待我处理」，不归档', () {
+    test('截止过期仍留在待我处理，不归档', () {
       final t = moment(DateTime.now().subtract(const Duration(hours: 1)));
       t.applyKind(TaskType.deadline);
       expect(t.needsAutoArchive, isFalse);
@@ -333,7 +334,7 @@ void main() {
   // ===== Step 8：老数据兼容 =====
 
   group('老数据：旧字段不会被新语义弄坏', () {
-    test('早期版本把 DDL 写成「截止前 1 分钟」，仍会被抹平', () {
+    test('早期版本把 DDL 写成截止前 1 分钟，仍会被抹平', () {
       final t = moment(DateTime(2026, 9, 11, 23, 59));
       t.startTime = DateTime(2026, 9, 11, 23, 58); // 老版本的脏数据
       expect(normalizeLegacyTask(t), isTrue);
@@ -354,7 +355,7 @@ void main() {
       expect(t.hasTimeRange, isTrue);
     });
 
-    test('老数据的提醒锚点：活动从「结束」改锚「开始」（这是 P1 要修的错位）', () {
+    test('老数据的提醒锚点：活动从结束改锚开始（这是 P1 要修的错位）', () {
       final t = moment(DateTime(2026, 9, 12, 14, 10));
       t.type = TaskType.fixed;
       t.startTime = DateTime(2026, 9, 12, 13, 30);
@@ -363,7 +364,7 @@ void main() {
       expect(t.reminderAnchor, DateTime(2026, 9, 12, 13, 30));
     });
 
-    test('老数据里没有 remind / memo —— 序号追加不影响已有三条', () {
+    test('老数据里没有 remind / memo， 序号追加不影响已有三条', () {
       // 这是 Hive 按序号读写的关键保证：0/1/2 的含义永远不变
       expect(TaskType.values.length >= 5, isTrue);
       expect(TaskType.values[0], TaskType.deadline);

@@ -9,7 +9,7 @@
 //   1. 换 flipKey 才翻；只换 face 不翻（直接换面、不同时挂两个面）
 //   2. 翻转中旧面在场、新面不在场；到 50% 处换面；翻完只剩新面
 //   3. 页边（paper edge）只在可见角度窗口里出现，且挂在 Stack 里
-//      （Stack 只做绘制，不给页面内容加任何约束 —— 这是不破坏布局的前提）
+//      （Stack 只做绘制，不给页面内容加任何约束， 这是不破坏布局的前提）
 //   4. 整段翻转不出现布局异常
 //   5. 透传参数不改变默认时序，且默认时长确实接到 AnimationController 上
 //
@@ -67,7 +67,7 @@ Future<void> pumpHarness(
 }
 
 /// 页边所在的那层：`Stack(paperEdge, card)`，只在 depth > 0.02 时出现。
-/// 用「横向做了平移的 Transform」精确定位（卡片自身用的是 Transform.scale /
+/// 用横向做了平移的 Transform精确定位（卡片自身用的是 Transform.scale /
 /// rotateY，横向平移恒为 0；只有页边那层会被推出去 `cos(angle)*3` 像素）。
 Finder paperEdgeFinder() => find.byWidgetPredicate(
       (Widget w) => w is Transform && w.transform.getTranslation().x != 0,

@@ -4,11 +4,11 @@ import 'package:flutter_test/flutter_test.dart';
 
 /// 半学期（秋/冬）归属与**合并**的回归测试。
 ///
-/// 背景（2026-09-17 用户反馈）：「最近老是有人反馈秋冬半学期课程冲突，
-/// 但我去问的时候他们又说好了」。真机诊断日志给出了机制：
+/// 背景（2026-09-17 用户反馈）：最近老是有人反馈秋冬半学期课程冲突，
+/// 但我去问的时候他们又说好了。真机诊断日志给出了机制：
 ///
 ///   * 教务行的 «xxq»（学期类型）读不出来时，App 只能**按本次查询的季节猜**
-///     （«1|秋» → 上半、「1|冬» → 下半，见 «Session.fromZdbk»）；
+///     （«1|秋» → 上半、1|冬» → 下半，见 «Session.fromZdbk»）；
 ///   * 两次查询都会返回同一门课，于是 «Course.completeSession» 里那个
 ///     «currentSession.firstHalf || session.firstHalf» 把"猜出来的秋"
 ///     和"猜出来的冬"合成了**两半都上** → 用户看到秋冬的课混在一起、还报冲突；
@@ -84,7 +84,8 @@ void main() {
       final course = Course.fromUgrsSessionWithoutID(known);
 
       final guessed = session(name: '线性代数', second: true, guessed: true);
-      expect(course.completeSession(guessed), isFalse, reason: '同一天同一节同一地点，应当合并');
+      expect(course.completeSession(guessed), isFalse,
+          reason: '同一天同一节同一地点，应当合并');
 
       // 修复前：true || false = true，secondHalf 也变成 true → 秋冬都显示（用户看到的冲突）
       expect(known.firstHalf, isTrue);
@@ -106,7 +107,8 @@ void main() {
     test('两边都确定 → 保持原来的"或"（长学期课拆成秋+冬两条是正常的）', () {
       final a = session(name: '大学物理', first: true, guessed: false);
       final course = Course.fromUgrsSessionWithoutID(a);
-      course.completeSession(session(name: '大学物理', second: true, guessed: false));
+      course
+          .completeSession(session(name: '大学物理', second: true, guessed: false));
 
       expect(a.firstHalf, isTrue);
       expect(a.secondHalf, isTrue);
@@ -124,7 +126,8 @@ void main() {
     test('不同节次/地点不会误合并', () {
       final a = session(name: '英语', first: true);
       final course = Course.fromUgrsSessionWithoutID(a);
-      final other = session(name: '英语', second: true, guessed: true, time: [10, 11]);
+      final other =
+          session(name: '英语', second: true, guessed: true, time: [10, 11]);
 
       expect(course.completeSession(other), isTrue, reason: '不同节次应当作为新的一条加进去');
       expect(a.firstHalf, isTrue);

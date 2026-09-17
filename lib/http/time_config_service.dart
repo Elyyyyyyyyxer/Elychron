@@ -15,7 +15,7 @@ import 'package:flutter/foundation.dart';
 /// ===== 2026-09-17 用户拍板后的新口径 =====
 ///
 /// 背景：校历来自**上游第三方静态站**（`http://calendar.celechron.top/`，明文 HTTP），
-/// 用户实测"老是连不上" —— 一失败就落缓存，缓存空就只能本地推算（节假日全空、考试周不准）。
+/// 用户实测"老是连不上"， 一失败就落缓存，缓存空就只能本地推算（节假日全空、考试周不准）。
 ///
 /// 现在改成四件事：
 /// 1. **随包内置一份**（`assets/calendar/<学年学期>.json`，见 [BundledCalendarConfig]）：
@@ -29,7 +29,7 @@ import 'package:flutter/foundation.dart';
 class TimeConfigService {
   static const _lastValidCacheKey = 'timeConfig_lastValid';
 
-  /// 远程更新的最短间隔：一周。用户原话：「每周进行一次尝试性连接更新」。
+  /// 远程更新的最短间隔：一周。用户原话：每周进行一次尝试性连接更新。
   static const Duration updateInterval = Duration(days: 7);
 
   DatabaseHelper? _db;
@@ -174,7 +174,7 @@ class TimeConfigService {
         body.contains('<Code>NoSuchKey</Code>');
 
     if (noSuchKey) {
-      // 「这个地址上没有这份配置」——**不代表别的地址也没有**（我们有镜像），
+      // 这个地址上没有这份配置，**不代表别的地址也没有**（我们有镜像），
       // 所以这里抛出去让上层继续试下一个候选；全都 404 才是"真没发布"。
       throw CalendarConfigUnavailableException(
         details: [

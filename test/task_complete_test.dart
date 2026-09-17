@@ -24,7 +24,7 @@ void main() {
     return task;
   }
 
-  /// 挂一个按钮，点它等于触发「完成」检查
+  /// 挂一个按钮，点它等于触发完成检查
   Future<void> pumpButton(
     WidgetTester tester,
     Task task,

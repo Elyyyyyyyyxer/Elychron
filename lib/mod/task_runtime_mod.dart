@@ -8,7 +8,7 @@ import 'package:get/get.dart';
 /// ============ 待办魔改：从 task_controller.dart 里抽出来的逻辑 ============
 ///
 /// 这个文件里的东西全部属于魔改，**上游不会碰**，所以放在这里而不是塞进
-/// `lib/page/task/task_controller.dart`——那个文件上游在持续维护，我们留在
+/// `lib/page/task/task_controller.dart`，那个文件上游在持续维护，我们留在
 /// 里面的东西越多，将来跟版冲突就越多。
 ///
 /// 接缝只保留几个一行的调用点，用 `// ===== MOD =====` 标记。
@@ -17,7 +17,7 @@ class TaskAlarmCoordinator {
 
   /// 每秒调用：闹钟模式下，前台到点就弹出全屏闹钟。
   ///
-  /// ⚠️ 「弹过没弹过」由 [TaskAlarmCenter] 按**提醒时刻**记录（不在这里）。
+  /// ⚠️ 弹过没弹过由 [TaskAlarmCenter] 按**提醒时刻**记录（不在这里）。
   /// 曾经这里有个 `_fired` 集合 + `if (current == null) _fired.clear()`，
   /// 结果是**用户一关掉弹窗就又把记录清空 → 同一分钟内反复弹**（真实反馈 bug）。
   static void tick(List<Task> taskList) {
@@ -32,7 +32,7 @@ class TaskAlarmCoordinator {
           task.status != TaskStatus.suspended) {
         continue;
       }
-      // 「延迟提醒」之后：以延迟到的那个时刻为准（否则原始提醒时间早就过期，
+      // 延迟提醒之后：以延迟到的那个时刻为准（否则原始提醒时间早就过期，
       // 下面的"一分钟内"判断会把延迟后的闹钟永远挡掉）
       final snoozedUntil = TaskReminder.snoozedUntil(task.uid);
       if (snoozedUntil != null && snoozedUntil.isAfter(now)) continue;
@@ -49,7 +49,7 @@ class TaskAlarmCoordinator {
   }
 }
 
-/// 兼容旧数据：普通待办不该有开始时间（早期版本会写成「截止前 1 分钟」）。
+/// 兼容旧数据：普通待办不该有开始时间（早期版本会写成截止前 1 分钟）。
 ///
 /// 返回是否改动过（上游用 changed 门控写库，所以要如实汇报）。
 bool normalizeLegacyTask(Task task) {

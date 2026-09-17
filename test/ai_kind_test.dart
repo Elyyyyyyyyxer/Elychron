@@ -2,11 +2,11 @@ import 'package:celechron/mod/ai/ai_task_draft.dart';
 import 'package:celechron/model/task.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// P1：AI 划分「四种时间语义」的校验测试。
+/// P1：AI 划分四种时间语义的校验测试。
 ///
 /// 模型可以胡说，但它说的每一个枚举值都要在 `_fromJson` 里过一遍白名单与
 /// 一致性检查。这里把那条边界钉住：**模型给的类型只当建议，最终以校验结果为准**，
-/// 而且每次替用户改过什么都不许静默 —— 必须留一条 warnings。
+/// 而且每次替用户改过什么都不许静默， 必须留一条 warnings。
 void main() {
   /// 一个最小可用的模型输出
   Map<String, dynamic> base({
@@ -47,11 +47,14 @@ void main() {
           )).kind,
           TaskType.fixed);
       expect(
-          AiTaskDraft.fromJsonForTest(base(kind: '截止', endTime: at(days: 1, hour: 23, minute: 59)))
+          AiTaskDraft.fromJsonForTest(
+                  base(kind: '截止', endTime: at(days: 1, hour: 23, minute: 59)))
               .kind,
           TaskType.deadline);
       expect(
-          AiTaskDraft.fromJsonForTest(base(kind: '提醒', endTime: at(days: 1, hour: 9))).kind,
+          AiTaskDraft.fromJsonForTest(
+                  base(kind: '提醒', endTime: at(days: 1, hour: 9)))
+              .kind,
           TaskType.remind);
       expect(AiTaskDraft.fromJsonForTest(base(kind: '备忘')).kind, TaskType.memo);
     });
@@ -64,12 +67,17 @@ void main() {
             endTime: at(days: 1, hour: 16),
           )).kind,
           TaskType.fixed);
-      expect(AiTaskDraft.fromJsonForTest(base(kind: 'memo')).kind, TaskType.memo);
       expect(
-          AiTaskDraft.fromJsonForTest(base(kind: 'remind', endTime: at(days: 1, hour: 9))).kind,
+          AiTaskDraft.fromJsonForTest(base(kind: 'memo')).kind, TaskType.memo);
+      expect(
+          AiTaskDraft.fromJsonForTest(
+                  base(kind: 'remind', endTime: at(days: 1, hour: 9)))
+              .kind,
           TaskType.remind);
       expect(
-          AiTaskDraft.fromJsonForTest(base(kind: 'DDL', endTime: at(days: 1, hour: 9))).kind,
+          AiTaskDraft.fromJsonForTest(
+                  base(kind: 'DDL', endTime: at(days: 1, hour: 9)))
+              .kind,
           TaskType.deadline);
     });
 
@@ -90,7 +98,10 @@ void main() {
             endTime: at(days: 1, hour: 16),
           )).kind,
           TaskType.fixed);
-      expect(AiTaskDraft.fromJsonForTest(base(endTime: at(days: 1, hour: 23, minute: 59))).kind,
+      expect(
+          AiTaskDraft.fromJsonForTest(
+                  base(endTime: at(days: 1, hour: 23, minute: 59)))
+              .kind,
           TaskType.deadline);
     });
 
@@ -177,11 +188,11 @@ void main() {
 
   group('备忘型的时间占位', () {
     test('完全没有时间也不报错、不写 warning', () {
-      final draft = AiTaskDraft.fromJsonForTest(base(kind: '备忘', summary: '买牙膏'));
+      final draft =
+          AiTaskDraft.fromJsonForTest(base(kind: '备忘', summary: '买牙膏'));
       expect(draft.kind, TaskType.memo);
       final now = DateTime.now();
-      expect(draft.endTime,
-          DateTime(now.year, now.month, now.day, 23, 59));
+      expect(draft.endTime, DateTime(now.year, now.month, now.day, 23, 59));
       expect(draft.warnings.where((w) => w.contains('时间')).isEmpty, isTrue);
     });
   });
@@ -200,7 +211,8 @@ void main() {
       expect(task.hasTimeRange, isTrue);
       expect(task.reminderAnchor, task.startTime);
       expect(task.reminderEnabled, isTrue);
-      expect(task.reminderTargetTime, task.startTime.subtract(const Duration(minutes: 30)));
+      expect(task.reminderTargetTime,
+          task.startTime.subtract(const Duration(minutes: 30)));
     });
 
     test('提醒：到点响，不提前', () {
@@ -218,7 +230,8 @@ void main() {
     });
 
     test('备忘：不提醒、不逾期、不进日历', () {
-      final draft = AiTaskDraft.fromJsonForTest(base(kind: '备忘', summary: '买牙膏'));
+      final draft =
+          AiTaskDraft.fromJsonForTest(base(kind: '备忘', summary: '买牙膏'));
       final task = emptyTask();
       draft.applyTo(task);
       expect(task.type, TaskType.memo);

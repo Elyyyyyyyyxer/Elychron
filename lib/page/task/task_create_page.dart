@@ -16,7 +16,7 @@ import 'package:celechron/mod/course_mount_store.dart';
 import 'package:celechron/mod/ai/ai_compose_sheet.dart';
 import 'package:celechron/design/dingtalk_sheet.dart';
 
-/// 钉钉风格的「新建待办」页。
+/// 钉钉风格的新建待办页。
 ///
 /// 待办、子待办都用它来新建/编辑，只是标题与确认按钮文案不同；
 /// 传了 [heightFactor] 时不再占满屏幕，上方留出一条空隙（子待办用）。
@@ -54,7 +54,7 @@ class _TaskCreatePageState extends State<TaskCreatePage> {
     _descriptionController.text = now.description;
     _locationController.text = now.location;
 
-    // 新建待办默认截止到今天 23:59，对应「今天」这个默认选中的快捷日期
+    // 新建待办默认截止到今天 23:59，对应今天这个默认选中的快捷日期
     final today = DateTime.now();
     final endOfDay = DateTime(today.year, today.month, today.day, 23, 59);
     if (now.endTime.isBefore(endOfDay) && now.summary.isEmpty) {
@@ -63,7 +63,7 @@ class _TaskCreatePageState extends State<TaskCreatePage> {
       now.repeatEndsTime = dateOnly(endOfDay);
     }
 
-    // 标题变化时刷新「新建」按钮的可用状态
+    // 标题变化时刷新新建按钮的可用状态
     _titleController.addListener(() => setState(() {}));
   }
 
@@ -142,7 +142,7 @@ class _TaskCreatePageState extends State<TaskCreatePage> {
     return anchor == null ? '' : _hm(anchor);
   }
 
-  /// 改某一步的时间：原本是「时段」的保留时长，原本是「时刻」的还是一个时刻
+  /// 改某一步的时间：原本是时段的保留时长，原本是时刻的还是一个时刻
   Future<void> _editSubtaskTime(int index) async {
     final sub = now.subtasks[index];
     final picked = await showDateTimeSheet(
@@ -166,7 +166,7 @@ class _TaskCreatePageState extends State<TaskCreatePage> {
 
   // ---------------------------------------------------------------- 其他日期
 
-  /// 「其他日期」面板：截止时间 / 提醒时间 / 设置重复 都收在这里。
+  /// 其他日期面板：截止时间 / 提醒时间 / 设置重复 都收在这里。
   Future<void> _showOtherDatePanel() async {
     await showTaskTimePanel(
       context,
@@ -197,7 +197,7 @@ class _TaskCreatePageState extends State<TaskCreatePage> {
     }
     final repeat = RepeatSetting.fromTask(now).label;
     if (repeat != '不重复') parts.add(repeat);
-    // 提醒型上面那句已经是「… 提醒」，不再重复一遍
+    // 提醒型上面那句已经是… 提醒，不再重复一遍
     if (now.schedulesReminder && !now.isRemind) {
       parts.add('提醒 ${TimeHelper.chineseDateTime(now.reminderTargetTime)}');
     }
@@ -206,10 +206,10 @@ class _TaskCreatePageState extends State<TaskCreatePage> {
 
   // ---------------------------------------------------------------- 课程
 
-  /// 可选：把这条待办**挂到某门课上**（挂上之后它会出现在那门课的「相关待办」里）。
+  /// 可选：把这条待办**挂到某门课上**（挂上之后它会出现在那门课的相关待办里）。
   ///
   /// 课程清单来自已抓到的课表（`courseChoices()`，与 AI 匹配课程名时用的是同一份），
-  /// 所以只有登录过、有课表时才显示这一行 —— 没课表就不显示，别给一个空选择器。
+  /// 所以只有登录过、有课表时才显示这一行， 没课表就不显示，别给一个空选择器。
   ///
   /// 这里刻意**只提供一个可选字段**，不强制、不猜：
   /// AI 生成待办那边同理（只有输入里明确提到课程才回填，见 `ai_task_draft.dart`）。
@@ -220,7 +220,7 @@ class _TaskCreatePageState extends State<TaskCreatePage> {
     final picked = await showDingTalkSheet<String>(
       context: context,
       title: '挂到哪门课',
-      subtitle: '挂上之后，它会出现在那门课的「相关待办」里',
+      subtitle: '挂上之后，它会出现在那门课的相关待办里',
       current: now.courseId,
       options: [
         const DingTalkSheetOption(
@@ -781,8 +781,7 @@ class _TaskCreatePageState extends State<TaskCreatePage> {
                             style: TextStyle(fontSize: 16, color: textColor)),
                         const Spacer(),
                         Text('${now.subtasks.length} 步',
-                            style:
-                                TextStyle(fontSize: 14, color: labelColor)),
+                            style: TextStyle(fontSize: 14, color: labelColor)),
                       ],
                     ),
                   ),
@@ -821,8 +820,7 @@ class _TaskCreatePageState extends State<TaskCreatePage> {
                               ),
                               Expanded(
                                 child: Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.start,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
                                       sub.title.isEmpty ? '(未命名步骤)' : sub.title,
@@ -841,8 +839,8 @@ class _TaskCreatePageState extends State<TaskCreatePage> {
                               CupertinoButton(
                                 padding: EdgeInsets.zero,
                                 minimumSize: const Size(28, 28),
-                                onPressed: () =>
-                                    setState(() => now.subtasks.removeAt(index)),
+                                onPressed: () => setState(
+                                    () => now.subtasks.removeAt(index)),
                                 child: Icon(CupertinoIcons.xmark_circle_fill,
                                     size: 18,
                                     color: CupertinoDynamicColor.resolve(

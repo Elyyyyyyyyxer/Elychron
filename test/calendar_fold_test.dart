@@ -3,15 +3,15 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:table_calendar/table_calendar.dart';
 
-/// 日程页「上滑收起日历」的判定测试。
+/// 日程页上滑收起日历的判定测试。
 ///
 /// 口径（用户定的）：日程页面上滑 → 日历折成一周；滑回顶部继续下拉 → 展开整月。
 /// 前四组是纯逻辑（不碰真实滚动）；最后一组拿真的 `ScrollNotification` 对象
-/// 验「通知 → 判定参数」的映射 —— 真机手感还要人工确认。
+/// 验通知 → 判定参数的映射， 真机手感还要人工确认。
 void main() {
   CalendarFoldGesture fresh() => CalendarFoldGesture();
 
-  /// 一条「手指直接带着动的」竖向滚动通知
+  /// 一条手指直接带着动的竖向滚动通知
   CalendarFormat? scroll(
     CalendarFoldGesture g, {
     required CalendarFormat current,
@@ -153,10 +153,10 @@ void main() {
   });
 
   group('必须滤掉的两种情况', () {
-    test('★ 不是手指带着动的通知一律不算 —— 折叠后列表自动回弹到 0 绝不能当成下拉', () {
+    test('★ 不是手指带着动的通知一律不算， 折叠后列表自动回弹到 0 绝不能当成下拉', () {
       final g = fresh();
       // 折起来之后列表变高、内容不再溢出，位置自动弹回 0：
-      // 这种「自动回弹」如果被当成下拉，就会立刻展开 → 一折一展死循环
+      // 这种自动回弹如果被当成下拉，就会立刻展开 → 一折一展死循环
       expect(
         scroll(g,
             current: CalendarFormat.week,
@@ -176,14 +176,12 @@ void main() {
       );
     });
 
-    test('★ 横向通知一律不算 —— TableCalendar 内部是横向翻页的 PageView', () {
+    test('★ 横向通知一律不算， TableCalendar 内部是横向翻页的 PageView', () {
       final g = fresh();
-      // 它的 pixels 是「第几页」的偏移，拿它判断会让日历莫名其妙折叠
+      // 它的 pixels 是第几页的偏移，拿它判断会让日历莫名其妙折叠
       expect(
         scroll(g,
-            current: CalendarFormat.month,
-            pixels: 400,
-            axis: Axis.horizontal),
+            current: CalendarFormat.month, pixels: 400, axis: Axis.horizontal),
         isNull,
       );
       expect(
@@ -315,8 +313,8 @@ void main() {
 
     testWidgets('越界通知 → 增量取 overscroll（不是 scrollDelta）', (tester) async {
       final ctx = await contextOf(tester);
-      final s = CalendarFoldSignal.from(
-          over(ctx, overscroll: 13, drag: fingerDown))!;
+      final s =
+          CalendarFoldSignal.from(over(ctx, overscroll: 13, drag: fingerDown))!;
       expect(s.delta, 13);
       expect(s.isOverscroll, isTrue);
       expect(s.fromUser, isTrue);

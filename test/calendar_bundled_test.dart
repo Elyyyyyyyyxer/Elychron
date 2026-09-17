@@ -44,7 +44,7 @@ void main() {
 
     test('中文没乱码（曾经用错编码下载过一次，这里是护栏）', () async {
       final text = (await BundledCalendarConfig.load('2026-2027-1'))!;
-      // 中秋节 / 国庆节在 holiday 里；乱码时会是「ä¸­ç§è」这种拉丁字符
+      // 中秋节 / 国庆节在 holiday 里；乱码时会是ä¸­ç§è这种拉丁字符
       expect(text.contains('中秋'), isTrue);
       expect(text.contains('国庆'), isTrue);
     });

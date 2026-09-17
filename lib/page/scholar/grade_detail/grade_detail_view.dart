@@ -18,10 +18,9 @@ String _semesterYearTag(String name) =>
     name.length >= 5 ? name.substring(2, 5) : name;
 
 /// 学期卡片上的标题：原来是 `substring(2,5) + substring(7,11)`（`2026-2027秋冬` → `26-2027`）。
-/// 名字不够长时同样会抛，这里退回原名 —— 观感不变，但不会再因为脏数据崩。
-String _semesterChipTitle(String name) => name.length >= 11
-    ? name.substring(2, 5) + name.substring(7, 11)
-    : name;
+/// 名字不够长时同样会抛，这里退回原名， 观感不变，但不会再因为脏数据崩。
+String _semesterChipTitle(String name) =>
+    name.length >= 11 ? name.substring(2, 5) + name.substring(7, 11) : name;
 
 class GradeDetailPage extends StatelessWidget {
   final _gradeDetailController = Get.put(GradeDetailController());
@@ -44,7 +43,7 @@ class GradeDetailPage extends StatelessWidget {
 
   Tuple<List<double>, double> getYearStats(int semesterIndex) {
     // ★ 没有成绩 / 下标越界时返回全 0，**绝不索引空列表**
-    //   （2026-09-16：这一行是「点成绩卡片就卡死」的直接原因）
+    //   （2026-09-16：这一行是点成绩卡片就卡死的直接原因）
     final list = _gradeDetailController.semestersWithGrades;
     if (list.isEmpty || semesterIndex < 0 || semesterIndex >= list.length) {
       return Tuple([0.0, 0.0, 0.0], 0.0);
@@ -83,8 +82,8 @@ class GradeDetailPage extends StatelessWidget {
                           Expanded(
                             child: Obx(() => TwoLineCard(
                                 title: '学年学分',
-                                content: getYearStats(_gradeDetailController
-                                        .safeIndex)
+                                content: getYearStats(
+                                        _gradeDetailController.safeIndex)
                                     .item2
                                     .toStringAsFixed(1),
                                 backgroundColor:
@@ -94,8 +93,8 @@ class GradeDetailPage extends StatelessWidget {
                           Expanded(
                             child: Obx(() => TwoLineCard(
                                 title: '学年均绩',
-                                content: getYearStats(_gradeDetailController
-                                        .safeIndex)
+                                content: getYearStats(
+                                        _gradeDetailController.safeIndex)
                                     .item1[0]
                                     .toStringAsFixed(2),
                                 backgroundColor:
@@ -105,13 +104,12 @@ class GradeDetailPage extends StatelessWidget {
                           Expanded(
                             child: Obx(() => TwoLineCard(
                                 title: '学年四分制',
-                                content: getYearStats(_gradeDetailController
-                                        .safeIndex)
+                                content: getYearStats(
+                                        _gradeDetailController.safeIndex)
                                     .item1[1]
                                     .toStringAsFixed(2),
                                 extraContent: getYearStats(
-                                        _gradeDetailController
-                                            .safeIndex)
+                                        _gradeDetailController.safeIndex)
                                     .item1[2]
                                     .toStringAsFixed(2),
                                 backgroundColor:
@@ -126,8 +124,8 @@ class GradeDetailPage extends StatelessWidget {
                             child: Obx(() => TwoLineCard(
                                 title: '学年主修学分',
                                 content: _gradeDetailController
-                                    .getYearMajorGpa(_gradeDetailController
-                                        .safeIndex)
+                                    .getYearMajorGpa(
+                                        _gradeDetailController.safeIndex)
                                     .item2
                                     .toStringAsFixed(1),
                                 backgroundColor:
@@ -138,8 +136,8 @@ class GradeDetailPage extends StatelessWidget {
                             child: Obx(() => TwoLineCard(
                                 title: '学年主修均绩',
                                 content: _gradeDetailController
-                                    .getYearMajorGpa(_gradeDetailController
-                                        .safeIndex)
+                                    .getYearMajorGpa(
+                                        _gradeDetailController.safeIndex)
                                     .item1[0]
                                     .toStringAsFixed(2),
                                 backgroundColor:
@@ -150,13 +148,13 @@ class GradeDetailPage extends StatelessWidget {
                             child: Obx(() => TwoLineCard(
                                 title: '学年主修四分制',
                                 content: _gradeDetailController
-                                    .getYearMajorGpa(_gradeDetailController
-                                        .safeIndex)
+                                    .getYearMajorGpa(
+                                        _gradeDetailController.safeIndex)
                                     .item1[1]
                                     .toStringAsFixed(2),
                                 extraContent: _gradeDetailController
-                                    .getYearMajorGpa(_gradeDetailController
-                                        .safeIndex)
+                                    .getYearMajorGpa(
+                                        _gradeDetailController.safeIndex)
                                     .item1[2]
                                     .toStringAsFixed(2),
                                 backgroundColor:
@@ -364,12 +362,12 @@ class GradeDetailPage extends StatelessWidget {
     );
   }
 
-  /// 一门成绩都没有时的页面 —— 这是**正常的空状态，不是错误**。
+  /// 一门成绩都没有时的页面， 这是**正常的空状态，不是错误**。
   ///
   /// 为什么要单独一个页面：见 [build] 开头的注释（原来的写法会直接抛 RangeError）。
   Widget _buildNoGrades(BuildContext context) {
-    final labelColor = CupertinoDynamicColor.resolve(
-        CupertinoColors.secondaryLabel, context);
+    final labelColor =
+        CupertinoDynamicColor.resolve(CupertinoColors.secondaryLabel, context);
     return CupertinoPageScaffold(
       backgroundColor: CupertinoDynamicColor.resolve(
           CupertinoColors.systemGroupedBackground, context),
@@ -393,7 +391,7 @@ class GradeDetailPage extends StatelessWidget {
                             color: labelColor)),
                     const SizedBox(height: 6),
                     Text(
-                      '等教务把成绩放出来，这里会自动显示。也可以在「学业」页下拉刷新一次试试。',
+                      '等教务把成绩放出来，这里会自动显示。也可以在学业页下拉刷新一次试试。',
                       textAlign: TextAlign.center,
                       style: TextStyle(fontSize: 13, color: labelColor),
                     ),
@@ -417,13 +415,13 @@ class GradeDetailPage extends StatelessWidget {
   Widget build(BuildContext context) {
     // ===== MOD: 一门成绩都没有时，**绝不能**去索引 semestersWithGrades =====
     //
-    // 2026-09-16 用户报「点击成绩卡片任意位置会卡死」，真机复现：
+    // 2026-09-16 用户报点击成绩卡片任意位置会卡死，真机复现：
     //   成绩页构建时 `semestersWithGrades[semesterIndex.value]` 在**空列表**上取下标
     //   → `RangeError (length): Invalid value: Valid value range is empty: 0`
     //   而这里在 `Obx` 的 builder 里 → GetX 的 `RxInterface.proxy` 被永久留在这个
     //   构建失败的 Obx 上（get 4.7.3 `notifyChildren` 抛错时不恢复代理）
     //   → 全 App 的 Rx 读取都挂到这个死观察者上、反复触发它重建、每次都再抛一次
-    //   → **主线程 100% CPU 空转**，5 秒后系统弹「Elychron 无响应」（ANR）。
+    //   → **主线程 100% CPU 空转**，5 秒后系统弹Elychron 无响应（ANR）。
     //   真机 ANR 报告佐证：主线程 state=R、utm=23.5s，一直在 libapp.so（Dart AOT）里跑。
     //
     // 所以先挡住"没有成绩"这个**正常状态**：显示一句人话，一个下标都不碰。
@@ -531,8 +529,8 @@ class GradeDetailPage extends StatelessWidget {
                           Expanded(
                             child: GradeCard(
                               grade: _gradeDetailController
-                                  .semestersWithGrades[_gradeDetailController
-                                      .safeIndex]
+                                  .semestersWithGrades[
+                                      _gradeDetailController.safeIndex]
                                   .grades[index],
                             ),
                           ),
@@ -544,8 +542,7 @@ class GradeDetailPage extends StatelessWidget {
                   );
                 },
                 childCount: _gradeDetailController
-                    .semestersWithGrades[
-                        _gradeDetailController.safeIndex]
+                    .semestersWithGrades[_gradeDetailController.safeIndex]
                     .grades
                     .length,
               ),

@@ -35,12 +35,12 @@ class Scholar {
 
   /// ===== MOD: 登录态是否已失效 =====
   ///
-  /// 用户反馈：「软件保持了登录状态，但实际上已经连不上了」。
+  /// 用户反馈：软件保持了登录状态，但实际上已经连不上了。
   /// 原因是 `isLogan` 一旦为 true 就不会因为会话过期而回落，
-  /// 于是界面上一直显示「已登录」，可点进去什么都刷不出来，也没有任何提示。
+  /// 于是界面上一直显示已登录，可点进去什么都刷不出来，也没有任何提示。
   ///
   /// 所以刷新时如果碰到认证/会话类错误，就把这个标记打开，让界面**如实**显示
-  /// 「登录已失效 · 点这里重新登录」；下次登录成功或刷新成功会自动清掉。
+  /// 登录已失效 · 点这里重新登录；下次登录成功或刷新成功会自动清掉。
   bool sessionInvalid = false;
 
   DateTime lastUpdateTimeGrade = DateTime.parse("20010101");
@@ -57,7 +57,7 @@ class Scholar {
   /// ===== MOD: 不要用 `username!` =====
   ///
   /// 原来写的是 `!username!.startsWith('3')`。用户反馈过一种状态：
-  /// **更新后「显示已登录但没有学号」** —— 此时 `username == null`，
+  /// **更新后显示已登录但没有学号**， 此时 `username == null`，
   /// 而这个 getter 会在 build 里被调用（`scholar_view.dart` 的学业页），
   /// 于是抛 `Null check operator used on a null value`：整页空白，
   /// 而且刷新心跳每 20 秒重建一次 → **每 20 秒崩一次**（线上抓到的日志就是这样）。
@@ -178,16 +178,16 @@ class Scholar {
     _spider!.db = _db;
     var loginErrorMessage = await _spider!.login();
     // ===== MOD: 判据只看统一身份认证 =====
-    // 原来是「6 项全为 null 才算登录成功」，任何一个子站抽风都会让人登不进来
+    // 原来是6 项全为 null 才算登录成功，任何一个子站抽风都会让人登不进来
     // （实测：教务网故障导致首次登录直接失败，而身份认证其实已经通过）。
-    // 现在身份通过即算登录成功，子站失败降级为「部分模块暂不可用」，见 LoginCriteria。
+    // 现在身份通过即算登录成功，子站失败降级为部分模块暂不可用，见 LoginCriteria。
     if (LoginCriteria.succeeded(loginErrorMessage)) {
       isLogan = true;
       _db?.setScholar(this);
       // 另存一份账号密码：退出登录时 removeScholar 会把 setScholar 存的那份删掉，
-      // 这份留着给登录页预填（用户要求「主动退出后依然能预填」）。
+      // 这份留着给登录页预填（用户要求主动退出后依然能预填）。
       _db?.rememberAccount(username ?? '', password ?? '');
-      // 这次是真连上了，清掉「登录已失效」标记
+      // 这次是真连上了，清掉登录已失效标记
       sessionInvalid = false;
     }
     return loginErrorMessage;
@@ -302,7 +302,7 @@ class Scholar {
         }
       }
 
-      // 起始状态：全部「进行中」（覆盖登录阶段，此时尚无任何任务完成回调）
+      // 起始状态：全部进行中（覆盖登录阶段，此时尚无任何任务完成回调）
       if (onFetchStatus != null && fetchLabels.isNotEmpty) {
         onFetchStatus([
           for (var label in fetchLabels)
@@ -364,15 +364,15 @@ class Scholar {
             // 终态补发：最后完成的模块不会触发 onProgress，只能在这里定论
             emitStatuses(value.item2);
 
-            // ===== MOD: 如实记录「登录态是不是真的还能用」=====
+            // ===== MOD: 如实记录登录态是不是真的还能用=====
             //
             // ⚠️ 判据**必须保守**。第一版扫的是模块错误里的"未登录 / cas / 401"，
-            // 结果设置页老是误报「登录已失效」，而用户其实好好的 —— 因为
+            // 结果设置页老是误报登录已失效，而用户其实好好的， 因为
             // 各子站有**自己的**会话（`学在浙大：未登录`、`智慧研工未登录或会话已失效`），
             // 那些是设计上就容忍的降级（`isDegradedRefreshText` 专门标记它们）。
             //
             // 现在只认两件事：
-            //   ① 统一身份认证（CAS）这一路失败 —— 身份本身出了问题；
+            //   ① 统一身份认证（CAS）这一路失败， 身份本身出了问题；
             //   ② 措辞明确的凭据/会话失效（见 LoginCriteria）。
             final ssoMessage = value.item1.length > LoginCriteria.ssoIndex
                 ? value.item1[LoginCriteria.ssoIndex]
@@ -516,9 +516,9 @@ class Scholar {
       majorGpaAndCredit = tempMajorGpaAndCredit;
     }
     if (errorResult[2] == false && tempSemesters.isNotEmpty) {
-      // 教务的课表接口会「成功但返回空」——选课/排课期间相当常见（实测 2026-09-13
+      // 教务的课表接口会成功但返回空，选课/排课期间相当常见（实测 2026-09-13
       // 一次刷新里 8 个学期查询全部返回 0 行）。这属于**没拿到新数据**，不能拿空课表
-      // 覆盖已有的课程安排，否则就会出现「上午还有课、刷新一下课表全没了」。
+      // 覆盖已有的课程安排，否则就会出现上午还有课、刷新一下课表全没了。
       final carried = carryOverTimetablesFrom(tempSemesters, semesters);
       for (final name in carried) {
         DiagnosticLogService.instance.record(

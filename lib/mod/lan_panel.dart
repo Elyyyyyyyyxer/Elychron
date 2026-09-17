@@ -310,7 +310,7 @@ const String lanPanelHtml = r'''<!DOCTYPE html>
   }
   .sheet h2 { margin: 0 0 4px; font-size: 20px; font-weight: 700; letter-spacing: -.02em; }
   .sheet .sheet-sub { font-size: 13px; color: var(--text-2); margin: 0 0 18px; }
-  /* 表单很长时「保存」不能藏在滚动底部：动作条钉在弹层底部 */
+  /* 表单很长时保存不能藏在滚动底部：动作条钉在弹层底部 */
   .sheet .actions {
     position: sticky; bottom: -22px; z-index: 1;
     display: flex; justify-content: flex-end; gap: 8px;
@@ -418,7 +418,7 @@ const String lanPanelHtml = r'''<!DOCTYPE html>
 <div id="pair" class="overlay">
   <div class="sheet">
     <h2>配对这台电脑</h2>
-    <p>配对码显示在手机「局域网同步」页面上，输一次就会记住。</p>
+    <p>配对码显示在手机局域网同步页面上，输一次就会记住。</p>
     <input id="codeInput" type="text" inputmode="numeric" maxlength="6" placeholder="000000" autocomplete="off" aria-label="六位配对码">
     <div id="pairErr" class="hint" style="color:var(--danger-text); min-height:18px; margin-top:8px;"></div>
     <button class="primary" onclick="pair()">连接手机</button>
@@ -635,7 +635,7 @@ function scheduleBrowserReminders() {
   var nowMs = Date.now();
   var lead = leadMinutes();
   var added = 0;
-  // 先算出「应该有哪些提醒」，再和已经排好的对照：
+  // 先算出应该有哪些提醒，再和已经排好的对照：
   // 新增的排上，删掉 / 改过时间的清掉。这样重复调用（每 30 秒刷新一次）不会重复弹。
   var plan = [];
   (bundle.tasks || []).forEach(function (t) {
@@ -644,7 +644,7 @@ function scheduleBrowserReminders() {
     if (t.reminderEnabled && t.reminderTime) {
       plan.push({ key: 'task|' + t.uid + '|' + t.reminderTime, at: stampMs(t.reminderTime), body: t.summary || '有一项待办' });
     }
-    // 子待办：与手机端一致 —— 时刻 − 提前量；这一步单独设过提前量就用它的。
+    // 子待办：与手机端一致， 时刻 − 提前量；这一步单独设过提前量就用它的。
     (t.subtasks || []).forEach(function (sub, index) {
       var when = subReminderTime(sub, lead);
       if (!when) return;
@@ -722,7 +722,7 @@ function newUid(prefix) {
 }
 
 // ===== 子待办：语义与手机端 model/task.dart 的 SubTask 一致 =====
-// 默认提前量优先读 bundle.settings.reminderLeadMinutes（手机上「默认提醒提前量」），
+// 默认提前量优先读 bundle.settings.reminderLeadMinutes（手机上默认提醒提前量），
 // 读不到就退回 30 分钟（与 App 默认值相同）。
 var DEFAULT_LEAD_MINUTES = 30;
 function leadMinutes() {
@@ -911,7 +911,7 @@ function push(summary) {
     (edited.tasks || []).forEach(function (t) { byUid[t.uid] = t; });
     (fresh.tasks || []).forEach(function (t, i) {
       var local = byUid[t.uid];
-      // 比的是「时刻」而不是字符串：老数据里混着 'Z' 结尾（UTC）与本地格式两种
+      // 比的是时刻而不是字符串：老数据里混着 'Z' 结尾（UTC）与本地格式两种
       // 时间戳，直接比字符串会把刚改的判成旧的，然后把网页编辑丢掉。
       if (local && stampMs(local.updatedAt) >= stampMs(t.updatedAt)) {
         fresh.tasks[i] = local;
@@ -939,7 +939,7 @@ function findTask(uid) {
   return null;
 }
 var editingUid = null;
-// 编辑器里的子待办草稿：先复制一份，改字段只动草稿，点「保存修改」才写回任务。
+// 编辑器里的子待办草稿：先复制一份，改字段只动草稿，点保存修改才写回任务。
 // 只要用户没改过的字段就原样保留（uid / 描述 / 优先级 / 附件都不会丢）。
 var editingSubtasks = [];
 function deepCopy(value) { return JSON.parse(JSON.stringify(value)); }
@@ -969,8 +969,8 @@ function openEditor(uid) {
 function closeEditor() { editingUid = null; editingSubtasks = []; document.getElementById('editor').classList.add('hidden'); }
 
 // ----------------------------------------------------- 子待办字段编辑
-// 每一行都是完整的「一步」：勾选 = done，标题，开始 / 结束时间，提前提醒分钟数。
-// 时间留空 = 手机端说的「清单型」步骤（不单独提醒）；提前量留空 = 用默认提前量。
+// 每一行都是完整的一步：勾选 = done，标题，开始 / 结束时间，提前提醒分钟数。
+// 时间留空 = 手机端说的清单型步骤（不单独提醒）；提前量留空 = 用默认提前量。
 function subRowHint(sub) {
   var lead = leadMinutes();
   var hint = subHasTime(sub)
@@ -985,7 +985,7 @@ function subRowHint(sub) {
 function renderSubtasksEditor() {
   var host = document.getElementById('editSubtasks');
   if (!editingSubtasks.length) {
-    host.innerHTML = '<div class="empty">还没有步骤。点下面的「+ 添加步骤」加一条。</div>';
+    host.innerHTML = '<div class="empty">还没有步骤。点下面的+ 添加步骤加一条。</div>';
     return;
   }
   host.innerHTML = editingSubtasks.map(function (sub, index) {
@@ -1122,7 +1122,7 @@ function toggleDone(uid, checked) {
 }
 function removeTask(uid) {
   var t = findTask(uid);
-  if (!t || !confirm('删除「' + (t.summary || '') + '」？')) { render(); return; }
+  if (!t || !confirm('删除' + (t.summary || '') + '？')) { render(); return; }
   t.status = 'deleted';
   t.updatedAt = isoLocal(new Date());
   push('已删除');
@@ -1150,7 +1150,7 @@ function addTask() {
   document.getElementById('newDescription').value = '';
   document.getElementById('newReminder').value = '';
   document.getElementById('newReminderEnabled').checked = false;
-  push('已新建「' + title + '」');
+  push('已新建' + title + '');
 }
 function downloadBundle() {
   if (!bundle) return;

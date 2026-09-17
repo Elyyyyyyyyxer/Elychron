@@ -5,20 +5,20 @@ import 'package:celechron/model/period.dart';
 import 'package:celechron/model/upcoming.dart';
 import 'package:flutter/cupertino.dart';
 
-/// 「接下来」视图：最近的一条大字号，后面几条小字。
+/// 接下来视图：最近的一条大字号，后面几条小字。
 ///
 /// 排序逻辑全在 `model/upcoming.dart`（有单测），这里只负责画。
 /// 卡片统一用应用里的 [RoundRectangleCard]，与日程/待办页保持同一套观感。
 ///
 /// **同时有好几件在进行中时**（上课 + 组会撞在一起是真实场景）：顶层只放一张
-/// 大卡，其余的折叠成一叠小卡排在它下面，并写明「同时还有 N 个进行中」。
+/// 大卡，其余的折叠成一叠小卡排在它下面，并写明同时还有 N 个进行中。
 /// 默认顶层是**课程**（见 [defaultTopRunningIndex]）；点折叠里的任意一条
-/// 可以把它换到顶层 —— 换上去以后原来那张会落回折叠堆里，所以点错了能点回来。
+/// 可以把它换到顶层， 换上去以后原来那张会落回折叠堆里，所以点错了能点回来。
 class UpcomingView extends StatefulWidget {
   /// 已经排好序的条目（见 `buildUpcoming`）
   final List<UpcomingItem> items;
 
-  /// 点「去添加待办」时回调（空状态用）
+  /// 点去添加待办时回调（空状态用）
   final VoidCallback? onAddTask;
 
   const UpcomingView({
@@ -43,9 +43,9 @@ class _UpcomingViewState extends State<UpcomingView> {
     super.didUpdateWidget(oldWidget);
     // 被置顶的那条**不再进行中**（课上完了 / 待办被删）→ 忘掉它。
     //
-    // 必须按「还在不在进行中」而不是「还在不在列表里」判断：课程/日程的 uid
+    // 必须按还在不在进行中而不是还在不在列表里判断：课程/日程的 uid
     // 是一整套复用的（同一门课每天都是同一个 uid），所以那条会一直在 7 天窗口里，
-    // 按「在不在列表里」判断的话，置顶会一直留到下次它开课 —— 好几天后
+    // 按在不在列表里判断的话，置顶会一直留到下次它开课， 好几天后
     // 莫名其妙又冒到顶层去。
     final key = _pinnedKey;
     if (key == null) return;
@@ -64,8 +64,7 @@ class _UpcomingViewState extends State<UpcomingView> {
       padding: const EdgeInsets.fromLTRB(14, 6, 14, 110),
       children: [
         _headCard(context, layout.head, now),
-        if (layout.otherRunning.isNotEmpty)
-          _runningStack(context, layout),
+        if (layout.otherRunning.isNotEmpty) _runningStack(context, layout),
         if (layout.later.isNotEmpty) ...[
           const SizedBox(height: 18),
           Padding(
@@ -86,18 +85,18 @@ class _UpcomingViewState extends State<UpcomingView> {
     );
   }
 
-  // -------------------------------------------------- 折叠起来的「其它进行中」
+  // -------------------------------------------------- 折叠起来的其它进行中
 
   /// 除顶层之外的进行中条目：像**一叠卡**那样，在顶层卡下面露出几层边。
   ///
   /// 这是第 3 版，前两版都不好看，原因记在这里免得又绕回去：
-  /// - 第 1 版：每条并排列出 —— 那压根不是"一叠"；
-  /// - 第 2 版：几条留缝、各带一圈向上阴影的圆角条 —— 看着像"几条 UI 线条"。
+  /// - 第 1 版：每条并排列出， 那压根不是"一叠"；
+  /// - 第 2 版：几条留缝、各带一圈向上阴影的圆角条， 看着像"几条 UI 线条"。
   ///   根因是**留缝**破坏了"一件物体"的整体感，而且每层长得一模一样读不出深度；
   ///   给每条描一圈边只会更像控件。
   /// - 现在（照着纸的物理线索来）：
   ///   1. **不留缝**：第一层直接贴着顶层卡，让卡自己的投影落在它身上；
-  ///   2. 每层**与卡片同色、不描边**，只在**自己的上沿**有一道由深到无的渐变 ——
+  ///   2. 每层**与卡片同色、不描边**，只在**自己的上沿**有一道由深到无的渐变，
   ///      那正是"上面那张压下来的影子"，比描边像纸得多；
   ///   3. 越深越窄（≈均匀缩小 5px/层），最下面那张补一道落地下阴影；
   ///   4. 层高随层数递减，**整叠总高有上限**，堆六条也不会把当天列表顶下去。
@@ -146,8 +145,8 @@ class _UpcomingViewState extends State<UpcomingView> {
     return Container(
       height: height,
       // 均匀缩小：每深一层往里收 5px（最多 20px），读起来才像同一叠纸
-      margin:
-          EdgeInsets.symmetric(horizontal: (5.0 * (level + 1)).clamp(0.0, 20.0)),
+      margin: EdgeInsets.symmetric(
+          horizontal: (5.0 * (level + 1)).clamp(0.0, 20.0)),
       decoration: BoxDecoration(
         // 底角圆、上边被上面那张盖着
         borderRadius: BorderRadius.vertical(
@@ -179,7 +178,7 @@ class _UpcomingViewState extends State<UpcomingView> {
 
   /// 点那叠卡边：列出全部进行中的条目，选一条置顶。
   ///
-  /// 顶层那张大卡本身**不**走这里 —— 点它是"看这条的信息"（用户明确要求）。
+  /// 顶层那张大卡本身**不**走这里， 点它是"看这条的信息"（用户明确要求）。
   Future<void> _openRunningPicker(UpcomingLayout layout) async {
     final picked = await showCupertinoModalPopup<UpcomingItem>(
       context: context,
@@ -195,11 +194,10 @@ class _UpcomingViewState extends State<UpcomingView> {
   // -------------------------------------------------------------- 空状态
 
   Widget _empty(BuildContext context) {
-    final labelColor = CupertinoDynamicColor.resolve(
-        CupertinoColors.secondaryLabel, context);
-    final textColor =
-        CupertinoTheme.of(context).textTheme.textStyle.color ??
-            CupertinoColors.label;
+    final labelColor =
+        CupertinoDynamicColor.resolve(CupertinoColors.secondaryLabel, context);
+    final textColor = CupertinoTheme.of(context).textTheme.textStyle.color ??
+        CupertinoColors.label;
     return Center(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -209,8 +207,7 @@ class _UpcomingViewState extends State<UpcomingView> {
             const Text('🎉', style: TextStyle(fontSize: 46)),
             const SizedBox(height: 12),
             RoundRectangleCard(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 20, vertical: 22),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 22),
               child: Column(
                 children: [
                   Text(
@@ -235,8 +232,8 @@ class _UpcomingViewState extends State<UpcomingView> {
                       color: CupertinoDynamicColor.resolve(
                           CupertinoColors.tertiarySystemFill, context),
                       onPressed: widget.onAddTask,
-                      child: const Text('去添加待办',
-                          style: TextStyle(fontSize: 14)),
+                      child:
+                          const Text('去添加待办', style: TextStyle(fontSize: 14)),
                     ),
                   ],
                 ],
@@ -251,11 +248,10 @@ class _UpcomingViewState extends State<UpcomingView> {
   // ---------------------------------------------------------- 大字那一条
 
   Widget _headCard(BuildContext context, UpcomingItem item, DateTime now) {
-    final labelColor = CupertinoDynamicColor.resolve(
-        CupertinoColors.secondaryLabel, context);
-    final textColor =
-        CupertinoTheme.of(context).textTheme.textStyle.color ??
-            CupertinoColors.label;
+    final labelColor =
+        CupertinoDynamicColor.resolve(CupertinoColors.secondaryLabel, context);
+    final textColor = CupertinoTheme.of(context).textTheme.textStyle.color ??
+        CupertinoColors.label;
     final running = item.isRunningAt(now);
     final accent = running ? CupertinoColors.systemGreen : _accentOf(item.kind);
 
@@ -296,8 +292,7 @@ class _UpcomingViewState extends State<UpcomingView> {
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
-                        color:
-                            running ? CupertinoColors.systemGreen : accent,
+                        color: running ? CupertinoColors.systemGreen : accent,
                       ),
                     ),
                     const Spacer(),
@@ -373,11 +368,10 @@ class _UpcomingViewState extends State<UpcomingView> {
   // -------------------------------------------------------------- 小字行
 
   Widget _row(BuildContext context, UpcomingItem item, DateTime now) {
-    final labelColor = CupertinoDynamicColor.resolve(
-        CupertinoColors.secondaryLabel, context);
-    final textColor =
-        CupertinoTheme.of(context).textTheme.textStyle.color ??
-            CupertinoColors.label;
+    final labelColor =
+        CupertinoDynamicColor.resolve(CupertinoColors.secondaryLabel, context);
+    final textColor = CupertinoTheme.of(context).textTheme.textStyle.color ??
+        CupertinoColors.label;
     final accent = _accentOf(item.kind);
 
     return Padding(
@@ -455,8 +449,8 @@ class _UpcomingViewState extends State<UpcomingView> {
   /// 待办 → 详情页；课程/考试/日程 → 一张信息卡。
   ///
   /// 这里原来用的是 `CupertinoActionSheet`：message 堆时间/地点/教师，actions 里塞了
-  /// **一条显示日期关系的项**（`chineseDayRelation`）——那行既与上面重复，算出来还可能是
-  /// 空串，于是用户看到一块「莫名其妙的空白选项」，风格也和 App 其它弹层不一致。
+  /// **一条显示日期关系的项**（`chineseDayRelation`），那行既与上面重复，算出来还可能是
+  /// 空串，于是用户看到一块莫名其妙的空白选项，风格也和 App 其它弹层不一致。
   /// 现在改成与标签选择器、闹钟配色同一套观感：圆角顶、信息行带图标、粉色主按钮。
   static void _open(BuildContext context, UpcomingItem item) {
     final task = item.task;
@@ -481,11 +475,10 @@ class _PeriodSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final labelColor = CupertinoDynamicColor.resolve(
-        CupertinoColors.secondaryLabel, context);
-    final textColor =
-        CupertinoTheme.of(context).textTheme.textStyle.color ??
-            CupertinoColors.label;
+    final labelColor =
+        CupertinoDynamicColor.resolve(CupertinoColors.secondaryLabel, context);
+    final textColor = CupertinoTheme.of(context).textTheme.textStyle.color ??
+        CupertinoColors.label;
     final description = period.description.trim();
 
     return Container(
@@ -532,8 +525,8 @@ class _PeriodSheet extends StatelessWidget {
                   borderRadius: BorderRadius.circular(22),
                   onPressed: () => Navigator.of(context).pop(),
                   child: const Text('知道了',
-                      style:
-                          TextStyle(color: CupertinoColors.white, fontSize: 16)),
+                      style: TextStyle(
+                          color: CupertinoColors.white, fontSize: 16)),
                 ),
               ),
             ],
@@ -543,7 +536,7 @@ class _PeriodSheet extends StatelessWidget {
     );
   }
 
-  /// 一行「图标 + 文字」，与「接下来」卡片里的信息行同一套写法
+  /// 一行图标 + 文字，与接下来卡片里的信息行同一套写法
   Widget _line(
     IconData icon,
     String text,
@@ -572,7 +565,7 @@ class _PeriodSheet extends StatelessWidget {
   }
 }
 
-/// 点「那叠卡边」弹出来的列表：正在进行中的**全部**条目，选一条放到顶层。
+/// 点那叠卡边弹出来的列表：正在进行中的**全部**条目，选一条放到顶层。
 ///
 /// 顶层那张会标一个勾，点它就等于不改。观感与 [_PeriodSheet] 一致
 /// （圆角顶、系统背景、行间发丝线）。
@@ -590,13 +583,12 @@ class _RunningPickerSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final labelColor = CupertinoDynamicColor.resolve(
-        CupertinoColors.secondaryLabel, context);
-    final textColor =
-        CupertinoTheme.of(context).textTheme.textStyle.color ??
-            CupertinoColors.label;
-    final line = CupertinoDynamicColor.resolve(
-        CupertinoColors.separator, context);
+    final labelColor =
+        CupertinoDynamicColor.resolve(CupertinoColors.secondaryLabel, context);
+    final textColor = CupertinoTheme.of(context).textTheme.textStyle.color ??
+        CupertinoColors.label;
+    final line =
+        CupertinoDynamicColor.resolve(CupertinoColors.separator, context);
 
     return Container(
       decoration: BoxDecoration(
@@ -634,7 +626,10 @@ class _RunningPickerSheet extends StatelessWidget {
             const SizedBox(height: 8),
             for (var i = 0; i < running.length; i++) ...[
               if (i > 0)
-                Container(height: 0.5, margin: const EdgeInsets.only(left: 52), color: line),
+                Container(
+                    height: 0.5,
+                    margin: const EdgeInsets.only(left: 52),
+                    color: line),
               _row(context, running[i], textColor, labelColor),
             ],
             Padding(
@@ -713,8 +708,7 @@ class _RunningPickerSheet extends StatelessWidget {
             ),
           ),
           if (isTop) ...[
-            Text('当前',
-                style: TextStyle(fontSize: 12, color: labelColor)),
+            Text('当前', style: TextStyle(fontSize: 12, color: labelColor)),
             const SizedBox(width: 6),
             const Icon(CupertinoIcons.checkmark_alt,
                 size: 16, color: CupertinoColors.systemGreen),

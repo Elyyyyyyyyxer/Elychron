@@ -7,21 +7,21 @@ import 'package:celechron/services/diagnostic_report.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:get/get.dart';
 
-/// ===== 「登录与接口连通性」面板（2026-09-17）=====
+/// ===== 登录与接口连通性面板（2026-09-17）=====
 ///
-/// 用户要求：「应该提供一个**长按登录**可以查看**哪些网页链接成功**的功能」。
+/// 用户要求：应该提供一个**长按登录**可以查看**哪些网页链接成功**的功能。
 ///
 /// 现状的问题：出问题时（登录不上、课表刷不出来、成绩不更新）用户只能去
-/// 「设置 → 诊断与测试」逐条翻日志 —— 那一页是给维护者看的（易读报告 + 原始日志），
+/// 设置 → 诊断与测试逐条翻日志， 那一页是给维护者看的（易读报告 + 原始日志），
 /// 对普通用户信息过载。这里把用户最想问的那一句单独做出来：
 ///
 ///   **那几条接口到底通没通**（校历 / 课表 / 考试 / 成绩 / 主修 / 作业 / 素质拓展），
 ///   每条一句话 + 什么时候查的；没通的单独列出来。
 ///
 /// 数据直接复用现成的诊断日志（[DiagnosticLogService]），**不额外发请求**；
-/// 想看最新的就点「重新检查」，它才会真的跑一次刷新。
+/// 想看最新的就点重新检查，它才会真的跑一次刷新。
 ///
-/// 入口：设置页「已登录 / 登录已失效」那一行**长按**（见 option_view.dart），
+/// 入口：设置页已登录 / 登录已失效那一行**长按**（见 option_view.dart），
 /// 以及登录页的登录按钮长按。
 Future<void> showLoginConnectivityPanel(BuildContext context) async {
   final report = await _latestReport();
@@ -35,7 +35,7 @@ Future<void> showLoginConnectivityPanel(BuildContext context) async {
     context: context,
     title: '登录与接口连通性',
     subtitle: report == null
-        ? '还没有刷新记录 —— 点下面的「重新检查」跑一次'
+        ? '还没有刷新记录， 点下面的重新检查跑一次'
         : '最近一次刷新：${_timeText(report.startedAtUtc)}'
             '（${_originText(report.origin)}）',
     children: [
@@ -50,30 +50,30 @@ Future<void> showLoginConnectivityPanel(BuildContext context) async {
           ok: module.state == DiagnosticModuleState.liveSuccess,
         ),
       // ===== 被限流要说清楚（2026-09-17）=====
-      // 用户问「为什么校历和课表总是难以连接上」，答案八成就在这一行：
+      // 用户问为什么校历和课表总是难以连接上，答案八成就在这一行：
       // 教务反爬返回 HTTP 921（自定义码），不是 App 坏了、也不是网络断了。
-      // 以前面板只会显示"走缓存"，看不出原因 —— 现在直接点名。
+      // 以前面板只会显示"走缓存"，看不出原因， 现在直接点名。
       if (report != null && _rateLimitedCount(report) > 0)
         DingTalkPanelNote(
-            '这次有 ${_rateLimitedCount(report)} 个请求被**教务限流**（HTTP 921）——'
+            '这次有 ${_rateLimitedCount(report)} 个请求被**教务限流**（HTTP 921），'
             '学校那边让你慢一点，不是 App 坏了。过几分钟、或者换个网络再试一次就好；'
             '这段时间里课表/成绩会显示上次存下来的数据。'),
-      // 校历现在多数时候用的是**随包内置**那一份（一周才去试一次远程）——
+      // 校历现在多数时候用的是**随包内置**那一份（一周才去试一次远程），
       // 不说明的话，用户看到"校历 走缓存"会以为又失败了。
       if (_usesBundledCalendar())
         const DingTalkPanelNote('校历用的是**随包内置**的那一份（离线可用，首次安装就有）。'
             '它一周才会去试一次联网更新：连上了就比对差异、按新的来；连不上也不影响使用。'),
       // 没通的单独说清楚：这是用户最想知道的
       if (failures.isNotEmpty)
-        DingTalkPanelNote('没连上的：${failures.map((m) => m.name).join('、')} —— '
+        DingTalkPanelNote('没连上的：${failures.map((m) => m.name).join('、')}， '
             '多半是学校服务器暂时连不上（教务经常返回 HTTP 921 限流），过一会儿再试。'),
       if (degraded.isNotEmpty)
-        DingTalkPanelNote('走缓存的：${degraded.map((m) => m.name).join('、')} —— '
+        DingTalkPanelNote('走缓存的：${degraded.map((m) => m.name).join('、')}， '
             '这次没连上，但本地有上次的数据，所以还能看。'),
-      const DingTalkPanelNote('口径：「实时成功」= 这次真的连上了学校服务器；'
-          '「走缓存」= 没连上但用的是上次存下来的数据；'
-          '「未参与」= 这次没查它（例如没登录）。'),
-      const DingTalkPanelNote('想看每一条请求的网址和返回码，去「设置 → 测试日志」。'),
+      const DingTalkPanelNote('口径：实时成功= 这次真的连上了学校服务器；'
+          '走缓存= 没连上但用的是上次存下来的数据；'
+          '未参与= 这次没查它（例如没登录）。'),
+      const DingTalkPanelNote('想看每一条请求的网址和返回码，去设置 → 测试日志。'),
     ],
     secondaryActions: [
       DingTalkPanelAction(
@@ -103,7 +103,7 @@ Future<void> showLoginConnectivityPanel(BuildContext context) async {
   );
 }
 
-/// 跑一次真实刷新（「重新检查」用）
+/// 跑一次真实刷新（重新检查用）
 Future<void> _runRefresh(BuildContext context) async {
   if (!Get.isRegistered<ScholarController>()) return;
   try {

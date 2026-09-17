@@ -35,20 +35,19 @@ class CalendarPage extends StatelessWidget {
     return CupertinoPageScaffold(
       child: SafeArea(
         // ===== 整页当成一张卡片翻：顶栏 + 内容一起转 =====
-        // 只有「接下来 ⇄ 日历」换面才翻（faceKey 只在 toggleUpcoming 里变），
+        // 只有接下来 ⇄ 日历换面才翻（faceKey 只在 toggleUpcoming 里变），
         // 右上角切课表不换面，所以不会莫名其妙翻一下。
         child: Obx(
           () => CardFlipSwitcher(
             flipKey: _calendarController.cardFace.value,
             face: _calendarController.viewMode.value,
-            // 每一面都由「面」这个参数算出来 —— 旧面不会跟着 controller 变
+            // 每一面都由面这个参数算出来， 旧面不会跟着 controller 变
             faceBuilder: (Object face) => Obx(
               () => Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _header(context, face as CalendarViewMode),
-                  Expanded(
-                      child: _body(context, face as CalendarViewMode)),
+                  Expanded(child: _body(context, face as CalendarViewMode)),
                 ],
               ),
             ),
@@ -58,88 +57,86 @@ class CalendarPage extends StatelessWidget {
     );
   }
 
-  /// 顶栏：标题 + 两侧按钮 + 居中的「接下来」翻转开关。
+  /// 顶栏：标题 + 两侧按钮 + 居中的接下来翻转开关。
   ///
-  /// 从 build() 里搬出来的（纯搬家，逻辑一行没改）—— 目的是让 build() 短到
-  /// 可以在外面安全地套一层「整页翻转」容器。
+  /// 从 build() 里搬出来的（纯搬家，逻辑一行没改）， 目的是让 build() 短到
+  /// 可以在外面安全地套一层整页翻转容器。
   Widget _header(BuildContext context, CalendarViewMode mode) {
     return Stack(
       alignment: Alignment.center,
-        children: [
-          SubtitleRow(
-        subtitle: switch (mode) {
-          // 「接下来」模式下别显示学期/月份那串信息，直接说这是什么页面
-          CalendarViewMode.upcoming => '接下来',
-          CalendarViewMode.calendar =>
-            '${_calendarController.focusedDay.value.year} 年 ${_calendarController.focusedDay.value.month} 月',
-          CalendarViewMode.schedule =>
-            _calendarController.getCurrentSemesterDisplayName(),
-        },
-        right: Row(
-          children: [
-            if (mode ==
-                CalendarViewMode.calendar) ...[
-              CupertinoButton(
-                padding: EdgeInsets.zero,
-                child: const Icon(
-                  CupertinoIcons.add_circled,
-                  semanticLabel: 'Add',
+      children: [
+        SubtitleRow(
+          subtitle: switch (mode) {
+            // 接下来模式下别显示学期/月份那串信息，直接说这是什么页面
+            CalendarViewMode.upcoming => '接下来',
+            CalendarViewMode.calendar =>
+              '${_calendarController.focusedDay.value.year} 年 ${_calendarController.focusedDay.value.month} 月',
+            CalendarViewMode.schedule =>
+              _calendarController.getCurrentSemesterDisplayName(),
+          },
+          right: Row(
+            children: [
+              if (mode == CalendarViewMode.calendar) ...[
+                CupertinoButton(
+                  padding: EdgeInsets.zero,
+                  child: const Icon(
+                    CupertinoIcons.add_circled,
+                    semanticLabel: 'Add',
+                  ),
+                  onPressed: () async {
+                    await newDeadline(
+                      context,
+                      time: DateTime(
+                        _calendarController.selectedDay.value.year,
+                        _calendarController.selectedDay.value.month,
+                        _calendarController.selectedDay.value.day,
+                        DateTime.now().hour,
+                        DateTime.now().minute,
+                      ),
+                    );
+                    _taskController.updateDeadlineList();
+                    _taskController.taskList.refresh();
+                  },
                 ),
-                onPressed: () async {
-                  await newDeadline(
-                    context,
-                    time: DateTime(
-                      _calendarController.selectedDay.value.year,
-                      _calendarController.selectedDay.value.month,
-                      _calendarController.selectedDay.value.day,
-                      DateTime.now().hour,
-                      DateTime.now().minute,
-                    ),
-                  );
-                  _taskController.updateDeadlineList();
-                  _taskController.taskList.refresh();
-                },
-              ),
+                CupertinoButton(
+                  padding: EdgeInsets.zero,
+                  child: Text('今天',
+                      style: TextStyle(
+                          fontSize: 18,
+                          color: CupertinoDynamicColor.resolve(
+                              CupertinoColors.systemBlue, context))),
+                  onPressed: () {
+                    _calendarController.focusedDay.value = DateTime.now();
+                    _calendarController.selectedDay.value = DateTime.now();
+                  },
+                ),
+              ],
               CupertinoButton(
                 padding: EdgeInsets.zero,
-                child: Text('今天',
-                    style: TextStyle(
-                        fontSize: 18,
-                        color: CupertinoDynamicColor.resolve(
-                            CupertinoColors.systemBlue, context))),
+                child: Icon(
+                  // 不在课表时：点它去看课表（列表图标）；
+                  // 已在课表时：点它回到进来之前的那个面（返回图标）。
+                  _calendarController.isScheduleMode
+                      ? CupertinoIcons.chevron_back
+                      : CupertinoIcons.list_bullet,
+                  semanticLabel:
+                      _calendarController.isScheduleMode ? '返回' : '查看课表',
+                ),
                 onPressed: () {
-                  _calendarController.focusedDay.value = DateTime.now();
-                  _calendarController.selectedDay.value =
-                      DateTime.now();
+                  _calendarController.toggleViewMode();
                 },
               ),
             ],
-            CupertinoButton(
-              padding: EdgeInsets.zero,
-              child: Icon(
-                // 不在课表时：点它去看课表（列表图标）；
-                // 已在课表时：点它回到进来之前的那个面（返回图标）。
-                _calendarController.isScheduleMode
-                    ? CupertinoIcons.chevron_back
-                    : CupertinoIcons.list_bullet,
-                semanticLabel:
-                    _calendarController.isScheduleMode ? '返回' : '查看课表',
-              ),
-              onPressed: () {
-                _calendarController.toggleViewMode();
-              },
-            ),
-          ],
+          ),
+          padHorizontal: 18,
         ),
-        padHorizontal: 18,
-      ),
-          // ===== 顶部居中的小空心圆：点它翻转「接下来」⇄ 日历 =====
-          // （空心态 = 正在看「接下来」；圆心有点 = 正在看日历，点回「接下来」）
-          //
-          // 课表模式下**不显示**它：那个圆只管「接下来 ⇄ 日历」这对翻转，
-          // 留在课表上既没用，又会压在标题文字上（「未开学 · 26-27秋冬 秋学期」这种长标题必撞）。
-          if (mode != CalendarViewMode.schedule)
-            Positioned(
+        // ===== 顶部居中的小空心圆：点它翻转接下来⇄ 日历 =====
+        // （空心态 = 正在看接下来；圆心有点 = 正在看日历，点回接下来）
+        //
+        // 课表模式下**不显示**它：那个圆只管接下来 ⇄ 日历这对翻转，
+        // 留在课表上既没用，又会压在标题文字上（未开学 · 26-27秋冬 秋学期这种长标题必撞）。
+        if (mode != CalendarViewMode.schedule)
+          Positioned(
             top: 0,
             bottom: 0,
             child: Center(
@@ -158,15 +155,13 @@ class CalendarPage extends StatelessWidget {
                         shape: BoxShape.circle,
                         border: Border.all(
                           width: 1.6,
-                          color: mode ==
-                                  CalendarViewMode.upcoming
+                          color: mode == CalendarViewMode.upcoming
                               ? AppAccent.primary
                               : CupertinoDynamicColor.resolve(
                                   CupertinoColors.secondaryLabel, context),
                         ),
                       ),
-                      child: mode ==
-                              CalendarViewMode.calendar
+                      child: mode == CalendarViewMode.calendar
                           ? Center(
                               child: Container(
                                 width: 7,
@@ -174,8 +169,7 @@ class CalendarPage extends StatelessWidget {
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
                                   color: CupertinoDynamicColor.resolve(
-                                      CupertinoColors.secondaryLabel,
-                                      context),
+                                      CupertinoColors.secondaryLabel, context),
                                 ),
                               ),
                             )
@@ -186,38 +180,37 @@ class CalendarPage extends StatelessWidget {
               ),
             ),
           ),
-        ],
+      ],
     );
   }
 
   /// 页面主体：课表 / 接下来 / 日历 三种视图之一（同样是从 build() 搬出来的）
   Widget _body(BuildContext context, CalendarViewMode mode) {
     final Widget body;
-          if (mode == CalendarViewMode.schedule) {
-            body = ScheduleView(controller: _calendarController);
-          } else if (mode == CalendarViewMode.upcoming) {
-            // ===== 「接下来」：最近的一条大字号 =====
-            body = UpcomingView(
-              items: _upcomingItems(),
-              onAddTask: () => newDeadline(context, time: DateTime.now()),
-            );
-          } else {
-            // ===== MOD ===== 「上滑收起日历」（用户要求：上滑折成一周，滑回顶部展开）
-            // 判定逻辑在 CalendarController.handleDayListScroll + lib/mod/calendar_fold.dart
-            // （纯逻辑有单测）。这里只是把当天那条列表的滚动通知接上去。
-            body = NotificationListener<ScrollNotification>(
-              onNotification: _calendarController.handleDayListScroll,
-              child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-              // ===== MOD ===== 横向翻页改成「划够一段才翻」
-              // 用户反馈：原来的内置滑动太灵敏，老划错、还会一口气翻好几个月。
-              // 判定见 lib/mod/calendar_paging.dart（阈值可调，有单测）。
-              ModSwipePager(
-                onShift: _calendarController.shiftFocused,
-                child: Padding(
-                padding: const EdgeInsets.only(
-                    bottom: 5, left: 12, right: 12),
+    if (mode == CalendarViewMode.schedule) {
+      body = ScheduleView(controller: _calendarController);
+    } else if (mode == CalendarViewMode.upcoming) {
+      // ===== 接下来：最近的一条大字号 =====
+      body = UpcomingView(
+        items: _upcomingItems(),
+        onAddTask: () => newDeadline(context, time: DateTime.now()),
+      );
+    } else {
+      // ===== MOD ===== 上滑收起日历（用户要求：上滑折成一周，滑回顶部展开）
+      // 判定逻辑在 CalendarController.handleDayListScroll + lib/mod/calendar_fold.dart
+      // （纯逻辑有单测）。这里只是把当天那条列表的滚动通知接上去。
+      body = NotificationListener<ScrollNotification>(
+        onNotification: _calendarController.handleDayListScroll,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ===== MOD ===== 横向翻页改成划够一段才翻
+            // 用户反馈：原来的内置滑动太灵敏，老划错、还会一口气翻好几个月。
+            // 判定见 lib/mod/calendar_paging.dart（阈值可调，有单测）。
+            ModSwipePager(
+              onShift: _calendarController.shiftFocused,
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 5, left: 12, right: 12),
                 child: TableCalendar(
                   locale: 'zh_CN',
                   firstDay: DateTime.utc(2022, 9, 1),
@@ -241,7 +234,7 @@ class CalendarPage extends StatelessWidget {
                     ][date.weekday],
                   ),
                   // ===== MOD ===== 关掉内置横向滑动（改由 ModSwipePager 带阈值接管）；
-                  // 竖向那条「整月 ⇄ 一周」保留，手势不变。
+                  // 竖向那条整月 ⇄ 一周保留，手势不变。
                   availableGestures: AvailableGestures.verticalSwipe,
                   availableCalendarFormats: const {
                     CalendarFormat.month: '显示整月',
@@ -253,8 +246,7 @@ class CalendarPage extends StatelessWidget {
                     return isSameDay(
                         _calendarController.selectedDay.value, day);
                   },
-                  calendarFormat:
-                      _calendarController.calendarFormat.value,
+                  calendarFormat: _calendarController.calendarFormat.value,
                   onPageChanged: (focusedDay) {
                     _calendarController.focusedDay.value = focusedDay;
                   },
@@ -275,8 +267,7 @@ class CalendarPage extends StatelessWidget {
                     markersMaxCount: 10,
                     selectedDecoration: BoxDecoration(
                       color: CupertinoDynamicColor.resolve(
-                          CupertinoColors.activeBlue
-                              .withValues(alpha: 0.5),
+                          CupertinoColors.activeBlue.withValues(alpha: 0.5),
                           context),
                       shape: BoxShape.circle,
                     ),
@@ -284,8 +275,7 @@ class CalendarPage extends StatelessWidget {
                         CupertinoTheme.of(context).textTheme.textStyle,
                     todayDecoration: BoxDecoration(
                       color: CupertinoDynamicColor.resolve(
-                          CupertinoColors.inactiveGray
-                              .withValues(alpha: 0.5),
+                          CupertinoColors.inactiveGray.withValues(alpha: 0.5),
                           context),
                       shape: BoxShape.circle,
                     ),
@@ -299,58 +289,54 @@ class CalendarPage extends StatelessWidget {
                   ),
                 ),
               ),
-              ),
-              // ===== MOD ===== 折叠／展开的小提示（无文字）
-              // 展开整月时是一条短横（"可以往上收"），折成一周时是 V 形（"可以拉下来"）。
-              // 点它也能折叠/展开 —— 只做提示的话用户多半会去点它却点不动。
-              _foldHint(context),
-              Obx(
-                () => SubSubtitleRow(
-                    padHorizontal: 24,
-                    subtitle: _calendarController.dayDescription(
-                        _calendarController.selectedDay.value
-                            .copyWith(isUtc: false)),
-                    right: _calendarController
-                            .scholar.value.specialDates
-                            .containsKey(_calendarController
-                                .selectedDay.value
-                                .copyWith(isUtc: false))
-                        ? Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                                border: Border.all(
-                                    color: CustomCupertinoDynamicColors
-                                        .okGreen.darkColor,
-                                    width: 1),
-                                borderRadius:
-                                    BorderRadius.circular(10)),
-                            child: Text(
-                              _calendarController
-                                      .scholar.value.specialDates[
-                                  _calendarController.selectedDay.value
-                                      .copyWith(isUtc: false)]!,
-                              style: TextStyle(
+            ),
+            // ===== MOD ===== 折叠／展开的小提示（无文字）
+            // 展开整月时是一条短横（"可以往上收"），折成一周时是 V 形（"可以拉下来"）。
+            // 点它也能折叠/展开， 只做提示的话用户多半会去点它却点不动。
+            _foldHint(context),
+            Obx(
+              () => SubSubtitleRow(
+                  padHorizontal: 24,
+                  subtitle: _calendarController.dayDescription(
+                      _calendarController.selectedDay.value
+                          .copyWith(isUtc: false)),
+                  right: _calendarController.scholar.value.specialDates
+                          .containsKey(_calendarController.selectedDay.value
+                              .copyWith(isUtc: false))
+                      ? Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                              border: Border.all(
                                   color: CustomCupertinoDynamicColors
                                       .okGreen.darkColor,
-                                  fontSize: 12),
-                            ),
-                          )
-                        : null),
-              ),
-              Expanded(
-                child: Obx(
-                  () => ListView(
-                    // ===== MOD ===== 当天列表永远可拖（内容不够长时也能上滑收起日历）
-                    physics: _dayListPhysics(context),
-                    children: _buildDayEntries(context),
-                  ),
+                                  width: 1),
+                              borderRadius: BorderRadius.circular(10)),
+                          child: Text(
+                            _calendarController.scholar.value.specialDates[
+                                _calendarController.selectedDay.value
+                                    .copyWith(isUtc: false)]!,
+                            style: TextStyle(
+                                color: CustomCupertinoDynamicColors
+                                    .okGreen.darkColor,
+                                fontSize: 12),
+                          ),
+                        )
+                      : null),
+            ),
+            Expanded(
+              child: Obx(
+                () => ListView(
+                  // ===== MOD ===== 当天列表永远可拖（内容不够长时也能上滑收起日历）
+                  physics: _dayListPhysics(context),
+                  children: _buildDayEntries(context),
                 ),
               ),
-            ],
-          ),
-            );
-          }
+            ),
+          ],
+        ),
+      );
+    }
     return body;
   }
 
@@ -358,7 +344,7 @@ class CalendarPage extends StatelessWidget {
   ///
   /// 展开整月 → 一条短横（意思是"能往上收"）；折成一周 → V 形（"能拉下来"）。
   ///
-  /// **整条都是判定区**（用户要求"判定区域增加"）：点、**上下滑**都能折叠／展开 ——
+  /// **整条都是判定区**（用户要求"判定区域增加"）：点、**上下滑**都能折叠／展开，
   /// 只做提示不可点/不可滑的话，用户多半会去点它、划它，却什么都没发生。
   /// 判定区做成一整条（左右到底、高 34），图形本身仍是很小的一点，不影响观感。
   ///
@@ -366,8 +352,8 @@ class CalendarPage extends StatelessWidget {
   Widget _foldHint(BuildContext context) {
     final collapsed =
         _calendarController.calendarFormat.value == CalendarFormat.week;
-    final color = CupertinoDynamicColor.resolve(
-        CupertinoColors.secondaryLabel, context);
+    final color =
+        CupertinoDynamicColor.resolve(CupertinoColors.secondaryLabel, context);
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: () => _calendarController.setCalendarFormat(
@@ -413,18 +399,17 @@ class CalendarPage extends StatelessWidget {
     );
   }
 
-  /// 当天列表的滚动物理：当前平台的物理 + 「永远可拖」。
+  /// 当天列表的滚动物理：当前平台的物理 + 永远可拖。
   ///
-  /// 为什么非要「永远可拖」：当天只有一两条时列表本来滚不动，
+  /// 为什么非要永远可拖：当天只有一两条时列表本来滚不动，
   /// 上滑收起日历这个手势就没有载体，手指划上去只会毫无反应。
   ///
   /// 用 `applyTo` 而不是直接写 `BouncingScrollPhysics`：本 App 是 CupertinoApp，
   /// 平台物理本来就是 BouncingScrollPhysics（macOS 还带快速减速），
-  /// 这样只在它外面多套一层「永远可拖」，回弹手感一点不变。
+  /// 这样只在它外面多套一层永远可拖，回弹手感一点不变。
   ScrollPhysics _dayListPhysics(BuildContext context) =>
       const AlwaysScrollableScrollPhysics()
           .applyTo(ScrollConfiguration.of(context).getScrollPhysics(context));
-
 
   Future<void> newDeadline(context, {required DateTime time}) async {
     Task? deadline = Task(
@@ -844,11 +829,11 @@ class CalendarPage extends StatelessWidget {
     );
   }
 
-  /// 「接下来」的条目：课程/考试/日程按开始时间、非备忘待办按提醒时间。
+  /// 接下来的条目：课程/考试/日程按开始时间、非备忘待办按提醒时间。
   /// 排序与过滤逻辑在 `model/upcoming.dart`（有单测），这里只负责把数据喂进去。
   List<UpcomingItem> _upcomingItems() {
     // 读一下心跳：让包住这一层的 Obx 每 20 秒重算一次。
-    // 否则「还有 N 分钟」会停在页面上次重建时的旧值（实测差过一刻钟）。
+    // 否则还有 N 分钟会停在页面上次重建时的旧值（实测差过一刻钟）。
     _calendarController.upcomingTick.value;
     return buildUpcoming(
       periods: _calendarController.scholar.value.periods,
@@ -856,6 +841,7 @@ class CalendarPage extends StatelessWidget {
       now: DateTime.now(),
     );
   }
+
   static Widget singleMarkerBuilder(context, day, Object event) {
     if (event is Task) {
       return Container(
@@ -901,7 +887,7 @@ class CalendarPage extends StatelessWidget {
   }
 }
 
-/// 折叠提示里的那个「V」：自绘的**扁** V（比 `CupertinoIcons.chevron_down` 更宽更浅）。
+/// 折叠提示里的那个V：自绘的**扁** V（比 `CupertinoIcons.chevron_down` 更宽更浅）。
 ///
 /// 用户点名"V 可以再扁一点"：图标在 14 号字下画出来的 V 又窄又高，看着像个尖，
 /// 而折叠提示想要的是一道"往下拉"的浅角。自绘可以精确控制宽高比与线宽。
@@ -917,8 +903,8 @@ class _FlatChevron extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = CupertinoDynamicColor.resolve(
-        CupertinoColors.secondaryLabel, context);
+    final color =
+        CupertinoDynamicColor.resolve(CupertinoColors.secondaryLabel, context);
     return CustomPaint(
       size: Size(width, height),
       painter: _FlatChevronPainter(color),

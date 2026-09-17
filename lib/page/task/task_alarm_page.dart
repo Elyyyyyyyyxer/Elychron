@@ -15,11 +15,11 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 
-/// 闹钟模式：全屏提醒，可以「延迟提醒」或「划掉」，铃声循环播放。
+/// 闹钟模式：全屏提醒，可以延迟提醒或划掉，铃声循环播放。
 class TaskAlarmPage extends StatefulWidget {
   final Task task;
 
-  /// 预览模式：不响铃、不震动，底部只显示「返回」
+  /// 预览模式：不响铃、不震动，底部只显示返回
   final bool preview;
 
   /// 预览时强制使用的配色 id
@@ -61,10 +61,10 @@ class _TaskAlarmPageState extends State<TaskAlarmPage> {
       });
       // ===== MOD ===== 别处把闹钟清掉时，这一页要自己关掉
       //
-      // 场景：用户在通知上点「划掉」（通知模式/闹钟模式都可能有）。
+      // 场景：用户在通知上点划掉（通知模式/闹钟模式都可能有）。
       // 那条路走的是 TaskReminder._onResponse → TaskAlarmCenter.clear()，
-      // 而这一页原来**不监听**中心，于是界面留在屏幕上、铃声一直响 ——
-      // 用户看到的就是「点了划掉没反应」。铃声是在 dispose 里停的，
+      // 而这一页原来**不监听**中心，于是界面留在屏幕上、铃声一直响，
+      // 用户看到的就是点了划掉没反应。铃声是在 dispose 里停的，
       // 所以这里只要把这一页 pop 掉就够了。
       TaskAlarmCenter.current.addListener(_onAlarmCenterChanged);
     }
@@ -77,7 +77,7 @@ class _TaskAlarmPageState extends State<TaskAlarmPage> {
 
   /// 只 pop 一次。
   ///
-  /// `_close()` 自己会 pop，而 `clear()` 又会让监听器再 pop 一次 ——
+  /// `_close()` 自己会 pop，而 `clear()` 又会让监听器再 pop 一次，
   /// 连着两次 maybePop 会把闹钟页**下面那一页**也弹掉。
   void _popOnce() {
     if (_popped || !mounted) return;
@@ -99,7 +99,7 @@ class _TaskAlarmPageState extends State<TaskAlarmPage> {
     if (_handled) return;
     _handled = true;
     await TaskReminder.snooze(widget.task, const Duration(minutes: 10));
-    // 提醒时间已经往后挪，立刻落盘 —— 这样即使马上被系统杀掉也不会再弹旧的
+    // 提醒时间已经往后挪，立刻落盘， 这样即使马上被系统杀掉也不会再弹旧的
     if (Get.isRegistered<TaskController>()) {
       await Get.find<TaskController>().saveDeadlineListToDb();
     }
@@ -155,8 +155,8 @@ class _TaskAlarmPageState extends State<TaskAlarmPage> {
                     // 毛玻璃卡片
                     //
                     // ===== MOD: 性能修复（闹钟页动画卡顿）=====
-                    // 原来「模糊层」把整块内容（含**每秒刷新的时钟文字**）包在里面，
-                    // 于是每秒钟都要重算一次 sigma=24 的大面积实时高斯模糊 —— 必然掉帧。
+                    // 原来模糊层把整块内容（含**每秒刷新的时钟文字**）包在里面，
+                    // 于是每秒钟都要重算一次 sigma=24 的大面积实时高斯模糊， 必然掉帧。
                     // 现在拆成兄弟节点：
                     //   ① 静态毛玻璃层 → RepaintBoundary 包住，只在需要时**光栅化一次**；
                     //   ② 内容层 → 时钟/标题等会变的部分放在上面，重绘代价很小。
@@ -317,7 +317,7 @@ class _TaskAlarmPageState extends State<TaskAlarmPage> {
 
   Widget _blob(Color color, double size) {
     // ===== MOD: 性能修复 =====
-    // 装饰用的光斑：sigma=40 的模糊很贵，而且它自己不会变 —— 包一层 RepaintBoundary，
+    // 装饰用的光斑：sigma=40 的模糊很贵，而且它自己不会变， 包一层 RepaintBoundary，
     // 让它在时钟每秒刷新 / 页面动画时**不被重新光栅化**。
     // 观感完全不变。
     return RepaintBoundary(

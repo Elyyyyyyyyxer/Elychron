@@ -17,7 +17,7 @@ class AlarmPlayer {
     }
   }
 
-  /// Android 14+ 是否已授予「全屏通知」权限（没有的话闹钟只弹通知、不弹全屏）
+  /// Android 14+ 是否已授予全屏通知权限（没有的话闹钟只弹通知、不弹全屏）
   static Future<bool> canUseFullScreenIntent() async {
     try {
       final value = await _channel.invokeMethod<bool>('canUseFullScreenIntent');
@@ -27,7 +27,7 @@ class AlarmPlayer {
     }
   }
 
-  /// 跳到系统的「全屏通知」授权页
+  /// 跳到系统的全屏通知授权页
   static Future<void> openFullScreenIntentSettings() async {
     try {
       await _channel.invokeMethod<void>('openFullScreenIntentSettings');
@@ -62,7 +62,7 @@ class AlarmPlayer {
     }
   }
 
-  /// 跳到系统里本应用「待办闹钟」渠道的设置页（用户可手动调回高重要度）
+  /// 跳到系统里本应用待办闹钟渠道的设置页（用户可手动调回高重要度）
   static Future<void> openAlarmChannelSettings() async {
     try {
       await _channel.invokeMethod<void>('openAlarmChannelSettings');

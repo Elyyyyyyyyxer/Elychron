@@ -7,9 +7,9 @@ import 'package:flutter/cupertino.dart';
 ///
 /// ## 为什么是 getter 而不是 `const`
 ///
-/// 这是刻意为「主题色设置」留的位置：将来在设置里换色，只需要调用
+/// 这是刻意为主题色设置留的位置：将来在设置里换色，只需要调用
 /// [configure]（或把 [primary] 接到设置项上），**调用点一行都不用改**。
-/// 用 `const` 常量就做不到这一点 —— 那种写法在切到运行时换色时，
+/// 用 `const` 常量就做不到这一点， 那种写法在切到运行时换色时，
 /// 每一处 `const` 上下文都会编译报错，等于要把 16 处再改一遍。
 ///
 /// 代价：不能再放进 `const` 表达式里（例如 `const TextStyle(color: AppAccent.primary)`
@@ -53,19 +53,14 @@ class AppAccent {
 
   /// 换主题色：只给主色，浅端/深端/文字色按 HSL 自动推出来。
   ///
-  /// **将来「主题色设置」就调这个**，然后让界面重建即可。
+  /// **将来主题色设置就调这个**，然后让界面重建即可。
   static void configure(Color primary) {
     _primary = primary;
     final hsl = HSLColor.fromColor(primary);
-    _light = hsl
-        .withLightness((hsl.lightness + 0.12).clamp(0.0, 1.0))
-        .toColor();
-    _deep = hsl
-        .withLightness((hsl.lightness - 0.16).clamp(0.0, 1.0))
-        .toColor();
-    _text = hsl
-        .withLightness((hsl.lightness - 0.24).clamp(0.0, 1.0))
-        .toColor();
+    _light =
+        hsl.withLightness((hsl.lightness + 0.12).clamp(0.0, 1.0)).toColor();
+    _deep = hsl.withLightness((hsl.lightness - 0.16).clamp(0.0, 1.0)).toColor();
+    _text = hsl.withLightness((hsl.lightness - 0.24).clamp(0.0, 1.0)).toColor();
   }
 
   /// 恢复默认（爱莉希雅粉）

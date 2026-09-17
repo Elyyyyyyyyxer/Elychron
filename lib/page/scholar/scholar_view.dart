@@ -93,24 +93,24 @@ Future<void> showRefreshResultDialog(
 
 /// 全局错误组件（由 main 里的 ErrorWidget.builder 使用）。
 ///
-/// ★ 这个类**绝对不能抛错**。它是在「build 已经出错」之后被调用的；一旦它自己
+/// ★ 这个类**绝对不能抛错**。它是在build 已经出错之后被调用的；一旦它自己
 /// 再抛错，就会变成：
 ///
 ///   build 出错 → 错误组件构建 → 又出错 → 错误组件构建 → …
 ///
-/// 的**无限循环**，把 Dart 主 isolate 烧死 —— 表现是界面彻底冻死 + 系统 ANR，
+/// 的**无限循环**，把 Dart 主 isolate 烧死， 表现是界面彻底冻死 + 系统 ANR，
 /// 而且因为每一轮都只是在做错误上报，日志里几乎看不到有效信息。
 ///
-/// 本项目曾真实踩中：原实现有两处必然抛错 ——
+/// 本项目曾真实踩中：原实现有两处必然抛错，
 ///   ① 字段初始化器 `Get.put(ScholarController())`：控制器已注册时会抛；
 ///   ② build 返回 `SliverList`：ErrorWidget 位于 Box 树中，
 ///      会抛 `RenderSliver cannot be child of RenderBox`。
-/// 于是「待办页某个 widget 首次构建出错」被放大成整机卡死。
+/// 于是待办页某个 widget 首次构建出错被放大成整机卡死。
 /// 全局错误日志：把构建错误**攒起来**，而不是画在页面上挡路。
 ///
 /// 以前 `ErrorWidget.builder` 直接画一大块提示，会盖住出错的地方（日程页顶栏的
 /// 按钮都被盖掉过）✗ 现在页面上只留一条很矮的提示，内容是这里攒下来的，
-/// 点开才看，也可以到「设置」里查 ✓
+/// 点开才看，也可以到设置里查 ✓
 class AppErrorLog {
   AppErrorLog._();
 
@@ -152,14 +152,14 @@ class AppErrorLog {
 
 /// 出错位置留下的**一小条**提示（高度固定很矮，不会盖住内容）。
 ///
-/// 点它看详情（含「重新获取数据」的动作，原来那个大卡片上的按钮挪到这里）。
+/// 点它看详情（含重新获取数据的动作，原来那个大卡片上的按钮挪到这里）。
 class _AppErrorChip extends StatelessWidget {
   const _AppErrorChip();
 
   @override
   Widget build(BuildContext context) {
-    final labelColor = CupertinoDynamicColor.resolve(
-        CupertinoColors.secondaryLabel, context);
+    final labelColor =
+        CupertinoDynamicColor.resolve(CupertinoColors.secondaryLabel, context);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 8),
       child: GestureDetector(
@@ -188,14 +188,16 @@ class _AppErrorChip extends StatelessWidget {
   }
 }
 
-/// 错误详情面板：列出攒下来的错误 + 「重新获取数据」+「清空」
+/// 错误详情面板：列出攒下来的错误 + 重新获取数据+清空
 Future<void> showAppErrorSheet(BuildContext context) {
   // ===== MOD: 换成全 App 统一的钉钉风格面板 =====
   final entries = AppErrorLog.entries;
   return showDingTalkPanel(
     context: context,
     title: '应用错误（${entries.length}）',
-    subtitle: entries.isEmpty ? null : '下面是最近 ${entries.length > 5 ? 5 : entries.length} 条',
+    subtitle: entries.isEmpty
+        ? null
+        : '下面是最近 ${entries.length > 5 ? 5 : entries.length} 条',
     children: [
       if (entries.isEmpty)
         const DingTalkPanelNote('暂时没有记录到的错误。')
@@ -253,7 +255,7 @@ class ScholarErrorHandler extends StatelessWidget {
 
   Widget _buildContent(BuildContext context) {
     // ★ 必须是**盒子组件**（不能返回 Sliver），而且必须**尽量不占地方**：
-    // 以前这里画一整块「获取数据时遇到问题」的卡片，会把出错位置整个盖住 ——
+    // 以前这里画一整块获取数据时遇到问题的卡片，会把出错位置整个盖住，
     // 日程页顶栏被盖掉之后按钮都点不到（用户反馈过）✗
     // 现在只放一条很矮的提示，详情点开才看；错误同时记进 AppErrorLog ✓
     AppErrorLog.record(errorDetails);
@@ -1187,7 +1189,7 @@ class ScholarPage extends StatelessWidget {
           }),
         ),
         // ===== MOD ===== 末尾垫出系统导航栏的高度
-        // 这个页面在「未登录 / 没数据」时会显示一句提示，那种情况同样需要垫，
+        // 这个页面在未登录 / 没数据时会显示一句提示，那种情况同样需要垫，
         // 否则提示语会被底部导航栏压住。
         SliverToBoxAdapter(
           child: SizedBox(

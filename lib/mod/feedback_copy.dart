@@ -4,14 +4,14 @@ import 'package:celechron/services/diagnostic_log_service.dart';
 import 'package:celechron/worker/fuse.dart';
 import 'package:flutter/services.dart';
 
-/// 一键生成「反馈信息」文本：机型 / 系统 / 版本 + 脱敏日志 + 反馈模板。
+/// 一键生成反馈信息文本：机型 / 系统 / 版本 + 脱敏日志 + 反馈模板。
 ///
 /// 为什么做这个：GitHub Issues 对普通学生门槛太高（要注册、要邮箱验证），
-/// 真实反馈多半发生在 QQ 群、论坛帖这类地方 —— 而那些地方没法自动附上日志，
+/// 真实反馈多半发生在 QQ 群、论坛帖这类地方， 而那些地方没法自动附上日志，
 /// 用户也说不清自己是什么机型、什么版本、什么系统。
 /// 把该问的信息一次性复制好，反馈质量会高得多，也省去来回追问。
 ///
-/// 日志取自 [DiagnosticLogService.recentText]，与「导出并分享」用的是同一份
+/// 日志取自 [DiagnosticLogService.recentText]，与导出并分享用的是同一份
 /// **已脱敏**内容（密码、Cookie、Session、票据、学号都会被隐藏）。
 class FeedbackCopy {
   FeedbackCopy._();
@@ -26,7 +26,8 @@ class FeedbackCopy {
     try {
       final info = await _channel.invokeMapMethod<String, Object?>('info');
       if (info != null) {
-        final name = '${info['manufacturer'] ?? ''} ${info['model'] ?? ''}'.trim();
+        final name =
+            '${info['manufacturer'] ?? ''} ${info['model'] ?? ''}'.trim();
         final release = info['release'] ?? '';
         final sdk = info['sdk'] ?? '';
         if (name.isNotEmpty) {

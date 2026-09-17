@@ -82,7 +82,7 @@ void main() {
     expect(winter.secondHalf, isTrue);
   });
 
-  test('半学期字段缺失时两边都算 —— 宁可显示，也不静默消失', () {
+  test('半学期字段缺失时两边都算， 宁可显示，也不静默消失', () {
     final session = parseEtaTimetable(etaPayload([entry(xxq: null)])).single;
     expect(session.firstHalf, isTrue);
     expect(session.secondHalf, isTrue);
@@ -113,7 +113,12 @@ void main() {
   });
 
   test('空课表与异常响应都返回空列表', () {
-    expect(parseEtaTimetable({'code': 0, 'data': {'kbList': {}}}), isEmpty);
+    expect(
+        parseEtaTimetable({
+          'code': 0,
+          'data': {'kbList': {}}
+        }),
+        isEmpty);
     expect(parseEtaTimetable({'code': 0, 'data': null}), isEmpty);
     expect(parseEtaTimetable({'code': 1, 'msg': 'error'}), isEmpty);
   });

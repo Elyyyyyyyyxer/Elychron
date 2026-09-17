@@ -131,7 +131,7 @@ class ScheduleView extends StatelessWidget {
             child: Obx(
               () {
                 // 开学前也把新学期课表显示出来，只是加一句提示；
-                // 完全没数据时才是真的「不在学期内」。
+                // 完全没数据时才是真的不在学期内。
                 final semester = controller.getDisplayedSemester();
                 if (semester == null) {
                   return Center(
@@ -179,8 +179,9 @@ class ScheduleView extends StatelessWidget {
 
   Widget _timetable(BuildContext context, Semester semester) {
     final isFirstHalf = controller.isFirstHalfSemester(semester);
-    final sessionsByDayOfWeek =
-        isFirstHalf ? semester.firstHalfTimetable : semester.secondHalfTimetable;
+    final sessionsByDayOfWeek = isFirstHalf
+        ? semester.firstHalfTimetable
+        : semester.secondHalfTimetable;
 
     return Row(
       children: [
@@ -204,72 +205,72 @@ class ScheduleView extends StatelessWidget {
                                   fontSize: 10,
                                 ),
                           ),
-                                    ),
-                                    const SizedBox(
-                                      height: 2,
-                                    ),
-                                    Text(
-                                      i.toString(),
-                                      style: CupertinoTheme.of(context)
-                                          .textTheme
-                                          .textStyle
-                                          .copyWith(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 14,
-                                          ),
-                                    ),
-                                  ],
-                                ),
+                        ),
+                        const SizedBox(
+                          height: 2,
+                        ),
+                        Text(
+                          i.toString(),
+                          style: CupertinoTheme.of(context)
+                              .textTheme
+                              .textStyle
+                              .copyWith(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
                               ),
-                            ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
-                    for (var i = 1; i <= 6; i++)
+                  ),
+                ),
+            ],
+          ),
+        ),
+        for (var i = 1; i <= 6; i++)
+          Expanded(
+            flex: 2,
+            child: LayoutBuilder(
+              builder: (context, constraints) => Stack(
+                children: [
+                  Column(
+                    children: [
+                      for (var j = 1; j <= 12; j++)
+                        Expanded(
+                          child: Container(),
+                        ),
                       Expanded(
-                        flex: 2,
-                        child: LayoutBuilder(
-                          builder: (context, constraints) => Stack(
-                            children: [
-                              Column(
-                                children: [
-                                  for (var j = 1; j <= 12; j++)
-                                    Expanded(
-                                      child: Container(),
-                                    ),
-                                  Expanded(
-                                    child: Container(),
-                                  ),
-                                ],
-                              ),
-                              ..._buildCourseScheduleByDayOfWeek(
-                                  sessionsByDayOfWeek, i, constraints)
-                            ],
-                          ),
-                        ),
+                        child: Container(),
                       ),
-                    Expanded(
-                      flex: 2,
-                      child: LayoutBuilder(
-                        builder: (context, constraints) => Stack(
-                          children: [
-                            Column(
-                              children: [
-                                for (var j = 1; j <= 12; j++)
-                                  Expanded(
-                                    child: Container(),
-                                  ),
-                                Expanded(child: Container())
-                              ],
-                            ),
-                            ..._buildCourseScheduleByDayOfWeek(
-                                sessionsByDayOfWeek, 7, constraints)
-                          ],
-                        ),
+                    ],
+                  ),
+                  ..._buildCourseScheduleByDayOfWeek(
+                      sessionsByDayOfWeek, i, constraints)
+                ],
+              ),
+            ),
+          ),
+        Expanded(
+          flex: 2,
+          child: LayoutBuilder(
+            builder: (context, constraints) => Stack(
+              children: [
+                Column(
+                  children: [
+                    for (var j = 1; j <= 12; j++)
+                      Expanded(
+                        child: Container(),
                       ),
-                    )
+                    Expanded(child: Container())
                   ],
-                );
+                ),
+                ..._buildCourseScheduleByDayOfWeek(
+                    sessionsByDayOfWeek, 7, constraints)
+              ],
+            ),
+          ),
+        )
+      ],
+    );
   }
 
   List<Widget> _buildCourseScheduleByDayOfWeek(
@@ -343,8 +344,8 @@ class ScheduleView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 课表要「一屏看全」：把网格高度算成可用高度减去留白，
-    // 而不是写死一个值 —— 写死的值在矮屏上会被底部栏挡住下半截。
+    // 课表要一屏看全：把网格高度算成可用高度减去留白，
+    // 而不是写死一个值， 写死的值在矮屏上会被底部栏挡住下半截。
     return LayoutBuilder(
       builder: (context, constraints) {
         // 上下各 16 的页面留白 + 卡片内边距 + 星期表头 ≈ 88

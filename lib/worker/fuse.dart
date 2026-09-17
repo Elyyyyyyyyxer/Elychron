@@ -18,10 +18,10 @@ class UpdateInfo {
   /// 这次是从哪个源查到的（`GitHub` / `Gitee`）。
   ///
   /// **必须记下来**：国内用户多半连不上 GitHub，如果查到更新的是 Gitee，
-  /// 「去下载」就该跳 Gitee 的页面 —— 否则用户看到更新却打不开下载页。
+  /// 去下载就该跳 Gitee 的页面， 否则用户看到更新却打不开下载页。
   final String sourceName;
 
-  /// 「去下载」要打开的地址（跟着上面那个源走）
+  /// 去下载要打开的地址（跟着上面那个源走）
   final String downloadUrl;
 
   const UpdateInfo({
@@ -65,7 +65,7 @@ class Fuse {
 
   /// 构建号，与 `pubspec.yaml` 里 `+N` 保持一致。
   ///
-  /// 单独放一个**静态常量**是因为「复制反馈信息」要用它，而那个场景不该去
+  /// 单独放一个**静态常量**是因为复制反馈信息要用它，而那个场景不该去
   /// 实例化 [Fuse]（构造函数依赖 GetX 里的数据库）。
   ///
   /// ⚠️ 发布版的 build 必须**大于**发出去的临时调试包（那些是 7 / 8），
@@ -78,7 +78,7 @@ class Fuse {
   /// ===== 更新检查：只认我们自己的仓库 =====
   ///
   /// **绝不要指向上游**（原来是 `api.celechron.top`）。理由：
-  /// 1. 上游发版后，我们的用户会看到「有新版本」，然后被引到 celechron.top ——
+  /// 1. 上游发版后，我们的用户会看到有新版本，然后被引到 celechron.top，
   ///    等于给自己用户做上游导流；
   /// 2. 他们从那下到的是官方包，而两个 App 的包名不同，
   ///    结果是手机上多出**第二个应用**，用户一脸懵；
@@ -118,7 +118,7 @@ class Fuse {
 
   /// 上次**已经提醒过**的版本 tag。
   ///
-  /// 用途：小版本更新只提醒一次 —— 否则每天检查一次就会天天弹同一个框。
+  /// 用途：小版本更新只提醒一次， 否则每天检查一次就会天天弹同一个框。
   /// 大版本（强制更新）不看它，每次启动都提醒。
   String? lastPromptedTag;
 
@@ -144,7 +144,9 @@ class Fuse {
       final l = i < local.length ? local[i] : 0;
       if (r != l) return r > l;
     }
-    if (remoteBuild != null && localBuild != null && remoteBuild != localBuild) {
+    if (remoteBuild != null &&
+        localBuild != null &&
+        remoteBuild != localBuild) {
       return remoteBuild > localBuild;
     }
     return false;
@@ -209,9 +211,11 @@ class Fuse {
       final request = await _httpClient
           .getUrl(Uri.parse(source.apiUrl))
           .timeout(const Duration(seconds: 8));
-      request.headers.set(HttpHeaders.acceptHeader, 'application/vnd.github+json');
-      final response = await request.close().timeout(const Duration(seconds: 8));
-      // 还没发过 Release 时通常给 404：当作「这个源没东西」，安静换下一个
+      request.headers
+          .set(HttpHeaders.acceptHeader, 'application/vnd.github+json');
+      final response =
+          await request.close().timeout(const Duration(seconds: 8));
+      // 还没发过 Release 时通常给 404：当作这个源没东西，安静换下一个
       if (response.statusCode != 200) return null;
       final raw = await response.transform(utf8.decoder).join();
       final json = jsonDecode(raw);
@@ -229,7 +233,7 @@ class Fuse {
       }
 
       // 依次尝试各个源：GitHub 在国内常常连不上，Gitee 是兜底。
-      // 只要有一个源给了合法结果就用它，并记住是哪个源 —— 「去下载」要跳对地方。
+      // 只要有一个源给了合法结果就用它，并记住是哪个源， 去下载要跳对地方。
       UpdateSource? answered;
       Map<String, dynamic>? json;
       String tag = '';
@@ -316,7 +320,7 @@ class Fuse {
 
   Map<String, dynamic> toJson() => {
         'lastUpdateTime': lastUpdateTime.toIso8601String(),
-        // 小版本「只提醒一次」要跨启动保持，所以得存下来
+        // 小版本只提醒一次要跨启动保持，所以得存下来
         'lastPromptedTag': lastPromptedTag,
       };
 

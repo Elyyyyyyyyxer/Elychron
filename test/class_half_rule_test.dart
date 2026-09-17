@@ -1,7 +1,7 @@
 import 'package:celechron/mod/class_half_rule.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// 「自定义周次属于哪一半学期」的判定。
+/// 自定义周次属于哪一半学期的判定。
 ///
 /// 锁的是一个真实 bug：只有冬学期的研究生课（周次 `1-8周`）被排到了秋天，
 /// 因为原代码只看周次数字、把第 1-8 周一律当上半学期。

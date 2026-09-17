@@ -4,17 +4,17 @@ import 'package:flutter/foundation.dart';
 /// 全局闹钟事件：应用在前台时由 [TaskController] 触发，
 /// 通知被点击时由 [TaskReminder] 触发，界面层监听它弹出全屏闹钟。
 ///
-/// ## 为什么要在这里记「已经弹过的提醒时刻」
+/// ## 为什么要在这里记已经弹过的提醒时刻
 ///
 /// 修的是一个真实反馈：**把闹钟弹窗关掉之后，它会一直重复弹**。
 /// 原因是原来的去重记在 `TaskAlarmCoordinator` 里，而且写成
-/// 「没有弹窗在显示时就把记录清空」——用户一点掉弹窗，下一秒记录就没了，
+/// 没有弹窗在显示时就把记录清空，用户一点掉弹窗，下一秒记录就没了，
 /// 而那条待办的提醒时刻仍在"同一分钟内"，于是又弹一次，循环不止。
 ///
-/// 现在的规则：**按「提醒时刻」去重**（`uid@毫秒`），而且**不再因为弹窗被关闭而清空**。
+/// 现在的规则：**按提醒时刻去重**（`uid@毫秒`），而且**不再因为弹窗被关闭而清空**。
 /// 这样：
 /// - 同一时刻弹过一次，之后无论怎么关、怎么重开 App，都不会再弹；
-/// - 而改时间、或者「延迟提醒」推到的新时刻是一个**新的时刻**，自然会重新弹。
+/// - 而改时间、或者延迟提醒推到的新时刻是一个**新的时刻**，自然会重新弹。
 class TaskAlarmCenter {
   TaskAlarmCenter._();
 
@@ -23,7 +23,7 @@ class TaskAlarmCenter {
   /// 已经弹过的提醒时刻：key 是 [occurrenceKey]，value 是记录时间（用于清理旧记录）。
   static final Map<String, DateTime> _firedOccurrences = <String, DateTime>{};
 
-  /// 一条待办 + 一个时刻 = 一次「提醒发生」
+  /// 一条待办 + 一个时刻 = 一次提醒发生
   static String occurrenceKey(Task task, DateTime at) =>
       '${task.uid}@${at.millisecondsSinceEpoch}';
 
@@ -54,7 +54,7 @@ class TaskAlarmCenter {
   @visibleForTesting
   static void resetForTest() => _firedOccurrences.clear();
 
-  /// 弹全屏闹钟。**这里是唯一的入口**，所以在这里统一记「弹过了」——
+  /// 弹全屏闹钟。**这里是唯一的入口**，所以在这里统一记弹过了，
   /// 前台 tick 触发、以及点通知触发，两条路都会被记上，不会互相重复弹。
   static void fire(Task task, {DateTime? occurrenceAt}) {
     markFired(task, occurrenceAt ?? task.reminderTargetTime);

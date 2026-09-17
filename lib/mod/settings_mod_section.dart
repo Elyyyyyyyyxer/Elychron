@@ -24,7 +24,7 @@ import 'package:celechron/tutorial/tutorial_store.dart';
 
 /// 教程中心的入口区块。
 ///
-/// 教程内容在 `lib/tutorial/modules/` 下，**加一篇教程不需要改这个文件** ——
+/// 教程内容在 `lib/tutorial/modules/` 下，**加一篇教程不需要改这个文件**，
 /// 这里只负责"入口"，列表由 `TutorialCenterPage` 按注册表自动生成。
 Widget modTutorialSection(
   BuildContext context, {
@@ -41,7 +41,7 @@ Widget modTutorialSection(
             children: <CupertinoListTile>[
           CupertinoListTile(
             title: const Text('使用教程'),
-            // ⚠️ 副标题是"还有几篇没看"，必须跟着教程状态刷新 ——
+            // ⚠️ 副标题是"还有几篇没看"，必须跟着教程状态刷新，
             // 否则看完一篇回到设置页还显示旧数字（真机上就是这么发现的）。
             subtitle: ValueListenableBuilder<int>(
               valueListenable: TutorialStore.instance.revision,
@@ -65,7 +65,7 @@ String _tutorialSubtitle() {
   }
 }
 
-/// 是否开放「局域网同步」（多端协同）入口。
+/// 是否开放局域网同步（多端协同）入口。
 ///
 /// **公开发布这版先关掉**：功能尚未完工（用户决定）。代码、网页面板与测试都保留，
 /// 把这里改回 `true` 就能恢复入口，不需要改别的地方。
@@ -98,7 +98,7 @@ List<Widget> modReminderTiles(
             )),
       ),
       // ===== P1：默认提醒提前量 =====
-      // 活动锚「开始」、截止锚「截止」，各自再提前这么多；提醒型就是那一刻。
+      // 活动锚开始、截止锚截止，各自再提前这么多；提醒型就是那一刻。
       const _ReminderLeadTile(),
       // ===== P3：专注参数 + 休息提醒 =====
       const _FocusParamTile(),
@@ -135,7 +135,7 @@ List<Widget> modReminderTiles(
       ),
     ];
 
-/// 「默认提醒提前量」这一行：点开选一个值，存进 optionsBox。
+/// 默认提醒提前量这一行：点开选一个值，存进 optionsBox。
 class _ReminderLeadTile extends StatefulWidget {
   const _ReminderLeadTile();
 
@@ -203,7 +203,7 @@ Widget modDataSection(
                 padding: const EdgeInsets.only(left: 16),
                 child: Text('数据', style: headerStyle)),
             children: <CupertinoListTile>[
-          // 「局域网同步」（多端协同）尚未完工，公开发布这版先不开放入口。
+          // 局域网同步（多端协同）尚未完工，公开发布这版先不开放入口。
           // 代码与网页面板都还在 `lib/mod/lan_*.dart` 里，改回 true 即可恢复。
           if (kLanSyncEnabled) ...[
             CupertinoListTile(
@@ -231,7 +231,7 @@ Widget modDataSection(
             trailing: const BackChervonRow(),
             onTap: () => modImportData(context),
           ),
-          // 一键把「机型 / 系统 / 版本 + 脱敏日志 + 反馈模板」复制到剪贴板。
+          // 一键把机型 / 系统 / 版本 + 脱敏日志 + 反馈模板复制到剪贴板。
           // 目的是让反馈发生在 QQ 群、论坛帖这类没门槛的地方时，也能说清现场。
           CupertinoListTile(
             title: const Text('复制反馈信息'),
@@ -240,7 +240,7 @@ Widget modDataSection(
             onTap: () => modCopyFeedback(context),
           ),
           // 导入 iCal（.ics）：把别的日历/课程表导出的日程变成待办。
-          // 与「导出为 iCal 文件」成对，但那条在上游的设置区块里，
+          // 与导出为 iCal 文件成对，但那条在上游的设置区块里，
           // 这里放在数据区块，避免改上游文件。
           CupertinoListTile(
             title: const Text('导入 iCal 文件'),
@@ -281,13 +281,11 @@ class _FocusParamTileState extends State<_FocusParamTile> {
 
   Future<void> _pick({required bool isWork}) async {
     final options = isWork ? _workOptions : _restOptions;
-    // 钉钉风格弹层（与「默认提醒提前量」统一）
+    // 钉钉风格弹层（与默认提醒提前量统一）
     final picked = await showDingTalkSheet<int>(
       context: context,
       title: isWork ? '一段专注多久' : '每轮休息多久',
-      subtitle: isWork
-          ? '默认 60 分钟。到点会自动进入休息。'
-          : '默认 15 分钟。想连着干可以把休息设成不休息。',
+      subtitle: isWork ? '默认 60 分钟。到点会自动进入休息。' : '默认 15 分钟。想连着干可以把休息设成不休息。',
       current: isWork ? _work : _rest,
       options: [
         for (final minutes in options)
@@ -368,7 +366,7 @@ class _FocusCourseTileState extends State<_FocusCourseTile> {
 
 /// ===== 专注时自动免打扰（默认开）=====
 ///
-/// 免打扰要「勿扰访问权限」，那是特殊权限、装机不自动授予。
+/// 免打扰要勿扰访问权限，那是特殊权限、装机不自动授予。
 /// 所以这里不仅是个开关：没授权时点它会直接跳到系统授权页，并在副标题里说明状态。
 class _FocusDndTile extends StatefulWidget {
   const _FocusDndTile();

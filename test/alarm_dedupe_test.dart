@@ -7,12 +7,12 @@ import 'package:flutter_test/flutter_test.dart';
 
 /// 闹钟去重：**关掉弹窗之后不能重复弹**。
 ///
-/// 这是一个真实反馈（用户原话：「后台被清掉了闹钟就不会触发，但是一打开软件，
-/// 闹钟弹窗会一直触发，关了还会一直重复弹闹钟」）。
+/// 这是一个真实反馈（用户原话：后台被清掉了闹钟就不会触发，但是一打开软件，
+/// 闹钟弹窗会一直触发，关了还会一直重复弹闹钟）。
 ///
 /// 根因：去重记录写在 `TaskAlarmCoordinator` 里，且写成
 /// `if (TaskAlarmCenter.current.value == null) _fired.clear();`
-/// —— 用户一点掉弹窗（current 变 null），下一秒 tick 就把记录清空，
+///， 用户一点掉弹窗（current 变 null），下一秒 tick 就把记录清空，
 /// 而那条待办的提醒时刻仍在"同一分钟内"，于是又弹，循环不止。
 void main() {
   setUp(() {
@@ -91,7 +91,7 @@ void main() {
 
   test('通知路径触发也计入同一套去重', () {
     final task = dueNowTask(uid: 'alarm-test-2');
-    // 模拟「点通知进来」：TaskReminder 走的就是 fire(...)
+    // 模拟点通知进来：TaskReminder 走的就是 fire(...)
     TaskAlarmCenter.fire(task, occurrenceAt: task.reminderTargetTime);
     expect(TaskAlarmCenter.current.value?.uid, task.uid);
     TaskAlarmCenter.clear();
@@ -134,7 +134,8 @@ void main() {
     TaskAlarmCoordinator.tick([memo]);
     expect(TaskAlarmCenter.current.value, isNull);
 
-    final done = dueNowTask(uid: 'alarm-test-done')..status = TaskStatus.completed;
+    final done = dueNowTask(uid: 'alarm-test-done')
+      ..status = TaskStatus.completed;
     TaskAlarmCoordinator.tick([done]);
     expect(TaskAlarmCenter.current.value, isNull);
   });
@@ -142,7 +143,8 @@ void main() {
   test('去重记录会随时间的推移被清理，不会无限增长', () {
     final task = dueNowTask(uid: 'alarm-test-prune');
     for (var i = 0; i < 250; i++) {
-      TaskAlarmCenter.markFired(task, DateTime.now().subtract(Duration(days: 3)));
+      TaskAlarmCenter.markFired(
+          task, DateTime.now().subtract(Duration(days: 3)));
     }
     // 超过阈值触发清理，三天前的记录应被丢掉
     TaskAlarmCenter.markFired(task, DateTime.now());

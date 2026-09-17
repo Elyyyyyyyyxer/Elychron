@@ -10,8 +10,8 @@ import 'package:celechron/utils/utils.dart';
 
 /// ===== P2：AI 拆出来的一步 =====
 ///
-/// 可能是「有时有地点的一步」（团建：14:30-17:30 嗦歌KTV），
-/// 也可能只是「一句话的步骤」（写论文：查文献）。时间/地点都可以为空。
+/// 可能是有时有地点的一步（团建：14:30-17:30 嗦歌KTV），
+/// 也可能只是一句话的步骤（写论文：查文献）。时间/地点都可以为空。
 class AiStepDraft {
   final String title;
 
@@ -32,7 +32,7 @@ class AiStepDraft {
 
   bool get hasTime => startTime != null || endTime != null;
 
-  /// 排序与显示用的「那一刻」
+  /// 排序与显示用的那一刻
   DateTime? get anchor => startTime ?? endTime;
 
   /// 详情页时间轴上那一行：`14:30-17:30` 或 `14:20`
@@ -55,7 +55,7 @@ class AiStepDraft {
         endTime: endTime,
       );
 
-  /// 去掉时间，只留标题（预览里「全部不要时间」用）
+  /// 去掉时间，只留标题（预览里全部不要时间用）
   AiStepDraft withoutTime() => AiStepDraft(
         title: title,
         note: note,
@@ -69,7 +69,7 @@ class AiStepDraft {
 ///
 /// 模型只输出一份**受限草稿**（下面这几个字段），然后由这里的 Dart 代码
 /// 逐字段校验、越界就换成安全值并记一条提醒，最后由 `applyTo()` 去构造真正的
-/// Task——所有枚举、时间、集合都由我们自己拼，模型再胡说也污染不了数据结构。
+/// Task，所有枚举、时间、集合都由我们自己拼，模型再胡说也污染不了数据结构。
 class AiTaskDraft {
   AiTaskDraft({
     required this.summary,
@@ -92,7 +92,7 @@ class AiTaskDraft {
   final String description;
   final DateTime endTime;
 
-  /// 只有「活动」才有开始时间；截止 / 提醒 / 备忘为 null。
+  /// 只有活动才有开始时间；截止 / 提醒 / 备忘为 null。
   final DateTime? startTime;
 
   /// ===== P1：模型划分出的时间语义（活动 / 截止 / 提醒 / 备忘）=====
@@ -109,7 +109,7 @@ class AiTaskDraft {
   /// ===== MOD: 课程（AI 生成待办挂到课程上）=====
   ///
   /// 模型**只回课程名**（它不知道我们的课程代码），我们再用 [resolveCourseId]
-  /// 去课表里匹配成 id。用户要求：**只有原文明确提到课程时才填**，其余一律留空 ——
+  /// 去课表里匹配成 id。用户要求：**只有原文明确提到课程时才填**，其余一律留空，
   /// 宁可这条待办不挂课程，也不要被硬套一门课。
   final String? courseName;
 
@@ -122,8 +122,7 @@ class AiTaskDraft {
   /// 预览里可以删单条 / 改时间，靠 [copyWith] 换一份新的，不改原对象。
   final List<AiStepDraft> subtasks;
 
-
-  /// 模型自报「原文里没写、我不确定」的字段名（如 截止时间 / 地点）。
+  /// 模型自报原文里没写、我不确定的字段名（如 截止时间 / 地点）。
   /// 这些字段会留空交给用户自己补，而不是靠模型猜。
   final List<String> uncertain;
 
@@ -142,6 +141,7 @@ class AiTaskDraft {
   static const int maxTagCount = 3;
   static const int maxTagChars = 12;
   static const int maxLocationChars = 60;
+
   /// 一次最多几条子待办（2026-09-16 用户要求 5 → **7**）。
   /// 只影响 AI 拆解；手动加子待办没有上限。
   static const int maxSubtaskCount = 7;
@@ -184,12 +184,12 @@ class AiTaskDraft {
 - 先读出图中文字，再按下面的规则整理成待办
 - 图里看不清、或没写清的字段，一律留空并写进 uncertain，绝不靠猜补齐
 - 图里有多个通知时，只取最主要的那一条
-- 如果整张图跟「要做的事」无关（比如只是风景照、表情包），summary 给空字符串
+- 如果整张图跟要做的事无关（比如只是风景照、表情包），summary 给空字符串
 ''';
 
   static String _buildSystemPrompt(List<String> existingTags,
       {bool fromImage = false}) {
-    // 课表里的课程名：只作为**候选清单**给模型，让它从中挑一个（见下面的「课程」规则）
+    // 课表里的课程名：只作为**候选清单**给模型，让它从中挑一个（见下面的课程规则）
     final availableCourses =
         courseChoices().map((choice) => choice.name).toList();
     final now = DateTime.now();
@@ -209,7 +209,7 @@ ${fromImage ? _imageRules : ''}
 只输出一个 json 对象，禁止输出任何解释文字、禁止用 markdown 代码块。字段与取值规则如下：
 
 {
-  "summary": "一句话动作短语，不超过 $maxSummaryChars 字，不要出现「待办」「任务」这类词",
+  "summary": "一句话动作短语，不超过 $maxSummaryChars 字，不要出现待办任务这类词",
   "kind": "活动 / 截止 / 提醒 / 备忘 之一，规则见下面",
   "description": "原文里对完成这件事有用的补充信息（说明、要求、链接等）；**要带的东西、着装、材料这类可打钩的清单不要写在这里**，放到 subtasks；没有就给空字符串，不要编造",
   "endTime": "截止时间，格式必须是 YYYY-MM-DDTHH:mm:ss",
@@ -225,67 +225,67 @@ ${fromImage ? _imageRules : ''}
 
 $_stepSchemaRules
 
-关于「清单类子待办」——学生最需要这一条（原文写「着装：白色院衫、带校徽、带雨伞」时，别把它挤进 description）：
+关于清单类子待办，学生最需要这一条（原文写着装：白色院衫、带校徽、带雨伞时，别把它挤进 description）：
 - **着装**（穿什么、戴什么）、**要带的东西**（雨衣、纸巾、校徽、笔记本）、**要准备的材料**
   一律拆成一条条 subtasks，一条一个物件或一件事，方便到场前逐条打钩
-- 标题写具体的东西或动作：写「带雨伞」「穿白色院衫」「带校徽」，不要写「准备物品」「按要求着装」这种笼统标题
+- 标题写具体的东西或动作：写带雨伞穿白色院衫带校徽，不要写准备物品按要求着装这种笼统标题
 - 这类条目**没有时间**：startTime / endTime 都留空字符串；不要为了凑格式编造时刻
 - 只从原文提取，**不要自行补充**原文没写的物品（原文没提伞就不要加伞）
-- 如果这件事既有行程步骤又有清单（例如「17:45 集合，着装：白院衫，带雨伞」），
+- 如果这件事既有行程步骤又有清单（例如17:45 集合，着装：白院衫，带雨伞），
   两类都放进来：行程步骤带时间，清单条目不带时间
 
 用户的标签库（**优先复用**，不要另造近义词）：
 ${existingTags.isEmpty ? '（现在是空的，可以新建标签）' : existingTags.join('、')}
-- 如果上面某个标签能表达这条待办，就**原样使用它**（例如已有「作业」就不要写「作业提交」）
+- 如果上面某个标签能表达这条待办，就**原样使用它**（例如已有作业就不要写作业提交）
 - 总数不超过 $maxTagCount 个；确实没有合适的才新建，且最多新建 2 个
 
-关于「课程」——**默认留空，只有原文明确提到课程时才填**：
-- 什么时候填：原文里出现了课程名，例如「高数作业」「计概的实验报告」「思政论文」
+关于课程，**默认留空，只有原文明确提到课程时才填**：
+- 什么时候填：原文里出现了课程名，例如高数作业计概的实验报告思政论文
 - 怎么填：**从下面课表里原样复制一个名字**，不要改写、不要缩写、不要自己编课程名
 - 什么时候留空：原文没提课程、或者提到的课不在课表里 → 一律留空字符串；
-  **不要因为"这条看起来像作业"就随便挑一门课** —— 挂错课比不挂更糟
-- 拿不准就把「课程」列进 uncertain，并且留空
+  **不要因为"这条看起来像作业"就随便挑一门课**， 挂错课比不挂更糟
+- 拿不准就把课程列进 uncertain，并且留空
 
 我的课表（**只能从这里挑**）：
 ${availableCourses.isEmpty ? '（现在拿不到课表：courseName 一律留空字符串）' : availableCourses.join('、')}
 
-关于「不确定就留空」——这条比填满更重要：
+关于不确定就留空，这条比填满更重要：
 - 原文没提到的地点、标签、子步骤，一律留空字符串或空数组，**不要靠常识补全**
-- 不要编造原文没有的要求（原文只说「交报告」，就不要自己加「打印纸质版」这类步骤）
-- 把你判断「原文没写清楚」的字段名列进 uncertain 数组，最多 5 个
-- 唯一不能留空的是 endTime：完全没提到时间时用今天 23:59，并把「截止时间」列进 uncertain
+- 不要编造原文没有的要求（原文只说交报告，就不要自己加打印纸质版这类步骤）
+- 把你判断原文没写清楚的字段名列进 uncertain 数组，最多 5 个
+- 唯一不能留空的是 endTime：完全没提到时间时用今天 23:59，并把截止时间列进 uncertain
 
-${AiConfig.autoSubtasks ? '' : '注意：用户已关闭「自动生成子待办」，subtasks 一律给空数组。'}
+${AiConfig.autoSubtasks ? '' : '注意：用户已关闭自动生成子待办，subtasks 一律给空数组。'}
 
 时间换算的硬规则：
 1. 今天日期是 $todayIso。所有相对时间（今天/明天/后天/本周五/下周三/月底/三天后）必须换算成绝对日期。
 2. 只给了日期没给时间 → 用那天的 23:59:00。
-3. 完全没提时间 → 用 $todayIso 的 23:59:00，并在 description 开头注明「原文未给出时间」。
+3. 完全没提时间 → 用 $todayIso 的 23:59:00，并在 description 开头注明原文未给出时间。
 4. 已经过去的日期不要用；如果原文暗示的是过去，就按最近一次未来的同一天算。
 5. 不要编造原文没有的截止时间、地点、标签。信息不足就留空或按上面的默认值。
 
-时段词的换算（**不要漏掉「上午/下午」这类信息**，这是学生最容易搞错的点）：
+时段词的换算（**不要漏掉上午/下午这类信息**，这是学生最容易搞错的点）：
 - 上午 / 早上 → 09:00；中午 → 12:00；下午 → 14:30
 - 傍晚 → 18:00；晚上 → 19:30；凌晨 → 06:00
 - 给了具体时刻（9:30、19:00 等）→ 原样用
-- 只给了日期、连时段都没说 → 23:59，并在 description 里注明「原文未给出具体时间」
+- 只给了日期、连时段都没说 → 23:59，并在 description 里注明原文未给出具体时间
 
-区分「活动 / 截止 / 提醒 / 备忘」——这是**必给**字段，它决定这条待办怎么显示、怎么提醒：
+区分活动 / 截止 / 提醒 / 备忘，这是**必给**字段，它决定这条待办怎么显示、怎么提醒：
 - **活动**：有明确起止时段、要去参加的事（典礼、会议、考试、讲座、团建、面试）。
   必须给 startTime；endTime 给结束时刻，原文没说就按 startTime + 2 小时
-- **截止**：有「什么时候之前要交/做完」但本身不占时段（交作业、交报告、报名、缴费、填问卷）。
+- **截止**：有什么时候之前要交/做完但本身不占时段（交作业、交报告、报名、缴费、填问卷）。
   startTime 留空字符串，endTime 给截止时刻（只给日期就是当天 23:59）
-- **提醒**：单个时刻要做的一件小事、没有时长（「9 点去取快递」「下午 3 点打个电话」）。
+- **提醒**：单个时刻要做的一件小事、没有时长（9 点去取快递下午 3 点打个电话）。
   startTime 留空字符串，endTime 给那一刻
-- **备忘**：只是记一条信息、原文根本没提时间（「记得买牙膏」「问一下老师教材」）。
+- **备忘**：只是记一条信息、原文根本没提时间（记得买牙膏问一下老师教材）。
   startTime 与 endTime 都给空字符串，reminderMinutes 给 0
 
-判断顺序：先看有没有明确起止时段 → 活动；再看到底是「期限」还是「某个时刻要做的小事」
-→ 截止 / 提醒；都没有时间 → 备忘。拿不准就按「截止」。
+判断顺序：先看有没有明确起止时段 → 活动；再看到底是期限还是某个时刻要做的小事
+→ 截止 / 提醒；都没有时间 → 备忘。拿不准就按截止。
 
 reminderMinutes（提前多少分钟提醒）：
 - 活动：给 30（活动前半小时）；全天/半天的大型活动给 60
-- 截止：原文强调「别忘」「记得」「务必」就给 120；不强调就给 0（0 = 用应用里的默认提前量）
+- 截止：原文强调别忘记得务必就给 120；不强调就给 0（0 = 用应用里的默认提前量）
 - 提醒：给 0（就在那一刻响）
 - 备忘：给 0（备忘从不提醒）''';
   }
@@ -293,7 +293,7 @@ reminderMinutes（提前多少分钟提醒）：
   /// 从图片（截图）整理草稿。
   ///
   /// 走的是官方 vision 接口（content parts + image_url 的 base64 data URI），
-  /// 图片原样发送、不压缩——截图里的小字能不能读对，取决于分辨率。
+  /// 图片原样发送、不压缩，截图里的小字能不能读对，取决于分辨率。
   static Future<AiTaskDraft> fromImages(
     List<String> imagePaths, {
     String hint = '',
@@ -405,15 +405,15 @@ ${task.isEvent ? '''
 规则：
 - 3~6 条，按执行顺序排列；每条不超过 30 字，尽量以动词开头
 - 每条都要是能直接动手做的事（写、查、问、交、打印、预约…），
-  不要写「认真准备」「努力完成」这类空话
-- **要带的东西 / 着装 / 材料也算步骤**：原文写了「着装：白院衫，带雨伞」就拆成
-  「穿白色院衫，带雨伞」一条，**不带时间**；标题写具体物件，
-  不要写「准备物品」这种笼统说法
+  不要写认真准备努力完成这类空话
+- **要带的东西 / 着装 / 材料也算步骤**：原文写了着装：白院衫，带雨伞就拆成
+  穿白色院衫，带雨伞一条，**不带时间**；标题写具体物件，
+  不要写准备物品这种笼统说法
 - 不要重复输入里已经列出的子待办
-- 如果这件事本身没法拆（比如「给妈妈打电话」），返回 {"subtasks": []}
+- 如果这件事本身没法拆（比如给妈妈打电话），返回 {"subtasks": []}
 - 不要编造输入里没有的人名、地点、材料''';
 
-  /// 子待办（步骤）的 JSON 约定 —— 上面两个提示词共用同一套。
+  /// 子待办（步骤）的 JSON 约定， 上面两个提示词共用同一套。
   static const String _stepSchemaRules = '''
 每个步骤是一个对象：
 - "title"：这一步做什么，不超过 30 字，动词开头
@@ -424,12 +424,12 @@ ${task.isEvent ? '''
 
 两种步骤都要会用：
 
-1. **行程型**（原文给了整段行程：几点集合、几点到哪吃饭）——把每步的时间放进
+1. **行程型**（原文给了整段行程：几点集合、几点到哪吃饭），把每步的时间放进
    startTime/endTime、地点放进 location，标题只写做什么。
-2. **清单型**（要带的东西 / 着装 / 材料，原文常写成「着装：…」「需携带：…」
-   「请带好…」）——一条一个物件或一件事，**时间一律留空**，标题直接写
-   「带雨伞」「穿白色院衫」「带校徽」这类能打钩的内容。
-   不要写成「准备物品」「按要求着装」这种笼统标题，也不要编造时刻。''';
+2. **清单型**（要带的东西 / 着装 / 材料，原文常写成着装：…需携带：…
+   请带好…），一条一个物件或一件事，**时间一律留空**，标题直接写
+   带雨伞穿白色院衫带校徽这类能打钩的内容。
+   不要写成准备物品按要求着装这种笼统标题，也不要编造时刻。''';
 
   /// 校验模型返回的子待办（白名单式：限量、限长、去重、剔除已有、时间越界即丢）
   static List<AiStepDraft> _parseSubtasks(
@@ -460,8 +460,8 @@ ${task.isEvent ? '''
       var title = _cleanString(source['title'] ?? source['summary'], 40);
       if (title.isEmpty) continue;
 
-      // 模型有时会把时间写进标题（「14:30-17:30 嗦歌KTV」）。与其一删了之，
-      // 不如把这段时间**抢救到时间字段里** —— 那正是用户想看的信息。
+      // 模型有时会把时间写进标题（14:30-17:30 嗦歌KTV）。与其一删了之，
+      // 不如把这段时间**抢救到时间字段里**， 那正是用户想看的信息。
       final day = parentStart ?? parentEnd;
       DateTime? titleStart;
       DateTime? titleEnd;
@@ -487,23 +487,23 @@ ${task.isEvent ? '''
         warnings?.add('第 ${steps.length + 1} 步的时间原本写在标题里，已挪到时间字段');
       }
 
-      var start =
-          _parseStepTime(source['startTime'] ?? source['beginTime']) ?? titleStart;
+      var start = _parseStepTime(source['startTime'] ?? source['beginTime']) ??
+          titleStart;
       var end = _parseStepTime(source['endTime']) ?? titleEnd;
 
       if (start != null && end != null && !start.isBefore(end)) {
-        warnings?.add('第 ${steps.length + 1} 步「$title」的结束时间不晚于开始时间，这一步的时间已丢弃');
+        warnings?.add('第 ${steps.length + 1} 步$title的结束时间不晚于开始时间，这一步的时间已丢弃');
         start = null;
         end = null;
       }
       // 步骤时间必须落在父任务的时间范围内（团建的步骤不该跑到第二天）
       if (parentEnd != null) {
         if (start != null && start.isAfter(parentEnd)) {
-          warnings?.add('第 ${steps.length + 1} 步「$title」的时间超出了这条待办的范围，已丢掉');
+          warnings?.add('第 ${steps.length + 1} 步$title的时间超出了这条待办的范围，已丢掉');
           start = null;
           end = null;
         } else if (end != null && end.isAfter(parentEnd)) {
-          warnings?.add('第 ${steps.length + 1} 步「$title」的结束时间超出了这条待办的范围，已丢弃结束时间');
+          warnings?.add('第 ${steps.length + 1} 步$title的结束时间超出了这条待办的范围，已丢弃结束时间');
           end = null;
         }
       }
@@ -540,7 +540,7 @@ ${task.isEvent ? '''
 
   // ---------------------------------------------------- 逐字段校验（重点）
 
-  /// **只给测试用**：直接拿一个「模型返回的 JSON 对象」走完整套校验。
+  /// **只给测试用**：直接拿一个模型返回的 JSON 对象走完整套校验。
   ///
   /// 走的和线上是同一个 `_fromJson`，所以钉住的就是真实行为
   /// （尤其是 P1 的时间语义划分与一致性校验）。
@@ -595,7 +595,7 @@ ${task.isEvent ? '''
     if (matched.isNotEmpty) {
       priority = matched.first;
     } else if (rawPriority.isNotEmpty) {
-      warnings.add('优先级「$rawPriority」不认识，按普通处理');
+      warnings.add('优先级$rawPriority不认识，按普通处理');
     }
 
     // --- tags：去空、去重、限长限量
@@ -631,18 +631,18 @@ ${task.isEvent ? '''
 
     // --- 语义一致性：以 kind 为准，改动如实记一条，不静默修补
     if (kind == TaskType.fixed) {
-      // _validateStartTime 已经把「读不出来 / 不早于结束时间」的开始时间丢掉了，
+      // _validateStartTime 已经把读不出来 / 不早于结束时间的开始时间丢掉了，
       // 这里只剩两种情况：有可用的开始时间 → 真活动；没有 → 老老实实降级成截止。
       if (startTime == null) {
         warnings.add('模型说这是活动但没给出可用的开始时间，已按截止处理');
         kind = TaskType.deadline;
       }
     } else if (startTime != null) {
-      warnings.add('「${taskKindName[kind]}」不需要开始时间，已忽略模型给的开始时间');
+      warnings.add('${taskKindName[kind]}不需要开始时间，已忽略模型给的开始时间');
       startTime = null;
     }
 
-    // --- subtasks：结构化步骤；用户关掉「自动生成子待办」时一律留空
+    // --- subtasks：结构化步骤；用户关掉自动生成子待办时一律留空
     // 放在时间/类型都定好之后：步骤时间要按父任务的范围校验
     final subtasks = AiConfig.autoSubtasks
         ? _parseSubtasks(
@@ -660,7 +660,7 @@ ${task.isEvent ? '''
           source["remindBeforeMinutes"] ??
           source["reminder"],
     );
-    // 提醒型「就在那一刻」，备忘型从不提醒：这两种类型不看模型给的提前量
+    // 提醒型就在那一刻，备忘型从不提醒：这两种类型不看模型给的提前量
     if (kind == TaskType.remind || kind == TaskType.memo) {
       reminderMinutes = 0;
     }
@@ -681,15 +681,15 @@ ${task.isEvent ? '''
     // --- 课程：模型只回**课程名**（它不知道我们的课程代码），这里落到代码上
     //
     // 用户要求：**只有原文明确提到课程时才填**，所以模型留空时这里也不该补。
-    // 匹配不上（名字对不上课表）就当作没挂课程，并**如实告诉用户**为什么 ——
+    // 匹配不上（名字对不上课表）就当作没挂课程，并**如实告诉用户**为什么，
     // 静默丢弃会让用户以为 AI 漏了，其实是我们故意不硬套一门课。
     final courseName = _cleanString(source["courseName"], 40);
     final courseId = resolveCourseId(courseName, courseChoices());
     if (courseName.isNotEmpty) {
       if (courseId == null) {
-        warnings.add("课表里没有「$courseName」，这条待办没有挂课程");
+        warnings.add("课表里没有$courseName，这条待办没有挂课程");
       } else if (!uncertain.contains("课程")) {
-        warnings.add("已挂到课程「$courseName」");
+        warnings.add("已挂到课程$courseName");
       }
     }
 
@@ -824,7 +824,8 @@ ${task.isEvent ? '''
 
   /// 校验模型给的 `kind`；不认识的写法和没给一样，返回 null 交给调用方推断。
   static TaskType? _validateKind(Object? raw, List<String> warnings) {
-    final text = _cleanString(raw, 20).replaceAll(RegExp(r'\s+'), '').toLowerCase();
+    final text =
+        _cleanString(raw, 20).replaceAll(RegExp(r'\s+'), '').toLowerCase();
     if (text.isEmpty) return null;
     final kind = _kindAliases[text];
     if (kind == null) {
@@ -866,7 +867,7 @@ ${task.isEvent ? '''
   /// 把草稿应用到一条待办上（新建页的临时对象）。
   ///
   /// 只写我们自己认可的字段：`type` 保持普通待办、`startTime` 与 `endTime` 对齐
-  /// （与「普通待办不该有开始时间」的既有约定一致），其余一律走模型默认值。
+  /// （与普通待办不该有开始时间的既有约定一致），其余一律走模型默认值。
   /// 用户标签库（拿不到就当空）
   static List<String> _existingTags() {
     try {
@@ -877,13 +878,13 @@ ${task.isEvent ? '''
     }
   }
 
-  /// 去掉大小写与所有空白，只用于「是不是同一个标签」的判断
+  /// 去掉大小写与所有空白，只用于是不是同一个标签的判断
   static String _normalizeTag(String tag) =>
       tag.replaceAll(RegExp(r"\s+"), "").toLowerCase();
 
   /// 把模型给的标签尽量落到用户已有的标签上：
-  /// 归一化后完全一样 → 换成用户那边原本的写法（避免「作业」和「作业 」两个标签）。
-  /// 只做精确匹配，不做模糊合并——「报告」和「实验报告」是两回事，不替用户决定。
+  /// 归一化后完全一样 → 换成用户那边原本的写法（避免作业和作业 两个标签）。
+  /// 只做精确匹配，不做模糊合并，报告和实验报告是两回事，不替用户决定。
   static List<String> _mapTagsToExisting(
     List<String> tags,
     List<String> existing,
@@ -911,14 +912,14 @@ ${task.isEvent ? '''
     task.endTime = endTime;
     task.startTime = startTime ?? endTime;
     // ===== P1：四种时间语义由模型划分，这里按类型把时间字段摆正 =====
-    // applyKind 还会替「提醒型」打开提醒（就在那一刻）、替「备忘型」关掉提醒
+    // applyKind 还会替提醒型打开提醒（就在那一刻）、替备忘型关掉提醒
     task.applyKind(kind);
     task.repeatEndsTime = dateOnly(endTime);
     task.priority = priority;
     if (tags.isNotEmpty) {
       task.tags = <String>[...tags];
       // 注意：**不把 AI 生成的标签写进标签库**。
-      // 标签库只由「标签管理」里显式新建来增加（用户要求），AI 写上去的标签
+      // 标签库只由标签管理里显式新建来增加（用户要求），AI 写上去的标签
       // 和手填的一样，只属于这条待办本身。
     }
     if (location.isNotEmpty) task.location = location;
@@ -932,12 +933,12 @@ ${task.isEvent ? '''
         for (final step in subtasks) step.toSubTask(),
       ];
     }
-    // 提醒：活动锚「开始」、截止锚「截止」，再按模型给的提前量往前推。
+    // 提醒：活动锚开始、截止锚截止，再按模型给的提前量往前推。
     // 模型没给（0）就交给应用里的默认提前量，不再硬编码。
-    // 注意这里不能用 schedulesReminder —— 那需要 reminderEnabled，而我们现在才要打开它。
+    // 注意这里不能用 schedulesReminder， 那需要 reminderEnabled，而我们现在才要打开它。
     if (reminderMinutes > 0 && !task.isMemo) {
-      final fireAt = task.reminderAnchor
-          .subtract(Duration(minutes: reminderMinutes));
+      final fireAt =
+          task.reminderAnchor.subtract(Duration(minutes: reminderMinutes));
       if (fireAt.isAfter(DateTime.now())) {
         task.reminderEnabled = true;
         task.reminderTime = fireAt;

@@ -14,8 +14,8 @@ mixin TaskListFilterMod on GetxController {
 
   DatabaseHelper get _modDb => Get.find<DatabaseHelper>(tag: 'db');
 
-  // 这里**故意没有**「把待办身上的标签补进标签库」的自愈（以前有）：
-  // 用户要求标签库只在真正新建（标签管理里点「添加」）时才增加，
+  // 这里**故意没有**把待办身上的标签补进标签库的自愈（以前有）：
+  // 用户要求标签库只在真正新建（标签管理里点添加）时才增加，
   // 而不是随手在待办上填一个就出现在筛选行与标签管理页里。
   // 筛选行同样只读标签库（见 `allTags`），两边口径一致。
 
@@ -64,7 +64,7 @@ mixin TaskListFilterMod on GetxController {
 
   /// ===== P1：按四种时间语义筛选（多选，空 = 全部类型）=====
   ///
-  /// 筛选行原本只有标签这一维（那枚「全部分类」chip 已按用户建议删除），
+  /// 筛选行原本只有标签这一维（那枚全部分类chip 已按用户建议删除），
   /// 现在补上类型：活动 / 截止 / 提醒 / 备忘。
   final filterKinds = <TaskType>{}.obs;
 
@@ -123,11 +123,10 @@ mixin TaskListFilterMod on GetxController {
       list = list.where((t) => _isDone(t) == completed).toList();
     }
 
-    // 四种时间语义：固定值 fixedlegacy 按「活动」算，别让它漏出筛子
+    // 四种时间语义：固定值 fixedlegacy 按活动算，别让它漏出筛子
     if (filterKinds.isNotEmpty) {
       list = list.where((t) {
-        final kind =
-            t.type == TaskType.fixedlegacy ? TaskType.fixed : t.type;
+        final kind = t.type == TaskType.fixedlegacy ? TaskType.fixed : t.type;
         return filterKinds.contains(kind);
       }).toList();
     }
@@ -200,9 +199,9 @@ mixin TaskListFilterMod on GetxController {
 
   /// 所有标签 = **标签库**（唯一口径）。
   ///
-  /// 以前这里是「标签库 ∪ 待办身上用过的标签」，结果是随手在待办上填一个标签，
-  /// 它立刻出现在筛选行里 —— 看起来像「只要填写就新建了」。现在统一以标签库为准：
-  /// 只有「标签管理」里显式点「添加」才会让一个标签出现在这里。
+  /// 以前这里是标签库 ∪ 待办身上用过的标签，结果是随手在待办上填一个标签，
+  /// 它立刻出现在筛选行里， 看起来像只要填写就新建了。现在统一以标签库为准：
+  /// 只有标签管理里显式点添加才会让一个标签出现在这里。
   List<String> get allTags {
     final list = <String>[];
     try {
@@ -224,7 +223,8 @@ mixin TaskListFilterMod on GetxController {
   /// 当前选中的时间类型（界面上那一排 chip 的文案用）。
   String get kindFilterLabel {
     if (filterKinds.isEmpty) return '全部类型';
-    final names = filterKinds.map((k) => taskKindName[k] ?? '').toList()..sort();
+    final names = filterKinds.map((k) => taskKindName[k] ?? '').toList()
+      ..sort();
     return names.join('·');
   }
 }

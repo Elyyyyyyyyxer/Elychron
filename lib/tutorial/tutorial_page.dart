@@ -9,11 +9,11 @@ import 'package:flutter/cupertino.dart';
 /// ============ 教程播放器 ============
 ///
 /// 一篇教程就是"一页一步"地看下去：
-/// 顶部是标题 + 进度条，中间是这一步的内容，底部是「上一步 / 下一步」。
-/// 最后一步的按钮是「看完了」；右上角菜单里有「不再提示」与「重新观看」。
+/// 顶部是标题 + 进度条，中间是这一步的内容，底部是上一步 / 下一步。
+/// 最后一步的按钮是看完了；右上角菜单里有不再提示与重新观看。
 ///
-/// 中途退出会**记住看到第几步**（下次接着看），但**不算看过** ——
-/// "看过"只由最后一步的「看完了」标记，这样首用提示不会被半个教程糊弄过去。
+/// 中途退出会**记住看到第几步**（下次接着看），但**不算看过**，
+/// "看过"只由最后一步的看完了标记，这样首用提示不会被半个教程糊弄过去。
 class TutorialPage extends StatefulWidget {
   final Tutorial tutorial;
 
@@ -85,8 +85,8 @@ class _TutorialPageState extends State<TutorialPage> {
       child: SafeArea(
         // ⚠️ `crossAxisAlignment: stretch` 不能省（2026-09-17 用户发现
         // "标题、正文没有左对齐"）：Column 默认是 center，而步骤内容是按**自身宽度**
-        // 居中的 —— 长段落刚好占满整行看不出问题，短一点的那几步（比如
-        // 「你专注了吗？」）整块就被推到中间去了。拉伸之后每一步都从左边 22pt 起排。
+        // 居中的， 长段落刚好占满整行看不出问题，短一点的那几步（比如
+        // 你专注了吗？）整块就被推到中间去了。拉伸之后每一步都从左边 22pt 起排。
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -203,7 +203,7 @@ class _TutorialPageState extends State<TutorialPage> {
   }
 }
 
-/// 跳转目标的实际执行 —— 与 `TutorialTarget` 一一对应。
+/// 跳转目标的实际执行， 与 `TutorialTarget` 一一对应。
 ///
 /// 真正的跳转由首页装进 [TutorialRouter]（见 `home_mod_hooks.dart`），
 /// 这样教程内容与页面层保持解耦。

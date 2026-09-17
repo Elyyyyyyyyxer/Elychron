@@ -44,7 +44,7 @@ class FlowController extends GetxController {
   }
 
   void _onTick() {
-    // 只更新时钟：日历页/待办页的「每秒刷新」都靠它
+    // 只更新时钟：日历页/待办页的每秒刷新都靠它
     timeNow.value = DateTime.now();
   }
 
