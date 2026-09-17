@@ -24,7 +24,7 @@ import 'package:get/get.dart';
 /// 入口：设置页「已登录 / 登录已失效」那一行**长按**（见 option_view.dart），
 /// 以及登录页的登录按钮长按。
 Future<void> showLoginConnectivityPanel(BuildContext context) async {
-  final report = _latestReport();
+  final report = await _latestReport();
   final modules = report?.modules ?? const <DiagnosticModuleReport>[];
   final failures =
       modules.where((m) => m.state == DiagnosticModuleState.failed).toList();
@@ -113,10 +113,18 @@ Future<void> _runRefresh(BuildContext context) async {
   }
 }
 
-/// 从内存里的诊断日志解析出最近一次刷新报告（解析失败就当没有）
-DiagnosticRefreshReport? _latestReport() {
+/// 本次面板读到的诊断日志原文（给下面几个判断复用）
+String? _cachedLogText;
+
+/// 从诊断日志解析出最近一次刷新报告（解析失败就当没有）。
+///
+/// ⚠️ 用 `recentText()` 而不是 `currentText()`：后者只有**本进程**写过的行，
+/// 所以 App 刚重启时面板会显示"还没有刷新记录"（2026-09-17 真机踩到）。
+/// `recentText()` 会把落盘的那份一起读回来。
+Future<DiagnosticRefreshReport?> _latestReport() async {
   try {
-    final text = DiagnosticLogService.instance.currentText();
+    final text = await DiagnosticLogService.instance.recentText();
+    _cachedLogText = text;
     if (text.trim().isEmpty) return null;
     return const DiagnosticReportParser().parse(text).latestReport;
   } catch (_) {
@@ -133,13 +141,7 @@ int _rateLimitedCount(DiagnosticRefreshReport report) => report.issues
     .length;
 
 /// 诊断日志里有没有"随包内置"的痕迹（说明这次校历用的是内置那一份）
-bool _usesBundledCalendar() {
-  try {
-    return DiagnosticLogService.instance.currentText().contains('随包内置');
-  } catch (_) {
-    return false;
-  }
-}
+bool _usesBundledCalendar() => _cachedLogText?.contains('随包内置') ?? false;
 
 String _stateText(DiagnosticModuleReport module) {
   final duration = module.durationMs;

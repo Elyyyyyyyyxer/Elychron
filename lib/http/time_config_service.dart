@@ -45,10 +45,18 @@ class TimeConfigService {
   /// 注意记的是"尝试"而不是"成功"：那个站可能长期连不上，
   /// 记成功会导致每次刷新都去重试同一个死站。
   bool shouldAttemptRemote(String semesterId, {DateTime? now}) {
+    final current = now ?? DateTime.now();
+    // ===== 历史学期根本不用试远程（2026-09-17）=====
+    // 上学期的校历不可能再改；每次刷新都去敲一遍只是白费请求（那个站还老是挂）。
+    final parts = semesterId.split('-');
+    final startYear = parts.isEmpty ? null : int.tryParse(parts.first);
+    if (startYear != null && startYear < academicYearStartFor(current)) {
+      return false;
+    }
     final raw = _db?.getCachedWebPage(_attemptKey(semesterId));
     return isCalendarRemoteUpdateDue(
       lastAttempt: raw == null ? null : DateTime.tryParse(raw),
-      now: now ?? DateTime.now(),
+      now: current,
       interval: updateInterval,
     );
   }

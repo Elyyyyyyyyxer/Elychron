@@ -11,6 +11,7 @@ import 'package:get/get.dart';
 
 import 'package:celechron/http/spider.dart';
 import 'package:celechron/http/time_config_service.dart';
+import 'package:celechron/http/timetable_fetch_policy.dart';
 import 'package:celechron/http/zjuServices/grs_new.dart';
 import 'package:celechron/http/zjuServices/exceptions.dart';
 import 'package:celechron/http/zjuServices/response_utils.dart';
@@ -372,6 +373,15 @@ class UgrsSpider implements Spider {
     }
   }
 
+  /// 这个错误是不是"被限流"（教务的 HTTP 921 / 标准的 429）
+  static bool _isRateLimited(Object error) {
+    final text = error.toString().toLowerCase();
+    return text.contains('921') ||
+        text.contains('429') ||
+        text.contains('too many requests') ||
+        text.contains('请求过于频繁');
+  }
+
   String _describeRefreshFailure(
     Object error,
     StackTrace stackTrace, {
@@ -447,6 +457,16 @@ class UgrsSpider implements Spider {
       // normalUpperBound 内保持历史/当前抓取；其后的 probeUpperBound
       // 无条件尝试下一学年，以接口是否有有效数据判断是否开放。
       final isProbeYear = timetableYearPlan.isProbeYear(queryAcademicYearStart);
+      // ===== MOD 2026-09-17：历史学年**先吃缓存**，不再每次刷新都去查 =====
+      //
+      // 背景：教务对"一个时间窗内的请求条数"限流（HTTP 921），而课表是**按学年 × 学期**
+      // 逐个查的（`1|秋``1|冬``2|春``2|夏`），学年范围又是"入学年 → 当前年（+探针年）"——
+      // 26 级 = 2×4 = 8 次，23 级 = 4×4 = 16 次，一次刷新极易撞限流。
+      //
+      // 过去学年的课表**基本不会变**，所以：有缓存就吃缓存（不联网），
+      // **没有缓存照常联网**（新装用户不会因此缺数据）。当前学年与探针学年照旧每次查。
+      final isPastYear = TimetableFetchPolicy.isPastAcademicYear(
+          queryAcademicYearStart, DateTime.now());
       final queryAcademicYear =
           '$queryAcademicYearStart-${queryAcademicYearStart + 1}';
       var probeSessionCount = 0;
@@ -554,8 +574,9 @@ class UgrsSpider implements Spider {
           return Future.value("已取消");
         }
         try {
-          var value = await _fetchWithRetry(
-              () => _zdbk.getTimetable(_httpClient, queryAcademicYear, season));
+          var value = await _fetchWithRetry(() => _zdbk.getTimetable(
+              _httpClient, queryAcademicYear, season,
+              preferCache: isPastYear));
 
           var semKey = season.startsWith('1')
               ? '$queryAcademicYear-1'
@@ -622,7 +643,13 @@ class UgrsSpider implements Spider {
           }
           return Future.value(value.item1?.toString());
         } on Object catch (error, stackTrace) {
-          if (isProbeYear && isExpectedTimetableProbeMiss(error)) {
+          // ===== 探针学年：被限流（921）**不该**把整个课表标成失败 =====
+          // 2026-09-17 真机复现：探针学年 2027-2028 的某个学期撞了 921，
+          // 结果面板上「课表」直接显示"没连上" —— 可实际上当前学年的
+          // 22 + 21 条课都好好拿到了。探针只是"看看下学年开没开"，
+          // 问不到就当没开，别把真实数据一起否定掉。
+          if (isProbeYear &&
+              (isExpectedTimetableProbeMiss(error) || _isRateLimited(error))) {
             return null;
           }
           if (isProbeYear) probeHadUnexpectedFailure = true;
@@ -632,6 +659,11 @@ class UgrsSpider implements Spider {
       }
 
       for (var season in ['1|秋', '1|冬', '2|春', '2|夏']) {
+        // ===== 探针学年：只探第一个学期（2026-09-17 用户要求少打请求）=====
+        // 探针的目的只有一个 —— "下个学年开没开"。问「1|秋」就够了；
+        // 其余三个学期等这个学年真的变成当前学年时再查。
+        // 每天因此少打 3 个请求，而且探针本来就天天返回 0 行。
+        if (isProbeYear && season != '1|秋') continue;
         if (timetableFetches.isEmpty) {
           timetableFetches.add(handleTimetable(season));
         } else {

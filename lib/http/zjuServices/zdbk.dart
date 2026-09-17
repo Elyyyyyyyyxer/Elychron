@@ -11,6 +11,7 @@ import 'package:celechron/model/session.dart';
 import 'package:celechron/model/exams_dto.dart';
 import 'package:celechron/design/captcha_input.dart';
 import 'package:celechron/utils/global.dart';
+import 'package:celechron/http/timetable_fetch_policy.dart';
 import 'package:celechron/services/diagnostic_log_service.dart';
 import 'exceptions.dart';
 import 'response_utils.dart';
@@ -204,8 +205,16 @@ class Zdbk {
     throw LoginExpiredException("教务网会话已过期，请手动重新登录");
   }
 
-  /// 两个请求之间至少隔这么久（见 [_withSitePermit]）
-  static const Duration _minRequestGap = Duration(milliseconds: 300);
+  /// 相邻两个教务请求之间的最小间隔（见 [_withSitePermit]）。
+  ///
+  /// - **前台**：300 毫秒 —— 用户正盯着屏幕等数据，"快"比"客气"重要；
+  /// - **后台**：**15 秒** —— 用户看不见，慢慢来就行（用户 2026-09-17 的原话：
+  ///   "在后台计算一下时间，每隔一段时间发一个请求…虽然刷新会变得很慢，
+  ///   但是有缓存兜底，后台只需要静默刷新就行"）。
+  ///   教务限流看的是"一个时间窗内的请求条数"，**拉长时间窗是最有效的降温方式** ——
+  ///   把 6~9 个请求摊到 1.5~2 分钟里，比挤在 3 秒内安全得多。
+  static const Duration foregroundRequestGap = Duration(milliseconds: 300);
+  static const Duration backgroundRequestGap = Duration(seconds: 15);
 
   bool _siteBusy = false;
   DateTime? _lastSiteRequestAt;
@@ -231,11 +240,16 @@ class Zdbk {
     }
     _siteBusy = true;
     try {
+      // 前台/后台用不同的节奏（见 [backgroundRequestGap]）
+      final gap = DiagnosticLogService.instance.currentOrigin ==
+              RefreshOrigin.background
+          ? backgroundRequestGap
+          : foregroundRequestGap;
       final last = _lastSiteRequestAt;
       if (last != null) {
         final elapsed = DateTime.now().difference(last);
-        if (elapsed < _minRequestGap) {
-          await Future.delayed(_minRequestGap - elapsed);
+        if (elapsed < gap) {
+          await Future.delayed(gap - elapsed);
         }
       }
       _lastSiteRequestAt = DateTime.now();
@@ -571,8 +585,52 @@ class Zdbk {
     });
   }
 
+  /// [preferCache] = true 时：**只要有缓存就直接用它，本次不联网**。
+  ///
+  /// 给"历史学年"用（2026-09-17 用户拍板）：过去学年的课表基本不会变，
+  /// 而教务对"一个时间窗内的请求条数"有限流（HTTP 921），
+  /// 一次刷新本来要按「学年 × 学期」查 8~16 次 —— 历史学年直接吃缓存，
+  /// 把请求数砍掉一大半。**没有缓存时照常联网**（新装用户不会因此缺数据）。
   Future<Tuple<Exception?, Iterable<Session>>> getTimetable(
-      HttpClient httpClient, String year, String semester) async {
+      HttpClient httpClient, String year, String semester,
+      {bool preferCache = false}) async {
+    // ===== 已知为空：**当天不再重复问**（2026-09-17）=====
+    //
+    // 对新生来说这才是最大的一笔节省：以 26-27 学年为例，`1|秋``1|冬` 有数据，
+    // 而 `2|春``2|夏` 还没开放（返回 0 行）、探针学年那 4 个学期也都是空的 ——
+    // 一次刷新的 8 个课表请求里，**6 个是明知故问**，每次刷新都白打一遍。
+    // 现在：当天问过一次是空的，当天就不再问（第二天再确认一次，足够及时）。
+    if (TimetableFetchPolicy.shouldSkipKnownEmptyTimetable(
+      emptyStamp: _db?.getCachedWebPage(
+          TimetableFetchPolicy.emptyStampKey(year, semester)),
+      today: TimetableFetchPolicy.localDayStamp(DateTime.now()),
+      preferCache: preferCache,
+    )) {
+      DiagnosticLogService.instance.record(
+        module: '课表',
+        operation: 'skipKnownEmpty',
+        cacheUsed: true,
+        message: '$year $semester 今天已经问过、当时返回 0 行（多半还没开放），'
+            '本次跳过；明天再确认一次',
+      );
+      return Tuple(null, <Session>[]);
+    }
+    if (preferCache) {
+      final cached = _cachedList('zdbk_Timetable$year$semester', '教务网课表缓存');
+      if (cached.used && cached.data.isNotEmpty) {
+        DiagnosticLogService.instance.record(
+          module: '课表',
+          operation: 'cacheFirst',
+          cacheUsed: true,
+          message: '$year $semester 是历史学期，直接使用缓存（${cached.data.length} 条），'
+              '本次不请求教务；缓存时间=${cached.cachedAt ?? '<无>'}',
+        );
+        return Tuple(
+          null,
+          _parseSessions(cached.data, '历史学期课表缓存', requestedSeason: semester),
+        );
+      }
+    }
     return await _withAutoRelogin(httpClient, (relogged, retried) async {
       late HttpClientRequest request;
       late HttpClientResponse response;
@@ -646,6 +704,11 @@ class Zdbk {
           if (items.isNotEmpty) {
             _writeCache('zdbk_Timetable$year$semester', jsonEncode(items));
           } else {
+            // 记下"今天问过、是空的"，当天不再重复问（见方法开头的 skipKnownEmpty）
+            await _db?.setCachedWebPage(
+              TimetableFetchPolicy.emptyStampKey(year, semester),
+              TimetableFetchPolicy.localDayStamp(DateTime.now()),
+            );
             DiagnosticLogService.instance.record(
               level: CelechronLogLevel.warning,
               module: '课表',
