@@ -71,6 +71,9 @@ flutter:
     - assets/tutorial/
     - assets/tutorial/tasks/
     - assets/tutorial/data/
+    # 随包内置的校历（用户 2026-09-17 拍板）：上游那个第三方站老是连不上，
+    # 索性把公开的校历 JSON 打进包里；之后**每周**才去试一次远程更新、比差异取新的。
+    - assets/calendar/
 
   # To add assets to your application, add an assets section, like this:
   # assets:

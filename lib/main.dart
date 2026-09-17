@@ -122,7 +122,8 @@ void main() async {
   //      读得到——但如果连它也读不出来，用户至少知道要重新登录，而不是干瞪眼）。
   final restoredUsername = restoredScholar.username ?? '';
   final restoredPassword = restoredScholar.password ?? '';
-  final credentialsMissing = restoredUsername.isEmpty || restoredPassword.isEmpty;
+  final credentialsMissing =
+      restoredUsername.isEmpty || restoredPassword.isEmpty;
   if (restoredScholar.isLogan && credentialsMissing) {
     debugPrint(
         '[Elychron] 恢复的登录状态缺少凭据（学号=${restoredUsername.isEmpty ? "空" : "有"}、'
@@ -208,7 +209,40 @@ Future<DateTime?> _applyPendingTodoWidgetCompletions(
   return changed ? completedAt : null;
 }
 
+/// 三个模块里最近的一次更新时间（都是占位值 2001 表示"从没成功过"，跳过）
+DateTime? _latestModuleUpdate(Scholar scholar) {
+  DateTime? latest;
+  for (final time in [
+    scholar.lastUpdateTimeGrade,
+    scholar.lastUpdateTimeCourse,
+    scholar.lastUpdateTimeHomework,
+  ]) {
+    if (time.year <= 2001) continue;
+    if (latest == null || time.isAfter(latest)) latest = time;
+  }
+  return latest;
+}
+
 Future<void> _refreshRestoredScholar(Rx<Scholar> scholar) async {
+  // ===== MOD 2026-09-17：**刚刷新过就别再刷一次** =====
+  //
+  // 用户问「为什么校历和课表总是难以连接上」，其中一条原因就是：
+  // 后台刷新（WorkManager）和"打开 App 自动刷新"以前各打一整套请求 ——
+  // 7 个模块并发、光课表就要按 4 个学期分别查，叠起来极易被教务限流（HTTP 921）。
+  //
+  // 这里加一道"最小间隔"：最近 5 分钟内成功更新过，就跳过启动自动刷新。
+  // 数据反正是新的；想立刻要最新的，下拉刷新随时可以手动来一次。
+  final lastUpdated = _latestModuleUpdate(scholar.value);
+  if (lastUpdated != null &&
+      DateTime.now().difference(lastUpdated) < const Duration(minutes: 5)) {
+    DiagnosticLogService.instance.record(
+      module: 'refresh',
+      operation: 'startupRefreshSkipped',
+      message: '最近一次更新在 ${DateTime.now().difference(lastUpdated).inMinutes} 分钟前'
+          '（不足 5 分钟），跳过启动自动刷新 —— 避免和后台刷新叠在一起被教务限流',
+    );
+    return;
+  }
   GlobalStatus.isFirstScreenReq = true;
   try {
     await scholar.value.refresh(onPartialUpdate: scholar.refresh);
@@ -375,8 +409,8 @@ class _CelechronAppState extends State<CelechronApp>
             return AnnotatedRegion<SystemUiOverlayStyle>(
               value: systemOverlayStyleFor(brightness),
               child: MediaQuery(
-                data:
-                    MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
+                data: MediaQuery.of(context)
+                    .copyWith(alwaysUse24HourFormat: true),
                 child: child!,
               ),
             );
@@ -414,7 +448,6 @@ class _CelechronAppState extends State<CelechronApp>
     var brightnessMode = Get.find<Option>(tag: 'option').brightnessMode;
     var dispatcher = SchedulerBinding.instance.platformDispatcher;
 
-
     Brightness effectiveBrightness() {
       switch (brightnessMode.value) {
         case BrightnessMode.dark:
@@ -426,8 +459,8 @@ class _CelechronAppState extends State<CelechronApp>
       }
     }
 
-    void apply() =>
-        SystemChrome.setSystemUIOverlayStyle(systemOverlayStyleFor(effectiveBrightness()));
+    void apply() => SystemChrome.setSystemUIOverlayStyle(
+        systemOverlayStyleFor(effectiveBrightness()));
 
     ever(brightnessMode, (mode) {
       dispatcher.onPlatformBrightnessChanged =

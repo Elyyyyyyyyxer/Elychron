@@ -24,7 +24,6 @@ class Zdbk {
   DatabaseHelper? _db;
   Future<bool>? _loginFuture;
   int _sessionGeneration = 0;
-  int _activeSiteRequests = 0;
   final List<Completer<void>> _siteWaiters = [];
 
   set db(DatabaseHelper? db) {
@@ -205,18 +204,44 @@ class Zdbk {
     throw LoginExpiredException("教务网会话已过期，请手动重新登录");
   }
 
+  /// 两个请求之间至少隔这么久（见 [_withSitePermit]）
+  static const Duration _minRequestGap = Duration(milliseconds: 300);
+
+  bool _siteBusy = false;
+  DateTime? _lastSiteRequestAt;
+
+  /// ===== MOD 2026-09-17：教务限流的对策 —— **串行 + 最小间隔** =====
+  ///
+  /// 原来是"最多 3 个并发"，理由是"避免放大瞬时压力"。但用户实测
+  /// 「校历和课表老是连不上」，连通性面板显示这两项长期走缓存，
+  /// 诊断日志里一次刷新能看到 **4 条 HTTP 921**（教务反爬的自定义码）。
+  ///
+  /// 原因很清楚：一次刷新有 **7 个模块并发**（校历/课表/考试/成绩/主修/作业/实践），
+  /// 而光"课表"一个模块就要按四个学期（`1|秋` `1|冬` `2|春` `2|夏`）分别查 ——
+  /// 3 并发的瞬时压力对教务来说仍然太密。
+  ///
+  /// 现在改成**一次只放一个请求过去**，且两个请求之间至少隔 [_minRequestGap]。
+  /// 代价：9 个请求大约多花 2~3 秒；换来的是不再被限流 —— 这笔账很划算。
   Future<T> _withSitePermit<T>(Future<T> Function() action) async {
-    // 限制同时访问教务站的请求数，避免刷新时多个模块共同放大瞬时压力。
-    if (_activeSiteRequests >= 3) {
+    // 排队等前面的人走完（FIFO：谁先等谁先上）
+    while (_siteBusy) {
       final waiter = Completer<void>();
       _siteWaiters.add(waiter);
       await waiter.future;
     }
-    _activeSiteRequests++;
+    _siteBusy = true;
     try {
+      final last = _lastSiteRequestAt;
+      if (last != null) {
+        final elapsed = DateTime.now().difference(last);
+        if (elapsed < _minRequestGap) {
+          await Future.delayed(_minRequestGap - elapsed);
+        }
+      }
+      _lastSiteRequestAt = DateTime.now();
       return await action();
     } finally {
-      _activeSiteRequests--;
+      _siteBusy = false;
       if (_siteWaiters.isNotEmpty) {
         _siteWaiters.removeAt(0).complete();
       }
@@ -331,8 +356,7 @@ class Zdbk {
         continue;
       }
       try {
-        sessions.add(
-            Session.fromZdbk(item, requestedSeason: requestedSeason));
+        sessions.add(Session.fromZdbk(item, requestedSeason: requestedSeason));
       } on Object catch (error, stackTrace) {
         if (kDebugMode) {
           debugPrint(
@@ -646,8 +670,7 @@ class Zdbk {
             _cachedList('zdbk_Timetable$year$semester', '$context 缓存');
         return Tuple(
           _cacheAwareException(exception, cached, context),
-          _parseSessions(cached.data, '$context 缓存',
-              requestedSeason: semester),
+          _parseSessions(cached.data, '$context 缓存', requestedSeason: semester),
         );
       }
     });

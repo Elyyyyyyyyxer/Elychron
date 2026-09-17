@@ -198,6 +198,9 @@ class GrsSpider implements Spider {
     _grsNew.logout();
   }
 
+  /// 被限流后的退避时长（见 _fetchWithRetry 里的 921 分支）。
+  static const Duration rateLimitBackoff = Duration(seconds: 3);
+
   // 自动重试机制：遇到Cookie过期等错误时，自动重新登录再重试
   Future<T> _fetchWithRetry<T>(Future<T> Function() requestFactory,
       {int maxRetries = 1}) async {
@@ -245,6 +248,25 @@ class GrsSpider implements Spider {
             if (loginErrors.any((error) => error != null)) rethrow;
           }
           await Future.delayed(const Duration(milliseconds: 300));
+          continue;
+        }
+        // ===== MOD 2026-09-17：被限流（教务 HTTP 921）要**退避重试** =====
+        // 与 ugrs_spider 同一份逻辑（那边注释更详细）：921 以前不在任何重试名单里，
+        // 一次被限流就整块落缓存。这里退避几秒再试一次。
+        final rateLimited = errStr.contains('921') ||
+            errStr.contains('429') ||
+            errStr.contains('too many requests') ||
+            errStr.contains('请求过于频繁') ||
+            errStr.contains('访问过于频繁');
+        if (attempts <= maxRetries && rateLimited) {
+          DiagnosticLogService.instance.record(
+            level: CelechronLogLevel.warning,
+            module: '刷新',
+            operation: 'rateLimitBackoff',
+            retried: true,
+            message: '被限流，退避 ${rateLimitBackoff.inSeconds} 秒后重试一次：$error',
+          );
+          await Future.delayed(rateLimitBackoff);
           continue;
         }
         if (attempts <= maxRetries && transientError) {

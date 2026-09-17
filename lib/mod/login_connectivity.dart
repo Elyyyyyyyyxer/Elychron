@@ -49,17 +49,28 @@ Future<void> showLoginConnectivityPanel(BuildContext context) async {
           value: _stateText(module),
           ok: module.state == DiagnosticModuleState.liveSuccess,
         ),
+      // ===== 被限流要说清楚（2026-09-17）=====
+      // 用户问「为什么校历和课表总是难以连接上」，答案八成就在这一行：
+      // 教务反爬返回 HTTP 921（自定义码），不是 App 坏了、也不是网络断了。
+      // 以前面板只会显示"走缓存"，看不出原因 —— 现在直接点名。
+      if (report != null && _rateLimitedCount(report) > 0)
+        DingTalkPanelNote(
+            '这次有 ${_rateLimitedCount(report)} 个请求被**教务限流**（HTTP 921）——'
+            '学校那边让你慢一点，不是 App 坏了。过几分钟、或者换个网络再试一次就好；'
+            '这段时间里课表/成绩会显示上次存下来的数据。'),
+      // 校历现在多数时候用的是**随包内置**那一份（一周才去试一次远程）——
+      // 不说明的话，用户看到"校历 走缓存"会以为又失败了。
+      if (_usesBundledCalendar())
+        const DingTalkPanelNote('校历用的是**随包内置**的那一份（离线可用，首次安装就有）。'
+            '它一周才会去试一次联网更新：连上了就比对差异、按新的来；连不上也不影响使用。'),
       // 没通的单独说清楚：这是用户最想知道的
       if (failures.isNotEmpty)
-        DingTalkPanelNote(
-            '没连上的：${failures.map((m) => m.name).join('、')} —— '
+        DingTalkPanelNote('没连上的：${failures.map((m) => m.name).join('、')} —— '
             '多半是学校服务器暂时连不上（教务经常返回 HTTP 921 限流），过一会儿再试。'),
       if (degraded.isNotEmpty)
-        DingTalkPanelNote(
-            '走缓存的：${degraded.map((m) => m.name).join('、')} —— '
+        DingTalkPanelNote('走缓存的：${degraded.map((m) => m.name).join('、')} —— '
             '这次没连上，但本地有上次的数据，所以还能看。'),
-      const DingTalkPanelNote(
-          '口径：「实时成功」= 这次真的连上了学校服务器；'
+      const DingTalkPanelNote('口径：「实时成功」= 这次真的连上了学校服务器；'
           '「走缓存」= 没连上但用的是上次存下来的数据；'
           '「未参与」= 这次没查它（例如没登录）。'),
       const DingTalkPanelNote('想看每一条请求的网址和返回码，去「设置 → 测试日志」。'),
@@ -110,6 +121,23 @@ DiagnosticRefreshReport? _latestReport() {
     return const DiagnosticReportParser().parse(text).latestReport;
   } catch (_) {
     return null;
+  }
+}
+
+/// 最近一次刷新里有多少条"被限流"的记录（教务的 HTTP 921）
+int _rateLimitedCount(DiagnosticRefreshReport report) => report.issues
+    .where((issue) =>
+        issue.title.contains('921') ||
+        issue.explanation.contains('921') ||
+        issue.explanation.contains('限流'))
+    .length;
+
+/// 诊断日志里有没有"随包内置"的痕迹（说明这次校历用的是内置那一份）
+bool _usesBundledCalendar() {
+  try {
+    return DiagnosticLogService.instance.currentText().contains('随包内置');
+  } catch (_) {
+    return false;
   }
 }
 
