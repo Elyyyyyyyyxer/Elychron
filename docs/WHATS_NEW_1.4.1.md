@@ -595,7 +595,8 @@ Could not close incremental caches in D:\celechron-mod\Celechron\...
   - ⚠️ **上面这一版是"事故之前"构建的，已经作废**（它不含第十二节的修复）
 - 正式包（**2026-09-16 重建，当前这一版**）：`Elychron-v1.4.1-elychron.1-arm64.apk`
   - `versionCode=9` / `versionName=1.4.1-elychron.1` / **25.4 MB（26,679,900 字节）**
-  - **SHA-256** `525c98175feeb1237549c0faab688a9e109db0484d8a8db9cefcd6c6e2c456fa`
+  - **SHA-256** `db2e8a5ae8292e4b519cd0d460265c5332e538412361a33086333481110c9277`（2026-09-17 深夜用 `build_apk.ps1` 一键出的包：analyze 0 error、
+    583 测试全绿、签名指纹仍是 b2cc4256…a771c8）
   - 历史：`8fc16ab6…`（事故前）→ `b835218c…`（09-16 第二次）→ `a914715d…`（09-16 第三次）
     → `9689f618…`（09-17 教程配图那次）→ **`525c9817…`（2026-09-17 第四次：装上第十五节的四条修复）**
   - ⚠️ v1.4.1 **还没发布**，之后还会重打，发布时以`build_apk.ps1`打印的那一串为准
