@@ -57,6 +57,18 @@ class _FocusPageState extends State<FocusPage> {
   /// true = 这次是「暂停后离开，回来接着做」（见 [FocusPage.resume]）
   bool _resumedExisting = false;
 
+  /// 「专注自动计入课程」这个开关这次是开着的吗（关掉时页面上要说明）
+  bool _attributeEnabled = true;
+
+  /// 这次专注算到了哪门课上（课程名；null = 没有归属）。
+  ///
+  /// ★ 为什么要在页面上显示（用户 2026-09-17）：
+  /// 归属是"拿开始时间在课表里找那一节课"，命中与否取决于**当时有没有课**。
+  /// 原来页面上一声不吭，用户只能事后去统计页翻「按月按课程」猜 ——
+  /// 于是就有了"当现在有课的时候，自由专注不会自动计入当前课程？"这个疑问。
+  /// 现在开始专注时就把结果显示出来：一眼就能看出这次算到了哪门课。
+  String? _attributedCourseName;
+
   DatabaseHelper? get _db {
     if (!Get.isRegistered<DatabaseHelper>(tag: 'db')) return null;
     return Get.find<DatabaseHelper>(tag: 'db');
@@ -120,6 +132,12 @@ class _FocusPageState extends State<FocusPage> {
       );
       _db?.saveFocusSession(_session);
     }
+    _attributeEnabled = _db?.getFocusAttributeToCourse() ?? true;
+    final attributedId = _session.courseId;
+    _attributedCourseName = (attributedId == null || attributedId.isEmpty)
+        ? null
+        : courseNameOf(attributedId);
+
     _lastPhase = _engine.phase;
     // 一开始就把「该休息了」排进系统（锁屏也响）
     _syncRestNotice();
@@ -131,6 +149,18 @@ class _FocusPageState extends State<FocusPage> {
     if (DoNotDisturb.autoEnabled()) {
       DoNotDisturb.enableForFocus();
     }
+  }
+
+  /// 页面上那句归属说明（永远给出一个**明确**的答案，不留悬念）。
+  String get _attributionLine {
+    if (!_attributeEnabled) return '专注自动计入课程：已关闭（设置 → 专注里可打开）';
+    // 判断依据是**会话里真的记了 courseId**，而不是"名字查得到" ——
+    // 课表没刷出来时名字可能查不到，但归属本身是发生的。
+    final id = _session.courseId;
+    if (id != null && id.isNotEmpty) {
+      return '本次专注会计入《${_attributedCourseName ?? "课表里的一门课"}》';
+    }
+    return '本次专注不归属课程（开始时课表里没有课）';
   }
 
   /// 这次专注算在哪门课上（课程挂载的第三件事，用户拍板"按开始时间判定 + 做成开关"）。
@@ -183,9 +213,8 @@ class _FocusPageState extends State<FocusPage> {
         .where((s) => s.uid != suspendedUid)
         .toList();
     if (stale.isEmpty) return;
-    final minutes = stale
-        .map((s) => s.focusedTime.inMinutes)
-        .fold<int>(0, (a, b) => a + b);
+    final minutes =
+        stale.map((s) => s.focusedTime.inMinutes).fold<int>(0, (a, b) => a + b);
     for (final session in stale) {
       _settle(session, completed: false);
     }
@@ -313,7 +342,8 @@ class _FocusPageState extends State<FocusPage> {
 
   Future<_ExitChoice> _confirmExit() async {
     // 一秒都没专注、也没休息过，就别问了 —— 直接按"结束"处理
-    if (_engine.focused < const Duration(seconds: 30)) return _ExitChoice.finish;
+    if (_engine.focused < const Duration(seconds: 30))
+      return _ExitChoice.finish;
     final result = await showCupertinoDialog<_ExitChoice>(
       context: context,
       builder: (BuildContext context) => CupertinoAlertDialog(
@@ -351,7 +381,6 @@ class _FocusPageState extends State<FocusPage> {
 
   // 时间显示统一走 focus_engine 里的 focusClock / focusHuman（那份有单测）
 
-
   // ------------------------------------------------------------------ UI
 
   Color get _phaseColor {
@@ -385,7 +414,8 @@ class _FocusPageState extends State<FocusPage> {
     final textColor = CupertinoTheme.of(context).textTheme.textStyle.color;
     final labelColor =
         CupertinoDynamicColor.resolve(CupertinoColors.secondaryLabel, context);
-    final roundText = _engine.rounds == 0 ? '第 1 轮' : '第 ${_engine.rounds + 1} 轮';
+    final roundText =
+        _engine.rounds == 0 ? '第 1 轮' : '第 ${_engine.rounds + 1} 轮';
 
     final page = CupertinoPageScaffold(
       backgroundColor: CupertinoColors.systemGroupedBackground,
@@ -465,6 +495,9 @@ class _FocusPageState extends State<FocusPage> {
                   fontSize: 16, fontWeight: FontWeight.w600, color: textColor),
             ),
             const SizedBox(height: 6),
+            Text(_attributionLine,
+                style: TextStyle(fontSize: 12, color: labelColor)),
+            const SizedBox(height: 4),
             Text(_phaseHint, style: TextStyle(fontSize: 13, color: labelColor)),
             const SizedBox(height: 14),
             Row(

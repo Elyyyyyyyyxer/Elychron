@@ -7,6 +7,7 @@ import 'package:celechron/model/scholar.dart';
 import '../../worker/ecard_widget_messenger.dart';
 import 'option_controller.dart';
 import 'package:celechron/mod/friendly_error.dart';
+import 'package:celechron/mod/login_connectivity.dart';
 import 'package:celechron/database/database_helper.dart';
 import 'package:celechron/mod/database_mod.dart';
 
@@ -171,6 +172,9 @@ class _LoginFormState extends State<LoginForm> {
                         )),
                     const SizedBox(height: 16),
                     Obx(() => CupertinoButton(
+                        // ===== MOD: 长按看"哪些接口是通的"（2026-09-17 用户要求）=====
+                        // 登录不上时最想知道的就是这个；放在这里不用先登录进 App。
+                        onLongPress: () => showLoginConnectivityPanel(context),
                         onPressed: () async {
                           buttonPressed.value = true;
                           var scholar = Get.find<Rx<Scholar>>(tag: 'scholar');

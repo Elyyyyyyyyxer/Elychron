@@ -48,6 +48,9 @@ class CardFlipSwitcher extends StatefulWidget {
   /// 卡片最外侧那条「页边」的底色。默认取 [CupertinoColors.systemGrey6]
   /// （浅色下 242,242,247、深色下 28,28,30）再叠一点点黑：浅色下与白色页面
   /// 拉开约一档灰度，深色下比卡片略深一档，两边都能看出"纸的厚度"。
+  ///
+  /// ⚠️ **它必须是"还没解析"的动态色**（默认值就是），解析在 build 里做 ——
+  /// 见下面关于"深色模式变白"的注释。
   final Color paperEdgeColor;
 
   const CardFlipSwitcher({
@@ -121,6 +124,21 @@ class _CardFlipSwitcherState extends State<CardFlipSwitcher>
     return AnimatedBuilder(
       animation: _controller,
       builder: (BuildContext context, Widget? _) {
+        // ===== MOD: 深色模式适配（2026-09-17，用户反馈）=====
+        //
+        // 现象：**深色模式下翻卡片，整张卡会先变白再恢复。**
+        //
+        // 原因：这条「页边」是铺满整张卡的圆角矩形（靠偏移 3dp 让它在卡片外面
+        // 露出薄薄一条），而卡片的各个面是**页面内容**（背景是透明的）。
+        // 于是翻转时，页边的颜色会从卡片底下透出来 —— 浅色模式下它是 242,242,247
+        // （和页面底色几乎一样，看不出来），深色模式下如果没解析成深色，
+        // 它就是那块"白"。
+        //
+        // 关键：`CupertinoDynamicColor` **不会自己解析**，普通 `BoxDecoration`
+        // 拿到的是"浅色那一套"。以前这里直接 `widget.paperEdgeColor.withValues(...)`，
+        // 于是深色模式下拿到的仍是浅色值（≈白）。必须在这里显式 resolve。
+        final edgeColor =
+            CupertinoDynamicColor.resolve(widget.paperEdgeColor, context);
         final t = _controller.value; // 0..1
         final firstHalf = t < 0.5;
         final rawHalf = (firstHalf ? t : t - 0.5) * 2;
@@ -175,7 +193,8 @@ class _CardFlipSwitcherState extends State<CardFlipSwitcher>
                     // 底色用 withValues 而不是写死 rgb —— CupertinoDynamicColor
                     // 要保留「浅色 / 深色 / 高对比」三套值，让它在绘制时自己解析。
                     decoration: BoxDecoration(
-                      color: widget.paperEdgeColor.withValues(alpha: depth),
+                      // 用上面解析过的 edgeColor（深色下必须是深色那套）
+                      color: edgeColor.withValues(alpha: depth),
                       borderRadius: BorderRadius.circular(18),
                     ),
                     // 再叠一点黑：浅色下压出与白页面的灰度差，深色下把边缘压得

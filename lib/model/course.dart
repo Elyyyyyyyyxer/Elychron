@@ -137,9 +137,38 @@ class Course {
           e.evenWeek == session.evenWeek &&
           e.location == session.location &&
           e.time.contains(session.time.first));
-      currentSession.firstHalf = currentSession.firstHalf || session.firstHalf;
-      currentSession.secondHalf =
-          currentSession.secondHalf || session.secondHalf;
+      // ===== MOD: 半学期不要再"无脑或"（2026-09-17）=====
+      //
+      // 教务行的 `xxq` 读不出来时，我们按**本次查询的季节**猜：
+      // 「1|秋」那次全猜上半、「1|冬」那次全猜下半（见 Session.fromZdbk）。
+      // 两次查询都会返回同一门课，于是原来这个 `a || b` 把"猜出来的秋"和
+      // "猜出来的冬"合成了**两半都上** —— 用户看到「秋冬的课混在一起、还报冲突」，
+      // 而下次刷新（xxq 又能读出来）就自己好了，所以极难复现
+      // （真实反馈原话："我问他们的时候已经正常了"）。
+      //
+      // 现在的规矩（三条，覆盖原来的 OR）：
+      //   1. 两边都确定 → 保持 OR（有些长学期课确实会拆成秋+冬两条，这是原意）；
+      //   2. 一边确定、一边猜 → **以确定的为准**（猜的那边不动结论）；
+      //   3. 两边都是猜的 → 退回 OR（宁可显示多一点，也别把课弄丢）。
+      final currentKnown = !currentSession.halfGuessed;
+      final incomingKnown = !session.halfGuessed;
+      if (currentKnown && incomingKnown) {
+        currentSession.firstHalf = currentSession.firstHalf || session.firstHalf;
+        currentSession.secondHalf =
+            currentSession.secondHalf || session.secondHalf;
+      } else if (currentKnown != incomingKnown) {
+        if (incomingKnown) {
+          // 进来的这条确定 → 用它覆盖（把之前猜错的纠正回来）
+          currentSession.firstHalf = session.firstHalf;
+          currentSession.secondHalf = session.secondHalf;
+          currentSession.halfGuessed = false;
+        }
+        // 进来的是猜的、已有的是确定的 → 什么都不做（保留确定的结论）
+      } else {
+        currentSession.firstHalf = currentSession.firstHalf || session.firstHalf;
+        currentSession.secondHalf =
+            currentSession.secondHalf || session.secondHalf;
+      }
       return false;
     }
     if (sessions.any((e) =>

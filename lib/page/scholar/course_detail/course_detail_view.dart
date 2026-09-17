@@ -11,6 +11,7 @@ import 'package:celechron/model/course.dart';
 import 'package:celechron/model/exam.dart';
 import 'package:celechron/model/session.dart';
 import 'package:celechron/model/scholar.dart';
+import 'package:celechron/page/scholar/course_detail/course_focus_section.dart';
 import 'package:celechron/page/scholar/course_detail/course_mount_sections.dart';
 
 class CourseDetailPage extends StatelessWidget {
@@ -525,6 +526,15 @@ class CourseDetailPage extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
               child: CourseTasksSection(courseId: current.id ?? ''),
+            ),
+          ),
+          // ===== MOD: 「专注」区块（2026-09-17）=====
+          // 用户反馈"自由专注看不出有没有计入当前课程" —— 把归属落到课程这一侧：
+          // 这门课一共专注了多久、最近几次是哪天。按 FocusSession.courseId 查，不存冗余。
+          SliverToBoxAdapter(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
+              child: CourseFocusSection(courseId: current.id ?? ''),
             ),
           ),
           // ===== MOD ===== 末尾垫出系统导航栏的高度（否则最后一张卡会被压掉一半）

@@ -16,6 +16,21 @@ class Session {
   bool firstHalf = false;
   bool secondHalf = false;
 
+  /// `firstHalf / secondHalf` **是不是"猜"出来的**（2026-09-17 加）。
+  ///
+  /// 教务的 `xxq` 读不出来时，我们只能**按本次查询用的季节猜**
+  /// （`1|秋` → 上半、「1|冬` → 下半，见 [fromZdbk]）。
+  /// 两次查询都会返回同一门课，于是 `Course.completeSession` 里那个
+  /// `a || b` 就把"猜出来的秋"和"猜出来的冬"合成**两半都上** ——
+  /// 用户看到的就是「秋冬的课混在一起、还报冲突」，而且下次刷新（xxq 又能读了）
+  /// 自己就好了，极难复现（真实反馈："问当事人的时候已经正常了"）。
+  ///
+  /// 所以这里记一笔"这条是猜的"，合并时让**确定的**说了算。
+  ///
+  /// 刻意**不持久化**（没有 @HiveField）：它只在本轮解析/合并里有意义，
+  /// 存进缓存反而会让下一次刷新拿它当依据。
+  bool halfGuessed = false;
+
   // oddWeek:  单周 需要上课
   // evenWeek: 双周 需要上课
   // 举例：单双周的课程，oddWeek为true，evenWeek也为true
@@ -113,9 +128,11 @@ class Session {
       session.firstHalf = fromRow.first;
       session.secondHalf = fromRow.second;
     } else {
+      // 行内读不出来 → 只能按查询季节猜，**记下这是猜的**（见 [halfGuessed]）
       final fromRequest = _halfFlagsFrom(requestedSeason);
       session.firstHalf = fromRequest.first;
       session.secondHalf = fromRequest.second;
+      session.halfGuessed = true;
     }
     // 第几节
     final initial = asInt(json['djj']);

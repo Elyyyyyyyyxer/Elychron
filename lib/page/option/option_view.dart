@@ -16,6 +16,7 @@ import 'package:get/get.dart';
 import 'custom_license_page.dart';
 import 'login_page.dart';
 import 'package:celechron/mod/settings_mod_section.dart';
+import 'package:celechron/mod/login_connectivity.dart';
 import 'package:celechron/page/scholar/scholar_view.dart';
 import 'option_controller.dart';
 import 'package:celechron/design/dingtalk_sheet.dart';
@@ -84,69 +85,76 @@ class OptionPage extends StatelessWidget {
                     // ===== MOD: 改成 <Widget>，好让魔改的行（默认提前量）能混进来 =====
                     children: <Widget>[
                       if (_optionController.scholar.value.isLogan) ...{
-                        CupertinoListTile(
-                            // ===== MOD: 登录态真的失效时要如实说 =====
-                            // 用户反馈「软件保持着登录状态，但实际上已经连不上了」。
-                            // sessionInvalid 由刷新时检测认证/会话类错误置位（见 Scholar）。
-                            title: Text(_optionController.scholar.value
-                                    .sessionInvalid
-                                ? '登录已失效'
-                                : (_optionController.scholar.value.username ==
-                                                null ||
-                                        _optionController
-                                            .scholar.value.username!.isEmpty
-                                    ? '已登录'
-                                    : '已登录: ${_optionController.scholar.value.username}')),
-                            subtitle: _optionController
-                                    .scholar.value.sessionInvalid
-                                ? const Text('连不上学校服务器，请点右侧重新登录')
-                                : null,
-                            trailing: BackChervonRow(
-                                child: Text(
-                                    _optionController
-                                            .scholar.value.sessionInvalid
-                                        ? '重新登录'
-                                        : '退出',
-                                    style: TextStyle(
-                                        color: CupertinoDynamicColor.resolve(
-                                            CupertinoColors.secondaryLabel,
-                                            context),
-                                        fontSize: 16))),
-                            onTap: () async {
-                              // 登录已失效：点整行直接重新登录（比"退出"更贴近用户意图）
-                              if (_optionController.scholar.value.sessionInvalid) {
-                                showCupertinoModalPopup(
-                                  context: context,
-                                  builder: (BuildContext context) =>
-                                      LoginForm(),
-                                );
-                                return;
-                              }
-                              await showCupertinoDialog(
-                                  context: context,
-                                  builder: (BuildContext dialogContext) {
-                                    return CupertinoAlertDialog(
-                                      title: const Text('退出登录'),
-                                      content: const Text('确定要退出当前账号吗？'),
-                                      actions: [
-                                        CupertinoDialogAction(
-                                          child: const Text('取消'),
-                                          onPressed: () {
-                                            Navigator.of(dialogContext).pop();
-                                          },
-                                        ),
-                                        CupertinoDialogAction(
-                                          isDestructiveAction: true,
-                                          child: const Text('退出'),
-                                          onPressed: () async {
-                                            Navigator.of(dialogContext).pop();
-                                            await _optionController.logout();
-                                          },
-                                        ),
-                                      ],
-                                    );
-                                  });
-                            }),
+                        // 长按 = 查看「哪些接口是通的」（用户 2026-09-17 要求）。
+                        // CupertinoListTile 没有 onLongPress，所以外面套一层
+                        // GestureDetector —— 点按仍然走列表项自己的 onTap。
+                        GestureDetector(
+                          onLongPress: () =>
+                              showLoginConnectivityPanel(context),
+                          child: CupertinoListTile(
+                              // ===== MOD: 登录态真的失效时要如实说 =====
+                              // 用户反馈「软件保持着登录状态，但实际上已经连不上了」。
+                              // sessionInvalid 由刷新时检测认证/会话类错误置位（见 Scholar）。
+                              title: Text(_optionController.scholar.value.sessionInvalid
+                                  ? '登录已失效'
+                                  : (_optionController.scholar.value.username == null ||
+                                          _optionController
+                                              .scholar.value.username!.isEmpty
+                                      ? '已登录'
+                                      : '已登录: ${_optionController.scholar.value.username}')),
+                              subtitle:
+                                  _optionController.scholar.value.sessionInvalid
+                                      ? const Text('连不上学校服务器，请点右侧重新登录')
+                                      // ===== MOD: 让"长按看连通性"这件事被发现（2026-09-17）=====
+                                      // 用户要求的功能，但没人会去长按一个看起来只是显示状态的列表项
+                                      // —— 所以把提示写在副标题里。
+                                      : const Text('长按可查看各接口是否连通'),
+                              trailing: BackChervonRow(
+                                  child: Text(
+                                      _optionController.scholar.value.sessionInvalid
+                                          ? '重新登录'
+                                          : '退出',
+                                      style: TextStyle(
+                                          color: CupertinoDynamicColor.resolve(
+                                              CupertinoColors.secondaryLabel, context),
+                                          fontSize: 16))),
+                              onTap: () async {
+                                // 登录已失效：点整行直接重新登录（比"退出"更贴近用户意图）
+                                if (_optionController
+                                    .scholar.value.sessionInvalid) {
+                                  showCupertinoModalPopup(
+                                    context: context,
+                                    builder: (BuildContext context) =>
+                                        LoginForm(),
+                                  );
+                                  return;
+                                }
+                                await showCupertinoDialog(
+                                    context: context,
+                                    builder: (BuildContext dialogContext) {
+                                      return CupertinoAlertDialog(
+                                        title: const Text('退出登录'),
+                                        content: const Text('确定要退出当前账号吗？'),
+                                        actions: [
+                                          CupertinoDialogAction(
+                                            child: const Text('取消'),
+                                            onPressed: () {
+                                              Navigator.of(dialogContext).pop();
+                                            },
+                                          ),
+                                          CupertinoDialogAction(
+                                            isDestructiveAction: true,
+                                            child: const Text('退出'),
+                                            onPressed: () async {
+                                              Navigator.of(dialogContext).pop();
+                                              await _optionController.logout();
+                                            },
+                                          ),
+                                        ],
+                                      );
+                                    });
+                              }),
+                        ),
                         CupertinoListTile(
                           title: const Text('重修绩点计算'),
                           trailing: CupertinoSlidingSegmentedControl(
@@ -236,19 +244,19 @@ class OptionPage extends StatelessWidget {
                           },
                         ),
                       },
-                       // 构建错误不再浮在日程页顶部；在设置里集中查看和处理。
-                       ValueListenableBuilder<int>(
-                         valueListenable: AppErrorLog.count,
-                         builder: (context, count, _) {
-                           if (count == 0) return const SizedBox.shrink();
-                           return CupertinoListTile(
-                             title: Text('应用错误（$count）'),
-                             subtitle: const Text('查看最近的构建错误与重新获取数据'),
-                             trailing: const BackChervonRow(),
-                             onTap: () => showAppErrorSheet(context),
-                           );
-                         },
-                       ),
+                      // 构建错误不再浮在日程页顶部；在设置里集中查看和处理。
+                      ValueListenableBuilder<int>(
+                        valueListenable: AppErrorLog.count,
+                        builder: (context, count, _) {
+                          if (count == 0) return const SizedBox.shrink();
+                          return CupertinoListTile(
+                            title: Text('应用错误（$count）'),
+                            subtitle: const Text('查看最近的构建错误与重新获取数据'),
+                            trailing: const BackChervonRow(),
+                            onTap: () => showAppErrorSheet(context),
+                          );
+                        },
+                      ),
                     ],
                   ),
                 )),

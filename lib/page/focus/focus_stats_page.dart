@@ -505,7 +505,10 @@ class _FocusStatsPageState extends State<FocusStatsPage> {
             style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
         const SizedBox(height: 4),
         Text(
-          '只算挂到课程上的专注，合计 ${focusHuman(sum)}；自由专注不计入这里',
+          // 原来的写法是「只算挂到课程上的专注；（自由专注）不计入这里」——
+          // 用户 2026-09-17 反馈说看不懂，以为"自由专注永远不归属课程"。
+          // 其实自由专注只要**开始时正在上课**就会算到那门课上，所以这里说清楚。
+          '自由专注只要开始时正在上课，也会算到那门课上；合计 ${focusHuman(sum)}',
           style: TextStyle(fontSize: 11, color: labelColor),
         ),
         const SizedBox(height: 10),
@@ -661,6 +664,13 @@ class _FocusStatsPageState extends State<FocusStatsPage> {
         const SizedBox(height: 6),
         ...sessions.take(60).map((s) {
           final started = s.startedAt;
+          // ===== MOD: 每次专注也算上"算到了哪门课"（2026-09-17）=====
+          // 用户反馈"看不出自由专注有没有计入当前课程" —— 记录列表原来只有
+          // 名字和时长，算没算课程完全看不出来，只能去翻上面的按课程统计。
+          final courseId = s.courseId;
+          final course = (courseId == null || courseId.isEmpty)
+              ? null
+              : _courseName(courseId);
           final hh = started.hour.toString().padLeft(2, '0');
           final mm = started.minute.toString().padLeft(2, '0');
           final meta = <String>[
@@ -689,7 +699,7 @@ class _FocusStatsPageState extends State<FocusStatsPage> {
                   ),
                   Expanded(
                     child: Text(
-                      s.displayName,
+                      course == null ? s.displayName : '${s.displayName} · $course',
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(fontSize: 14, color: textColor),
                     ),

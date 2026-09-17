@@ -380,8 +380,12 @@ class Zdbk {
           .map((e) => e.name)
           .toSet()
           .toList();
+      // 「靠猜的」有多少门 —— 2026-09-17 加：秋冬混淆的真凶就是"猜出来的半学期"
+      // 被 OR 成两半都上，这行数字能直接指认（见 Session.halfGuessed）。
+      final guessed = sessions.where((e) => e.halfGuessed).length;
       final diagLine = '半学期诊断：请求「${requestedSeason ?? "未指定"}」；'
           '两半都上 ${bothHalves.length} 门'
+          '（其中靠猜的 ${guessed} 条）'
           '${bothHalves.isEmpty ? '' : '（${bothHalves.take(6).join("、")}）'}；'
           'xxq 读不出 ${unclear.length} 条'
           '${unclear.isEmpty ? '' : '（${unclear.take(6).join("、")}）'}';

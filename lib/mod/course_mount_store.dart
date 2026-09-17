@@ -97,6 +97,18 @@ String? resolveCourseId(
 /// 课程名归一化：去掉所有空白与常见括号/标点，再转小写。
 ///
 /// 只用于"是不是同一门课"的判断，**不用于显示** ——
+/// 课程代码 → 课程名。**找不到返回 null**（调用方自己决定兜底文案）。
+///
+/// 与专注统计页那一句「已不在课表里的课程」用的是同一份来源（[courseChoices]），
+/// 所以两处不会出现"一个显示名字、一个显示兜底"的分裂。
+String? courseNameOf(String courseId) {
+  if (courseId.isEmpty) return null;
+  for (final choice in courseChoices()) {
+    if (choice.id == courseId) return choice.name;
+  }
+  return null;
+}
+
 /// 「线性代数I（H）」「线性代数 I (H)」归一化后应当相等。
 String normalizeCourseName(String name) => name
     .replaceAll(RegExp(r'[\s（）()【】\[\]「」·、,，.。:：]'), '')

@@ -191,6 +191,7 @@ List<Session> parseEtaTimetable(Map<String, dynamic> payload) {
         .toList();
     final line = '半学期诊断（智慧研工）：共 ${sessions.length} 条；'
         '两半都上 ${bothHalves.length} 门'
+          '（其中靠猜的 ${etaHalfDiag.length} 条）'
         '${bothHalves.isEmpty ? '' : '（${bothHalves.take(6).join("、")}）'}；'
         'xxq 缺失 ${etaHalfDiag.length} 条'
         '${etaHalfDiag.isEmpty ? '' : '（${etaHalfDiag.take(6).join("、")}）'}';
@@ -236,12 +237,18 @@ Session? sessionFromEtaEntry(Map<String, dynamic> entry) {
     ..location = asString(first?['jsmc'])
     ..time = List<int>.generate(span, (index) => firstPeriod + index);
 
-  // 半学期：秋冬（或缺失）算两边都上，只写「秋」/「冬」时按其归类。
+  // 半学期：**能读出来就按它分**（秋冬 = 两半都上，只写「秋」/「冬」时各归各的）；
+  // 读不出来才退回"两半都上"，并打上"这是猜的"标记（见 Session.halfGuessed）。
+  //
+  // ⚠️ 回答用户 2026-09-17 的疑问「eta 不能够分清楚各个半学期吗」：
+  // **能** —— eta 的每一条都带 `xxq`（形如 `秋冬` / `秋` / `冬`），上面这几行就是读它。
+  // 只有当它缺失/写法不认识时才会退化成"两半都上"。
   final half = asString(entry['xxq']) ?? '';
   final firstHalf = half.contains('秋') || half.contains('春');
   final secondHalf = half.contains('冬') || half.contains('夏');
   session.firstHalf = firstHalf || !secondHalf;
   session.secondHalf = secondHalf || !firstHalf;
+  session.halfGuessed = !(firstHalf || secondHalf);
 
   // ===== MOD: 半学期诊断（只读，不写数据）=====
   // 与 zdbk 那条同源：`xxq` 缺失时这里会把课程**算成两半都上**（上面两行的 `!` 兜底），
