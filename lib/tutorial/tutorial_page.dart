@@ -83,7 +83,12 @@ class _TutorialPageState extends State<TutorialPage> {
         ),
       ),
       child: SafeArea(
+        // ⚠️ `crossAxisAlignment: stretch` 不能省（2026-09-17 用户发现
+        // "标题、正文没有左对齐"）：Column 默认是 center，而步骤内容是按**自身宽度**
+        // 居中的 —— 长段落刚好占满整行看不出问题，短一点的那几步（比如
+        // 「你专注了吗？」）整块就被推到中间去了。拉伸之后每一步都从左边 22pt 起排。
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // 进度条 + 第几步
             Padding(
