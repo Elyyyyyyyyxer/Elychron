@@ -52,6 +52,10 @@ const Tutorial tutorialBasics = Tutorial(
         '（完成错了、或者事情又来了，都用这个。）',
       ],
     ),
+    TutorialImageStep(
+      asset: 'assets/tutorial/basics/swipe-restore.png',
+      caption: '已完成的待办右滑：露出橙色的「恢复」',
+    ),
     TutorialTextStep(
       title: '二、日历 / 接下来 / 课表，怎么切',
       body: [
