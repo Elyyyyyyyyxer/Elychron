@@ -96,8 +96,7 @@ class TutorialStore {
     final result = <TutorialGroup, List<Tutorial>>{};
     TutorialRegistry.grouped.forEach((group, tutorials) {
       final visible = tutorials
-          .where((t) =>
-              t.audience == TutorialAudience.everyone || loggedIn)
+          .where((t) => t.audience == TutorialAudience.everyone || loggedIn)
           .toList();
       if (visible.isNotEmpty) result[group] = visible;
     });
@@ -106,8 +105,8 @@ class TutorialStore {
 
   /// 首用提示用：还没看过、也没被静音的教程
   List<Tutorial> pending({bool loggedIn = true}) => state.pendingOf(
-        TutorialRegistry.all.where((t) =>
-            t.audience == TutorialAudience.everyone || loggedIn),
+        TutorialRegistry.all
+            .where((t) => t.audience == TutorialAudience.everyone || loggedIn),
       );
 
   /// 仅供测试：直接注入状态，避免依赖数据库

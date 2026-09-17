@@ -62,11 +62,35 @@ Widget buildTutorialStep(
             ),
         ],
       );
-    case TutorialImageStep(:final asset, :final title, :final caption):
+    case TutorialImageStep(
+        :final assets,
+        :final title,
+        :final caption,
+        :final body,
+        :final warning
+      ):
       return _StepFrame(
         title: title,
         children: [
-          _TutorialImage(asset: asset),
+          // 文字与图在**同一步**里（用户 2026-09-17 明确要求）
+          for (final paragraph in body)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 14),
+              child: Text(
+                paragraph,
+                style: TextStyle(
+                  fontSize: 15,
+                  height: 1.6,
+                  color: warning
+                      ? CupertinoColors.systemOrange
+                      : CupertinoColors.label,
+                ),
+              ),
+            ),
+          for (final asset in assets) ...[
+            _TutorialImage(asset: asset),
+            const SizedBox(height: 14),
+          ],
           if (caption != null && caption.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(top: 12),

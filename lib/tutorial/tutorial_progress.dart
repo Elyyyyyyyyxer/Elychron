@@ -120,13 +120,11 @@ class TutorialState {
     // ⚠️ 一律用 is 判断而不是 as 强转：这个键是磁盘上的数据，
     // 版本回退、手工改过、写坏都可能出现类型不对的值，不能因此崩在启动路径上。
     final rawSeen = json['seen'];
-    final seen = rawSeen is List
-        ? rawSeen.whereType<String>().toSet()
-        : <String>{};
+    final seen =
+        rawSeen is List ? rawSeen.whereType<String>().toSet() : <String>{};
     final rawMuted = json['muted'];
-    final muted = rawMuted is List
-        ? rawMuted.whereType<String>().toSet()
-        : <String>{};
+    final muted =
+        rawMuted is List ? rawMuted.whereType<String>().toSet() : <String>{};
     final rawProgress = json['progress'];
     final progress = <String, int>{};
     if (rawProgress is Map) {

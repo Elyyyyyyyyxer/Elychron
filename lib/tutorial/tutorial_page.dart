@@ -63,12 +63,14 @@ class _TutorialPageState extends State<TutorialPage> {
 
   @override
   Widget build(BuildContext context) {
-    final labelColor = CupertinoDynamicColor.resolve(
-        CupertinoColors.secondaryLabel, context);
+    final labelColor =
+        CupertinoDynamicColor.resolve(CupertinoColors.secondaryLabel, context);
     final isLast = TutorialProgress.isLast(_index, _total);
     final isFirst = TutorialProgress.isFirst(_index);
 
     return CupertinoPageScaffold(
+      // 同教程中心：不给底色的话白底会衬出区块的浅灰圆角背景
+      backgroundColor: CupertinoColors.systemGroupedBackground,
       navigationBar: CupertinoNavigationBar(
         middle: Text(
           widget.tutorial.title,
@@ -100,7 +102,8 @@ class _TutorialPageState extends State<TutorialPage> {
                           ),
                           FractionallySizedBox(
                             widthFactor: TutorialProgress.ratio(_index, _total),
-                            child: Container(height: 6, color: AppAccent.primary),
+                            child:
+                                Container(height: 6, color: AppAccent.primary),
                           ),
                         ],
                       ),
@@ -134,7 +137,8 @@ class _TutorialPageState extends State<TutorialPage> {
                         borderRadius: BorderRadius.circular(22),
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         onPressed: () => _go(_index - 1),
-                        child: const Text('上一步', style: TextStyle(fontSize: 15)),
+                        child:
+                            const Text('上一步', style: TextStyle(fontSize: 15)),
                       ),
                     ),
                   if (!isFirst) const SizedBox(width: 10),
@@ -146,11 +150,12 @@ class _TutorialPageState extends State<TutorialPage> {
                       padding: const EdgeInsets.symmetric(vertical: 12),
                       onPressed: isLast
                           ? _finish
-                          : () => _go(TutorialProgress.nextIndex(_index, _total)),
+                          : () =>
+                              _go(TutorialProgress.nextIndex(_index, _total)),
                       child: Text(
                         isLast ? '看完了' : '下一步',
-                        style: TextStyle(
-                            color: AppAccent.onPrimary, fontSize: 15),
+                        style:
+                            TextStyle(color: AppAccent.onPrimary, fontSize: 15),
                       ),
                     ),
                   ),

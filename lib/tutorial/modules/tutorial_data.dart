@@ -36,7 +36,7 @@ const Tutorial tutorialData = Tutorial(
       ],
     ),
     TutorialImageStep(
-      asset: 'assets/tutorial/data/export.png',
+      assets: <String>['assets/tutorial/data/export.png'],
       title: '这两个入口在「设置 → 数据」里',
       caption: '「导出数据」是完整备份，「导出为 iCal 文件」是给别的日历用的。点图可以放大看。',
     ),

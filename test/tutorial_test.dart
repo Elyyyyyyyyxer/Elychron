@@ -38,7 +38,8 @@ void main() {
 
     test('分组聚合不会丢教程', () {
       final grouped = TutorialRegistry.grouped;
-      final total = grouped.values.fold<int>(0, (sum, list) => sum + list.length);
+      final total =
+          grouped.values.fold<int>(0, (sum, list) => sum + list.length);
       expect(total, TutorialRegistry.all.length);
     });
 
@@ -78,9 +79,13 @@ void main() {
       const steps = <TutorialStep>[
         TutorialTextStep(title: 't', body: ['b']),
         TutorialTipsStep(title: 't', tips: ['x']),
-        TutorialImageStep(asset: 'assets/a.png'),
+        TutorialImageStep(assets: <String>['assets/a.png']),
         TutorialCompareStep(
-            title: 't', leftLabel: 'l', left: ['1'], rightLabel: 'r', right: ['2']),
+            title: 't',
+            leftLabel: 'l',
+            left: ['1'],
+            rightLabel: 'r',
+            right: ['2']),
         TutorialActionStep(
             title: 't',
             body: 'b',
@@ -197,7 +202,9 @@ void main() {
         title: '查阅类',
         summary: 's',
         showOnFirstUse: false,
-        steps: [TutorialTextStep(title: 'a', body: ['x'])],
+        steps: [
+          TutorialTextStep(title: 'a', body: ['x'])
+        ],
       );
       expect(state.pendingOf([manual]), isEmpty);
     });
@@ -227,8 +234,7 @@ void main() {
     test('坏数据不会炸（fromJson 容错）', () {
       expect(TutorialState.fromJson(null).seen, isEmpty);
       expect(
-        TutorialState.fromJson({'seen': 'not-a-list', 'progress': 42})
-            .progress,
+        TutorialState.fromJson({'seen': 'not-a-list', 'progress': 42}).progress,
         isEmpty,
       );
     });
@@ -251,7 +257,9 @@ void main() {
         title: '登录后才有的',
         summary: 's',
         audience: TutorialAudience.loggedInOnly,
-        steps: [TutorialTextStep(title: 'a', body: ['x'])],
+        steps: [
+          TutorialTextStep(title: 'a', body: ['x'])
+        ],
       );
       final state = TutorialState();
       // pendingOf 只看状态，audience 过滤由 TutorialStore.visibleGrouped 负责，

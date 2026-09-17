@@ -151,16 +151,32 @@ class TutorialTipsStep extends TutorialStep {
 /// - 图还没准备好时会显示占位框并写出期望路径 ——
 ///   "框架先搭、内容后补"的过程里，教程仍然可以走通、也能看出缺哪张图。
 class TutorialImageStep extends TutorialStep {
-  /// 图片路径（以 `assets/` 开头）
-  final String asset;
+  /// 图片路径（以 `assets/` 开头）。**可以给多张**：同一段话后面接两张图
+  /// （用户原稿里"点三条线切换"那句下面就跟着两张图）时不用硬拆成两步。
+  final List<String> assets;
 
   /// 图上面的标题（可空；空则不显示标题行）
   final String title;
 
+  /// 图**上面**的正文段落（可空）
+  ///
+  /// 2026-09-17 用户反馈：「图片跟文字不能放在同一步里面吗？分开看会真的真的很难受」
+  /// —— 所以图步现在可以自带正文，**一段话配一张图**是默认写法。
+  final List<String> body;
+
   /// 图下面的说明（可空）
   final String? caption;
 
-  const TutorialImageStep({required this.asset, this.title = '', this.caption});
+  /// 正文是否按"注意"来配色（和 [TutorialTipsStep.warning] 同一套色）
+  final bool warning;
+
+  const TutorialImageStep({
+    required this.assets,
+    this.title = '',
+    this.body = const <String>[],
+    this.caption,
+    this.warning = false,
+  });
 }
 
 /// 两栏对比：适合"以前 / 现在""官方版 / Elychron"这类说明

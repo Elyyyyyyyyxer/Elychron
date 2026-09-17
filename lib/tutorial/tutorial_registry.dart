@@ -88,9 +88,12 @@ class TutorialRegistry {
       for (var i = 0; i < tutorial.steps.length; i++) {
         final step = tutorial.steps[i];
         switch (step) {
-          case TutorialTextStep(:final title, :final body):
-            if (title.trim().isEmpty) {
-              issues.add('教程 ${tutorial.id} 第 ${i + 1} 步没有标题');
+          case TutorialTextStep(:final body):
+            // ⚠️ 这里**不再要求每步都有标题**（2026-09-17）：
+            // 教程文案是用户手写的，"同一节的续页"本来就不该硬编一个小标题 ——
+            // 空标题的步骤渲染器会直接不画标题行。只要求整篇第一步有标题。
+            if (i == 0 && body.isEmpty) {
+              issues.add('教程 ${tutorial.id} 第 1 步没有正文');
             }
             if (body.isEmpty) {
               issues.add('教程 ${tutorial.id} 第 ${i + 1} 步没有正文');
@@ -99,10 +102,15 @@ class TutorialRegistry {
             if (tips.isEmpty) {
               issues.add('教程 ${tutorial.id} 第 ${i + 1} 步的清单是空的');
             }
-          case TutorialImageStep(:final asset):
-            if (!asset.startsWith('assets/')) {
-              issues.add(
-                  '教程 ${tutorial.id} 第 ${i + 1} 步的图片路径要以 assets/ 开头：$asset');
+          case TutorialImageStep(:final assets):
+            if (assets.isEmpty) {
+              issues.add('教程 ${tutorial.id} 第 ${i + 1} 步没有图片');
+            }
+            for (final asset in assets) {
+              if (!asset.startsWith('assets/')) {
+                issues.add(
+                    '教程 ${tutorial.id} 第 ${i + 1} 步的图片路径要以 assets/ 开头：$asset');
+              }
             }
           case TutorialCompareStep(:final left, :final right):
             if (left.isEmpty || right.isEmpty) {
@@ -121,6 +129,6 @@ class TutorialRegistry {
   /// 某篇教程里用到的全部图片路径（给"资源是否齐全"的自查用）
   static List<String> assetsOf(Tutorial tutorial) => [
         for (final step in tutorial.steps)
-          if (step is TutorialImageStep) step.asset,
+          if (step is TutorialImageStep) ...step.assets,
       ];
 }
