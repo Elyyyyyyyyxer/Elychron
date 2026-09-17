@@ -41,7 +41,8 @@ const Tutorial tutorialTasks = Tutorial(
     ),
     TutorialImageStep(
       asset: 'assets/tutorial/tasks/types.png',
-      caption: '新建页顶部的类型选择',
+      title: '新建页长这样',
+      caption: '最上面那一行就是类型；下面填标题、时间、地点。点图可以放大看。',
     ),
     TutorialTipsStep(
       title: '提醒提前量',

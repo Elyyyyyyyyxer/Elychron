@@ -1,4 +1,4 @@
-﻿name: celechron
+name: celechron
 description: Elychron —— Celechron 的非官方改版：四种时间语义、子待办行程表、专注计时与统计、AI 整理。
 publish_to: "none"
 version: 1.4.1-elychron.1+9
@@ -64,6 +64,13 @@ flutter:
 
   assets:
     - assets/
+    # 显式列出教程图片目录（2026-09-17）：
+    # 只写 `- assets/` 时，Flutter 打**测试**用的资产包没有把后来新建的子目录收进去
+    # （app 包里是好的），于是 test/tutorial_test.dart 里那条"图片真的能读出来"的用例
+    # 会误报。显式列一遍最稳，也让"教程要放图"这件事在 pubspec 里看得见。
+    - assets/tutorial/
+    - assets/tutorial/tasks/
+    - assets/tutorial/data/
 
   # To add assets to your application, add an assets section, like this:
   # assets:

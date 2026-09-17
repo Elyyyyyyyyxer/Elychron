@@ -1,8 +1,29 @@
 教程图片放这里，一个教程一个子目录：
 
     assets/tutorial/tasks/types.png      ← 待办教程里的"四种类型"截图
-    assets/tutorial/focus/main.png
+    assets/tutorial/data/export.png      ← 数据教程里的"导出/导入"入口
 
 不用改 pubspec.yaml（它已声明整个 assets/ 目录）。
 路径写在教程内容文件里（lib/tutorial/modules/*.dart 的 TutorialImageStep.asset）。
 图片还没准备好也没关系：播放器会显示占位框并写出期望路径。
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+★ 截图是怎么来的（2026-09-17 补：手把手流程 + 一条红线）
+
+1. 手机连上电脑：adb connect <ip>:5555
+2. 把 App 切到要截的那个页面
+3. adb shell screencap -p /sdcard/x.png
+   adb pull /sdcard/x.png
+4. **裁掉无关部分**：顶部状态栏、底部导航栏、以及**任何个人数据**
+5. 存成 PNG 放进本目录（一个教程一个子目录），在内容文件里引用
+
+⚠️ 红线：这些图会跟着源码公开（GPLv3 仓库），**绝不能出现**姓名、学号、成绩、
+待办标题、聊天内容这类个人数据。截图前清掉演示数据，或者只截"本来就没有个人信息"
+的区域（新建页表单、设置页开关、教程页本身）。
+
+★ 尺寸建议：直接用手机原图（1080 宽足够），播放器会等比缩放 + 限高，
+  点图可以全屏放大。不要为了"小一点"去压分辨率，放大后会糊。
+
+★ 自查：flutter test test/tutorial_test.dart 会真的去 rootBundle 加载每一张引用到的图，
+  路径写错或文件忘了放，测试直接红。

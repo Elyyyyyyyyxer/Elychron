@@ -62,21 +62,11 @@ Widget buildTutorialStep(
             ),
         ],
       );
-    case TutorialImageStep(:final asset, :final caption):
+    case TutorialImageStep(:final asset, :final title, :final caption):
       return _StepFrame(
-        title: '',
+        title: title,
         children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: Image.asset(
-              asset,
-              fit: BoxFit.contain,
-              // 图片还没准备好时给一个"占位说明"，而不是红叉 ——
-              // 框架先搭、内容后补的阶段全靠它撑着
-              errorBuilder: (context, error, stackTrace) =>
-                  _MissingImage(asset: asset),
-            ),
-          ),
+          _TutorialImage(asset: asset),
           if (caption != null && caption.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(top: 12),
@@ -196,8 +186,8 @@ class _CompareColumn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final labelColor = CupertinoDynamicColor.resolve(
-        CupertinoColors.secondaryLabel, context);
+    final labelColor =
+        CupertinoDynamicColor.resolve(CupertinoColors.secondaryLabel, context);
     return Container(
       decoration: BoxDecoration(
         color: highlight
@@ -205,9 +195,8 @@ class _CompareColumn extends StatelessWidget {
             : CupertinoDynamicColor.resolve(
                 CupertinoColors.tertiarySystemFill, context),
         borderRadius: BorderRadius.circular(12),
-        border: highlight
-            ? Border.all(color: AppAccent.soft(0.5), width: 1)
-            : null,
+        border:
+            highlight ? Border.all(color: AppAccent.soft(0.5), width: 1) : null,
       ),
       padding: const EdgeInsets.all(12),
       child: Column(
@@ -225,9 +214,142 @@ class _CompareColumn extends StatelessWidget {
           for (final item in items)
             Padding(
               padding: const EdgeInsets.only(bottom: 6),
-              child: Text(item, style: const TextStyle(fontSize: 13.5, height: 1.4)),
+              child: Text(item,
+                  style: const TextStyle(fontSize: 13.5, height: 1.4)),
             ),
         ],
+      ),
+    );
+  }
+}
+
+/// 教程配图：等比缩放 + **限高** + **点开全屏放大**
+///
+/// 为什么要限高：手机截图是竖长条（1080×2376 这种），按宽度铺满会占掉两屏多，
+/// 用户得一直往下拉才能看到下一步的按钮。这里给一个高度上限，
+/// 想看清细节就**点图**——全屏、可捏合缩放，这也是教程里最常用的动作。
+///
+/// 右下角那个小角标不是装饰：没有它，用户不知道这张图可以点。
+class _TutorialImage extends StatelessWidget {
+  final String asset;
+
+  const _TutorialImage({required this.asset});
+
+  @override
+  Widget build(BuildContext context) {
+    final maxHeight = MediaQuery.of(context).size.height * 0.46;
+    final fill = CupertinoDynamicColor.resolve(
+        CupertinoColors.tertiarySystemFill, context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // 「点图放大」这四个字**放在图片外面**（右上角）。
+        // 第一版是压在图的右下角 —— 真机一看就发现问题：短图会被挡住正文那行字。
+        Align(
+          alignment: Alignment.centerRight,
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(CupertinoIcons.arrow_up_left_arrow_down_right,
+                    size: 12, color: fill),
+                const SizedBox(width: 4),
+                Text('点图放大', style: TextStyle(fontSize: 11.5, color: fill)),
+              ],
+            ),
+          ),
+        ),
+        GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => Navigator.of(context).push(
+            CupertinoPageRoute<void>(
+              fullscreenDialog: true,
+              builder: (context) => _TutorialImageFullScreen(asset: asset),
+            ),
+          ),
+          child: Stack(
+            children: [
+              Container(
+                width: double.infinity,
+                constraints: BoxConstraints(maxHeight: maxHeight),
+                decoration: BoxDecoration(
+                  color: fill,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                clipBehavior: Clip.antiAlias,
+                // ⚠️ 这里用 Image(...) 而不是 Image.asset(...)：本仓库用的 Flutter
+                // 版本里 Image.asset 那个命名构造函数**没有暴露 loadingBuilder**
+                // （内部写死成 null），想要"解码时转圈"只能用默认构造函数。
+                child: Image(
+                  image: AssetImage(asset),
+                  fit: BoxFit.contain,
+                  // 解码要一点时间（截图几百 KB），给个转圈，别让用户以为没反应
+                  loadingBuilder: (context, child, progress) => progress == null
+                      ? child
+                      : const Center(
+                          child: CupertinoActivityIndicator(radius: 12)),
+                  // 图片还没准备好时给一个"占位说明"，而不是红叉 ——
+                  // 框架先搭、内容后补的阶段全靠它撑着
+                  errorBuilder: (context, error, stackTrace) =>
+                      _MissingImage(asset: asset),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// 全屏看图：捏合缩放 + 拖动，点「完成」返回
+class _TutorialImageFullScreen extends StatelessWidget {
+  final String asset;
+
+  const _TutorialImageFullScreen({required this.asset});
+
+  @override
+  Widget build(BuildContext context) {
+    return CupertinoPageScaffold(
+      backgroundColor: CupertinoColors.black,
+      navigationBar: CupertinoNavigationBar(
+        backgroundColor: CupertinoColors.black.withValues(alpha: 0.85),
+        border: null,
+        // ⚠️ 别写「双击放大」：InteractiveViewer **自带**的只有捏合缩放与拖动，
+        // 双击缩放要自己接手势。写了做不到的话，用户会以为坏了。
+        middle: const Text('捏合放大 · 拖动查看',
+            style: TextStyle(fontSize: 13, color: CupertinoColors.white)),
+        // 左上角给一个返回箭头：原来是 fullscreenDialog 自动生成的「取消」，
+        // 而"看图"这件事没有"取消"可言，文案不对。
+        leading: CupertinoButton(
+          padding: EdgeInsets.zero,
+          onPressed: () => Navigator.of(context).pop(),
+          // 图标按钮要给语义标签，否则读屏用户只会听到"按钮"
+          child: const Icon(CupertinoIcons.back,
+              color: CupertinoColors.white, semanticLabel: '返回'),
+        ),
+        trailing: CupertinoButton(
+          padding: EdgeInsets.zero,
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('完成',
+              style: TextStyle(fontSize: 16, color: CupertinoColors.white)),
+        ),
+      ),
+      child: InteractiveViewer(
+        minScale: 0.8,
+        maxScale: 6,
+        // 只有捏合与拖动（见上面 navigationBar 里的注释）
+        child: Center(
+          child: Image(
+            image: AssetImage(asset),
+            fit: BoxFit.contain,
+            errorBuilder: (context, error, stackTrace) => Padding(
+              padding: const EdgeInsets.all(24),
+              child: _MissingImage(asset: asset),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -241,8 +363,8 @@ class _MissingImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final labelColor = CupertinoDynamicColor.resolve(
-        CupertinoColors.secondaryLabel, context);
+    final labelColor =
+        CupertinoDynamicColor.resolve(CupertinoColors.secondaryLabel, context);
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 16),

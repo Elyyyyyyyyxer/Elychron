@@ -2,6 +2,7 @@ import 'package:celechron/tutorial/tutorial_model.dart';
 import 'package:celechron/tutorial/tutorial_progress.dart';
 import 'package:celechron/tutorial/tutorial_registry.dart';
 import 'package:celechron/tutorial/tutorial_store.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_test/flutter_test.dart';
 
 /// 教程框架自身的测试。
@@ -39,6 +40,26 @@ void main() {
       final grouped = TutorialRegistry.grouped;
       final total = grouped.values.fold<int>(0, (sum, list) => sum + list.length);
       expect(total, TutorialRegistry.all.length);
+    });
+
+    test('教程里引用的图片真的能读出来（路径写错 / 文件忘了放会红）', () async {
+      // 为什么不能只查"路径以 assets/ 开头"：
+      // 图片没放进仓库、或者文件名拼错时，用户点进教程只会看到一个「这张图还没放进来」
+      // 的占位框，而测试全绿 —— 2026-09-17 之前就是这种情况（框架支持图片，但一张图都没有）。
+      // 这里真的用 rootBundle 去加载每一个引用到的路径，读不出来就让测试红。
+      TestWidgetsFlutterBinding.ensureInitialized();
+      var checked = 0;
+      for (final tutorial in TutorialRegistry.all) {
+        for (final asset in TutorialRegistry.assetsOf(tutorial)) {
+          final data = await rootBundle.load(asset);
+          expect(data.lengthInBytes, greaterThan(0), reason: '空文件：$asset');
+          checked++;
+        }
+      }
+      // 顺手把"教程里至少得有一张图"钉住：这正是用户 2026-09-17 的要求，
+      // 不然这条测试在"一张图都没有"时会永远绿（等于没测）。
+      expect(checked, greaterThan(0),
+          reason: '教程里至少要有一张配图（要求见 docs/WHATS_NEW_1.4.1.md 第十四节）');
     });
 
     test('图片步骤的路径都规范（以 assets/ 开头）', () {

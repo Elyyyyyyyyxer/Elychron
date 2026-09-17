@@ -35,6 +35,11 @@ const Tutorial tutorialData = Tutorial(
         '删掉的待办会留一条"墓碑"记录，这样多台设备之间不会出现"删了又回来"。',
       ],
     ),
+    TutorialImageStep(
+      asset: 'assets/tutorial/data/export.png',
+      title: '这两个入口在「设置 → 数据」里',
+      caption: '「导出数据」是完整备份，「导出为 iCal 文件」是给别的日历用的。点图可以放大看。',
+    ),
     TutorialCompareStep(
       title: '两种导入格式',
       leftLabel: 'JSON（导出数据）',

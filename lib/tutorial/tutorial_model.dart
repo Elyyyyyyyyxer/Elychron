@@ -140,16 +140,27 @@ class TutorialTipsStep extends TutorialStep {
   });
 }
 
-/// 一张图（截图 / 示意图）+ 说明
+/// 一张图（截图 / 示意图）+ 可选的标题与说明
 ///
-/// 图片放在 `assets/tutorial/<教程id>/` 下（`pubspec.yaml` 已声明整个 `assets/`，
-/// 所以**不用改 pubspec**）。图片还没准备好时会显示一个占位框并写出期望路径 ——
-/// 这样"框架先搭、内容后补"的过程里，教程仍然可以走通、也能看出缺哪张图。
+/// - 图片放在 `assets/tutorial/<教程id>/` 下（`pubspec.yaml` 已声明整个 `assets/`，
+///   所以**不用改 pubspec**）；
+/// - **一步放一张**（想放多张就多写几步 —— 教程的约定是"一步只说一件事"）；
+/// - 显示时按屏幕宽度等比缩放，但**限制最大高度**：手机截图是 1080×2376 这种竖长条，
+///   直接铺满会把一屏塞死。**点一下可以全屏放大**（可捏合），
+///   因为教程里最常见的需求就是"看清那个按钮到底在哪"；
+/// - 图还没准备好时会显示占位框并写出期望路径 ——
+///   "框架先搭、内容后补"的过程里，教程仍然可以走通、也能看出缺哪张图。
 class TutorialImageStep extends TutorialStep {
+  /// 图片路径（以 `assets/` 开头）
   final String asset;
+
+  /// 图上面的标题（可空；空则不显示标题行）
+  final String title;
+
+  /// 图下面的说明（可空）
   final String? caption;
 
-  const TutorialImageStep({required this.asset, this.caption});
+  const TutorialImageStep({required this.asset, this.title = '', this.caption});
 }
 
 /// 两栏对比：适合"以前 / 现在""官方版 / Elychron"这类说明
