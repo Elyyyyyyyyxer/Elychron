@@ -1,4 +1,6 @@
+import 'package:celechron/tutorial/modules/tutorial_basics.dart';
 import 'package:celechron/tutorial/modules/tutorial_data.dart';
+import 'package:celechron/tutorial/modules/tutorial_setup.dart';
 import 'package:celechron/tutorial/modules/tutorial_tasks.dart';
 import 'package:celechron/tutorial/tutorial_model.dart';
 
@@ -19,8 +21,10 @@ class TutorialRegistry {
   /// 全部教程。**这里是唯一的登记处。**
   static const List<Tutorial> _all = <Tutorial>[
     // ===== 入门 =====
-    // （示例阶段：先放两篇真实但简短的内容，用来验证整条链路；
-    //   后续每加一个功能就往这里补一篇）
+    // 顺序 = 「教程中心」的展示顺序：用「配置」打头（那是用之前要做的事），
+    // 然后是待办、数据两篇。往这里加一行就多一篇教程。
+    tutorialSetup,
+    tutorialBasics,
     tutorialTasks,
     tutorialData,
 
@@ -93,7 +97,8 @@ class TutorialRegistry {
             }
           case TutorialImageStep(:final asset):
             if (!asset.startsWith('assets/')) {
-              issues.add('教程 ${tutorial.id} 第 ${i + 1} 步的图片路径要以 assets/ 开头：$asset');
+              issues.add(
+                  '教程 ${tutorial.id} 第 ${i + 1} 步的图片路径要以 assets/ 开头：$asset');
             }
           case TutorialCompareStep(:final left, :final right):
             if (left.isEmpty || right.isEmpty) {
