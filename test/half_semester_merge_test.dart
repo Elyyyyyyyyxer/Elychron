@@ -7,14 +7,14 @@ import 'package:flutter_test/flutter_test.dart';
 /// 背景（2026-09-17 用户反馈）：最近老是有人反馈秋冬半学期课程冲突，
 /// 但我去问的时候他们又说好了。真机诊断日志给出了机制：
 ///
-///   * 教务行的 «xxq»（学期类型）读不出来时，App 只能**按本次查询的季节猜**
-///     （«1|秋» → 上半、1|冬» → 下半，见 «Session.fromZdbk»）；
-///   * 两次查询都会返回同一门课，于是 «Course.completeSession» 里那个
-///     «currentSession.firstHalf || session.firstHalf» 把"猜出来的秋"
+///   * 教务行的 `xxq`（学期类型）读不出来时，App 只能**按本次查询的季节猜**
+///     （`1|秋` → 上半、1|冬` → 下半，见 `Session.fromZdbk`）；
+///   * 两次查询都会返回同一门课，于是 `Course.completeSession` 里那个
+///     `currentSession.firstHalf || session.firstHalf` 把"猜出来的秋"
 ///     和"猜出来的冬"合成了**两半都上** → 用户看到秋冬的课混在一起、还报冲突；
 ///   * 下次刷新 xxq 又能读了 → 自己就好了，所以"问的时候已经正常"。
 ///
-/// 修法：给 Session 记一个**不落库**的 «halfGuessed»，合并时让"确定的"说了算。
+/// 修法：给 Session 记一个**不落库**的 `halfGuessed`，合并时让"确定的"说了算。
 void main() {
   Session session({
     required String name,

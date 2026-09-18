@@ -23,6 +23,7 @@ import 'package:celechron/model/upcoming.dart';
 import 'package:celechron/page/calendar/schedule_view.dart';
 import 'package:celechron/page/calendar/upcoming_view.dart';
 import 'calendar_controller.dart';
+import 'foldable_calendar.dart';
 
 class CalendarPage extends StatelessWidget {
   CalendarPage({super.key});
@@ -211,82 +212,105 @@ class CalendarPage extends StatelessWidget {
               onShift: _calendarController.shiftFocused,
               child: Padding(
                 padding: const EdgeInsets.only(bottom: 5, left: 12, right: 12),
-                child: TableCalendar(
-                  locale: 'zh_CN',
-                  firstDay: DateTime.utc(2022, 9, 1),
-                  lastDay: DateTime.utc(2030, 12, 31),
-                  rowHeight: 48.0,
-                  daysOfWeekHeight: 20.0,
-                  // ===== MOD ===== 折叠/展开的动画快一点（用户要求）
-                  // 默认 200ms 点一下折叠提示要等一小会儿才收完；140ms 跟手得多。
-                  formatAnimationDuration: const Duration(milliseconds: 140),
-                  startingDayOfWeek: StartingDayOfWeek.monday,
-                  daysOfWeekStyle: DaysOfWeekStyle(
-                    dowTextFormatter: (date, locale) => <String>[
-                      '',
-                      '一',
-                      '二',
-                      '三',
-                      '四',
-                      '五',
-                      '六',
-                      '日'
-                    ][date.weekday],
-                  ),
-                  // ===== MOD ===== 关掉内置横向滑动（改由 ModSwipePager 带阈值接管）；
-                  // 竖向那条整月 ⇄ 一周保留，手势不变。
-                  availableGestures: AvailableGestures.verticalSwipe,
-                  availableCalendarFormats: const {
-                    CalendarFormat.month: '显示整月',
-                    CalendarFormat.week: '显示一周',
-                  },
-                  headerVisible: false,
-                  focusedDay: _calendarController.focusedDay.value,
-                  selectedDayPredicate: (day) {
-                    return isSameDay(
-                        _calendarController.selectedDay.value, day);
-                  },
-                  calendarFormat: _calendarController.calendarFormat.value,
-                  onPageChanged: (focusedDay) {
-                    _calendarController.focusedDay.value = focusedDay;
-                  },
-                  onDaySelected: (selectedDay, focusedDay) {
-                    _calendarController.focusedDay.value = focusedDay;
-                    _calendarController.selectedDay.value = selectedDay;
-                    _calendarController.focusedDay.refresh();
-                  },
-                  onFormatChanged: (format) {
-                    _calendarController.calendarFormat.value = format;
-                  },
-                  eventLoader: (day) {
-                    // 课程 / 考试 / 日程 / 待办 都参与月视图标记
-                    return _calendarController.getMarkersForDay(day);
-                  },
-                  calendarStyle: CalendarStyle(
-                    markersAnchor: -0.1,
-                    markersMaxCount: 10,
-                    selectedDecoration: BoxDecoration(
-                      color: CupertinoDynamicColor.resolve(
-                          CupertinoColors.activeBlue.withValues(alpha: 0.5),
-                          context),
-                      shape: BoxShape.circle,
+                child: Column(
+                  children: [
+                    // ===== MOD 2026-09-18：星期行自己画，并且**钉在**折叠视窗外面 =====
+                    // 折叠时表格自带的星期行会跟着网格一起被推走（看着像少一行），
+                    // 所以关掉它（daysOfWeekVisible: false）自己画一行钉住：
+                    // 这样"整月 → 一周"就是一段**连续**的裁剪区间，
+                    // 折完时的高度也和周视图一致（都是 rowHeight），切换那一下不会跳。
+                    _weekdayHeader(context),
+                    FoldableCalendar(
+                      controller: _calendarController,
+                      rowHeight: 48.0,
+                      child: TableCalendar(
+                        locale: 'zh_CN',
+                        firstDay: DateTime.utc(2022, 9, 1),
+                        lastDay: DateTime.utc(2030, 12, 31),
+                        rowHeight: 48.0,
+                        daysOfWeekHeight: 20.0,
+                        // 星期行由外面自己画（钉在外面，折叠时不跟着走）
+                        daysOfWeekVisible: false,
+                        // ===== MOD ===== 折叠/展开的动画快一点（用户要求）
+                        // 默认 200ms 点一下折叠提示要等一小会儿才收完；140ms 跟手得多。
+                        formatAnimationDuration:
+                            const Duration(milliseconds: 140),
+                        startingDayOfWeek: StartingDayOfWeek.monday,
+                        daysOfWeekStyle: DaysOfWeekStyle(
+                          dowTextFormatter: (date, locale) => <String>[
+                            '',
+                            '一',
+                            '二',
+                            '三',
+                            '四',
+                            '五',
+                            '六',
+                            '日'
+                          ][date.weekday],
+                        ),
+                        // ===== MOD ===== 关掉内置横向滑动（改由 ModSwipePager 带阈值接管）；
+                        // 竖向那条整月 ⇄ 一周保留，手势不变。
+                        // ===== MOD 2026-09-18：竖向手势改由 FoldableCalendar 跟手处理 =====
+                        // 原来交给表格自带的 verticalSwipe：它只有"月/周"两个状态，
+                        // 手指控制不了中间过程（用户反馈"只是播放一个无法操纵的动画"）。
+                        availableGestures: AvailableGestures.none,
+                        availableCalendarFormats: const {
+                          CalendarFormat.month: '显示整月',
+                          CalendarFormat.week: '显示一周',
+                        },
+                        headerVisible: false,
+                        focusedDay: _calendarController.focusedDay.value,
+                        selectedDayPredicate: (day) {
+                          return isSameDay(
+                              _calendarController.selectedDay.value, day);
+                        },
+                        calendarFormat:
+                            _calendarController.calendarFormat.value,
+                        onPageChanged: (focusedDay) {
+                          _calendarController.focusedDay.value = focusedDay;
+                        },
+                        onDaySelected: (selectedDay, focusedDay) {
+                          _calendarController.focusedDay.value = focusedDay;
+                          _calendarController.selectedDay.value = selectedDay;
+                          _calendarController.focusedDay.refresh();
+                        },
+                        onFormatChanged: (format) {
+                          _calendarController.calendarFormat.value = format;
+                        },
+                        eventLoader: (day) {
+                          // 课程 / 考试 / 日程 / 待办 都参与月视图标记
+                          return _calendarController.getMarkersForDay(day);
+                        },
+                        calendarStyle: CalendarStyle(
+                          markersAnchor: -0.1,
+                          markersMaxCount: 10,
+                          selectedDecoration: BoxDecoration(
+                            color: CupertinoDynamicColor.resolve(
+                                CupertinoColors.activeBlue
+                                    .withValues(alpha: 0.5),
+                                context),
+                            shape: BoxShape.circle,
+                          ),
+                          selectedTextStyle:
+                              CupertinoTheme.of(context).textTheme.textStyle,
+                          todayDecoration: BoxDecoration(
+                            color: CupertinoDynamicColor.resolve(
+                                CupertinoColors.inactiveGray
+                                    .withValues(alpha: 0.5),
+                                context),
+                            shape: BoxShape.circle,
+                          ),
+                          todayTextStyle:
+                              CupertinoTheme.of(context).textTheme.textStyle,
+                          defaultTextStyle:
+                              CupertinoTheme.of(context).textTheme.textStyle,
+                        ),
+                        calendarBuilders: const CalendarBuilders(
+                          singleMarkerBuilder: singleMarkerBuilder,
+                        ),
+                      ),
                     ),
-                    selectedTextStyle:
-                        CupertinoTheme.of(context).textTheme.textStyle,
-                    todayDecoration: BoxDecoration(
-                      color: CupertinoDynamicColor.resolve(
-                          CupertinoColors.inactiveGray.withValues(alpha: 0.5),
-                          context),
-                      shape: BoxShape.circle,
-                    ),
-                    todayTextStyle:
-                        CupertinoTheme.of(context).textTheme.textStyle,
-                    defaultTextStyle:
-                        CupertinoTheme.of(context).textTheme.textStyle,
-                  ),
-                  calendarBuilders: const CalendarBuilders(
-                    singleMarkerBuilder: singleMarkerBuilder,
-                  ),
+                  ],
                 ),
               ),
             ),
@@ -349,6 +373,33 @@ class CalendarPage extends StatelessWidget {
   /// 判定区做成一整条（左右到底、高 34），图形本身仍是很小的一点，不影响观感。
   ///
   /// 滑的方向跟列表那边保持一致：**往上滑 = 收起来，往下拉 = 放出来**。
+  /// 星期行：钉在折叠视窗之外，自己的（表格自带的已关掉）
+  ///
+  /// 为什么自己画：表格自带的星期行在折叠时会跟着网格一起被推走，
+  /// 看着像少了一行；钉在外面之后，「整月 → 一周」就是一段连续裁剪，
+  /// 折完的高度也和周视图一致（都只有 rowHeight），切换那一下不会跳。
+  Widget _weekdayHeader(BuildContext context) {
+    final color =
+        CupertinoDynamicColor.resolve(CupertinoColors.secondaryLabel, context);
+    const labels = <String>['一', '二', '三', '四', '五', '六', '日'];
+    return SizedBox(
+      height: 20,
+      child: Row(
+        children: [
+          for (final label in labels)
+            Expanded(
+              child: Center(
+                child: Text(
+                  label,
+                  style: TextStyle(fontSize: 12, color: color),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
   Widget _foldHint(BuildContext context) {
     final collapsed =
         _calendarController.calendarFormat.value == CalendarFormat.week;

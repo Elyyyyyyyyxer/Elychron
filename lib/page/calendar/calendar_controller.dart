@@ -226,6 +226,15 @@ class CalendarController extends GetxController {
   /// 它自己就是 `AnimatedSize` 包着的（`formatAnimationDuration` 默认 200ms），
   /// 高度变化是平滑的，不用我们再套一层动画；而且选中态、今天、小圆点标记
   /// 在周视图下全都照旧，比手画一条一周条稳得多。
+  /// 折叠 / 展开的唯一入口。
+  ///
+  /// 不管是"上滑列表折起"、"点提示条"、"跟手拖完松手"，最后都走这里改状态；
+  /// 视窗动画由 `FoldableCalendar` 监听这个状态统一收尾（动画只有一处，逻辑只有一处）。
+  void setFolded(bool folded) {
+    final next = folded ? CalendarFormat.week : CalendarFormat.month;
+    if (calendarFormat.value != next) calendarFormat.value = next;
+  }
+
   bool handleDayListScroll(ScrollNotification notification) {
     if (CalendarFoldSignal.isDragStart(notification)) {
       foldGesture.startDrag();
@@ -243,8 +252,8 @@ class CalendarController extends GetxController {
       isOverscroll: signal.isOverscroll,
       fromUser: signal.fromUser,
     );
-    if (next != null && next != calendarFormat.value) {
-      calendarFormat.value = next;
+    if (next != null) {
+      setFolded(next == CalendarFormat.week);
     }
     return false;
   }

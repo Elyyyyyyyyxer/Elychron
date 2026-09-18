@@ -3,8 +3,8 @@ import 'package:celechron/model/focus_engine.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// 暂停后离开，回来接着专注（2026-09-16 用户要求）里两块**纯逻辑**的测试：
-///  1. «FocusEngine.restore»， 从存档里原样接回计时状态；
-///  2. «SuspendedFocus» 的序列化， 它存在 optionsBox 里，读回来的可能是任何东西。
+///  1. `FocusEngine.restore`， 从存档里原样接回计时状态；
+///  2. `SuspendedFocus` 的序列化， 它存在 optionsBox 里，读回来的可能是任何东西。
 ///
 /// 为什么这两块值得单独测：接不回来 = 用户白专注一段（或者反过来多算），
 /// 而脏数据读崩 = 专注首页直接打不开。都属于"再也不想遇到第二次"的那类。

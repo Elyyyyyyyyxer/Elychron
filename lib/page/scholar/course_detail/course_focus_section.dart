@@ -19,8 +19,8 @@ import 'package:get/get.dart';
 ///   自然觉得"根本没计入"。
 ///
 /// 所以这个区块就是把归属**落到课程这一侧**：这门课我一共专注了多少、
-/// 最近几次是哪天。数据直接从 dbFocus 里按 «FocusSession.courseId» 查，
-/// 不额外存冗余（口径见 «docs/BACKLOG.md» #24）。
+/// 最近几次是哪天。数据直接从 dbFocus 里按 `FocusSession.courseId` 查，
+/// 不额外存冗余（口径见 `docs/BACKLOG.md` #24）。
 class CourseFocusSection extends StatelessWidget {
   const CourseFocusSection({super.key, required this.courseId});
 
