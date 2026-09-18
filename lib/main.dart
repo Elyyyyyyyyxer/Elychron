@@ -393,12 +393,17 @@ class _CelechronAppState extends State<CelechronApp>
             barBackgroundColor: CupertinoColors.systemBackground,
             // 桌面端：主题的基础字体也换成微软雅黑，
             // 免得一部分控件（直接读 CupertinoTheme.textTheme 的那些）还在用默认字体。
+            // 桌面端：主题的基础字体也换成微软雅黑。
+            // 从当前默认 textStyle **派生**（copyWith）而不是新建一个：
+            // 新建会把颜色丢掉（默认色是白色），整个界面就变白字了。
             textTheme: PlatformFeatures.isDesktop
-                ? const CupertinoTextThemeData(
-                    textStyle: TextStyle(
-                      fontFamily: desktopFontFamily,
-                      fontFamilyFallback: desktopFontFallback,
-                    ),
+                ? CupertinoTextThemeData(
+                    textStyle:
+                        const CupertinoTextThemeData().textStyle.copyWith(
+                              fontFamily: desktopFontFamily,
+                              fontFamilyFallback: desktopFontFallback,
+                              fontWeight: FontWeight.w500,
+                            ),
                   )
                 : null,
           ),
@@ -427,10 +432,17 @@ class _CelechronAppState extends State<CelechronApp>
             //    用 DefaultTextStyle 兜底，所有没写死 inherit:false 的 Text 都会跟上。
             Widget content = child!;
             if (PlatformFeatures.isDesktop) {
-              content = DefaultTextStyle(
+              // ⚠️ 必须用 merge，不能用 DefaultTextStyle(...)：
+              // 后者会把**颜色**一起换掉（DefaultTextStyle 的默认色是白色），
+              // 结果整个界面变成白字（2026-09-18 用户反馈"所有的字都变成白色了"）。
+              // merge 只补字体族与字重，颜色等其余属性仍沿用外层的。
+              content = DefaultTextStyle.merge(
                 style: const TextStyle(
                   fontFamily: desktopFontFamily,
                   fontFamilyFallback: desktopFontFallback,
+                  // 微软雅黑的 Regular 在 Windows 上偏细（用户反馈"感觉这个字体有点细"），
+                  // 统一抬到 Medium；代码里显式写了 bold 的地方照旧更粗。
+                  fontWeight: FontWeight.w500,
                 ),
                 child: DesktopFrame(child: content),
               );

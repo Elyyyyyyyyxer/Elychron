@@ -5,6 +5,7 @@ import 'package:celechron/design/dingtalk_sheet.dart';
 import 'package:celechron/database/database_helper.dart';
 import 'package:celechron/mod/database_mod.dart';
 import 'package:celechron/mod/do_not_disturb.dart';
+import 'package:celechron/platform/desktop_notify.dart';
 import 'package:celechron/mod/ai/ai_settings_page.dart';
 import 'package:celechron/mod/ai/deepseek.dart';
 import 'package:celechron/mod/lan_sync_page.dart';
@@ -128,6 +129,35 @@ List<Widget> modReminderTiles(
       // - 闹钟可靠性：全屏通知授权 / 电池优化白名单 / 自启动，全是安卓 ROM 的事；
       // - 闹钟配色：那个页面是给"全屏闹钟页"配色的，桌面端不弹全屏闹钟页（改成 DING）；
       // - 专注免打扰：Windows 的"专注助手"是另一套 API，我们没接（见 PlatformFeatures）。
+      // ===== 桌面端专属：一键测 DING（用户反馈"提醒没响"，给个能自测的入口）=====
+      if (PlatformFeatures.isDesktop)
+        CupertinoListTile(
+          title: const Text('测试提醒（DING）'),
+          subtitle: const Text('响一下 + 右下角弹窗；没反应说明系统通知被关了'),
+          trailing: const BackChervonRow(),
+          onTap: () async {
+            await DesktopNotify.ding(
+              title: 'Elychron 测试提醒',
+              body: '看到这条就说明桌面通知是通的',
+            );
+            if (context.mounted) {
+              showCupertinoDialog<void>(
+                context: context,
+                builder: (BuildContext context) => CupertinoAlertDialog(
+                  title: const Text('已发出测试提醒'),
+                  content: const Text('如果没听到声音、也没看到右下角弹窗，请检查系统设置里的'
+                      '通知与专注助手，并把 设置 → 数据 → 复制反馈信息 发给开发者。'),
+                  actions: [
+                    CupertinoDialogAction(
+                      child: const Text('好'),
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
+                  ],
+                ),
+              );
+            }
+          },
+        ),
       if (!PlatformFeatures.isDesktop) ...<Widget>[
         CupertinoListTile(
           title: const Text('闹钟可靠性'),

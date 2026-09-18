@@ -39,9 +39,12 @@ class DesktopFrame extends StatefulWidget {
   /// 窄窗口时的固定边距
   static const double narrowSide = 16;
 
-  /// 按窗口宽度算两侧留白（逻辑像素）
-  static double sideInsetFor(double width) =>
-      width >= proportionalMinWidth ? width * sideRatio : narrowSide;
+  /// 内容区的最大宽度（逻辑像素）。
+  ///
+  /// 用户最早的意见是"一条会被拉得很长"，但加了边距之后又觉得"割裂"——
+  /// 所以改成这个折中：**背景照旧铺满整个窗口，只把内容块限宽居中**。
+  /// 这样宽窗口下卡片不会拉成一条，窄窗口下也没有多余边距。
+  static const double contentMaxWidth = 920;
 
   @override
   State<DesktopFrame> createState() => _DesktopFrameState();
@@ -93,10 +96,12 @@ class _DesktopFrameState extends State<DesktopFrame> {
         if (items.isNotEmpty) await _modHooks.acceptDroppedFiles(items);
       },
       child: Container(
-        color: CupertinoColors.systemGroupedBackground,
+        // 背景色与页面自身一致（systemBackground）：内容限宽之后两侧露出来的是这一层，
+        // 同色才不会出现"页面被切成一条"的割裂感（用户 2026-09-18 反馈）。
+        color: CupertinoDynamicColor.resolve(
+            CupertinoColors.systemBackground, context),
         child: LayoutBuilder(
           builder: (BuildContext context, BoxConstraints constraints) {
-            final side = DesktopFrame.sideInsetFor(constraints.maxWidth);
             return Stack(
               children: <Widget>[
                 Row(
@@ -111,9 +116,15 @@ class _DesktopFrameState extends State<DesktopFrame> {
                       ),
                     ),
                     Expanded(
-                      child: Padding(
-                        padding: EdgeInsets.symmetric(horizontal: side),
-                        child: widget.child,
+                      // 不用 Padding（那会连页面背景一起切掉，看着割裂），
+                      // 改成"内容居中 + 限宽"：背景仍然铺满，只有内容块不会拉得很长。
+                      child: Align(
+                        alignment: Alignment.topCenter,
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(
+                              maxWidth: DesktopFrame.contentMaxWidth),
+                          child: widget.child,
+                        ),
                       ),
                     ),
                   ],
