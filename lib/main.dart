@@ -402,7 +402,7 @@ class _CelechronAppState extends State<CelechronApp>
                         const CupertinoTextThemeData().textStyle.copyWith(
                               fontFamily: desktopFontFamily,
                               fontFamilyFallback: desktopFontFallback,
-                              fontWeight: FontWeight.w500,
+                              fontWeight: FontWeight.w400,
                             ),
                   )
                 : null,
@@ -440,9 +440,10 @@ class _CelechronAppState extends State<CelechronApp>
                 style: const TextStyle(
                   fontFamily: desktopFontFamily,
                   fontFamilyFallback: desktopFontFallback,
-                  // 微软雅黑的 Regular 在 Windows 上偏细（用户反馈"感觉这个字体有点细"），
-                  // 统一抬到 Medium；代码里显式写了 bold 的地方照旧更粗。
-                  fontWeight: FontWeight.w500,
+                  // 字重：微软雅黑只有 Regular 与 Bold 两档，没有真正的 Medium，
+                  // 写 w500 会被就近取整（用户反馈"又有点粗了"）→ 回到 Regular。
+                  // 代码里显式写 bold 的地方照旧更粗。
+                  fontWeight: FontWeight.w400,
                 ),
                 child: DesktopFrame(child: content),
               );

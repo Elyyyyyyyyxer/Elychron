@@ -89,12 +89,40 @@ class DesktopNotify {
     }
   }
 
+  /// 优先播放"人声"（用户把音频丢进 assets/sounds/ 就会自动用上），
+  /// 找不到再退回自合成的 ding。
+  ///
+  /// 用户希望能用爱莉的那句"嗨~"原声 —— 但原声是受版权保护的音频，
+  /// 我不能凭空生成或内置，所以做成"你把文件放进来就行"：
+  /// 把音频放到 assets/sounds/ 下并命名为下列任一名字（见 [_voiceCandidates]），
+  /// 重新构建后就会优先播它。pubspec 里已经声明了整个 assets/sounds/ 目录，
+  /// 放文件即可，不用改代码。
+  static const List<String> _voiceCandidates = <String>[
+    'sounds/ely_hi.mp3',
+    'sounds/ely_hi.m4a',
+    'sounds/ely_hi.wav',
+    'sounds/voice.mp3',
+    'sounds/voice.wav',
+  ];
+
   /// 播放提示音，返回是否成功
   static Future<bool> _playDing() async {
     try {
       _player ??= AudioPlayer();
       await _player!.stop();
+      // 先试人声
+      for (final asset in _voiceCandidates) {
+        try {
+          await _player!.play(AssetSource(asset));
+          _log('播放语音：' + asset);
+          return true;
+        } catch (_) {
+          // 这个候选不存在/放不了，试下一个
+        }
+      }
+      // 退回自合成的提示音
       await _player!.play(AssetSource('sounds/ding.wav'));
+      _log('播放内置提示音（没找到语音文件）');
       return true;
     } catch (error) {
       _log('声音失败：' + error.toString());

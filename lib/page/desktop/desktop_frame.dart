@@ -43,8 +43,28 @@ class DesktopFrame extends StatefulWidget {
   ///
   /// 用户最早的意见是"一条会被拉得很长"，但加了边距之后又觉得"割裂"——
   /// 所以改成这个折中：**背景照旧铺满整个窗口，只把内容块限宽居中**。
-  /// 这样宽窗口下卡片不会拉成一条，窄窗口下也没有多余边距。
   static const double contentMaxWidth = 920;
+
+  /// 内容区最多占窗口宽度的多少。
+  ///
+  /// ⚠️ 光有 [contentMaxWidth] 是不够的：用户的窗口只有约 700 逻辑像素宽
+  /// （150% 缩放下 1050 物理像素），920 这个上限**永远不会触发**，
+  /// 看上去就跟没限宽一样（2026-09-19 用户反馈"实际内容好像并没有限宽"）。
+  /// 所以再加一道按比例的上限：两边各留约 14%，与用户最早说的 1/6~1/7 同一档。
+  static const double contentWidthFactor = 0.72;
+
+  /// 左侧导航栏宽度（与 DesktopNavRail 的默认值保持一致）
+  static const double railWidth = 208;
+
+  /// 按**可用宽度**算内容区宽度上限。
+  ///
+  /// ⚠️ 传进来的必须是"扣掉导航栏之后"的宽度。第一版传的是整个窗口宽度，
+  /// 于是算出来的上限恰好等于可用宽度本身 —— 等于没限宽
+  /// （用户反馈"实际内容好像并没有限宽"，测试也复现了：期望 570、实际 720）。
+  static double contentWidthFor(double available) {
+    final byRatio = available * contentWidthFactor;
+    return byRatio < contentMaxWidth ? byRatio : contentMaxWidth;
+  }
 
   @override
   State<DesktopFrame> createState() => _DesktopFrameState();
@@ -118,11 +138,14 @@ class _DesktopFrameState extends State<DesktopFrame> {
                     Expanded(
                       // 不用 Padding（那会连页面背景一起切掉，看着割裂），
                       // 改成"内容居中 + 限宽"：背景仍然铺满，只有内容块不会拉得很长。
+                      // 注意这里传的是**扣掉导航栏之后**的宽度（见 contentWidthFor 的注释）。
                       child: Align(
                         alignment: Alignment.topCenter,
                         child: ConstrainedBox(
-                          constraints: const BoxConstraints(
-                              maxWidth: DesktopFrame.contentMaxWidth),
+                          constraints: BoxConstraints(
+                            maxWidth: DesktopFrame.contentWidthFor(
+                                constraints.maxWidth - DesktopFrame.railWidth),
+                          ),
                           child: widget.child,
                         ),
                       ),
