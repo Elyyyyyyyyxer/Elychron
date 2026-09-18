@@ -86,6 +86,10 @@
 
  https://github.com/Elyyyyyyyyxer/Elychron/releases/latest
 
+ **国内建议走 Gitee**（同一个包，已同步）：
+
+ https://gitee.com/P3RF3CT/elychron/releases/latest
+
  - 与官方 Celechron **包名不同，可以共存**，装它不会覆盖官方版，数据互不影响
  - **从 v1.4.0 升上来直接覆盖安装即可，数据不会丢**（这一版还改了缓存自愈逻辑，就算缓存坏了也能自己修回来）
  - 首次安装需要在系统里允许安装未知来源应用

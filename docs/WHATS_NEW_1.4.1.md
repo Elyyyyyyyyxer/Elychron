@@ -1696,9 +1696,18 @@ App 被系统杀掉后，那条未结算的会话一直躺在库里，下次打�
 **修法：给 curl 加 `--ssl-no-revoke`**（`gitee.com` 不受影响，只有 GitHub 这边这样）。
 以后在这台机器上用 curl 访问 GitHub API 都得带这个参数。
 
-## 19.3 ★ Gitee 为什么一直没有发行版（用户问的）
+## 19.3 ★ Gitee 为什么一直没有发行版，以及怎么修好的（用户问的）
 
-结论：**不是忘了发，是根本推不上去**。
+**先给结论：以前不是忘了发，是根本推不上去；这一轮用户给了私人令牌，已经全部发好 ✓**
+
+- Gitee 发行版：https://gitee.com/P3RF3CT/elychron/releases/tag/v1.4.1-elychron.1
+  （APK 已附：`Elychron-1.4.1-elychron.1-arm64.apk`，与 GitHub 上那个是同一个文件）
+- Gitee 代码也补齐了：`git push gitee main` 把落后的 **100 个提交**一次快进推平
+  （`gitee/main` 现在与本地一致），tag `v1.4.1-elychron.1` 也推上去了。
+- 本仓库的 `gitee` remote 已配好，以后发版两行命令：
+  `git push gitee main --tags` + 建发行版（命令见下）。
+
+诊断过程（留给下次）：
 
 1. **Gitee 已经不接受账号密码**：本机凭据库里 Gitee 存的是账号密码（`P3RF3CT`，14 位）
    - `git push gitee main` → `fatal: Authentication failed`；
@@ -1710,18 +1719,19 @@ App 被系统杀掉后，那条未结算的会话一直躺在库里，下次打�
 3. 我自己的文档里其实也记过一笔：「Gitee 发行版还没建（需要与 GitHub 同 tag、同 APK），
    等用户发话再发」—— 当时就没发。
 
-**待办（等用户给令牌，或自己在网页点）**：
+**发版时的三步（都已验证可用）**：
 
-- 方案 A（推荐，我一条命令做完）：用户在 Gitee「设置 → 私人令牌」建一个带
-  `projects` 权限的令牌 → 我跑 `git push gitee main --tags`，
-  再用 `POST /api/v5/repos/P3RF3CT/elychron/releases` 建发行版、
-  `…/releases/{id}/attach_files` 传 APK。
-- 方案 B（用户自己点）：Gitee 仓库 →「发行版 → 新建发行版」（标签填 `v1.4.1-elychron.1`、
-  正文贴 `docs/RELEASE_NOTES.md`、上传同一个 APK）；代码那边用仓库设置的「强制同步」
-  从 GitHub 拉一次。
+1. 令牌存进凭据库（**不要**写进命令行或 URL）：把 protocol / host / username / password
+   四行加一个空行（换行用 PowerShell 的 [char]10 拼）管道给 `git credential approve`。
+2. `git push gitee main --tags`。
+3. 建发行版 + 传附件（Gitee OpenAPI，curl 即可）：
 
-**本仓库已经加好了 `gitee` remote**（`https://gitee.com/P3RF3CT/elychron.git`），
-拿到令牌后不用再配。
+       POST /api/v5/repos/P3RF3CT/elychron/releases
+            参数：access_token / tag_name / target_commitish=main / name / body 取自 docs/RELEASE_NOTES.md
+       POST /api/v5/repos/P3RF3CT/elychron/releases/<id>/attach_files
+            参数：access_token / file=@releases/<apk>
+
+Gitee 的下载链接会 302 跳转，属正常；实际拉下来的内容确认过是 APK（ZIP 结构）。
 
 
 
