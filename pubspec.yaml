@@ -39,6 +39,9 @@ dependencies:
   timezone:
   device_info_plus:
   file_picker: ^8.0.0
+  local_notifier: ^0.1.6
+  desktop_drop: ^0.8.4
+  audioplayers: ^6.8.1
 
 dev_dependencies:
   flutter_test:
@@ -78,6 +81,8 @@ flutter:
     # 随包内置的校历（用户 2026-09-17 拍板）：上游那个第三方站老是连不上，
     # 索性把公开的校历 JSON 打进包里；之后**每周**才去试一次远程更新、比差异取新的。
     - assets/calendar/
+    # 桌面端闹钟的 DING 提示音（自己合成的，见 lib/platform/desktop_notify.dart）
+    - assets/sounds/
 
   # To add assets to your application, add an assets section, like this:
   # assets:

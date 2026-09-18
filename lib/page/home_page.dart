@@ -3,19 +3,15 @@ import 'dart:async';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/gestures.dart' show PointerDeviceKind;
 import 'package:flutter/material.dart' show Icons;
-import 'package:flutter/services.dart' show SystemNavigator;
-import 'package:get/get.dart';
-import 'package:url_launcher/url_launcher_string.dart';
 
 import 'package:celechron/page/scholar/scholar_view.dart';
 import 'package:celechron/page/task/task_view.dart';
+import 'package:celechron/mod/update_prompt.dart';
 import 'package:celechron/page/calendar/calendar_view.dart';
 import 'package:celechron/page/focus/focus_home_page.dart';
 import 'package:celechron/page/option/option_view.dart';
 // ===== MOD: 分享接收 / 闹钟逻辑集中在 lib/mod/home_mod_hooks.dart =====
 import 'package:celechron/mod/home_mod_hooks.dart';
-
-import 'package:celechron/worker/fuse.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key, required this.title});
@@ -164,62 +160,11 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Future<void> initFuse() async {
-    await Future.delayed(const Duration(seconds: 1));
-    var fuse = Get.find<Rx<Fuse>>(tag: 'fuse');
-    var update =
-        await fuse.value.checkUpdate().whenComplete(() => fuse.refresh());
-    if (update == null) return;
-    if (!mounted) return;
-
-    // 大版本 → 强制更新：没有忽略，只能去下载（或退出应用）。
-    // 小版本 → 普通提醒，可忽略；同一个版本只提醒一次（由 Fuse 记录）。
-    showCupertinoDialog(
-        context: context,
-        barrierDismissible: !update.forced,
-        builder: (context) {
-          return CupertinoAlertDialog(
-            title: Text(update.forced ? '需要更新后才能继续使用' : '更新可用'),
-            content: Text(
-              update.forced
-                  ? '当前版本 ${Fuse.appVersionName} 已经太旧，'
-                      '请更新到 ${update.tag}。\n\n${update.summary}'
-                  : update.message,
-            ),
-            actions: [
-              if (!update.forced)
-                CupertinoDialogAction(
-                  child: const Text('忽略'),
-                  onPressed: () async {
-                    Navigator.of(context).pop();
-                  },
-                ),
-              if (update.forced)
-                CupertinoDialogAction(
-                  child: const Text('退出'),
-                  onPressed: () => SystemNavigator.pop(),
-                ),
-              CupertinoDialogAction(
-                isDefaultAction: true,
-                child: const Text('去下载'),
-                onPressed: () async {
-                  // 打开**实际回答的那个源**的 Release 页：
-                  // 国内用户多半连不上 GitHub；如果这次是 Gitee 查到的更新，
-                  // 就必须跳 Gitee， 否则他看得到更新却打不开下载页。
-                  await launchUrlString(
-                    update.downloadUrl,
-                    mode: LaunchMode.externalApplication,
-                  );
-                  // 强制更新时对话框留着，装完新版本自然会消失
-                  if (!update.forced && context.mounted) {
-                    Navigator.of(context).pop();
-                  }
-                },
-              ),
-            ],
-          );
-        });
-  }
+  /// 启动后的更新检查 + 提示
+  ///
+  /// v1.5.0 起实现搬到 lib/mod/update_prompt.dart（桌面端要用同一套口径），
+  /// 这里只留一行调用，避免两份逻辑漂移。
+  Future<void> initFuse() => checkUpdateOnStart(context);
 }
 
 // 离屏页面保活：保留滚动位置等临时状态，等价于原先 CupertinoTabScaffold

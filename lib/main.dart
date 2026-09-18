@@ -19,6 +19,7 @@ import 'package:app_links/app_links.dart';
 
 import 'package:celechron/model/scholar.dart';
 import 'package:celechron/model/option.dart';
+import 'package:celechron/page/desktop/desktop_shell.dart';
 import 'package:celechron/page/home_page.dart';
 import 'package:celechron/page/option/ecard_pay_page.dart';
 import 'package:celechron/services/diagnostic_log_service.dart';
@@ -417,7 +418,11 @@ class _CelechronAppState extends State<CelechronApp>
             );
           },
           title: 'Elychron',
-          home: const HomePage(title: 'Elychron'),
+          // ===== v1.5.0：桌面端换一套壳（左侧竖导航 + 中间功能页）=====
+          // 里面装的页面与手机端完全一样，只是一行业务逻辑都没有重写。
+          home: PlatformFeatures.isDesktop
+              ? const DesktopShell()
+              : const HomePage(title: 'Elychron'),
           initialRoute: '/',
           routes: {
             '/ecardpaypage': (context) => ECardPayPage(),

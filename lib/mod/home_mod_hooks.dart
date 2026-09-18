@@ -22,7 +22,9 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart' show Icons;
 import 'package:get/get.dart';
 import 'package:celechron/page/option/option_controller.dart';
+import 'package:celechron/platform/desktop_notify.dart';
 import 'package:celechron/tutorial/tutorial_entry.dart';
+import 'package:celechron/utils/platform_features.dart';
 import 'package:celechron/tutorial/tutorial_model.dart';
 import 'package:celechron/tutorial/tutorial_router.dart';
 
@@ -181,11 +183,24 @@ class HomeModHooks {
     }
   }
 
-  /// 闹钟到点：弹出全屏闹钟页
+  /// 闹钟到点。
+  ///
+  /// 手机：全屏闹钟页（原来那套，能全屏影响、能循环响铃）。
+  /// 桌面：用户拍板的"钉钉 DING 那种"—— 响一下 + 右下角一个弹窗，
+  /// 不抢全屏（桌面上抢全屏是很讨厌的行为）。
   void _onAlarm() {
     final task = TaskAlarmCenter.current.value;
     final context = Get.context;
     if (task == null || context == null) return;
+    if (PlatformFeatures.isDesktop) {
+      DesktopNotify.ding(
+        title: task.summary.trim().isEmpty ? '待办提醒' : task.summary.trim(),
+        body: task.description.trim().isEmpty
+            ? 'Elychron 提醒你处理这条待办'
+            : task.description.trim(),
+      );
+      return;
+    }
     Navigator.of(context, rootNavigator: true).push(
       CupertinoPageRoute(
         builder: (BuildContext context) => TaskAlarmPage(task: task),
@@ -279,6 +294,14 @@ class HomeModHooks {
   /// 表现就是"图片分享进来什么都不弹"。现在改成问运行时状态
   /// （只有专注页真的在计时才算，暂停 / App 已死都算没在专注）。
   bool _isFocusRunning() => FocusRuntime.isRunning;
+
+  /// 桌面端：把拖进窗口的文件交给同一条管线（见 lib/page/desktop/desktop_shell.dart）
+  ///
+  /// 手机是"从别的应用分享进来"，桌面没有那个入口，用户拍板改成**拖文件进窗口**。
+  /// 进来之后走的是同一套逻辑（复制到附件目录 → 问新建还是挂到已有待办 →
+  /// 图片还能交给 AI 识别），所以这里只做一层转换，不另写一份。
+  Future<void> acceptDroppedFiles(List<SharedItem> items) =>
+      _handleShared(items);
 
   Future<void> _handleShared(List<SharedItem> items) async {
     if (items.isEmpty || _handlingShare) return;
