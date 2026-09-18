@@ -36,9 +36,25 @@ class UpdateInfo {
       summary.isEmpty ? '有新版本可用：$tag' : '有新版本可用：$tag\n$summary';
 }
 
+/// 一个源给出的回答（并集比对用，见 [Fuse.checkUpdate]）
+class _SourceAnswer {
+  final UpdateSource source;
+  final Map<String, dynamic> json;
+  final String tag;
+  final List<int> version;
+
+  const _SourceAnswer({
+    required this.source,
+    required this.json,
+    required this.tag,
+    required this.version,
+  });
+}
+
 /// 一个更新检查源。
 ///
-/// GitHub 是源码主仓库；Gitee 是国内可达的镜像（下载与更新检查都靠它兜底）。
+/// GitHub 是源码主仓库；Gitee 与两个 GitHub 反代是国内可达的镜像
+/// （下载与更新检查都靠它们兜底）。
 class UpdateSource {
   final String name;
   final String apiUrl;
@@ -97,7 +113,18 @@ class Fuse {
   /// ⚠️ 建好 Gitee 仓库后把这里改成实际的 `用户名/仓库名`。
   static const String giteeRepo = 'P3RF3CT/elychron';
 
-  /// 更新检查的源，按顺序尝试（前面失败就试下一个）
+  /// 更新检查的源。**全部并行查，取版本号最大的那个**（2026-09-17 用户要求）
+  ///
+  /// 用户原话：「务必要保证任何情况下，有更新版就会提醒，不是说比如 github 似连非连
+  /// 就不看其他网站了。全部检查取并集。」
+  ///
+  /// 所以这里是并集，而不是"第一个能通的就算"：
+  /// - GitHub 直连在国内经常**半通**（有回应但可能是旧数据 / 很慢），
+  ///   以前它一应答就 break，Gitee 上更新的版本反而没人看；
+  /// - 现在所有源一起打，谁报的版本号大就用谁，并按那个源给下载入口。
+  ///
+  /// 镜像站：gh-proxy / kkgithub 是社区维护的 GitHub 反代，专供国内网络；
+  /// 挂了也不影响（全都不应答时安静跳过，下次启动再试）。
   static List<UpdateSource> get updateSources => <UpdateSource>[
         const UpdateSource(
           name: 'GitHub',
@@ -110,6 +137,18 @@ class Fuse {
             apiUrl: 'https://gitee.com/api/v5/repos/$giteeRepo/releases/latest',
             releasePageUrl: 'https://gitee.com/$giteeRepo/releases/latest',
           ),
+        const UpdateSource(
+          name: 'GitHub 镜像(gh-proxy)',
+          apiUrl:
+              'https://gh-proxy.com/https://api.github.com/repos/$releaseRepo/releases/latest',
+          releasePageUrl:
+              'https://gh-proxy.com/https://github.com/$releaseRepo/releases/latest',
+        ),
+        const UpdateSource(
+          name: 'GitHub 镜像(kkgithub)',
+          apiUrl: 'https://api.kkgithub.com/repos/$releaseRepo/releases/latest',
+          releasePageUrl: 'https://github.com/$releaseRepo/releases/latest',
+        ),
       ];
 
   List<int>? remoteVersion;
@@ -150,6 +189,29 @@ class Fuse {
       return remoteBuild > localBuild;
     }
     return false;
+  }
+
+  /// 两个版本号是不是同一个（只比前三位，够用）
+  static bool _sameVersion(List<int> a, List<int> b) {
+    for (var i = 0; i < 3; i++) {
+      final av = i < a.length ? a[i] : 0;
+      final bv = i < b.length ? b[i] : 0;
+      if (av != bv) return false;
+    }
+    return true;
+  }
+
+  /// 从多个候选中挑出**版本号最大**的那个（并集的判据，纯函数便于单测）。
+  ///
+  /// 用户要求「全部检查取并集」：只要有任何一个源报了更新的版本就得提醒，
+  /// 所以这里不是"第一个能通的就算"，而是把所有应答里最大的挑出来。
+  static List<int>? newestVersion(Iterable<List<int>> candidates) {
+    List<int>? best;
+    for (final candidate in candidates) {
+      if (candidate.isEmpty) continue;
+      if (best == null || isNewer(candidate, best)) best = candidate;
+    }
+    return best;
   }
 
   /// 主版本号（第一段）是否变大
@@ -232,24 +294,42 @@ class Fuse {
         return null;
       }
 
-      // 依次尝试各个源：GitHub 在国内常常连不上，Gitee 是兜底。
-      // 只要有一个源给了合法结果就用它，并记住是哪个源， 去下载要跳对地方。
-      UpdateSource? answered;
-      Map<String, dynamic>? json;
-      String tag = '';
-      List<int>? parsed;
-      for (final source in updateSources) {
-        final data = await _fetchRelease(source);
-        if (data == null) continue;
-        final candidateTag = '${data['tag_name'] ?? ''}';
-        final candidateVersion = parseTagVersion(candidateTag);
-        if (candidateVersion == null) continue;
-        answered = source;
-        json = data;
-        tag = candidateTag;
-        parsed = candidateVersion;
-        break;
+      // ===== 全部源并行查，取版本最大的那个（并集）=====
+      //
+      // 并行而不是串行：串行最坏要等 4 × 8 秒，而且"第一个能通就 break"
+      // 会让一个半通的 GitHub 把更新的 Gitee 挡在后面。
+      final answers = await Future.wait(
+        updateSources.map((source) async {
+          final data = await _fetchRelease(source);
+          if (data == null) return null;
+          final candidateTag = '${data['tag_name'] ?? ''}';
+          final candidateVersion = parseTagVersion(candidateTag);
+          if (candidateVersion == null) return null;
+          return _SourceAnswer(
+            source: source,
+            json: data,
+            tag: candidateTag,
+            version: candidateVersion,
+          );
+        }),
+      );
+
+      final parsedAnswers =
+          answers.whereType<_SourceAnswer>().toList(growable: false);
+      final newest = newestVersion(
+        parsedAnswers.map((answer) => answer.version),
+      );
+      _SourceAnswer? best;
+      for (final answer in parsedAnswers) {
+        if (newest != null && _sameVersion(answer.version, newest)) {
+          best = answer;
+          break;
+        }
       }
+      final answered = best?.source;
+      final json = best?.json;
+      final tag = best?.tag ?? '';
+      final parsed = best?.version;
 
       // 所有源都没结果：安静跳过（不写 lastUpdateTime，下次启动还会再试）
       if (answered == null || json == null || parsed == null) return null;

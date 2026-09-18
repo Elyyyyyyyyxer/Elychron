@@ -6,6 +6,7 @@ import 'dart:math' as math;
 import 'package:celechron/database/database_helper.dart';
 import 'package:celechron/mod/course_mount_store.dart';
 import 'package:celechron/mod/database_mod.dart';
+import 'package:celechron/mod/focus_runtime.dart';
 import 'package:celechron/mod/focus_suspend.dart';
 import 'package:celechron/model/focus_engine.dart';
 import 'package:celechron/model/focus_session.dart';
@@ -103,6 +104,8 @@ class _FocusPageState extends State<FocusPage> {
       workMinutes: _workMinutes,
       restMinutes: _restMinutes,
     );
+    // 告诉全局"现在真的在专注"（分享拦截与开始守卫都读它，见 mod/focus_runtime.dart）
+    FocusRuntime.set(FocusRunState.running);
 
     // ===== 是不是"回来接着做" =====
     final resumedSession =
@@ -192,6 +195,9 @@ class _FocusPageState extends State<FocusPage> {
 
   @override
   void dispose() {
+    // 页面销毁 = 这一轮专注结束（正常结算、暂停离开、被顶掉都算），
+    // 全局状态回到"没在专注"，分享就不会再被攒着了。
+    if (!FocusRuntime.isPaused) FocusRuntime.set(FocusRunState.idle);
     _ticker?.cancel();
     // 离开页面就把还没到点的该休息了撤掉，别让它半夜响
     TaskReminder.cancelFocusRestNotice();
@@ -548,6 +554,11 @@ class _FocusPageState extends State<FocusPage> {
                             _engine.pause();
                           }
                         });
+                        // 全局状态跟着走：暂停时不算"正在专注"，
+                        // 这样分享进来就不用再攒着等了（见 mod/focus_runtime.dart）
+                        FocusRuntime.set(_engine.isPaused
+                            ? FocusRunState.paused
+                            : FocusRunState.running);
                         _lastPhase = _engine.phase;
                         _syncRestNotice(); // 暂停要撤掉排程，继续要重排
                         // ===== MOD: 按钮换段也要同步免打扰 =====

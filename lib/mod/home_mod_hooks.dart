@@ -6,6 +6,7 @@ import 'package:celechron/database/database_helper.dart';
 import 'package:celechron/mod/database_mod.dart';
 import 'package:celechron/mod/ai/ai_compose_sheet.dart';
 import 'package:celechron/mod/do_not_disturb.dart';
+import 'package:celechron/mod/focus_runtime.dart';
 import 'package:celechron/mod/ai/ai_image.dart';
 import 'package:celechron/mod/ai/deepseek.dart';
 import 'package:celechron/model/task.dart';
@@ -21,6 +22,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart' show Icons;
 import 'package:get/get.dart';
 import 'package:celechron/page/option/option_controller.dart';
+import 'package:celechron/tutorial/tutorial_entry.dart';
 import 'package:celechron/tutorial/tutorial_model.dart';
 import 'package:celechron/tutorial/tutorial_router.dart';
 
@@ -66,6 +68,11 @@ class HomeModHooks {
         const Duration(seconds: 3), _backfillRememberedAccount);
     // 教程里的去试试按钮要能跳到对应页面（映射集中在这里，教程内容保持纯数据）
     _wireTutorialRouter();
+    // 从没进过教程中心的新用户：第一帧之后引一句"这里有教程"（只弹一次）
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final context = Get.context;
+      if (context != null) promptTutorialIntroOnce(context);
+    });
     // 桌面小组件（PR #4）：冷启动也可能是从小组件点进来的，
     // ValueNotifier 不会补发旧值，所以这里也主动看一眼当前值。
     if (TodoWidgetActionCenter.current.value != null) {
@@ -265,17 +272,13 @@ class HomeModHooks {
   final List<SharedItem> _pendingShares = <SharedItem>[];
   Timer? _focusPendingPoll;
 
-  /// 是否有正在进行的专注会话（会话未结算 = 正在专注）
-  bool _isFocusRunning() {
-    try {
-      if (!Get.isRegistered<DatabaseHelper>(tag: 'db')) return false;
-      return Get.find<DatabaseHelper>(tag: 'db')
-          .getUnfinishedFocusSessions()
-          .isNotEmpty;
-    } catch (_) {
-      return false;
-    }
-  }
+  /// 现在**真的**在专注计时吗？
+  ///
+  /// 2026-09-17 修正：以前这里查的是"库里有没有未结算的会话"，
+  /// 而 App 被系统杀掉之后那条会话会**一直留着**，于是分享从此被无限期攒着，
+  /// 表现就是"图片分享进来什么都不弹"。现在改成问运行时状态
+  /// （只有专注页真的在计时才算，暂停 / App 已死都算没在专注）。
+  bool _isFocusRunning() => FocusRuntime.isRunning;
 
   Future<void> _handleShared(List<SharedItem> items) async {
     if (items.isEmpty || _handlingShare) return;
@@ -296,16 +299,59 @@ class HomeModHooks {
     try {
       // 先把分享过来的文件复制到应用附件目录
       final attachments = <TaskAttachment>[];
+      final unreadable = <String>[];
       String title = '';
       for (final item in items) {
         if (title.isEmpty && (item.text?.trim().isNotEmpty ?? false)) {
           title = item.text!.trim();
         }
+        if (item.isUnreadable) {
+          unreadable.add(item.name ?? '一个文件');
+          continue;
+        }
         final path = item.path;
         if (path != null) {
           final copied = await copyToAttachments(path, item.name ?? '分享的文件');
-          if (copied != null) attachments.add(copied);
+          if (copied != null) {
+            attachments.add(copied);
+          } else {
+            unreadable.add(item.name ?? '一个文件');
+          }
         }
+      }
+
+      // ===== 什么都不剩时**必须说一句**（2026-09-17 用户报的"分享没反应"）=====
+      //
+      // 以前附件读不出来就被悄悄跳过，items 空了直接 return ——
+      // 用户点了分享，App 像是没收到，根本不知道是权限问题。
+      if (title.isEmpty && attachments.isEmpty) {
+        final context = Get.context;
+        if (context == null || !context.mounted) return;
+        await showCupertinoDialog<void>(
+          context: context,
+          builder: (BuildContext context) => CupertinoAlertDialog(
+            title: const Text('这个分享读不出来'),
+            content: Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(
+                unreadable.isEmpty
+                    ? '没有收到可用的文字或文件。'
+                    : '对方应用没有把${unreadable.length} 个文件的读取权限给过来'
+                        '（${unreadable.first}）。\n'
+                        '可以先把它保存到相册/文件里，再从 Elychron 里添加。',
+                style: const TextStyle(fontSize: 14),
+              ),
+            ),
+            actions: [
+              CupertinoDialogAction(
+                isDefaultAction: true,
+                child: const Text('知道了'),
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+            ],
+          ),
+        );
+        return;
       }
 
       // 切到待办页
@@ -321,7 +367,10 @@ class HomeModHooks {
       final target = await showDingTalkSheet<_ShareTarget>(
         context: context,
         title: '分享到 Elychron',
-        subtitle: _shareSummary(title, attachments.length),
+        subtitle: unreadable.isEmpty
+            ? _shareSummary(title, attachments.length)
+            : '${_shareSummary(title, attachments.length)}（有 '
+                '${unreadable.length} 个文件读不出来，已跳过）',
         options: const [
           DingTalkSheetOption(
             label: '新建待办',

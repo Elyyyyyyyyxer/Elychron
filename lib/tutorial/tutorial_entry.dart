@@ -30,11 +30,64 @@ Future<void> openTutorial(BuildContext context, String id) async {
 
 /// 打开教程中心
 Future<void> openTutorialCenter(BuildContext context) async {
+  // 进过一次就记下来：第一次打开 App 的引导弹窗据此判断要不要弹
+  await TutorialStore.instance.markCenterOpened();
   await Navigator.of(context, rootNavigator: true).push<void>(
     CupertinoPageRoute<void>(
       builder: (BuildContext context) => const TutorialCenterPage(),
     ),
   );
+}
+
+/// ===== 第一次打开 App：先引一句"这里有教程" =====
+///
+/// 用户原话：「没打开过教程的 app 第一次打开默认弹出一个弹窗，引导进入教程」。
+///
+/// 只在**两个条件同时成立**时弹一次：
+/// - 从没进过教程中心；
+/// - 从没看过任何一篇教程。
+/// 弹过就记一笔（哪怕用户点了"以后再说"），不做第二次打扰。
+Future<void> promptTutorialIntroOnce(BuildContext context) async {
+  final store = TutorialStore.instance;
+  if (!TutorialStore.shouldShowIntro(
+    alreadyPrompted: store.hasPromptedIntro,
+    openedCenter: store.hasOpenedCenter,
+    seenAny: store.hasSeenAny,
+  )) {
+    // 老用户（看过教程 / 进过教程中心）直接记一笔，以后也不再判断
+    await store.markIntroPrompted();
+    return;
+  }
+  if (!context.mounted) return;
+  await store.markIntroPrompted();
+  final go = await showCupertinoDialog<bool>(
+    context: context,
+    builder: (BuildContext context) => CupertinoAlertDialog(
+      title: const Text('先花两分钟看下教程？'),
+      content: const Padding(
+        padding: EdgeInsets.only(top: 8),
+        child: Text(
+          'Elychron 里有几处设置与手势，配好之后会顺手很多：'
+          '图文教程在「设置 → 使用教程」，也可以随时从那里重看。',
+          style: TextStyle(fontSize: 14),
+        ),
+      ),
+      actions: [
+        CupertinoDialogAction(
+          isDefaultAction: true,
+          child: const Text('去看看'),
+          onPressed: () => Navigator.of(context).pop(true),
+        ),
+        CupertinoDialogAction(
+          child: const Text('以后再说'),
+          onPressed: () => Navigator.of(context).pop(false),
+        ),
+      ],
+    ),
+  );
+  if (go == true && context.mounted) {
+    await openTutorialCenter(context);
+  }
 }
 
 /// 首用提示：没看过才弹，看完/不再提示之后不再打扰。

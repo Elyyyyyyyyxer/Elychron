@@ -2,6 +2,7 @@ import 'package:celechron/design/app_accent.dart';
 import 'package:celechron/database/database_helper.dart';
 import 'package:celechron/model/focus_engine.dart';
 import 'package:celechron/model/focus_stats.dart';
+import 'package:celechron/mod/focus_runtime.dart';
 import 'package:celechron/mod/focus_suspend.dart';
 import 'package:celechron/model/task.dart';
 import 'package:celechron/page/focus/focus_entry.dart';
@@ -9,6 +10,9 @@ import 'package:celechron/page/focus/focus_stats_page.dart';
 import 'package:celechron/page/task/task_controller.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:get/get.dart';
+
+/// 上一次专注还没结束时，用户选了什么（见 [FocusHomePage] 的开始守卫）
+enum _PendingFocusChoice { resume, finishAndStart }
 
 /// ===== 专注标签页：一个坐下就能按的入口 =====
 ///
@@ -29,6 +33,34 @@ class _FocusHomePageState extends State<FocusHomePage> {
 
   /// 自由专注的名字
   String _freeLabel = '';
+
+  /// 进来时"接住"了一条被系统中断的专注，就给用户一句说明
+  String? _adoptedNotice;
+
+  @override
+  void initState() {
+    super.initState();
+    // ===== 接住被系统中断的专注（2026-09-17 用户反馈）=====
+    //
+    // 用户原话：「外面通过分享进入 Elychron 会打断专注」。
+    // 真相：App 被系统杀掉后，未结算的会话一直躺在库里，下次进专注页就被
+    // 当成僵尸结算成异常结束。这里先把它转成"可以继续"，用户就不会白干。
+    final db = _db;
+    if (db != null) {
+      final adopted = adoptStaleFocusSessions(db);
+      if (adopted != null) {
+        _adoptedNotice = '上次专注（${focusHuman(adopted.focusedTime)}）中途被系统打断了，'
+            '已经保留在这里，可以继续';
+      }
+    }
+    _syncFocusRuntime();
+  }
+
+  /// 把"有没有一次专注停着等继续"同步给全局（分享拦截与开始守卫都读它）
+  void _syncFocusRuntime() {
+    FocusRuntime.set(
+        _suspended != null ? FocusRunState.paused : FocusRunState.idle);
+  }
 
   DatabaseHelper? get _db {
     if (!Get.isRegistered<DatabaseHelper>(tag: 'db')) return null;
@@ -71,7 +103,11 @@ class _FocusHomePageState extends State<FocusHomePage> {
     final suspended = _suspended;
     if (suspended == null) return;
     await resumeFocusFor(context, suspended);
-    if (mounted) setState(() {});
+    // 回来之后重新判定：接着做（running）、又停在那儿（paused）、或已结算（idle）
+    if (mounted) {
+      setState(() {});
+      _syncFocusRuntime();
+    }
   }
 
   /// 不想继续了：把那次暂停中的专注结算掉
@@ -113,6 +149,7 @@ class _FocusHomePageState extends State<FocusHomePage> {
     settleFocusSession(db, session, completed: true);
     db.clearSuspendedFocus();
     setState(() {});
+    _syncFocusRuntime();
   }
 
   Duration get _todayTotal {
@@ -310,13 +347,71 @@ class _FocusHomePageState extends State<FocusHomePage> {
   }
 
   Future<void> _start() async {
+    // ===== 已经有一次专注停在那儿时，先问清楚（2026-09-17 用户反馈）=====
+    //
+    // 用户原话：「存在暂停的专注时直接点击开始专注，会强制打断上一次的专注
+    // 并记为未正常」。以前这里是无脑开新的一次，旧的那条就成了"未正常结束"。
+    // 现在给三个选择：继续上一次 / 结束并开始新的 / 取消。
+    if (_suspended != null) {
+      final choice = await _askAboutPendingFocus();
+      if (choice == null || !mounted) return;
+      if (choice == _PendingFocusChoice.resume) {
+        await _resumeSuspended();
+        return;
+      }
+      // 结束并开始新的：把上一次**正常结算**（用户认了这段时间）
+      await _finishSuspended();
+      if (!mounted) return;
+    }
+
     final task = _task;
     await startFocusFor(
       context,
       task: task,
       freeLabel: task == null ? _freeLabel : null,
     );
-    if (mounted) setState(() {}); // 回来刷新今天已专注
+    if (mounted) {
+      setState(() {}); // 回来刷新今天已专注
+      _syncFocusRuntime();
+    }
+  }
+
+  /// 上一次专注还没结束：继续它，还是结束它再开新的？
+  Future<_PendingFocusChoice?> _askAboutPendingFocus() async {
+    final session = _db?.suspendedSession();
+    final focused = session?.focusedTime ?? Duration.zero;
+    final name = session?.displayName ?? '专注';
+    return showCupertinoDialog<_PendingFocusChoice>(
+      context: context,
+      builder: (BuildContext context) => CupertinoAlertDialog(
+        title: const Text('上一次专注还没结束'),
+        content: Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: Text(
+            '$name，已经专注 ${focusHuman(focused)}。\n'
+            '直接开始新的会把这一次结束掉，先选一个：',
+            style: const TextStyle(fontSize: 14),
+          ),
+        ),
+        actions: [
+          CupertinoDialogAction(
+            isDefaultAction: true,
+            child: const Text('继续上一次'),
+            onPressed: () =>
+                Navigator.of(context).pop(_PendingFocusChoice.resume),
+          ),
+          CupertinoDialogAction(
+            child: const Text('结束并开始新的'),
+            onPressed: () =>
+                Navigator.of(context).pop(_PendingFocusChoice.finishAndStart),
+          ),
+          CupertinoDialogAction(
+            child: const Text('取消'),
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+        ],
+      ),
+    );
   }
 
   // ------------------------------------------------------------------ UI
@@ -420,6 +515,12 @@ class _FocusHomePageState extends State<FocusHomePage> {
                     const SizedBox(height: 6),
                     Text(_suspendedHint,
                         style: TextStyle(fontSize: 12, color: labelColor)),
+                    // 这条是"被系统打断、我们替你接住"的，多说一句免得用户以为是脏数据
+                    if (_adoptedNotice != null) ...[
+                      const SizedBox(height: 6),
+                      Text(_adoptedNotice!,
+                          style: TextStyle(fontSize: 12, color: labelColor)),
+                    ],
                     const SizedBox(height: 12),
                     Row(
                       children: [

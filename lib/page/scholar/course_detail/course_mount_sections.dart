@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:celechron/design/dingtalk_menu.dart';
 import 'package:celechron/design/round_rectangle_card.dart';
 import 'package:celechron/design/sub_title.dart';
 import 'package:celechron/database/database_helper.dart';
@@ -148,20 +149,27 @@ class _CourseMaterialsSectionState extends State<CourseMaterialsSection> {
   Widget _attachmentRow(BuildContext context, int index, Color labelColor) {
     final item = _mount.attachments[index];
     final size = formatFileSize(item.size);
+    final isImage = _isImage(item.name);
+    // 图片能预览就预览（2026-09-17 用户要求）：这一块本来就是放课件和板书照片的，
+    // 只给一个文件名 + 图标的话，用户得一个个点开才知道哪张是哪张。
+    final previewable = isImage && _previewFile(item) != null;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: () => _open(item),
+      onTap: () => previewable ? _preview(item) : _open(item),
+      // CupertinoListTile 那套用不上，重命名/删除走长按菜单
+      onLongPress: () => _showActions(index),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 6),
         child: Row(
           children: [
-            Icon(
-              _isImage(item.name)
-                  ? CupertinoIcons.photo
-                  : CupertinoIcons.doc_text,
-              size: 18,
-              color: CupertinoColors.systemBlue,
-            ),
+            if (previewable)
+              _thumbnail(item)
+            else
+              Icon(
+                isImage ? CupertinoIcons.photo : CupertinoIcons.doc_text,
+                size: 18,
+                color: CupertinoColors.systemBlue,
+              ),
             const SizedBox(width: 8),
             Expanded(
               child: Column(
@@ -173,9 +181,12 @@ class _CourseMaterialsSectionState extends State<CourseMaterialsSection> {
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(fontSize: 14),
                   ),
-                  if (size.isNotEmpty)
-                    Text(size,
-                        style: TextStyle(fontSize: 11, color: labelColor)),
+                  Text(
+                    size.isEmpty
+                        ? (previewable ? '点一下看大图 · 长按可重命名' : '长按可重命名')
+                        : '$size · 长按可重命名',
+                    style: TextStyle(fontSize: 11, color: labelColor),
+                  ),
                 ],
               ),
             ),
@@ -192,6 +203,146 @@ class _CourseMaterialsSectionState extends State<CourseMaterialsSection> {
     );
   }
 
+  /// 附件在磁盘上真实存在吗（被清理掉过就退回到图标）
+  File? _previewFile(TaskAttachment item) {
+    try {
+      final file = File(item.path);
+      return file.existsSync() ? file : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// 小缩略图（48×48，圆角），失败时退回到图标
+  Widget _thumbnail(TaskAttachment item) {
+    final file = _previewFile(item);
+    if (file == null) {
+      return const Icon(CupertinoIcons.photo,
+          size: 18, color: CupertinoColors.systemBlue);
+    }
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(6),
+      child: Image.file(
+        file,
+        width: 46,
+        height: 46,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stack) => Container(
+          width: 46,
+          height: 46,
+          color: CupertinoColors.systemGrey5,
+          child: const Icon(CupertinoIcons.photo,
+              size: 18, color: CupertinoColors.systemBlue),
+        ),
+      ),
+    );
+  }
+
+  /// 点开图片：全屏看，可以捏合放大（把图存下来看板书用）
+  Future<void> _preview(TaskAttachment item) async {
+    final file = _previewFile(item);
+    if (file == null) {
+      await _open(item);
+      return;
+    }
+    await Navigator.of(context, rootNavigator: true).push<void>(
+      CupertinoPageRoute<void>(
+        fullscreenDialog: true,
+        builder: (BuildContext context) => _CourseImagePreview(
+          file: file,
+          title: item.name,
+        ),
+      ),
+    );
+  }
+
+  /// 长按：重命名 / 打开 / 删除
+  Future<void> _showActions(int index) async {
+    final item = _mount.attachments[index];
+    await showDingTalkMenu(
+      context,
+      title: item.name,
+      items: [
+        DingTalkMenuItem(
+          label: '重命名',
+          icon: CupertinoIcons.pencil,
+          onTap: () => _rename(index),
+        ),
+        DingTalkMenuItem(
+          label: '用其它应用打开',
+          icon: CupertinoIcons.arrow_up_right_square,
+          onTap: () => _open(item),
+        ),
+        DingTalkMenuItem(
+          label: '删除',
+          icon: CupertinoIcons.trash,
+          onTap: () => _remove(index),
+        ),
+      ],
+    );
+  }
+
+  /// 重命名附件
+  ///
+  /// 只改**显示名**（`TaskAttachment.name`），不动磁盘上的文件名 ——
+  /// 磁盘名是当初复制进来时定的，改它要动文件系统、还可能撞名，
+  /// 而用户真正想要的就是"列表里那行叫什么"。
+  Future<void> _rename(int index) async {
+    final item = _mount.attachments[index];
+    final dot = item.name.lastIndexOf('.');
+    final extension = dot > 0 ? item.name.substring(dot) : '';
+    final base = dot > 0 ? item.name.substring(0, dot) : item.name;
+    final controller = TextEditingController(text: base);
+    final name = await showCupertinoDialog<String>(
+      context: context,
+      builder: (BuildContext context) => CupertinoAlertDialog(
+        title: const Text('重命名'),
+        content: Padding(
+          padding: const EdgeInsets.only(top: 10),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              CupertinoTextField(
+                controller: controller,
+                autofocus: true,
+                placeholder: '新名字',
+                onSubmitted: (value) => Navigator.of(context).pop(value),
+              ),
+              if (extension.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text('后缀 $extension 会保留',
+                      style: const TextStyle(fontSize: 12)),
+                ),
+            ],
+          ),
+        ),
+        actions: [
+          CupertinoDialogAction(
+            child: const Text('取消'),
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+          CupertinoDialogAction(
+            isDefaultAction: true,
+            child: const Text('保存'),
+            onPressed: () => Navigator.of(context).pop(controller.text),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (name == null) return;
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) return;
+    _mount.attachments[index].name = '$trimmed$extension';
+    await _persist();
+  }
+
+  /// 课程资料里的一张图：全屏看，能捏合、能拖动。
+  ///
+  /// 为什么不用系统看图应用：板书照片经常要放大对细节，跳出去还得再跳回来，
+  /// 而且在应用内看没有"这个文件会不会被别的应用读走"的顾虑。
   static bool _isImage(String name) {
     final lower = name.toLowerCase();
     return lower.endsWith('.jpg') ||
@@ -484,3 +635,72 @@ class _CourseTasksSectionState extends State<CourseTasksSection> {
 /// 附件路径是否还存在（给"打不开"提示用；这里只做展示判断，不做 IO）
 bool attachmentFileExists(TaskAttachment attachment) =>
     File(attachment.path).existsSync();
+
+/// ===== 课程资料图片的全屏预览 =====
+///
+/// 为什么不用系统看图应用：板书照片经常要放大对细节，跳出去再跳回来很烦；
+/// 而且应用内看没有"这个文件会不会被别的应用读走"的顾虑。
+class _CourseImagePreview extends StatelessWidget {
+  const _CourseImagePreview({required this.file, required this.title});
+
+  final File file;
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return CupertinoPageScaffold(
+      backgroundColor: CupertinoColors.black,
+      navigationBar: CupertinoNavigationBar(
+        backgroundColor: CupertinoColors.black,
+        border: null,
+        middle: Text(
+          title,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontSize: 16, color: CupertinoColors.white),
+        ),
+        trailing: CupertinoButton(
+          padding: EdgeInsets.zero,
+          onPressed: () => Navigator.of(context).pop(),
+          child:
+              const Text('完成', style: TextStyle(color: CupertinoColors.white)),
+        ),
+      ),
+      child: SafeArea(
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: InteractiveViewer(
+                minScale: 1,
+                maxScale: 6,
+                child: Center(
+                  child: Image.file(
+                    file,
+                    fit: BoxFit.contain,
+                    errorBuilder: (context, error, stack) => const Text(
+                      '这张图打不开了',
+                      style: TextStyle(color: CupertinoColors.white),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const Positioned(
+              left: 0,
+              right: 0,
+              bottom: 12,
+              child: Text(
+                '捏合放大 · 拖动查看',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: CupertinoColors.systemGrey,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

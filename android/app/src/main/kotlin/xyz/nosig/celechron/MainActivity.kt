@@ -423,15 +423,38 @@ class MainActivity: FlutterActivity() {
             if (list != null) uris.addAll(list)
         }
 
-        for (uri in uris) {
-            val file = copyToCache(uri) ?: continue
-            items.add(
-                mapOf(
-                    "path" to file.absolutePath,
-                    "name" to file.name,
-                    "mime" to (intent.type ?: ""),
+        // ★ 还要看 clipData（2026-09-17 用户报「图片分享进来不弹窗」）：
+        //   Android 13+ 的相册、以及不少新版 App 分享时根本不填 EXTRA_STREAM，
+        //   而是把 URI 放进 clipData；只读 EXTRA_STREAM 会拿到 0 个 URI，
+        //   最后什么都不弹，用户以为分享功能坏了。
+        intent.clipData?.let { clip ->
+            for (i in 0 until clip.itemCount) {
+                clip.getItemAt(i)?.uri?.let { uris.add(it) }
+            }
+        }
+
+        for (uri in uris.distinctBy { it.toString() }) {
+            val file = copyToCache(uri)
+            if (file != null) {
+                items.add(
+                    mapOf(
+                        "path" to file.absolutePath,
+                        "name" to file.name,
+                        "mime" to (intent.type ?: ""),
+                    )
                 )
-            )
+            } else {
+                // ★ 读不出来也要如实上报（对方没给读权限、文件已被删……）。
+                //   以前这里是 ?: continue，附件被悄悄丢掉，
+                //   items 空了就整个不弹窗，用户完全不知道发生了什么。
+                items.add(
+                    mapOf(
+                        "error" to "unreadable",
+                        "name" to (displayName(uri) ?: uri.toString()),
+                        "mime" to (intent.type ?: ""),
+                    )
+                )
+            }
         }
 
         android.util.Log.d(

@@ -103,6 +103,53 @@ extension FocusSuspendStore on DatabaseHelper {
   }
 }
 
+/// ===== 把"App 被系统杀掉时留下的会话"接成可以继续的一次专注 =====
+///
+/// 用户反馈（2026-09-17）：「外面通过分享进入 Elychron 会把专注打断」，
+/// 再进专注页还提示"上次没有正常结束"。
+///
+/// 真相：App 被杀之后，那条未结算的会话**一直躺在库里**，
+/// 下次打开专注页就被 [FocusPage] 当"僵尸"结算成**异常结束**了。
+/// 于是用户眼里就是"分享一下，专注没了"。
+///
+/// 现在：把**最新**那条转成"暂停中" —— 专注首页出现继续卡片，点一下就原样接着做，
+/// 既不结算、也不记异常。更老的僵尸会话（正常使用下不会出现）仍按最后记录结算。
+///
+/// 返回被接住的那条会话（没有可接的就返回 null）。
+FocusSession? adoptStaleFocusSessions(DatabaseHelper db) {
+  // 已经有一条在等着继续了，就别再塞第二条
+  if (db.suspendedFocus() != null) return null;
+  final stale = db.getUnfinishedFocusSessions();
+  if (stale.isEmpty) return null;
+
+  stale.sort((a, b) => b.startedAt.compareTo(a.startedAt));
+  final newest = stale.first;
+
+  // 会话里只存了累计时长，没存引擎的内部状态（这一段还剩多久、是不是休息段），
+  // 所以按"工作段长度减去已专注对工作段取余"推一个近似值。
+  // 误差最多一个落库周期（10 秒），而且**离开期间本来就不该计时**，够用。
+  final phaseSeconds = newest.workMinutes * 60;
+  var remaining = Duration(
+    seconds: phaseSeconds <= 0
+        ? 60
+        : phaseSeconds - (newest.focusedTime.inSeconds % phaseSeconds),
+  );
+  if (remaining < const Duration(minutes: 1)) {
+    remaining = const Duration(minutes: 1);
+  }
+  db.saveSuspendedFocus(SuspendedFocus(
+    uid: newest.uid,
+    remaining: remaining,
+    wasResting: false,
+    at: newest.startedAt,
+  ));
+
+  for (final other in stale.skip(1)) {
+    settleFocusSession(db, other, completed: false);
+  }
+  return newest;
+}
+
 /// 专注不到这么多秒的**不留记录**， 误触、进去看一眼就退出，
 /// 不该污染统计，也不该往 timeSpent 里塞几秒。
 const int minimalFocusSessionSeconds = 10;

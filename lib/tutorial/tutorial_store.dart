@@ -67,6 +67,59 @@ class TutorialStore {
   bool isMuted(Tutorial tutorial) => state.isMuted(tutorial);
   int lastIndex(Tutorial tutorial) => state.lastIndex(tutorial);
 
+  // ===== 第一次打开 App 的引导（2026-09-17 用户要求）=====
+  //
+  // 用户原话：「没打开过教程的 app 第一次打开默认弹出一个弹窗，引导进入教程」。
+  // 判据就是"有没有进过教程中心" —— 只要进去过一次就再也不弹。
+  // 单独存两个键（而不是塞进 TutorialState 的 JSON），
+  // 这样以后改教程状态的结构也不会把这两个标记弄丢。
+  static const String kCenterOpenedKey = 'tutorialCenterOpened';
+  static const String kIntroPromptKey = 'tutorialIntroPrompted';
+
+  bool get hasOpenedCenter {
+    try {
+      return _db?.optionsBox.get(kCenterOpenedKey) == true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<void> markCenterOpened() async {
+    try {
+      await _db?.optionsBox.put(kCenterOpenedKey, true);
+    } catch (_) {}
+  }
+
+  /// 引导弹窗弹过没有（弹过就不弹第二次，不管用户选了什么）
+  bool get hasPromptedIntro {
+    try {
+      return _db?.optionsBox.get(kIntroPromptKey) == true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<void> markIntroPrompted() async {
+    try {
+      await _db?.optionsBox.put(kIntroPromptKey, true);
+    } catch (_) {}
+  }
+
+  /// 有没有看过任何一篇教程
+  bool get hasSeenAny =>
+      TutorialRegistry.all.any((tutorial) => hasSeen(tutorial));
+
+  /// 第一次打开 App 该不该引一句"这里有教程"（纯函数，便于单测）
+  ///
+  /// 三个条件都不成立才弹：没弹过、没进过教程中心、没看过任何一篇。
+  /// 也就是说：**老用户（已经看过教程的）不会被这个弹窗打扰**。
+  static bool shouldShowIntro({
+    required bool alreadyPrompted,
+    required bool openedCenter,
+    required bool seenAny,
+  }) =>
+      !alreadyPrompted && !openedCenter && !seenAny;
+
   /// 看完一篇
   Future<void> markSeen(Tutorial tutorial) async {
     state.markSeen(tutorial);

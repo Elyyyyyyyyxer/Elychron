@@ -7,6 +7,58 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   const local = [1, 4, 0];
 
+  // ===== 并集：所有源都看，取最大的那个（2026-09-17 用户要求）=====
+  //
+  // 用户原话：「务必要保证任何情况下，有更新版就会提醒，不是说比如 github 似连非连
+  // 就不看其他网站了。全部检查取并集。」
+  group('更新检查取并集', () {
+    test('GitHub 报旧版、Gitee 报新版 → 认新版', () {
+      final best = Fuse.newestVersion([
+        [1, 4, 1], // GitHub（半通，给出的是旧的）
+        [1, 5, 0], // Gitee（其实已经发了）
+      ]);
+      expect(best, [1, 5, 0]);
+    });
+
+    test('只有 Gitee 应答、GitHub 完全没回应 → 认 Gitee', () {
+      expect(
+          Fuse.newestVersion([
+            [1, 5, 0],
+          ]),
+          [1, 5, 0]);
+    });
+
+    test('所有源都报同一个版本 → 结果就是它', () {
+      expect(
+          Fuse.newestVersion([
+            [1, 4, 1],
+            [1, 4, 1],
+            [1, 4, 1],
+          ]),
+          [1, 4, 1]);
+    });
+
+    test('一个源都没有 → null（安静跳过，下次启动再试）', () {
+      expect(Fuse.newestVersion(const <List<int>>[]), isNull);
+      expect(Fuse.newestVersion([<int>[]]), isNull);
+    });
+
+    test('顺序不影响结果（谁在前面都一样）', () {
+      expect(
+          Fuse.newestVersion([
+            [2, 0, 0],
+            [1, 9, 9],
+          ]),
+          [2, 0, 0]);
+      expect(
+          Fuse.newestVersion([
+            [1, 9, 9],
+            [2, 0, 0],
+          ]),
+          [2, 0, 0]);
+    });
+  });
+
   test('版本号比较：逐段比，高的才算新', () {
     expect(Fuse.isNewer([1, 4, 1], local), isTrue);
     expect(Fuse.isNewer([1, 5, 0], local), isTrue);

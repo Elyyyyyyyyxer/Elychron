@@ -7,7 +7,16 @@ class SharedItem {
   final String? name;
   final String? mime;
 
-  const SharedItem({this.text, this.path, this.name, this.mime});
+  /// 原生侧明确报上来的失败原因（目前只有 'unreadable'：那个 URI 读不出来）
+  ///
+  /// 为什么要留着它：以前附件复制失败会被悄悄跳过，整条分享什么都不弹，
+  /// 用户以为分享功能坏了（2026-09-17 用户报的就是这个）。
+  final String? error;
+
+  const SharedItem({this.text, this.path, this.name, this.mime, this.error});
+
+  /// 这一项是不是"读不出来的附件"
+  bool get isUnreadable => error == 'unreadable';
 }
 
 /// 接收系统分享面板发来的内容（由原生 MainActivity 转交）。
@@ -43,6 +52,7 @@ class ShareReceiver {
         path: entry['path'] as String?,
         name: entry['name'] as String?,
         mime: entry['mime'] as String?,
+        error: entry['error'] as String?,
       ));
     }
     return result;
