@@ -6,6 +6,7 @@ import 'package:celechron/http/spider.dart';
 import 'package:celechron/http/calendar_config_parser.dart';
 import 'package:celechron/http/data_source_status.dart';
 import 'package:celechron/http/time_config_service.dart';
+import 'package:celechron/http/timetable_fetch_policy.dart';
 import 'package:celechron/http/zjuServices/courses.dart';
 import 'package:celechron/http/zjuServices/grs_new.dart';
 import 'package:celechron/http/zjuServices/exceptions.dart';
@@ -439,9 +440,8 @@ class GrsSpider implements Spider {
         try {
           var value = await _fetchWithRetry(
               () => _zdbk.getTimetable(_httpClient, queryAcademicYear, season));
-          var semKey = season.startsWith('1')
-              ? '$queryAcademicYear-1'
-              : '$queryAcademicYear-2';
+          var semKey = TimetableFetchPolicy.semesterKeyForSeason(
+              season, queryAcademicYear);
           var sessions = value.item2.toList();
           sessions.sort((a, b) {
             if (a.dayOfWeek != b.dayOfWeek) {

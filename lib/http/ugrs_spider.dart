@@ -578,9 +578,9 @@ class UgrsSpider implements Spider {
               _httpClient, queryAcademicYear, season,
               preferCache: isPastYear));
 
-          var semKey = season.startsWith('1')
-              ? '$queryAcademicYear-1'
-              : '$queryAcademicYear-2';
+          // 归到哪个学期由纯函数决定（见 timetable_fetch_policy 里的注释）
+          var semKey = TimetableFetchPolicy.semesterKeyForSeason(
+              season, queryAcademicYear);
           var sessions = value.item2.toList();
           if (isProbeYear &&
               sessions.isEmpty &&

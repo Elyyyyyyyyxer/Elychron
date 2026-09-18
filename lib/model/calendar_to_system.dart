@@ -4,11 +4,13 @@ import 'package:device_calendar/device_calendar.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:get/get.dart';
 import 'package:timezone/timezone.dart' as tz;
+import 'package:celechron/database/database_helper.dart';
 import 'package:celechron/model/location_mapper.dart';
 import 'package:celechron/model/scholar.dart';
 import 'package:celechron/model/period.dart';
 import 'package:celechron/model/semester.dart';
 import 'package:celechron/design/dingtalk_sheet.dart';
+import 'package:celechron/services/diagnostic_log_service.dart';
 
 /// 系统日历同步管理器
 /// 负责创建和管理Celechron课表在系统日历中的同步
@@ -45,8 +47,89 @@ class CalendarToSystemManager {
 
   final DeviceCalendarPlugin _deviceCalendarPlugin = DeviceCalendarPlugin();
 
-  // 缓存已同步的事件ID，避免重复添加
+  // 本次同步里已经处理过的稳定键（防止同一批数据里出现两条一模一样的事件）
   final Set<String> _syncedEventIds = <String>{};
+
+  /// ===== 持久化「稳定键 → 系统日历事件 ID」（2026-09-18 修「同步会重复添加」）=====
+  ///
+  /// 用户反馈：「日程打开同步到系统日历，同步课表会重复添加而不是覆盖，需要手动删除」。
+  ///
+  /// 根因：原来只有一个**内存里**的 Set（[_syncedEventIds]），它只能防止"同一次同步里
+  /// 重复"；而每次同步都新建 [Event]（不带 eventId），插件一律**新建**。
+  /// 于是每同步一次就多出一整套课表，越堆越多，只能手动删。
+  ///
+  /// 现在把「稳定键 → 系统日历 eventId」落进 optionsBox：
+  /// - 同一个键下一次同步是**更新那一件**（把 eventId 交给 createOrUpdateEvent）；
+  /// - 这次课程列表里不再出现的键，连同它在系统日历里的事件一起删掉。
+  /// 这才叫"覆盖"。
+  static const String _kSyncedIndexKey = 'calendarSync.eventIndex';
+
+  final Map<String, String> _syncedIndex = <String, String>{};
+
+  DatabaseHelper? get _db {
+    try {
+      return Get.find<DatabaseHelper>(tag: 'db');
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// 范围的键前缀。用 `::` 分隔，学期名里不会出现它。
+  static String scopePrefixOf(String scope) => scope + '::';
+
+  /// 带范围的稳定键
+  static String scopedKey(String scope, Period period) =>
+      scopePrefixOf(scope) + periodKey(period, scope: scope);
+
+  /// 事件的**稳定**键（内容哈希）。
+  ///
+  /// ⚠️ 不能用 `String.hashCode`：Dart 只保证同一次运行内一致，跨版本/跨运行不保证；
+  /// 拿它当持久化键的话，某次升级之后所有键都变了，课表又会被整套重建一遍。
+  /// 所以这里自己算一个 FNV-1a，纯内容决定。
+  static String periodKey(Period period, {String scope = ''}) {
+    final mapped = CalendarLocationMapper.mapForCalendar(period.location);
+    final raw = scope +
+        '|' +
+        period.summary +
+        '|' +
+        period.startTime.toIso8601String() +
+        '|' +
+        period.endTime.toIso8601String() +
+        '|' +
+        mapped +
+        '|' +
+        period.type.toString();
+    var hash = 0xcbf29ce484222325;
+    for (final unit in raw.codeUnits) {
+      hash ^= unit;
+      hash = (hash * 0x100000001b3) & 0xFFFFFFFFFFFFFFFF;
+    }
+    return hash.toRadixString(16).padLeft(16, '0');
+  }
+
+  /// 从库里读回上次的事件索引（读不出来就当没有）
+  void _loadSyncedIndex() {
+    _syncedIndex.clear();
+    try {
+      final raw = _db?.optionsBox.get(_kSyncedIndexKey);
+      if (raw is Map) {
+        for (final entry in raw.entries) {
+          _syncedIndex[entry.key.toString()] = entry.value.toString();
+        }
+      }
+    } catch (_) {
+      // 读不出来最多是"这一次按新建处理"，不影响功能
+    }
+  }
+
+  Future<void> _saveSyncedIndex() async {
+    try {
+      await _db?.optionsBox
+          .put(_kSyncedIndexKey, Map<String, String>.from(_syncedIndex));
+    } catch (_) {
+      // 落盘失败只影响下次能不能"更新而不是新建"，不该让同步整体失败
+    }
+  }
 
   // 同步统计信息
   int _syncedCourseCount = 0; // 同步的课程数量
@@ -182,10 +265,16 @@ class CalendarToSystemManager {
         return false;
       }
 
-      // 清空已同步事件缓存（重新开始同步）
+      // 清空本次的内存缓存，并把上次的事件索引读回来（见 _kSyncedIndexKey）
       _syncedEventIds.clear();
+      _loadSyncedIndex();
       _syncedCourseCount = 0;
       _syncedEventCount = 0;
+
+      // 本次同步的"范围"：只同步某个学期时，别去动别的学期已经同步好的事件
+      final scope =
+          syncAllSemesters ? 'all' : (semester ?? scholar.thisSemester).name;
+      final scopePrefix = scopePrefixOf(scope);
 
       // 获取要同步的课程期间
       List<Period> allPeriods;
@@ -209,19 +298,31 @@ class CalendarToSystemManager {
       int syncedCount = 0;
       Set<String> syncedCourseNames = <String>{}; // 用于统计不重复的课程名
 
+      // 本次要保留的稳定键（同步结束后，范围里没出现在这里的旧事件会被删掉）
+      final keepKeys = <String>{};
+
       for (var period in coursePeriods) {
         try {
           // 生成唯一标识符，基于期间的内容
           var eventId = _generateEventId(period);
+          // 键带上范围前缀，这样清理时能判断"这条属于哪个范围"
+          final stableKey = scopedKey(scope, period);
 
-          // 检查是否已经同步过
+          // 检查是否已经同步过（同一批数据里的重复条目）
           if (_syncedEventIds.contains(eventId)) {
+            keepKeys.add(stableKey);
             continue;
           }
 
           // 创建日历事件
           var event = _createEventFromPeriod(period);
           event.calendarId = calendarId;
+          // ★ 关键：把上一次这个键对应的事件 ID 带上 →
+          //   插件走的是「更新那一件」而不是再新建一件（这才是"覆盖"）。
+          final knownDeviceId = _syncedIndex[stableKey];
+          if (knownDeviceId != null && knownDeviceId.isNotEmpty) {
+            event.eventId = knownDeviceId;
+          }
 
           // 添加到系统日历
           var createResult =
@@ -229,6 +330,14 @@ class CalendarToSystemManager {
 
           if (createResult != null && createResult.isSuccess) {
             _syncedEventIds.add(eventId);
+            keepKeys.add(stableKey);
+            // 记住系统给的事件 ID（更新时插件通常回同一个，返回空就沿用旧的）
+            final returnedId = createResult.data;
+            if (returnedId != null && returnedId.isNotEmpty) {
+              _syncedIndex[stableKey] = returnedId;
+            } else if (knownDeviceId != null) {
+              _syncedIndex[stableKey] = knownDeviceId;
+            }
             syncedCount++;
             // 统计课程名称（去重）
             syncedCourseNames.add(period.summary);
@@ -236,6 +345,41 @@ class CalendarToSystemManager {
         } catch (e) {
           // 忽略单个事件的错误，继续同步其他事件
         }
+      }
+
+      // ===== 覆盖语义的另一半：这次没再用到的旧事件要删掉 =====
+      //
+      // 只在**同一个范围**里清理（只同步本学期时，不去动别的学期的事件），
+      // 免得用户只想更新本学期，结果把别的学期全删了。
+      final unusedInScope = <String>[];
+      for (final key in _syncedIndex.keys) {
+        if (!key.startsWith(scopePrefix)) continue;
+        if (keepKeys.contains(key)) continue;
+        unusedInScope.add(key);
+      }
+      var removedCount = 0;
+      for (final key in unusedInScope) {
+        final deviceEventId = _syncedIndex.remove(key);
+        if (deviceEventId == null || deviceEventId.isEmpty) continue;
+        try {
+          final deleted = await _deviceCalendarPlugin.deleteEvent(
+              calendarId, deviceEventId);
+          if (deleted.isSuccess) removedCount++;
+        } catch (_) {
+          // 事件可能已经被用户手动删掉了，忽略
+        }
+      }
+
+      await _saveSyncedIndex();
+
+      if (removedCount > 0) {
+        // 删掉了几条过期的旧事件（课程没了 / 时间变了），写进诊断便于排查
+        DiagnosticLogService.instance.record(
+          module: '系统日历同步',
+          operation: 'prune',
+          message:
+              '本次清掉 ' + removedCount.toString() + ' 条过期事件（范围：' + scope + '）',
+        );
       }
 
       // 更新统计信息
@@ -374,9 +518,13 @@ class CalendarToSystemManager {
           await _deviceCalendarPlugin.deleteCalendar(_celechronCalendarId!);
 
       if (deleteResult.isSuccess && deleteResult.data!) {
-        // 清空所有缓存信息
+        // 清空所有缓存信息（日历都没了，事件索引也要一起清）
         _celechronCalendarId = null;
         _syncedEventIds.clear();
+        _syncedIndex.clear();
+        try {
+          await _db?.optionsBox.delete(_kSyncedIndexKey);
+        } catch (_) {}
         _syncedCourseCount = 0;
         _syncedEventCount = 0;
         _calendarSyncEnabled.value = false;

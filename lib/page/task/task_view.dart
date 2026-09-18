@@ -16,6 +16,7 @@ import 'package:celechron/model/task.dart';
 import 'package:celechron/model/period.dart';
 import 'task_create_page.dart';
 import 'task_edit_page.dart';
+import 'task_search_page.dart';
 import 'dart:async';
 import 'package:get/get.dart';
 import 'package:celechron/mod/task_batch_edit.dart';
@@ -699,6 +700,15 @@ class TaskPage extends StatelessWidget {
                     children: <Widget>[
                       // 专注入口已经独立成底部专注标签页，这里不再重复放图标
 
+                      // ===== MOD: 搜索（2026-09-18 用户要求）=====
+                      CupertinoButton(
+                        padding: EdgeInsets.zero,
+                        child: const Icon(
+                          CupertinoIcons.search,
+                          semanticLabel: 'Search',
+                        ),
+                        onPressed: () => openTaskSearch(context),
+                      ),
                       CupertinoButton(
                         padding: EdgeInsets.zero,
                         child: const Icon(

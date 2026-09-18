@@ -46,4 +46,14 @@ class TimetableFetchPolicy {
   /// 这个学年是不是**已经过去**了（历史学年可以只吃缓存）
   static bool isPastAcademicYear(int academicYearStart, DateTime now) =>
       academicYearStart < academicYearStartFor(now);
+
+  /// 「查询季节 → 归到哪个学期」（纯函数，有单测）。
+  ///
+  /// 口径：`1|秋` `1|冬` 属于**秋冬**（学年-1）、`2|春` `2|夏` 属于**春夏**（学年-2）。
+  ///
+  /// 为什么单独抽出来：用户报过「选秋冬学期却看到春夏的课」（v1.4.0 时期）。
+  /// 课程进哪个学期**只由这条映射决定**；把它钉死之后，万一还有类似反馈，
+  /// 就能确定问题出在"教务返回了什么"，而不是我们放错了格子。
+  static String semesterKeyForSeason(String season, String academicYear) =>
+      season.startsWith('1') ? academicYear + '-1' : academicYear + '-2';
 }
