@@ -4,6 +4,7 @@ import 'package:celechron/design/custom_decoration.dart';
 import 'package:celechron/design/sub_title.dart';
 import 'package:celechron/design/task_priority_color.dart';
 import 'package:celechron/mod/calendar_paging.dart';
+import 'package:celechron/utils/platform_features.dart';
 import 'package:celechron/model/task.dart';
 import 'package:celechron/page/task/task_create_page.dart';
 import 'package:celechron/page/task/task_controller.dart';
@@ -40,6 +41,8 @@ class CalendarPage extends StatelessWidget {
         // 右上角切课表不换面，所以不会莫名其妙翻一下。
         child: Obx(
           () => CardFlipSwitcher(
+            // 桌面端不做整页翻转（窗口宽，旋转会溢出到侧边栏；用户要求最简单的点击切换）
+            animate: !PlatformFeatures.isDesktop,
             flipKey: _calendarController.cardFace.value,
             face: _calendarController.viewMode.value,
             // 每一面都由面这个参数算出来， 旧面不会跟着 controller 变
@@ -141,43 +144,9 @@ class CalendarPage extends StatelessWidget {
             top: 0,
             bottom: 0,
             child: Center(
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
+              child: _SwitchRingButton(
+                filled: mode == CalendarViewMode.calendar,
                 onTap: _calendarController.toggleUpcoming,
-                child: SizedBox(
-                  width: 44,
-                  height: 44,
-                  child: Center(
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      width: 20,
-                      height: 20,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          width: 1.6,
-                          color: mode == CalendarViewMode.upcoming
-                              ? AppAccent.primary
-                              : CupertinoDynamicColor.resolve(
-                                  CupertinoColors.secondaryLabel, context),
-                        ),
-                      ),
-                      child: mode == CalendarViewMode.calendar
-                          ? Center(
-                              child: Container(
-                                width: 7,
-                                height: 7,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: CupertinoDynamicColor.resolve(
-                                      CupertinoColors.secondaryLabel, context),
-                                ),
-                              ),
-                            )
-                          : null,
-                    ),
-                  ),
-                ),
               ),
             ),
           ),
@@ -987,4 +956,75 @@ class _FlatChevronPainter extends CustomPainter {
   @override
   bool shouldRepaint(_FlatChevronPainter oldDelegate) =>
       oldDelegate.color != color;
+}
+
+/// ===== 接下来 ⇄ 日历 的切换圆环 =====
+///
+/// 用户对桌面端的要求：「切换为最简单的点击切换，但是要给那个小圆环增加点击特效，
+/// 简约精巧就行」。所以：
+/// - 按下时圆环缩一点点、底色浮一层很淡的主题色（按压反馈），松开回弹；
+/// - 圆点（表示当前在日历面）改为缩放淡入淡出，不再有整页旋转。
+/// 手机端原来的 3D 翻转仍然保留（那边窗口小，翻转是它的辨识度）。
+class _SwitchRingButton extends StatefulWidget {
+  const _SwitchRingButton({required this.filled, required this.onTap});
+
+  /// true = 圆心有点（当前在日历面）
+  final bool filled;
+  final VoidCallback onTap;
+
+  @override
+  State<_SwitchRingButton> createState() => _SwitchRingButtonState();
+}
+
+class _SwitchRingButtonState extends State<_SwitchRingButton> {
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final labelColor =
+        CupertinoDynamicColor.resolve(CupertinoColors.secondaryLabel, context);
+    final accent = AppAccent.primary;
+    final color = widget.filled ? accent : labelColor;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTapDown: (_) => setState(() => _pressed = true),
+      onTapUp: (_) => setState(() => _pressed = false),
+      onTapCancel: () => setState(() => _pressed = false),
+      onTap: widget.onTap,
+      child: SizedBox(
+        width: 44,
+        height: 44,
+        child: Center(
+          child: AnimatedScale(
+            scale: _pressed ? 0.82 : 1,
+            duration: const Duration(milliseconds: 110),
+            curve: Curves.easeOut,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 160),
+              width: 20,
+              height: 20,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: _pressed ? accent.withValues(alpha: 0.16) : null,
+                border: Border.all(width: 1.6, color: color),
+              ),
+              child: Center(
+                child: AnimatedScale(
+                  scale: widget.filled ? 1 : 0,
+                  duration: const Duration(milliseconds: 160),
+                  curve: Curves.easeOut,
+                  child: Container(
+                    width: 7,
+                    height: 7,
+                    decoration:
+                        BoxDecoration(shape: BoxShape.circle, color: color),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }

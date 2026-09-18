@@ -29,8 +29,11 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   // 1280x720 在 150% 缩放的笔记本屏上会变成 1920x1080 物理像素，比屏幕还大，
   // 一打开就被系统撑成最大化（实测在 1707x1067 的屏上必现）。
   // 这里按"留出任务栏和边距"给一个更保守的默认值：1120x760。
-  Win32Window::Point origin(60, 40);
-  Win32Window::Size size(1120, 760);
+  // 150% 缩放的屏上，逻辑宽 1120 -> 物理 1680，比屏幕还宽会被系统裁掉
+  // （实测：1120 逻辑只剩 ~747 逻辑可用，页面被挤成一条）。
+  // 这里按"在 1707x1067 的屏上也放得下"来定：1050 逻辑约 1575 物理。
+  Win32Window::Point origin(40, 30);
+  Win32Window::Size size(1050, 680);
   if (!window.Create(L"Elychron", origin, size)) {
     return EXIT_FAILURE;
   }

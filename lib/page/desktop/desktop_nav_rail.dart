@@ -71,9 +71,17 @@ class DesktopNavRail extends StatelessWidget {
                         size: 15, color: CupertinoColors.white),
                   ),
                   const SizedBox(width: 10),
-                  const Text('Elychron',
+                  // Expanded + 省略号：字体一换（微软雅黑比默认字体宽一点点）
+                  // 或者用户把窗口调窄，这行就会溢出（测试实测溢出过 1.2px）
+                  const Expanded(
+                    child: Text(
+                      'Elychron',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style:
-                          TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
+                          TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+                    ),
+                  ),
                 ],
               ),
             ),

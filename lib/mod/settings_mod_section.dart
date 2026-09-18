@@ -1,4 +1,5 @@
 import 'package:celechron/design/alarm_reliability.dart';
+import 'package:celechron/utils/platform_features.dart';
 import 'package:celechron/design/alarm_theme_picker.dart';
 import 'package:celechron/design/dingtalk_sheet.dart';
 import 'package:celechron/database/database_helper.dart';
@@ -103,7 +104,9 @@ List<Widget> modReminderTiles(
       // ===== P3：专注参数 + 休息提醒 =====
       const _FocusParamTile(),
       const _FocusRestNotifyTile(),
-      const _FocusDndTile(),
+      // 桌面端没有系统级免打扰（Windows 的"专注助手"是另一套 API，没接），
+      // 用户要求"桌面端别出现安卓独有的设置"，所以这一行也不显示。
+      if (!PlatformFeatures.isDesktop) const _FocusDndTile(),
       const _FocusCourseTile(),
       // ===== P4：专注记录 / 统计 =====
       CupertinoListTile(
@@ -118,21 +121,30 @@ List<Widget> modReminderTiles(
           );
         },
       ),
-      CupertinoListTile(
-        title: const Text('闹钟可靠性'),
-        subtitle: const Text('全屏闹钟授权、锁屏弹出、电池白名单'),
-        trailing: const BackChervonRow(),
-        onTap: () => showAlarmReliabilityDialog(context),
-      ),
-      CupertinoListTile(
-        title: const Text('闹钟配色'),
-        subtitle: const Text('闹钟页面四种配色'),
-        trailing: const BackChervonRow(),
-        onTap: () => showAlarmThemePicker(
-          context,
-          onChanged: () {},
+      // ===== v1.5.0：桌面端不显示安卓独有的设置 =====
+      //
+      // 用户反馈：「桌面端不应该有那些安卓端独有的设置，比如闹钟可靠性之类的」。
+      // 这几样都是安卓系统概念，桌面上点开也做不了任何事：
+      // - 闹钟可靠性：全屏通知授权 / 电池优化白名单 / 自启动，全是安卓 ROM 的事；
+      // - 闹钟配色：那个页面是给"全屏闹钟页"配色的，桌面端不弹全屏闹钟页（改成 DING）；
+      // - 专注免打扰：Windows 的"专注助手"是另一套 API，我们没接（见 PlatformFeatures）。
+      if (!PlatformFeatures.isDesktop) ...<Widget>[
+        CupertinoListTile(
+          title: const Text('闹钟可靠性'),
+          subtitle: const Text('全屏闹钟授权、锁屏弹出、电池白名单'),
+          trailing: const BackChervonRow(),
+          onTap: () => showAlarmReliabilityDialog(context),
         ),
-      ),
+        CupertinoListTile(
+          title: const Text('闹钟配色'),
+          subtitle: const Text('闹钟页面四种配色'),
+          trailing: const BackChervonRow(),
+          onTap: () => showAlarmThemePicker(
+            context,
+            onChanged: () {},
+          ),
+        ),
+      ],
     ];
 
 /// 默认提醒提前量这一行：点开选一个值，存进 optionsBox。

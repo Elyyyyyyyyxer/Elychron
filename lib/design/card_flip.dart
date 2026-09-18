@@ -38,6 +38,13 @@ class CardFlipSwitcher extends StatefulWidget {
   /// 由面构建那一面的内容
   final Widget Function(Object face) faceBuilder;
 
+  /// 是否真的翻转。
+  ///
+  /// 桌面端（v1.5.0）传 false：用户反馈"接下来 ⇄ 日历的旋转动画会有一部分跑到侧边栏去，
+  /// 而且窗口这么宽用旋转动画不合适" —— 桌面端直接切成最简单的点击切换，
+  /// 反馈感交给按钮自己的点击特效（见 calendar_view 里那个小圆环）。
+  final bool animate;
+
   /// 翻转时长。默认 620ms， 慢一点能看清翻过去的过程。
   final Duration duration;
 
@@ -58,6 +65,7 @@ class CardFlipSwitcher extends StatefulWidget {
     required this.flipKey,
     required this.face,
     required this.faceBuilder,
+    this.animate = true,
     this.duration = const Duration(milliseconds: 620),
     this.curve = Curves.easeInOutSine,
     this.paperEdgeColor = CupertinoColors.systemGrey6,
@@ -92,6 +100,11 @@ class _CardFlipSwitcherState extends State<CardFlipSwitcher>
       _controller.duration = widget.duration;
     }
     if (oldWidget.flipKey != widget.flipKey) {
+      if (!widget.animate) {
+        // 桌面端：不播翻转，直接换面（用户要的是"最简单的点击切换"）
+        setState(() => _shownFace = widget.face);
+        return;
+      }
       // 该翻：旧面用**上一帧的那个面**，新面用当前的
       _outgoingFace = oldWidget.face;
       _incomingFace = widget.face;

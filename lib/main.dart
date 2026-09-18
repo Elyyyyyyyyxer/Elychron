@@ -1,4 +1,5 @@
 import 'package:celechron/design/app_accent.dart';
+
 import 'dart:async';
 import 'dart:io';
 
@@ -19,7 +20,8 @@ import 'package:app_links/app_links.dart';
 
 import 'package:celechron/model/scholar.dart';
 import 'package:celechron/model/option.dart';
-import 'package:celechron/page/desktop/desktop_shell.dart';
+import 'package:celechron/page/desktop/desktop_frame.dart';
+import 'package:celechron/page/desktop/desktop_home.dart';
 import 'package:celechron/page/home_page.dart';
 import 'package:celechron/page/option/ecard_pay_page.dart';
 import 'package:celechron/services/diagnostic_log_service.dart';
@@ -389,6 +391,16 @@ class _CelechronAppState extends State<CelechronApp>
             primaryContrastingColor: CupertinoColors.white,
             scaffoldBackgroundColor: CupertinoColors.systemBackground,
             barBackgroundColor: CupertinoColors.systemBackground,
+            // 桌面端：主题的基础字体也换成微软雅黑，
+            // 免得一部分控件（直接读 CupertinoTheme.textTheme 的那些）还在用默认字体。
+            textTheme: PlatformFeatures.isDesktop
+                ? const CupertinoTextThemeData(
+                    textStyle: TextStyle(
+                      fontFamily: desktopFontFamily,
+                      fontFamilyFallback: desktopFontFallback,
+                    ),
+                  )
+                : null,
           ),
           localizationsDelegates: const [
             GlobalMaterialLocalizations.delegate,
@@ -408,12 +420,27 @@ class _CelechronAppState extends State<CelechronApp>
           builder: (context, child) {
             // CupertinoTheme 的亮度已经反映了用户浅色 / 深色 / 跟随系统的设置
             final brightness = CupertinoTheme.brightnessOf(context);
+            // ===== v1.5.0 桌面端 =====
+            // 1) 左侧竖导航挂在**这里**（Navigator 之外），所以 push 任何二级页面
+            //    都不会把它盖掉 —— 用户要求"所有页面都要有侧边栏"。
+            // 2) 顺手把字体换成微软雅黑（用户反馈默认字体太丑）：
+            //    用 DefaultTextStyle 兜底，所有没写死 inherit:false 的 Text 都会跟上。
+            Widget content = child!;
+            if (PlatformFeatures.isDesktop) {
+              content = DefaultTextStyle(
+                style: const TextStyle(
+                  fontFamily: desktopFontFamily,
+                  fontFamilyFallback: desktopFontFallback,
+                ),
+                child: DesktopFrame(child: content),
+              );
+            }
             return AnnotatedRegion<SystemUiOverlayStyle>(
               value: systemOverlayStyleFor(brightness),
               child: MediaQuery(
                 data: MediaQuery.of(context)
                     .copyWith(alwaysUse24HourFormat: true),
-                child: child!,
+                child: content,
               ),
             );
           },
@@ -421,7 +448,7 @@ class _CelechronAppState extends State<CelechronApp>
           // ===== v1.5.0：桌面端换一套壳（左侧竖导航 + 中间功能页）=====
           // 里面装的页面与手机端完全一样，只是一行业务逻辑都没有重写。
           home: PlatformFeatures.isDesktop
-              ? const DesktopShell()
+              ? const DesktopHome()
               : const HomePage(title: 'Elychron'),
           initialRoute: '/',
           routes: {
@@ -506,3 +533,13 @@ class _CelechronAppState extends State<CelechronApp>
     flutterLocalNotificationsPlugin.initialize(initializationSettings);
   }
 }
+
+/// ===== 桌面端字体（v1.5.0，用户反馈"字体太丑"）=====
+/// Flutter 在 Windows 上默认用 Segoe UI 渲染，中文字形会退到系统兜底字体，
+/// 粗细和字距都不统一，看着很糊。微软雅黑是 Windows 自带的正式中文字体，
+/// 直接按名字引用即可（不需要把字体文件打进包里）。
+const String desktopFontFamily = 'Microsoft YaHei';
+const List<String> desktopFontFallback = <String>[
+  'Microsoft YaHei UI',
+  'Segoe UI',
+];
