@@ -1,4 +1,5 @@
 import 'package:celechron/design/app_accent.dart';
+import 'package:celechron/platform/desktop_cupertino_font.dart';
 
 import 'dart:async';
 import 'dart:io';
@@ -144,6 +145,12 @@ void main() async {
   Get.put(db.getOption(), tag: 'option');
   Get.put(db.getFuse().obs, tag: 'fuse');
 
+  // 桌面端：把系统字体按 Cupertino 组件写死的族名注册进去（不改包体、只管桌面）
+  try {
+    await registerDesktopCupertinoFont();
+  } catch (_) {
+    // 注册失败就退回平台默认字体，不影响启动
+  }
   runApp(const CelechronApp());
   _bootProbe('[boot] runApp 已调用');
 
