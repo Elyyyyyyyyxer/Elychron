@@ -1,4 +1,4 @@
-#include <flutter/dart_project.h>
+﻿#include <flutter/dart_project.h>
 #include <flutter/flutter_view_controller.h>
 #include <windows.h>
 
@@ -25,8 +25,12 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   project.set_dart_entrypoint_arguments(std::move(command_line_arguments));
 
   FlutterWindow window(project);
-  Win32Window::Point origin(10, 10);
-  Win32Window::Size size(1280, 720);
+  // ===== v1.5.0 桌面端：默认窗口大小 =====
+  // 1280x720 在 150% 缩放的笔记本屏上会变成 1920x1080 物理像素，比屏幕还大，
+  // 一打开就被系统撑成最大化（实测在 1707x1067 的屏上必现）。
+  // 这里按"留出任务栏和边距"给一个更保守的默认值：1120x760。
+  Win32Window::Point origin(60, 40);
+  Win32Window::Size size(1120, 760);
   if (!window.Create(L"Elychron", origin, size)) {
     return EXIT_FAILURE;
   }
