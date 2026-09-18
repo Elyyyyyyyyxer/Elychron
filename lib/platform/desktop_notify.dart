@@ -1,4 +1,5 @@
 import 'package:audioplayers/audioplayers.dart';
+import 'package:celechron/platform/desktop_alert_sound.dart';
 import 'package:celechron/services/diagnostic_log_service.dart';
 import 'package:celechron/utils/platform_features.dart';
 import 'package:local_notifier/local_notifier.dart';
@@ -105,24 +106,31 @@ class DesktopNotify {
     'sounds/voice.wav',
   ];
 
-  /// 播放提示音，返回是否成功
+  /// 播放提示音，返回是否成功。
+  ///
+  /// 音源由 [DesktopAlertSoundStore] 决定（长按「测试提醒」可切换）：
+  /// - [DesktopAlertSound.chime] → 内置的空灵高音钢琴音（assets/sounds/ding.wav）
+  /// - [DesktopAlertSound.voice] → 爱莉原声（assets/sounds/ely_hi.*，**不进仓库**）
+  /// 选了原声但文件不存在时会安静退回内置音，并写进诊断日志。
   static Future<bool> _playDing() async {
     try {
       _player ??= AudioPlayer();
       await _player!.stop();
-      // 先试人声
-      for (final asset in _voiceCandidates) {
-        try {
-          await _player!.play(AssetSource(asset));
-          _log('播放语音：' + asset);
-          return true;
-        } catch (_) {
-          // 这个候选不存在/放不了，试下一个
+      final choice = DesktopAlertSoundStore.current;
+      if (choice == DesktopAlertSound.voice) {
+        for (final asset in _voiceCandidates) {
+          try {
+            await _player!.play(AssetSource(asset));
+            _log('播放原声：' + asset);
+            return true;
+          } catch (_) {
+            // 这个候选不存在/放不了，试下一个
+          }
         }
+        _log('选了原声但没找到音频文件，退回内置音');
       }
-      // 退回自合成的提示音
       await _player!.play(AssetSource('sounds/ding.wav'));
-      _log('播放内置提示音（没找到语音文件）');
+      _log('播放内置提示音');
       return true;
     } catch (error) {
       _log('声音失败：' + error.toString());

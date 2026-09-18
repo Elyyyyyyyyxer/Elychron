@@ -3,6 +3,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:get/get.dart';
 
 import 'package:celechron/design/persistent_headers.dart';
+import 'package:celechron/design/page_background.dart';
 import 'package:celechron/model/option.dart';
 import 'option_controller.dart';
 
@@ -174,7 +175,7 @@ class CourseIdMappingEditPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return CupertinoPageScaffold(
-      backgroundColor: CupertinoColors.systemGroupedBackground,
+      backgroundColor: pageBackground(context),
       child: SafeArea(
         child: CustomScrollView(
           slivers: [

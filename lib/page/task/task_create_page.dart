@@ -1,4 +1,5 @@
 import 'package:celechron/design/app_accent.dart';
+import 'package:celechron/design/page_background.dart';
 import 'package:celechron/design/date_picker_sheet.dart';
 import 'package:celechron/design/repeat_sheet.dart';
 import 'package:celechron/design/image_preview.dart';
@@ -518,7 +519,7 @@ class _TaskCreatePageState extends State<TaskCreatePage> {
     final endDate = dateOnly(now.endTime);
 
     final page = CupertinoPageScaffold(
-      backgroundColor: CupertinoColors.systemGroupedBackground,
+      backgroundColor: pageBackground(context),
       navigationBar: CupertinoNavigationBar(
         backgroundColor: CupertinoDynamicColor.resolve(
             CupertinoColors.systemGroupedBackground, context),

@@ -1,4 +1,5 @@
 import 'package:celechron/design/app_accent.dart';
+import 'package:celechron/design/page_background.dart';
 import 'package:celechron/tutorial/tutorial_model.dart';
 import 'package:celechron/tutorial/tutorial_page.dart';
 import 'package:celechron/tutorial/tutorial_registry.dart';
@@ -150,7 +151,7 @@ class TutorialCenterPage extends StatelessWidget {
       // 不给的话页面底色是纯白，而 CupertinoListSection 自己会在每个区块下面画一块
       // 浅灰圆角背景， 白底 + 灰块 = 每条外面套了一圈灰。
       // 设置页（option_view）一直写着这一行，所以那边看起来才正常。
-      backgroundColor: CupertinoColors.systemGroupedBackground,
+      backgroundColor: pageBackground(context),
       navigationBar: const CupertinoNavigationBar(
         middle: Text('使用教程', style: TextStyle(fontSize: 17)),
       ),

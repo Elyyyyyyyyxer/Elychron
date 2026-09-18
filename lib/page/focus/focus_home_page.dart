@@ -1,4 +1,5 @@
 import 'package:celechron/design/app_accent.dart';
+import 'package:celechron/design/page_background.dart';
 import 'package:celechron/database/database_helper.dart';
 import 'package:celechron/model/focus_engine.dart';
 import 'package:celechron/model/focus_stats.dart';
@@ -425,7 +426,7 @@ class _FocusHomePageState extends State<FocusHomePage> {
     final week = _weekTotal;
 
     return CupertinoPageScaffold(
-      backgroundColor: CupertinoColors.systemGroupedBackground,
+      backgroundColor: pageBackground(context),
       navigationBar: CupertinoNavigationBar(
         middle: const Text('专注'),
         border: null,

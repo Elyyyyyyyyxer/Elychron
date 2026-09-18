@@ -1,4 +1,5 @@
 import 'package:celechron/design/app_accent.dart';
+import 'package:celechron/design/page_background.dart';
 import 'dart:async';
 
 import 'package:celechron/design/date_picker_sheet.dart';
@@ -1021,7 +1022,7 @@ class _TaskEditPageState extends State<TaskEditPage> {
     final textColor = CupertinoTheme.of(context).textTheme.textStyle.color;
 
     return CupertinoPageScaffold(
-      backgroundColor: CupertinoColors.systemGroupedBackground,
+      backgroundColor: pageBackground(context),
       navigationBar: CupertinoNavigationBar(
         backgroundColor: CupertinoDynamicColor.resolve(
             CupertinoColors.systemGroupedBackground, context),

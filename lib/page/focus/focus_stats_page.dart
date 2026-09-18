@@ -1,4 +1,5 @@
 import 'package:celechron/design/app_accent.dart';
+import 'package:celechron/design/page_background.dart';
 import 'package:celechron/mod/course_mount_store.dart';
 import 'package:celechron/database/database_helper.dart';
 import 'package:celechron/model/focus_engine.dart';
@@ -55,7 +56,7 @@ class _FocusStatsPageState extends State<FocusStatsPage> {
     final list = sessions.where((s) => s.focusedTime > Duration.zero).toList();
 
     return CupertinoPageScaffold(
-      backgroundColor: CupertinoColors.systemGroupedBackground,
+      backgroundColor: pageBackground(context),
       navigationBar: CupertinoNavigationBar(
         middle: const Text('专注记录'),
         border: null,

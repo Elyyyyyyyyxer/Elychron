@@ -10,6 +10,7 @@ import 'package:url_launcher/url_launcher.dart' show launchUrl;
 import 'package:celechron/model/calendar_to_ical.dart';
 import 'package:celechron/model/option.dart';
 import 'package:celechron/design/cupertino_async_switch.dart';
+import 'package:celechron/design/page_background.dart';
 // ===== MOD: 导出/导入实现见 lib/mod/settings_data_actions.dart =====
 
 import 'course_id_mapping_edit_page.dart';
@@ -59,13 +60,13 @@ class OptionPage extends StatelessWidget {
                 CupertinoDynamicColor.resolve(_kHeaderFooterColor, context)));
 
     return CupertinoPageScaffold(
-        backgroundColor: CupertinoColors.systemGroupedBackground,
+        backgroundColor: pageBackground(context),
         child: SafeArea(
             child: CustomScrollView(
           slivers: [
-            const CupertinoSliverNavigationBar(
-              largeTitle: Text('设置'),
-              backgroundColor: CupertinoColors.systemGroupedBackground,
+            CupertinoSliverNavigationBar(
+              largeTitle: const Text('设置'),
+              backgroundColor: pageBackground(context),
               border: null,
             ),
             // 教务

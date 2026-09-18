@@ -1,4 +1,5 @@
 import 'package:celechron/model/task.dart';
+import 'package:celechron/design/page_background.dart';
 import 'package:celechron/page/task/task_edit_page.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:get/get.dart';
@@ -54,7 +55,7 @@ class _TaskSearchPageState extends State<TaskSearchPage> {
     final labelColor =
         CupertinoDynamicColor.resolve(CupertinoColors.secondaryLabel, context);
     return CupertinoPageScaffold(
-      backgroundColor: CupertinoColors.systemGroupedBackground,
+      backgroundColor: pageBackground(context),
       navigationBar: CupertinoNavigationBar(
         middle: CupertinoSearchTextField(
           controller: _controller,

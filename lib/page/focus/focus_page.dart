@@ -1,4 +1,5 @@
 import 'package:celechron/design/app_accent.dart';
+import 'package:celechron/design/page_background.dart';
 import 'package:celechron/mod/do_not_disturb.dart';
 import 'dart:async';
 import 'dart:math' as math;
@@ -424,7 +425,7 @@ class _FocusPageState extends State<FocusPage> {
         _engine.rounds == 0 ? '第 1 轮' : '第 ${_engine.rounds + 1} 轮';
 
     final page = CupertinoPageScaffold(
-      backgroundColor: CupertinoColors.systemGroupedBackground,
+      backgroundColor: pageBackground(context),
       navigationBar: CupertinoNavigationBar(
         middle: const Text('专注'),
         trailing: CupertinoButton(

@@ -1,4 +1,5 @@
 import 'package:celechron/design/app_accent.dart';
+import 'package:celechron/design/page_background.dart';
 import 'package:celechron/tutorial/steps/step_renderers.dart';
 import 'package:celechron/tutorial/tutorial_model.dart';
 import 'package:celechron/tutorial/tutorial_progress.dart';
@@ -70,7 +71,7 @@ class _TutorialPageState extends State<TutorialPage> {
 
     return CupertinoPageScaffold(
       // 同教程中心：不给底色的话白底会衬出区块的浅灰圆角背景
-      backgroundColor: CupertinoColors.systemGroupedBackground,
+      backgroundColor: pageBackground(context),
       navigationBar: CupertinoNavigationBar(
         middle: Text(
           widget.tutorial.title,
