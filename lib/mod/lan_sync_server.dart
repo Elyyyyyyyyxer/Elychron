@@ -6,9 +6,8 @@ import 'dart:math';
 import 'package:celechron/database/database_helper.dart';
 import 'package:celechron/mod/database_mod.dart';
 import 'package:celechron/mod/lan_panel.dart';
+import 'package:celechron/mod/lan_sync_merge.dart';
 import 'package:celechron/model/task.dart';
-import 'package:celechron/page/task/task_controller.dart';
-import 'package:celechron/mod/task_runtime_mod.dart';
 import 'package:celechron/utils/data_backup.dart';
 import 'package:celechron/utils/data_sync.dart';
 import 'package:get/get.dart';
@@ -225,7 +224,9 @@ class LanSyncServer {
     return _json(response, HttpStatus.ok, bundle.toJson());
   }
 
-  /// 推送：把浏览器端的改动合并回本机（复用 DataMerge，按 updatedAt 取胜）
+  /// 推送：把浏览器/另一台设备的改动合并回本机
+  ///
+  /// 合并本身走公共实现（lib/mod/lan_sync_merge.dart），不在这里另写一份。
   Future<void> _receiveBundle(HttpRequest request) async {
     final body = await _readBodyRaw(request);
     final incoming = DataBundle.decode(body);
@@ -234,41 +235,16 @@ class LanSyncServer {
           {'ok': false, 'error': '数据格式不对，不是 Elychron 的备份'});
     }
 
-    final db = Get.find<DatabaseHelper>(tag: 'db');
-    final taskList = Get.find<RxList<Task>>(tag: 'taskList');
-
-    await DataBackup.writeLocalBackup(db, taskList);
-    final result = DataMerge.merge(
-      local: taskList.toList(),
-      localTombstones: db.getTombstones(),
+    final result = await mergeIncomingBundle(
       incoming: incoming,
-      localFocusSessions: db.getFocusSessions(),
       localExportedAt: lastPullAt,
     );
-    await DataBackup.applyMerge(db, taskList, result, bundle: incoming);
-    taskList.refresh();
-
-    // 合并后的远端任务必须立即重算状态并重排提醒；不能因为待办页尚未打开
-    // 就跳过，否则网页新建的提醒只会存进去，不会真正调度。
-    if (Get.isRegistered<TaskController>()) {
-      final controller = Get.find<TaskController>();
-      controller.updateDeadlineList();
-      controller.updateDeadlineListTime();
-    } else {
-      syncTaskReminders(taskList);
-    }
 
     lastSyncAt = DateTime.now();
-    lastSyncSummary = result.summary;
-    lastSyncDeviceId = incoming.deviceId;
-    return _json(request.response, HttpStatus.ok, {
-      'ok': true,
-      'summary': result.summary,
-      'device': incoming.deviceId,
-      'conflicts': result.conflictUids.length,
-    });
+    lastSyncSummary = (result['summary'] ?? '').toString();
+    lastSyncDeviceId = (result['device'] ?? '').toString();
+    return _json(request.response, HttpStatus.ok, result);
   }
-
   // ------------------------------------------------------------- 工具
 
   List<Task> _tasks() => Get.find<RxList<Task>>(tag: 'taskList').toList();

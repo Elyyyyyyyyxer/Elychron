@@ -1,4 +1,5 @@
 import 'package:celechron/design/app_accent.dart';
+import 'package:celechron/mod/lan_sync_client.dart';
 import 'package:celechron/mod/lan_sync_server.dart';
 import 'package:celechron/platform/desktop_cupertino_font.dart';
 
@@ -159,6 +160,50 @@ void main(List<String> args) async {
   // 普通用户不需要它：设置里有开关。这个参数是给开发者与脚本用的 ——
   // 带上 --lan 启动就把服务开起来，并把地址与配对码打到标准输出，
   // 于是验收入口（HTTP 面板、配对、拉取、推送）可以完全脚本化。
+  // 自检：连自己开的那台服务器走一遍 配对 → 拉取 → 推送。
+  // 用来验收**客户端**这条路（跨设备的真实验收还得两台设备）。
+  if (PlatformFeatures.isDesktop && args.contains('--lan-selftest')) {
+    Future<void>.delayed(const Duration(seconds: 4), () async {
+      final server = LanSyncServer.instance;
+      final client = LanSyncClient.instance;
+      await server.start();
+      // ignore: avoid_print
+      print('[lan] server=' + (server.url ?? '-') + ' code=' + server.code);
+      final paired = await client.pair(
+        address: server.url ?? '',
+        code: server.code,
+      );
+      // ignore: avoid_print
+      print('[lan] pair=' +
+          paired.toString() +
+          ' err=' +
+          (client.lastError ?? '-'));
+      final pulled = await client.pull();
+      // ignore: avoid_print
+      print('[lan] pull=' +
+          pulled.toString() +
+          ' summary=' +
+          client.lastSyncSummary +
+          ' err=' +
+          (client.lastError ?? '-'));
+      final pushed = await client.push();
+      // ignore: avoid_print
+      print('[lan] push=' +
+          pushed.toString() +
+          ' summary=' +
+          client.lastSyncSummary +
+          ' err=' +
+          (client.lastError ?? '-'));
+      // ignore: avoid_print
+      print('[lan] normalize: ' +
+          LanSyncClient.normalizeAddress('192.168.31.61') +
+          ' | ' +
+          LanSyncClient.normalizeAddress('http://192.168.31.61:8686') +
+          ' | ' +
+          LanSyncClient.normalizeAddress(' 192.168.31.61:8686 '));
+    });
+  }
+
   if (PlatformFeatures.isDesktop && args.contains('--lan')) {
     Future<void>.delayed(const Duration(seconds: 3), () async {
       try {

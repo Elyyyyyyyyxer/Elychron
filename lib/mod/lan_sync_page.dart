@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:celechron/mod/lan_sync_client.dart';
+import 'package:celechron/page/option/option_view.dart' show BackChervonRow;
 import 'package:celechron/mod/lan_sync_server.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
@@ -19,7 +21,85 @@ class LanSyncPage extends StatefulWidget {
 
 class _LanSyncPageState extends State<LanSyncPage> {
   final _server = LanSyncServer.instance;
+  final _client = LanSyncClient.instance;
+  final _addressController = TextEditingController();
+  final _codeController = TextEditingController();
   bool _busy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // 读回上次的配对信息（有的话直接显示同步按钮，不用重新输码）
+    _client.load();
+    if (_client.address.isNotEmpty) _addressController.text = _client.address;
+  }
+
+  @override
+  void dispose() {
+    _addressController.dispose();
+    _codeController.dispose();
+    super.dispose();
+  }
+
+  /// 连接另一台设备
+  Future<void> _connectPeer() async {
+    setState(() => _busy = true);
+    final ok = await _client.pair(
+      address: _addressController.text,
+      code: _codeController.text,
+    );
+    if (!mounted) return;
+    setState(() => _busy = false);
+    if (ok) {
+      // 连上之后立刻做一次双向同步，省得用户还要再点一下
+      await _syncPeer(bothWays: true);
+    } else {
+      await _showResult('连不上', _client.lastError ?? '未知原因');
+    }
+  }
+
+  /// 拉取 / 推送 / 双向
+  Future<void> _syncPeer({
+    required bool bothWays,
+    bool pullOnly = false,
+  }) async {
+    setState(() => _busy = true);
+    final bool ok;
+    if (pullOnly) {
+      ok = await _client.pull();
+    } else if (bothWays) {
+      ok = await _client.syncBothWays();
+    } else {
+      ok = await _client.push();
+    }
+    if (!mounted) return;
+    setState(() => _busy = false);
+    await _showResult(
+      ok ? '同步完成' : '同步失败',
+      ok ? _client.lastSyncSummary : (_client.lastError ?? '未知原因'),
+    );
+  }
+
+  Future<void> _showResult(String title, String message) async {
+    if (!mounted) return;
+    await showCupertinoDialog<void>(
+      context: context,
+      builder: (BuildContext context) => CupertinoAlertDialog(
+        title: Text(title),
+        content: Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: Text(message, style: const TextStyle(fontSize: 14)),
+        ),
+        actions: [
+          CupertinoDialogAction(
+            isDefaultAction: true,
+            child: const Text('好'),
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+        ],
+      ),
+    );
+  }
 
   Future<void> _toggle(bool value) async {
     setState(() => _busy = true);
@@ -94,7 +174,7 @@ class _LanSyncPageState extends State<LanSyncPage> {
               CupertinoListTile(
                 title: const Text('开启局域网同步'),
                 subtitle: Text(
-                  running ? '正在监听，电脑可以连了' : '默认关闭；只在打开期间监听',
+                  running ? '正在监听，另一台设备可以连进来了' : '默认关闭；只在打开期间监听',
                 ),
                 trailing: _busy
                     ? const CupertinoActivityIndicator()
@@ -108,7 +188,7 @@ class _LanSyncPageState extends State<LanSyncPage> {
           if (running && url != null) ...[
             CupertinoListSection.insetGrouped(
               backgroundColor: pageBackground(context),
-              header: const Text('① 电脑浏览器打开这个地址'),
+              header: const Text('① 把这台设备当服务器：地址与配对码'),
               children: [
                 CupertinoListTile(
                   title: const Text('访问地址'),
@@ -136,7 +216,7 @@ class _LanSyncPageState extends State<LanSyncPage> {
             ),
             CupertinoListSection.insetGrouped(
               backgroundColor: pageBackground(context),
-              header: const Text('② 在电脑上输入配对码'),
+              header: const Text('② 配对码（另一台设备要输的）'),
               footer: const Text('配对码每次开启都会重新生成，请填写最新的配对码。'),
               children: [
                 Padding(
@@ -155,13 +235,88 @@ class _LanSyncPageState extends State<LanSyncPage> {
               ],
             ),
           ],
+          // ===== 连接另一台设备（客户端）=====
+          //
+          // 用户口径：手机连接电脑端。所以这一块是"我这台去连别人"，
+          // 上面那两块是"别人来连我"，两个方向都在这一页里。
+          CupertinoListSection.insetGrouped(
+            backgroundColor: pageBackground(context),
+            header: const Text('③ 连接另一台设备'),
+            footer: Text(_client.isPaired
+                ? '已连接到 ${_client.address}。改动会按更新时间双向合并，较新的一侧说了算。'
+                : '在另一台设备上打开本页，把它显示的地址和配对码填进来即可。'),
+            children: [
+              if (!_client.isPaired) ...[
+                CupertinoListTile(
+                  title: const Text('对方地址'),
+                  subtitle: CupertinoTextField(
+                    controller: _addressController,
+                    keyboardType: TextInputType.url,
+                    autocorrect: false,
+                    placeholder: '例如 192.168.31.61:8686',
+                  ),
+                ),
+                CupertinoListTile(
+                  title: const Text('配对码'),
+                  subtitle: CupertinoTextField(
+                    controller: _codeController,
+                    keyboardType: TextInputType.number,
+                    maxLength: 6,
+                    placeholder: '对方页面上显示的 6 位数字',
+                  ),
+                ),
+                CupertinoListTile(
+                  title: const Text('连接'),
+                  subtitle: Text(_client.lastError ?? '填好上面两项后点这里'),
+                  trailing: _busy
+                      ? const CupertinoActivityIndicator()
+                      : const BackChervonRow(),
+                  onTap: _busy ? null : _connectPeer,
+                ),
+              ] else ...[
+                CupertinoListTile(
+                  title: const Text('双向同步'),
+                  subtitle: const Text('先把本机改动推过去，再把对方的改动拉回来'),
+                  trailing: const BackChervonRow(),
+                  onTap: _busy ? null : () => _syncPeer(bothWays: true),
+                ),
+                CupertinoListTile(
+                  title: const Text('从对方拉取'),
+                  subtitle: const Text('只把对方的数据合并到本机'),
+                  trailing: const BackChervonRow(),
+                  onTap: _busy
+                      ? null
+                      : () => _syncPeer(bothWays: false, pullOnly: true),
+                ),
+                CupertinoListTile(
+                  title: const Text('推送给对方'),
+                  subtitle: const Text('只把本机的数据发给对方合并'),
+                  trailing: const BackChervonRow(),
+                  onTap: _busy ? null : () => _syncPeer(bothWays: false),
+                ),
+                if (_client.lastSyncAt != null)
+                  CupertinoListTile(
+                    title: Text('上次同步 · ${_client.lastSyncSummary}'),
+                    subtitle: Text(_format(_client.lastSyncAt!)),
+                  ),
+                CupertinoListTile(
+                  title: const Text('断开连接'),
+                  subtitle: const Text('只清掉配对信息，不影响数据'),
+                  onTap: () async {
+                    await _client.forget();
+                    if (mounted) setState(() {});
+                  },
+                ),
+              ],
+            ],
+          ),
           if (_server.lastSyncAt != null)
             CupertinoListSection.insetGrouped(
               backgroundColor: pageBackground(context),
               header: const Text('最近一次同步'),
               children: [
                 CupertinoListTile(
-                  title: Text('来自电脑 · ${_server.lastSyncSummary}'),
+                  title: Text('来自另一台设备 · ${_server.lastSyncSummary}'),
                   subtitle: Text(_format(_server.lastSyncAt!)),
                 ),
               ],
@@ -171,7 +326,7 @@ class _LanSyncPageState extends State<LanSyncPage> {
             header: const Text('说明'),
             footer: const Text(
               '数据只在局域网内直接传输，不经过任何服务器，也不需要注册账号。\n'
-              '浏览器端的导出会下载整份 JSON，导入会按更新时间合并回本机。',
+              '两端都要装 Elychron：一台当服务器，另一台填地址与配对码连过来。',
             ),
             children: const [
               CupertinoListTile(
@@ -183,9 +338,8 @@ class _LanSyncPageState extends State<LanSyncPage> {
                 subtitle: Text('切到后台过久可能被系统暂停监听；要连的时候回到这个页面看一眼即可'),
               ),
               CupertinoListTile(
-                title: Text('电脑端会自动同步'),
-                subtitle: Text('网页每 30 秒自动刷新，切回那个标签页也会立刻刷新；'
-                    '在浏览器上保存的改动会马上写回本机'),
+                title: Text('两边都可以当服务器'),
+                subtitle: Text('桌面端当服务器更顺手（键盘在旁边）；手机连电脑、电脑连手机都行'),
               ),
             ],
           ),
