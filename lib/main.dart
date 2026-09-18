@@ -1,4 +1,5 @@
 import 'package:celechron/design/app_accent.dart';
+import 'package:celechron/mod/lan_sync_server.dart';
 import 'package:celechron/platform/desktop_cupertino_font.dart';
 
 import 'dart:async';
@@ -48,7 +49,7 @@ void _bootProbe(String message) {
   if (_bootProbesEnabled) debugPrint(message);
 }
 
-void main() async {
+void main(List<String> args) async {
   _bootProbe('[boot] 1 进入 main');
   // 全局错误组件：只设一次，且必须早于任何 widget 构建。
   // 绝不放在 widget 构造函数里， 那样每次重建都会改全局状态，且已证明会引发卡死。
@@ -152,6 +153,30 @@ void main() async {
     // 注册失败就退回平台默认字体，不影响启动
   }
   runApp(const CelechronApp());
+
+  // ===== 桌面端：命令行直开局域网同步（验收 / 自动化用）=====
+  //
+  // 普通用户不需要它：设置里有开关。这个参数是给开发者与脚本用的 ——
+  // 带上 --lan 启动就把服务开起来，并把地址与配对码打到标准输出，
+  // 于是验收入口（HTTP 面板、配对、拉取、推送）可以完全脚本化。
+  if (PlatformFeatures.isDesktop && args.contains('--lan')) {
+    Future<void>.delayed(const Duration(seconds: 3), () async {
+      try {
+        await LanSyncServer.instance.start();
+        final server = LanSyncServer.instance;
+        // ignore: avoid_print
+        print('[lan] url=' +
+            (server.url ?? '-') +
+            ' code=' +
+            server.code +
+            ' error=' +
+            (server.lastError ?? ''));
+      } catch (error) {
+        // ignore: avoid_print
+        print('[lan] start failed: ' + error.toString());
+      }
+    });
+  }
   _bootProbe('[boot] runApp 已调用');
 
   // ===== 一次性抢救：从被打坏的待办盒子备份里把数据捞回来 =====

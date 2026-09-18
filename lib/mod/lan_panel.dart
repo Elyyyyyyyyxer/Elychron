@@ -418,10 +418,10 @@ const String lanPanelHtml = r'''<!DOCTYPE html>
 <div id="pair" class="overlay">
   <div class="sheet">
     <h2>配对这台电脑</h2>
-    <p>配对码显示在手机局域网同步页面上，输一次就会记住。</p>
+    <p>配对码显示在 Elychron 的「局域网同步」页面上，输一次就会记住。</p>
     <input id="codeInput" type="text" inputmode="numeric" maxlength="6" placeholder="000000" autocomplete="off" aria-label="六位配对码">
     <div id="pairErr" class="hint" style="color:var(--danger-text); min-height:18px; margin-top:8px;"></div>
-    <button class="primary" onclick="pair()">连接手机</button>
+    <button class="primary" onclick="pair()">连接</button>
   </div>
 </div>
 
@@ -464,7 +464,7 @@ const String lanPanelHtml = r'''<!DOCTYPE html>
         <input id="newReminder" type="datetime-local">
       </div>
       <p class="hint" style="margin:12px 0 0;">
-        截止日期留空就按今天 23:59。提醒交给手机来响，这台电脑也能单独开启通知。
+        截止日期留空就按今天 23:59。提醒由 Elychron 本机来响，这台电脑也能单独开启通知。
       </p>
       <button style="margin-top:12px;" onclick="enableBrowserReminders()">开启电脑提醒</button>
     </section>
@@ -498,7 +498,7 @@ const String lanPanelHtml = r'''<!DOCTYPE html>
 <div id="editor" class="overlay hidden">
   <div class="sheet">
     <h2 id="editorTitle">编辑待办</h2>
-    <p class="sheet-sub">改动会在保存后合并回手机，较新的一侧说了算。</p>
+    <p class="sheet-sub">改动会在保存后合并回 Elychron，较新的一侧说了算。</p>
     <div class="field"><label for="editSummary">标题</label><input id="editSummary" type="text"></div>
     <div class="field"><label for="editDescription">描述</label><textarea id="editDescription"></textarea></div>
     <div class="field"><label for="editLocation">地点</label><input id="editLocation" type="text"></div>

@@ -13,7 +13,7 @@ import 'package:celechron/utils/data_backup.dart';
 import 'package:celechron/utils/data_sync.dart';
 import 'package:get/get.dart';
 
-/// ============ 局域网直连同步（手机当服务器）============
+/// ============ 局域网直连同步（本机当服务器）============
 ///
 /// 设计目标：**不依赖任何账号**。同一 Wi-Fi 下，电脑/平板用浏览器打开面板
 /// 就能看待办、打钩、新建，也能导出/导入整份数据。
@@ -196,7 +196,7 @@ class LanSyncServer {
     }
   }
 
-  /// 用手机屏幕上显示的 6 位配对码换取一个会话 token
+  /// 用 App 页面上显示的 6 位配对码换取一个会话 token
   Future<void> _pair(HttpRequest request) async {
     final body = await _readBody(request);
     final input = (body['code'] ?? '').toString().trim();
@@ -217,7 +217,7 @@ class LanSyncServer {
     return token != null && token.isNotEmpty && _tokens.contains(token);
   }
 
-  /// 拉取：把手机上的整份数据给电脑
+  /// 拉取：把本机的整份数据交给浏览器端
   Future<void> _sendBundle(HttpResponse response) async {
     final db = Get.find<DatabaseHelper>(tag: 'db');
     final bundle = await DataBackup.currentBundle(db, _tasks());
@@ -225,7 +225,7 @@ class LanSyncServer {
     return _json(response, HttpStatus.ok, bundle.toJson());
   }
 
-  /// 推送：把电脑上的改动合并回手机（复用 DataMerge，按 updatedAt 取胜）
+  /// 推送：把浏览器端的改动合并回本机（复用 DataMerge，按 updatedAt 取胜）
   Future<void> _receiveBundle(HttpRequest request) async {
     final body = await _readBodyRaw(request);
     final incoming = DataBundle.decode(body);

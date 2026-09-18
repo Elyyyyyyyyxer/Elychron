@@ -8,7 +8,7 @@ import 'package:celechron/design/page_background.dart';
 
 /// 设置 → 数据 → 局域网同步
 ///
-/// 手机当服务器，同一 Wi-Fi 下的电脑用浏览器打开面板就能看待办、打钩、新建、
+/// 本机当服务器，同一 Wi-Fi 下另一台设备用浏览器打开面板就能看待办、打钩、新建、
 /// 导出导入。不注册账号、不上传数据到任何第三方。
 class LanSyncPage extends StatefulWidget {
   const LanSyncPage({super.key});
@@ -171,7 +171,7 @@ class _LanSyncPageState extends State<LanSyncPage> {
             header: const Text('说明'),
             footer: const Text(
               '数据只在局域网内直接传输，不经过任何服务器，也不需要注册账号。\n'
-              '电脑上的导出会下载整份 JSON 到电脑，导入会按更新时间合并回手机。',
+              '浏览器端的导出会下载整份 JSON，导入会按更新时间合并回本机。',
             ),
             children: const [
               CupertinoListTile(
@@ -185,7 +185,7 @@ class _LanSyncPageState extends State<LanSyncPage> {
               CupertinoListTile(
                 title: Text('电脑端会自动同步'),
                 subtitle: Text('网页每 30 秒自动刷新，切回那个标签页也会立刻刷新；'
-                    '在电脑上保存的改动会马上写回手机'),
+                    '在浏览器上保存的改动会马上写回本机'),
               ),
             ],
           ),

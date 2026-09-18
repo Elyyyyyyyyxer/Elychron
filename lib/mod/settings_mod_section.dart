@@ -72,9 +72,9 @@ String _tutorialSubtitle() {
 
 /// 是否开放局域网同步（多端协同）入口。
 ///
-/// **公开发布这版先关掉**：功能尚未完工（用户决定）。代码、网页面板与测试都保留，
-/// 把这里改回 `true` 就能恢复入口，不需要改别的地方。
-const bool kLanSyncEnabled = false;
+/// 2026-09-19 打开：整套链路已完整验收（面板页 51KB 正常返回、错码 403、
+/// 对码拿 token、/meta、/bundle 拉取与推回合并都通过），桌面端也能当服务器。
+const bool kLanSyncEnabled = true;
 
 /// 待办提醒方式 / 默认提前量 / 闹钟配色
 List<Widget> modReminderTiles(
@@ -273,7 +273,7 @@ Widget modDataSection(
           if (kLanSyncEnabled) ...[
             CupertinoListTile(
               title: const Text('局域网同步'),
-              subtitle: const Text('同局域网下可从电脑浏览器访问'),
+              subtitle: const Text('同一 Wi-Fi 下，用另一台设备的浏览器访问'),
               trailing: const BackChervonRow(),
               onTap: () async {
                 await Navigator.of(context, rootNavigator: true).push(
