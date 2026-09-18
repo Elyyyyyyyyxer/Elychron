@@ -72,6 +72,7 @@ class OptionPage extends StatelessWidget {
             // 教务
             Obx(() => SliverToBoxAdapter(
                   child: CupertinoListSection.insetGrouped(
+                    backgroundColor: pageBackground(context),
                     margin: _defaultMargin,
                     additionalDividerMargin: 2,
                     header: Container(
@@ -276,6 +277,7 @@ class OptionPage extends StatelessWidget {
             // 日程
             Obx(() => SliverToBoxAdapter(
                     child: CupertinoListSection.insetGrouped(
+                        backgroundColor: pageBackground(context),
                         additionalDividerMargin: 2,
                         margin: _defaultMargin,
                         header: Container(
@@ -363,6 +365,7 @@ class OptionPage extends StatelessWidget {
             // 工具
             SliverToBoxAdapter(
                 child: CupertinoListSection.insetGrouped(
+                    backgroundColor: pageBackground(context),
                     additionalDividerMargin: 2,
                     margin: _defaultMargin,
                     header: Container(
@@ -396,6 +399,7 @@ class OptionPage extends StatelessWidget {
             // 关于
             SliverToBoxAdapter(
               child: CupertinoListSection.insetGrouped(
+                backgroundColor: pageBackground(context),
                 additionalDividerMargin: 2,
                 margin: _defaultMargin,
                 header: Container(
@@ -423,6 +427,7 @@ class OptionPage extends StatelessWidget {
             // 关于
             SliverToBoxAdapter(
               child: CupertinoListSection.insetGrouped(
+                  backgroundColor: pageBackground(context),
                   additionalDividerMargin: 2,
                   margin: _defaultMargin,
                   header: Container(

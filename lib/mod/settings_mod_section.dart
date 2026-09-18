@@ -19,6 +19,7 @@ import 'package:get/get.dart';
 import 'package:celechron/tutorial/tutorial_entry.dart';
 import 'package:celechron/tutorial/tutorial_registry.dart';
 import 'package:celechron/tutorial/tutorial_store.dart';
+import 'package:celechron/design/page_background.dart';
 
 /// ============ 设置页里属于魔改的两个区块 ============
 ///
@@ -36,6 +37,7 @@ Widget modTutorialSection(
 }) =>
     SliverToBoxAdapter(
         child: CupertinoListSection.insetGrouped(
+            backgroundColor: pageBackground(context),
             additionalDividerMargin: 2,
             margin: margin,
             header: Container(
@@ -259,6 +261,7 @@ Widget modDataSection(
 }) =>
     SliverToBoxAdapter(
         child: CupertinoListSection.insetGrouped(
+            backgroundColor: pageBackground(context),
             additionalDividerMargin: 2,
             margin: margin,
             header: Container(
@@ -530,6 +533,7 @@ Widget modAiSection(
       valueListenable: AiConfig.revision,
       builder: (BuildContext context, int _, Widget? __) => SliverToBoxAdapter(
         child: CupertinoListSection.insetGrouped(
+          backgroundColor: pageBackground(context),
           additionalDividerMargin: 2,
           margin: margin,
           header: Container(

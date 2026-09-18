@@ -2,6 +2,7 @@ import 'package:celechron/services/diagnostic_log_service.dart';
 import 'package:celechron/services/diagnostic_report.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
+import 'package:celechron/design/page_background.dart';
 
 class DiagnosticLogPage extends StatefulWidget {
   final String version;
@@ -580,6 +581,7 @@ class _DiagnosticLogPageState extends State<DiagnosticLogPage> {
         padding: const EdgeInsets.only(top: 4, bottom: 24),
         children: [
           CupertinoListSection.insetGrouped(
+            backgroundColor: pageBackground(context),
             header: const Text('完整原始日志'),
             footer: const Text(
               '原始日志继续使用 UTC 时间并保留完整脱敏技术字段；'

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:celechron/mod/ai/deepseek.dart';
 import 'package:celechron/mod/ai/model_resolver.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:celechron/design/page_background.dart';
 
 /// 设置 → AI 智能助手
 ///
@@ -204,6 +205,7 @@ class _AiSettingsPageState extends State<AiSettingsPage> {
             ),
             children: [
               CupertinoListSection.insetGrouped(
+                backgroundColor: pageBackground(context),
                 header: const Text('开关'),
                 footer: const Text(
                   '开启后，你选中的待办内容、或分享进来的那段文字，会发送给你配置的'
@@ -226,6 +228,7 @@ class _AiSettingsPageState extends State<AiSettingsPage> {
                 ],
               ),
               CupertinoListSection.insetGrouped(
+                backgroundColor: pageBackground(context),
                 header: const Text('API key'),
                 footer: const Text(
                   '去 platform.deepseek.com 申请，复制那串 sk- 开头的密钥。\n'
@@ -279,6 +282,7 @@ class _AiSettingsPageState extends State<AiSettingsPage> {
                 ],
               ),
               CupertinoListSection.insetGrouped(
+                backgroundColor: pageBackground(context),
                 header: const Text('行为'),
                 footer: const Text(
                   '关掉之后，AI 整理出的待办不会再自动带上子待办（有些通知本来就没必要拆步骤）。'
@@ -301,6 +305,7 @@ class _AiSettingsPageState extends State<AiSettingsPage> {
                 ],
               ),
               CupertinoListSection.insetGrouped(
+                backgroundColor: pageBackground(context),
                 header: const Text('模型'),
                 footer: Text(
                   AiConfig.isManualModel
@@ -369,6 +374,7 @@ class _AiSettingsPageState extends State<AiSettingsPage> {
                 ],
               ),
               CupertinoListSection.insetGrouped(
+                backgroundColor: pageBackground(context),
                 header: const Text('接口地址（进阶）'),
                 footer: const Text(
                   '默认用 DeepSeek 官方接口。若使用中转服务或自建服务，'
@@ -403,6 +409,7 @@ class _AiSettingsPageState extends State<AiSettingsPage> {
                 ],
               ),
               CupertinoListSection.insetGrouped(
+                backgroundColor: pageBackground(context),
                 header: const Text('连通性'),
                 children: [
                   CupertinoListTile(

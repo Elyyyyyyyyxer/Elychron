@@ -198,6 +198,7 @@ class TutorialCenterPage extends StatelessWidget {
                   ),
                   SliverToBoxAdapter(
                     child: CupertinoListSection.insetGrouped(
+                      backgroundColor: pageBackground(context),
                       margin: const EdgeInsets.symmetric(horizontal: 16),
                       children: [
                         for (final tutorial in entry.value)

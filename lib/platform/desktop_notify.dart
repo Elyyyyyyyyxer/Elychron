@@ -113,27 +113,28 @@ class DesktopNotify {
   /// - [DesktopAlertSound.voice] → 爱莉原声（assets/sounds/ely_hi.*，**不进仓库**）
   /// 选了原声但文件不存在时会安静退回内置音，并写进诊断日志。
   static Future<bool> _playDing() async {
+    // 默认什么都不放：Windows 的 Toast 自带系统提示音，够用且最自然
+    // （用户 2026-09-19 拍板取消自制的 DING 音）。
+    // 只有切到"爱莉原声"彩蛋时才自己放音频。
+    if (DesktopAlertSoundStore.current != DesktopAlertSound.voice) {
+      return true;
+    }
     try {
       _player ??= AudioPlayer();
       await _player!.stop();
-      final choice = DesktopAlertSoundStore.current;
-      if (choice == DesktopAlertSound.voice) {
-        for (final asset in _voiceCandidates) {
-          try {
-            await _player!.play(AssetSource(asset));
-            _log('播放原声：' + asset);
-            return true;
-          } catch (_) {
-            // 这个候选不存在/放不了，试下一个
-          }
+      for (final asset in _voiceCandidates) {
+        try {
+          await _player!.play(AssetSource(asset));
+          _log('播放原声：' + asset);
+          return true;
+        } catch (_) {
+          // 这个候选不存在/放不了，试下一个
         }
-        _log('选了原声但没找到音频文件，退回内置音');
       }
-      await _player!.play(AssetSource('sounds/ding.wav'));
-      _log('播放内置提示音');
-      return true;
+      _log('选了原声但没找到音频文件（assets/sounds/ely_hi.*）');
+      return false;
     } catch (error) {
-      _log('声音失败：' + error.toString());
+      _log('原声播放失败：' + error.toString());
       return false;
     }
   }

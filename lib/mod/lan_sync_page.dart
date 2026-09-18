@@ -4,6 +4,7 @@ import 'package:celechron/mod/lan_sync_server.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import 'package:celechron/design/page_background.dart';
 
 /// 设置 → 数据 → 局域网同步
 ///
@@ -87,6 +88,7 @@ class _LanSyncPageState extends State<LanSyncPage> {
         ),
         children: [
           CupertinoListSection.insetGrouped(
+            backgroundColor: pageBackground(context),
             header: const Text('开关'),
             children: [
               CupertinoListTile(
@@ -105,6 +107,7 @@ class _LanSyncPageState extends State<LanSyncPage> {
           ),
           if (running && url != null) ...[
             CupertinoListSection.insetGrouped(
+              backgroundColor: pageBackground(context),
               header: const Text('① 电脑浏览器打开这个地址'),
               children: [
                 CupertinoListTile(
@@ -132,6 +135,7 @@ class _LanSyncPageState extends State<LanSyncPage> {
               ],
             ),
             CupertinoListSection.insetGrouped(
+              backgroundColor: pageBackground(context),
               header: const Text('② 在电脑上输入配对码'),
               footer: const Text('配对码每次开启都会重新生成，请填写最新的配对码。'),
               children: [
@@ -153,6 +157,7 @@ class _LanSyncPageState extends State<LanSyncPage> {
           ],
           if (_server.lastSyncAt != null)
             CupertinoListSection.insetGrouped(
+              backgroundColor: pageBackground(context),
               header: const Text('最近一次同步'),
               children: [
                 CupertinoListTile(
@@ -162,6 +167,7 @@ class _LanSyncPageState extends State<LanSyncPage> {
               ],
             ),
           CupertinoListSection.insetGrouped(
+            backgroundColor: pageBackground(context),
             header: const Text('说明'),
             footer: const Text(
               '数据只在局域网内直接传输，不经过任何服务器，也不需要注册账号。\n'

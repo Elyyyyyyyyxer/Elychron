@@ -9,10 +9,12 @@ import 'package:get/get.dart';
 /// ⚠️ 原声是受版权保护的音频，**不进仓库**（.gitignore 里排掉了 assets/sounds/ely_hi.*）。
 /// 用法：把音频放到 assets/sounds/ely_hi.mp3（tools 里有裁剪脚本），重新构建即可。
 enum DesktopAlertSound {
-  /// 内置的空灵高音钢琴提示音（默认）
-  chime,
+  /// 系统自带的通知音（默认）—— 由 Windows 的 Toast 自己发声，
+  /// 我们不放任何音频（用户 2026-09-19 拍板："取消掉 DING 的声音，
+  /// 反正系统自带的声音够用"）。
+  system,
 
-  /// 爱莉原声（彩蛋）
+  /// 爱莉原声（彩蛋，长按「测试提醒」切换）
   voice,
 }
 
@@ -37,7 +39,7 @@ class DesktopAlertSoundStore {
     } catch (_) {
       // 读失败按默认处理
     }
-    return DesktopAlertSound.chime;
+    return DesktopAlertSound.system;
   }
 
   static Future<void> set(DesktopAlertSound sound) async {
@@ -50,13 +52,13 @@ class DesktopAlertSoundStore {
 
   /// 切到另一个（长按彩蛋用），返回切换后的值
   static Future<DesktopAlertSound> toggle() async {
-    final next = current == DesktopAlertSound.chime
+    final next = current == DesktopAlertSound.system
         ? DesktopAlertSound.voice
-        : DesktopAlertSound.chime;
+        : DesktopAlertSound.system;
     await set(next);
     return next;
   }
 
   static String describe(DesktopAlertSound sound) =>
-      sound == DesktopAlertSound.voice ? '爱莉原声（彩蛋）' : '内置钢琴音';
+      sound == DesktopAlertSound.voice ? '爱莉原声（彩蛋）' : '系统提示音';
 }

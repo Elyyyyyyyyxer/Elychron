@@ -11,6 +11,7 @@ import 'package:celechron/design/round_rectangle_card.dart';
 import 'package:celechron/design/two_line_card.dart';
 import 'course_card.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:celechron/design/page_background.dart';
 
 class CourseSchedulePage extends StatelessWidget {
   late final CourseScheduleController _courseScheduleController;
@@ -495,6 +496,7 @@ class CourseSchedulePage extends StatelessWidget {
                   const SizedBox(height: 20),
                   Obx(
                     () => CupertinoListSection.insetGrouped(
+                      backgroundColor: pageBackground(context),
                       margin: const EdgeInsetsDirectional.fromSTEB(
                           0.0, 0.0, 0.0, 10.0),
                       additionalDividerMargin: 2,
