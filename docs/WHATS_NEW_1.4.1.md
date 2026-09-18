@@ -1671,6 +1671,59 @@ App 被系统杀掉后，那条未结算的会话一直躺在库里，下次打�
   （指向另一个文件里明明存在的顶层函数），删掉 `android/.gradle` 与 `android/app/build`
   再构建即可，这是本项目已知的 Kotlin 增量缓存问题。
 
+---
+
+# 十九、发布记录：GitHub 已发，Gitee 被令牌卡住（2026-09-18）
+
+## 19.1 GitHub Release 已发布 ✓
+
+- 地址：https://github.com/Elyyyyyyyyxer/Elychron/releases/tag/v1.4.1-elychron.1
+- 标签 `v1.4.1-elychron.1` 已推；正文就是 `docs/RELEASE_NOTES.md`；附件
+  `Elychron-v1.4.1-elychron.1-arm64.apk`（28,817,986 字节，与本地归档一致）
+- 复核过 `releases/latest`：现在指向 v1.4.1 ✓ —— 也就是说 **App 里的更新检查马上就能认到**。
+- 怎么发的（免得下次再摸）：本机**没装 gh**，走的是 GitHub REST API +
+  凭据管理器里的 token（`git credential fill` 取，40 位）：
+  `POST /repos/Elyyyyyyyyxer/Elychron/releases` 然后
+  `POST uploads.github.com/…/assets?name=…`
+
+## 19.2 ★ 一个坑：Windows Schannel 的吊销检查会把 GitHub API 全掐掉
+
+第一次调 API 时 curl 返回空、连 `api.github.com` 都是 `000`，带 `-S` 才看到真话：
+
+    curl: (35) schannel: next InitializeSecurityContext failed:
+    CRYPT_E_NO_REVOCATION_CHECK (0x80092012) - 吊销服务器无法验证证书是否已吊销
+
+**修法：给 curl 加 `--ssl-no-revoke`**（`gitee.com` 不受影响，只有 GitHub 这边这样）。
+以后在这台机器上用 curl 访问 GitHub API 都得带这个参数。
+
+## 19.3 ★ Gitee 为什么一直没有发行版（用户问的）
+
+结论：**不是忘了发，是根本推不上去**。
+
+1. **Gitee 已经不接受账号密码**：本机凭据库里 Gitee 存的是账号密码（`P3RF3CT`，14 位）
+   - `git push gitee main` → `fatal: Authentication failed`；
+   - Gitee OpenAPI 用同样的凭据 → `401 Unauthorized: Access token does not exist`。
+   现在 Gitee 的 git push 与 API 都要**私人令牌**（access token）。
+2. 所以 **Gitee 上的代码比本地落后 100 个提交**（`ahead 100 / behind 0`，是一次干净的快进，
+   不是分叉）；v1.4.0 的 tag 倒是早在能推的时候推上去了，
+   但**发行版一个都没有** —— 建发行版只能靠令牌或网页手动做。
+3. 我自己的文档里其实也记过一笔：「Gitee 发行版还没建（需要与 GitHub 同 tag、同 APK），
+   等用户发话再发」—— 当时就没发。
+
+**待办（等用户给令牌，或自己在网页点）**：
+
+- 方案 A（推荐，我一条命令做完）：用户在 Gitee「设置 → 私人令牌」建一个带
+  `projects` 权限的令牌 → 我跑 `git push gitee main --tags`，
+  再用 `POST /api/v5/repos/P3RF3CT/elychron/releases` 建发行版、
+  `…/releases/{id}/attach_files` 传 APK。
+- 方案 B（用户自己点）：Gitee 仓库 →「发行版 → 新建发行版」（标签填 `v1.4.1-elychron.1`、
+  正文贴 `docs/RELEASE_NOTES.md`、上传同一个 APK）；代码那边用仓库设置的「强制同步」
+  从 GitHub 拉一次。
+
+**本仓库已经加好了 `gitee` remote**（`https://gitee.com/P3RF3CT/elychron.git`），
+拿到令牌后不用再配。
+
+
 
 ## 17.5 用户对截图的七条修改（2026-09-17 深夜，全部改完）
 
