@@ -11,6 +11,9 @@ import '../utils/utils.dart';
 
 class ECardWidgetMessenger {
   static Future<void> update() async {
+    // 这一整块只为"桌面小组件"服务，桌面端没有小组件，直接不做
+    // （顺带避免在桌面端白跑一次校园卡请求）
+    if (!PlatformFeatures.hasHomeWidgets) return;
     var secureStorage = const FlutterSecureStorage();
     var username = await secureStorage.read(
         key: 'username', iOptions: secureStorageIOSOptions);

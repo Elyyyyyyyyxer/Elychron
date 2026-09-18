@@ -237,6 +237,43 @@ class CalendarToIcal {
     );
   }
 
+  /// ===== 桌面端导出（v1.5.0）：换个做法落地 .ics =====
+  ///
+  /// 桌面上没有真正的系统日历可写（见 PlatformFeatures.usesDeviceCalendarPlugin），
+  /// 也没有手机那种分享面板，所以换一条路：把 .ics 写进**用户看得见**的目录
+  /// （优先 下载，没有就 文档），再把路径原样告诉用户 ——
+  /// Outlook / 谷歌日历 / 苹果日历都认 .ics，导入一次就行。
+  ///
+  /// 返回写好的文件路径；失败返回 null（调用方据此提示）。
+  static Future<String?> exportIcsToDisk(Scholar scholar) async {
+    if (!scholar.isLogan) {
+      _showAlert('提示', '请先登录后再导出课程表');
+      return null;
+    }
+    try {
+      final icalContent = generateIcalFromScholar(
+        scholar: scholar,
+        calendarName: '浙大课程表-${scholar.thisSemester.name}',
+        includeExams: true,
+      );
+      Directory? directory;
+      try {
+        directory = await getDownloadsDirectory();
+      } catch (_) {
+        directory = null;
+      }
+      directory ??= await getApplicationDocumentsDirectory();
+      final fileName =
+          'elychron_schedule_${DateTime.now().millisecondsSinceEpoch}.ics';
+      final file = File('${directory.path}/$fileName');
+      await file.writeAsString(icalContent);
+      return file.path;
+    } catch (e) {
+      _showAlert('错误', '导出失败: $e', isError: true);
+      return null;
+    }
+  }
+
   /// 导出ICS课程表文件
   static Future<void> exportIcsFile(
     Scholar scholar, {

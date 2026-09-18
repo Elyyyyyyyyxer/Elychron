@@ -1,3 +1,4 @@
+import 'package:celechron/utils/platform_features.dart';
 import 'package:flutter/services.dart';
 
 /// 从其它应用分享过来的一条内容：文本 或 一个文件（图片/文档…）。
@@ -28,6 +29,8 @@ class ShareReceiver {
 
   /// 冷启动时被分享进来的内容（没有则返回空列表）
   static Future<List<SharedItem>> getInitial() async {
+    // 桌面端没有"从别的应用分享进来"这个入口（原生侧也没实现通道），直接当没有
+    if (!PlatformFeatures.canReceiveShares) return const <SharedItem>[];
     try {
       final raw = await _method.invokeMethod<List<dynamic>>('getInitialShared');
       return _parse(raw);
@@ -38,9 +41,11 @@ class ShareReceiver {
 
   /// 应用已在前台时被分享进来的内容
   static Stream<List<SharedItem>> get stream =>
-      _event.receiveBroadcastStream().map((event) {
-        return _parse(event is List ? event : null);
-      });
+      !PlatformFeatures.canReceiveShares
+          ? const Stream<List<SharedItem>>.empty()
+          : _event.receiveBroadcastStream().map((event) {
+              return _parse(event is List ? event : null);
+            });
 
   static List<SharedItem> _parse(List<dynamic>? raw) {
     if (raw == null) return const <SharedItem>[];

@@ -6,6 +6,7 @@ import 'package:get/get.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:celechron/database/database_helper.dart';
 import 'package:celechron/model/location_mapper.dart';
+import 'package:celechron/utils/platform_features.dart';
 import 'package:celechron/model/scholar.dart';
 import 'package:celechron/model/period.dart';
 import 'package:celechron/model/semester.dart';
@@ -149,8 +150,14 @@ class CalendarToSystemManager {
 
   CalendarToSystemManager(this.scholar);
 
+  /// 桌面端说明（界面上要显示"这个功能在这儿换了个做法"）
+  static String get desktopNote => PlatformFeatures.usesDeviceCalendarPlugin
+      ? ''
+      : '桌面端不直接写系统日历，改用导出 .ics（Outlook / 谷歌日历都能导入）';
+
   /// 获取设备日历权限
   Future<bool> checkPermissions() async {
+    if (!PlatformFeatures.usesDeviceCalendarPlugin) return false;
     // device_calendar plugin doesn't support macOS
     if (Platform.isMacOS) {
       _hasCalendarPermission.value = false;
@@ -253,6 +260,9 @@ class CalendarToSystemManager {
     Semester? semester,
     bool syncAllSemesters = false,
   }) async {
+    // 桌面端没有 device_calendar（也没有"系统日历"这一说）：
+    // 这里安静返回 false，界面会引导用户用"导出 .ics"那条路。
+    if (!PlatformFeatures.usesDeviceCalendarPlugin) return false;
     try {
       // 检查权限
       if (!await requestPermissions()) {

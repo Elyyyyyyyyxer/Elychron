@@ -1,5 +1,6 @@
 import 'package:celechron/database/database_helper.dart';
 import 'package:celechron/mod/database_mod.dart';
+import 'package:celechron/utils/platform_features.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 
@@ -44,6 +45,8 @@ class DoNotDisturb {
 
   /// 有没有拿到勿扰访问权限
   static Future<bool> isGranted() async {
+    // 桌面端没有这套系统开关（Windows 的"专注助手"是另一个东西，先不做）
+    if (!PlatformFeatures.hasDoNotDisturb) return false;
     try {
       return await _channel.invokeMethod<bool>('isGranted') ?? false;
     } on Object {
@@ -53,6 +56,7 @@ class DoNotDisturb {
 
   /// 当前档位（拿不到时按全部允许处理，尽量保守）
   static Future<int> currentFilter() async {
+    if (!PlatformFeatures.hasDoNotDisturb) return filterAll;
     try {
       return await _channel.invokeMethod<int>('currentFilter') ?? filterAll;
     } on Object {
@@ -62,6 +66,7 @@ class DoNotDisturb {
 
   /// 跳到系统授权页
   static Future<void> openSettings() async {
+    if (!PlatformFeatures.hasDoNotDisturb) return;
     try {
       await _channel.invokeMethod<void>('openSettings');
     } on Object {
@@ -70,6 +75,7 @@ class DoNotDisturb {
   }
 
   static Future<bool> _setFilter(int filter) async {
+    if (!PlatformFeatures.hasDoNotDisturb) return false;
     try {
       return await _channel
               .invokeMethod<bool>('setFilter', {'filter': filter}) ??

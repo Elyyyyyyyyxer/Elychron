@@ -4,7 +4,10 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import 'package:url_launcher/url_launcher_string.dart';
+// 桌面端"打开导出文件所在文件夹"要用 launchUrl（url_launcher 的通用入口）
+import 'package:url_launcher/url_launcher.dart' show launchUrl;
 
+import 'package:celechron/model/calendar_to_ical.dart';
 import 'package:celechron/model/option.dart';
 import 'package:celechron/design/cupertino_async_switch.dart';
 // ===== MOD: 导出/导入实现见 lib/mod/settings_data_actions.dart =====
@@ -278,17 +281,53 @@ class OptionPage extends StatelessWidget {
                             padding: const EdgeInsets.only(left: 16),
                             child: Text('日程', style: headerFooterTextStyle)),
                         children: [
-                      CupertinoListTile(
-                        title: const Text('同步到系统日历'),
-                        trailing: CupertinoAsyncSwitch(
-                          value: _optionController.calendarSyncEnabled &&
-                              _optionController.hasCalendarPermission,
-                          onChanged: (value) async {
-                            await _optionController.toggleCalendarSync(
-                                context, value);
+                      // ===== MOD v1.5.0：桌面端换做法 =====
+                      // 桌面上没有可写的系统日历（device_calendar 只有手机实现），
+                      // 与其给一个点了没反应的开关，不如换成真正能用的一条路：
+                      // 导出 .ics，Outlook / 谷歌日历都能导入。
+                      if (PlatformFeatures.isDesktop)
+                        CupertinoListTile(
+                          title: const Text('导出课表（.ics）'),
+                          subtitle:
+                              const Text('桌面端不写系统日历；导出后导入 Outlook / 谷歌日历'),
+                          trailing: const CupertinoListTileChevron(),
+                          onTap: () async {
+                            final path = await CalendarToIcal.exportIcsToDisk(
+                                _optionController.scholar.value);
+                            if (path == null) return;
+                            Get.dialog(CupertinoAlertDialog(
+                              title: const Text('导出完成'),
+                              content: Text('课程表已保存到：' + path),
+                              actions: [
+                                CupertinoDialogAction(
+                                  child: const Text('打开所在文件夹'),
+                                  onPressed: () {
+                                    Get.back();
+                                    launchUrl(Uri.file(path.substring(
+                                        0, path.lastIndexOf('\\'))));
+                                  },
+                                ),
+                                CupertinoDialogAction(
+                                  isDefaultAction: true,
+                                  child: const Text('好'),
+                                  onPressed: () => Get.back(),
+                                ),
+                              ],
+                            ));
                           },
+                        )
+                      else
+                        CupertinoListTile(
+                          title: const Text('同步到系统日历'),
+                          trailing: CupertinoAsyncSwitch(
+                            value: _optionController.calendarSyncEnabled &&
+                                _optionController.hasCalendarPermission,
+                            onChanged: (value) async {
+                              await _optionController.toggleCalendarSync(
+                                  context, value);
+                            },
+                          ),
                         ),
-                      ),
                       CupertinoListTile(
                         title: Text(
                           '课表同步选项',

@@ -5,6 +5,7 @@ import 'package:celechron/model/scholar.dart';
 import 'package:celechron/services/diagnostic_log_service.dart';
 import 'package:celechron/services/refresh_coordinator.dart';
 import 'package:celechron/utils/json_utils.dart';
+import 'package:celechron/utils/platform_features.dart';
 import 'package:flutter/foundation.dart';
 import 'package:workmanager/workmanager.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -14,6 +15,9 @@ import '../utils/utils.dart';
 
 @pragma('vm:entry-point')
 void callbackDispatcher() {
+  // 桌面端没有 WorkManager 这个概念（应用常驻前台，刷新走普通定时器），
+  // 这里直接返回，不用把插件拉进来。
+  if (!PlatformFeatures.hasBackgroundRefresh) return;
   Workmanager().executeTask((task, inputData) async {
     switch (task) {
       case 'top.celechron.celechron.backgroundScholarFetch':

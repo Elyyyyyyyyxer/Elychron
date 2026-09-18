@@ -6,6 +6,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart' show Colors;
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
+import 'package:celechron/utils/platform_features.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:celechron/page/scholar/scholar_view.dart';
@@ -471,6 +472,9 @@ class _CelechronAppState extends State<CelechronApp>
   }
 
   void _initNotification() {
+    // 桌面端先不初始化：当前用的通知插件没有 Windows 实现，
+    // 直接调会抛 MissingPluginException（v1.5.0 先留壳子，等拍板选方案）。
+    if (!PlatformFeatures.hasSystemNotifications) return;
     FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
         FlutterLocalNotificationsPlugin();
     const initializationSettingsAndroid =
