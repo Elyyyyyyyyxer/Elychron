@@ -161,6 +161,14 @@ void main(List<String> args) async {
   // 普通用户不需要它：设置里有开关。这个参数是给开发者与脚本用的 ——
   // 带上 --lan 启动就把服务开起来，并把地址与配对码打到标准输出，
   // 于是验收入口（HTTP 面板、配对、拉取、推送）可以完全脚本化。
+  // 已经配对过的话，启动就把自动同步挂上（不必等用户进设置页点一下）
+  Future<void>.delayed(const Duration(seconds: 6), () {
+    try {
+      LanSyncClient.instance.load();
+      LanSyncClient.instance.startAutoSync();
+    } catch (_) {}
+  });
+
   // 调试：直接把局域网同步页推到最前面（用来截图看界面）
   if (PlatformFeatures.isDesktop && args.contains('--open-lan-page')) {
     Future<void>.delayed(const Duration(seconds: 4), () {

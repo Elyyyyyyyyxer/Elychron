@@ -3,7 +3,9 @@ import 'dart:async';
 import 'package:celechron/design/page_background.dart';
 import 'package:celechron/design/round_rectangle_card.dart';
 import 'package:celechron/design/sub_title.dart';
+import 'package:celechron/mod/lan_conflicts_page.dart';
 import 'package:celechron/mod/lan_sync_client.dart';
+import 'package:celechron/mod/lan_sync_conflict.dart';
 import 'package:celechron/mod/lan_sync_server.dart';
 import 'package:celechron/page/option/option_view.dart' show BackChervonRow;
 import 'package:flutter/cupertino.dart';
@@ -40,6 +42,9 @@ class _LanSyncPageState extends State<LanSyncPage> {
 
   _Step _step = _Step.choose;
   bool _busy = false;
+
+  /// 待处理的同步冲突条数（入口卡片上显示）
+  int get _conflictCount => LanSyncConflictStore.load().length;
 
   static const Color _accent = Color(0xFFFF699A);
 
@@ -197,6 +202,22 @@ class _LanSyncPageState extends State<LanSyncPage> {
         subtitle: '去连另一台已经点了「发起连接」的设备',
         onTap: _busy ? null : () => setState(() => _step = _Step.connecting),
       ),
+      if (_conflictCount > 0) ...[
+        const SizedBox(height: 20),
+        _actionTile(
+          title: '处理冲突（' + _conflictCount.toString() + ' 条）',
+          subtitle: '两边都改过的待办，逐字段选一下保留哪边',
+          accent: true,
+          onTap: () async {
+            await Navigator.of(context, rootNavigator: true).push(
+              CupertinoPageRoute<void>(
+                builder: (BuildContext context) => const LanConflictsPage(),
+              ),
+            );
+            if (mounted) setState(() {});
+          },
+        ),
+      ],
       if (_client.isPaired) ...[
         const SizedBox(height: 22),
         SubSubtitleRow(subtitle: '已连接 · ' + _client.address),
@@ -205,6 +226,16 @@ class _LanSyncPageState extends State<LanSyncPage> {
           title: '双向同步',
           subtitle: '先把本机改动推过去，再把对方的改动拉回来',
           onTap: _busy ? null : () => _sync(bothWays: true),
+        ),
+        _actionTile(
+          title: '变动时自动同步',
+          subtitle: _client.autoSyncEnabled
+              ? '本机一有改动（新增/修改待办）就自动推给对方，并每分钟拉一次'
+              : '已关闭：只能手动点上面的「双向同步」',
+          onTap: () async {
+            await _client.setAutoSync(!_client.autoSyncEnabled);
+            if (mounted) setState(() {});
+          },
         ),
         _actionTile(
           title: '断开连接',

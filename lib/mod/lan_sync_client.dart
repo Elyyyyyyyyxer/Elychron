@@ -42,6 +42,72 @@ class LanSyncClient {
   /// 最近一次失败的原因（界面展示用）
   String? lastError;
 
+  /// ===== 自动同步（用户要求：每有一次变动就同步一次）=====
+  ///
+  /// 做法：盯着本机待办列表，一变就**防抖 4 秒**后推给对方；
+  /// 另外每 60 秒拉一次对方的改动（否则对方改了这边不会知道）。
+  ///
+  /// 为什么不怕来回震荡：合并是幂等的（数据没变就什么都不更新），
+  /// 所以"拉取触发的变更"再推回去，对方那边不会产生新变更，链条自然停；
+  /// 同步进行中收到的变更事件也一律忽略（_syncing），彻底断掉自激。
+  static const String _kAutoSyncKey = 'lanSyncAuto';
+
+  bool _autoSync = true;
+  bool get autoSyncEnabled => _autoSync;
+  Timer? _debounce;
+  Timer? _pullTimer;
+  StreamSubscription<List<Task>>? _taskSub;
+  bool _syncing = false;
+
+  Future<void> setAutoSync(bool value) async {
+    _autoSync = value;
+    try {
+      await _db?.optionsBox.put(_kAutoSyncKey, value);
+    } catch (_) {}
+    if (value) {
+      startAutoSync();
+    } else {
+      stopAutoSync();
+    }
+  }
+
+  /// 开始自动同步（没配对、或用户关掉了，就什么都不做）
+  void startAutoSync() {
+    if (!isPaired || !_autoSync) return;
+    final list = _taskListOf();
+    if (list != null) {
+      _taskSub ??= list.listen((_) {
+        if (_syncing) return;
+        _debounce?.cancel();
+        _debounce = Timer(const Duration(seconds: 4), () {
+          if (!isPaired || !_autoSync) return;
+          push();
+        });
+      });
+    }
+    _pullTimer ??= Timer.periodic(const Duration(seconds: 60), (_) {
+      if (!isPaired || !_autoSync || _syncing) return;
+      pull();
+    });
+  }
+
+  void stopAutoSync() {
+    _debounce?.cancel();
+    _debounce = null;
+    _pullTimer?.cancel();
+    _pullTimer = null;
+    _taskSub?.cancel();
+    _taskSub = null;
+  }
+
+  RxList<Task>? _taskListOf() {
+    try {
+      return Get.find<RxList<Task>>(tag: 'taskList');
+    } catch (_) {
+      return null;
+    }
+  }
+
   bool get isPaired =>
       (_token?.isNotEmpty ?? false) && (_address?.isNotEmpty ?? false);
   String get address => _address ?? '';
@@ -59,6 +125,8 @@ class LanSyncClient {
     try {
       final box = _db?.optionsBox;
       final savedAddress = box?.get(_kAddressKey);
+      final savedAuto = box?.get(_kAutoSyncKey);
+      if (savedAuto is bool) _autoSync = savedAuto;
       final savedToken = box?.get(_kTokenKey);
       if (savedAddress is String && savedAddress.isNotEmpty)
         _address = savedAddress;
@@ -77,6 +145,7 @@ class LanSyncClient {
   }
 
   Future<void> forget() async {
+    stopAutoSync();
     _address = null;
     _token = null;
     try {
@@ -131,11 +200,22 @@ class LanSyncClient {
     _address = base;
     _token = token;
     await _persist();
+    startAutoSync();
     return true;
   }
 
   /// 拉取：把对方的整份数据带回来合并
   Future<bool> pull() async {
+    if (_syncing) return false;
+    _syncing = true;
+    try {
+      return await _pullInner();
+    } finally {
+      _syncing = false;
+    }
+  }
+
+  Future<bool> _pullInner() async {
     lastError = null;
     final raw = await _getBundleRaw();
     if (raw == null) return false;
@@ -153,6 +233,16 @@ class LanSyncClient {
 
   /// 推送：把本机整份数据发给对方（对方负责合并）
   Future<bool> push() async {
+    if (_syncing) return false;
+    _syncing = true;
+    try {
+      return await _pushInner();
+    } finally {
+      _syncing = false;
+    }
+  }
+
+  Future<bool> _pushInner() async {
     lastError = null;
     final db = _db;
     if (db == null) {
