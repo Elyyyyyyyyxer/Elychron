@@ -76,6 +76,14 @@ class DataBundle {
 
   // ===== S1 新增：用户数据里的其余部分 =====
   final List<FocusSession> focusSessions;
+
+  /// 专注记录 → 设备名（「电脑」「安卓」…）。见 mod/focus_device.dart：
+  /// 刻意不放进 Hive 的 FocusSession，避免动字段结构。
+  final Map<String, String> focusSessionDevices;
+
+  /// 本机删掉过的专注记录 uid（让删除也能同步过去）
+  final List<String> focusDeletedUids;
+
   final int focusWorkMinutes;
   final int focusRestMinutes;
   final bool focusRestNotify;
@@ -98,6 +106,8 @@ class DataBundle {
     required this.reminderMode,
     required this.alarmTheme,
     this.focusSessions = const <FocusSession>[],
+    this.focusSessionDevices = const <String, String>{},
+    this.focusDeletedUids = const <String>[],
     this.focusWorkMinutes = 60,
     this.focusRestMinutes = 15,
     this.focusRestNotify = true,
@@ -118,6 +128,9 @@ class DataBundle {
         'tagColors': tagColors,
         'focusSessions':
             focusSessions.map((session) => session.toJson()).toList(),
+        // 这两个是纯 JSON 的旁挂信息（设备标注、删除记录），不进 Hive 结构
+        'focusSessionDevices': focusSessionDevices,
+        'focusDeletedUids': focusDeletedUids,
         'secrets': SyncSecrets.filter(secrets),
         'settings': {
           'reminderMode': reminderMode,
@@ -184,6 +197,19 @@ class DataBundle {
     }
 
     // 专注记录（老备份没有这一段 → 空列表 ✓）
+    final focusSessionDevices = <String, String>{};
+    final rawDevices = json['focusSessionDevices'];
+    if (rawDevices is Map) {
+      rawDevices.forEach((key, value) {
+        focusSessionDevices[key.toString()] = value.toString();
+      });
+    }
+    final focusDeletedUids = <String>[];
+    final rawDeleted = json['focusDeletedUids'];
+    if (rawDeleted is List) {
+      focusDeletedUids.addAll(rawDeleted.map((item) => item.toString()));
+    }
+
     final focusSessions = <FocusSession>[];
     final rawSessions = json['focusSessions'];
     if (rawSessions is List) {
@@ -231,6 +257,8 @@ class DataBundle {
           ? settings['alarmTheme'] as String
           : 'tianyi',
       focusSessions: focusSessions,
+      focusSessionDevices: focusSessionDevices,
+      focusDeletedUids: focusDeletedUids,
       focusWorkMinutes: _int(settings['focusWorkMinutes'], 60),
       focusRestMinutes: _int(settings['focusRestMinutes'], 15),
       focusRestNotify: _bool(settings['focusRestNotify'], true),
@@ -294,11 +322,14 @@ class DataMerge {
   static List<FocusSession> mergeFocusSessions({
     required List<FocusSession> local,
     required List<FocusSession> remote,
+    Set<String> deletedUids = const <String>{},
   }) {
     final byUid = <String, FocusSession>{
       for (final session in local) session.uid: session,
     };
     for (final incoming in remote) {
+      // 本机删过的记录不再被带回来（2026-09-19 补：原来删除不参与同步）
+      if (deletedUids.contains(incoming.uid)) continue;
       final existing = byUid[incoming.uid];
       if (existing == null) {
         byUid[incoming.uid] = incoming;
@@ -315,6 +346,11 @@ class DataMerge {
         byUid[incoming.uid] = incoming;
       }
     }
+    // 删除是**双向**的：本机删的、对方删的都在 deletedUids 里，
+    // 所以本地那份里同 uid 的也要拿掉 —— 只过滤远端的话，
+    // 对方删掉的记录在自己这边还留着（测试抓到过）。
+    byUid.removeWhere((uid, _) => deletedUids.contains(uid));
+
     final list = byUid.values.toList()
       ..sort((a, b) => b.startedAt.compareTo(a.startedAt));
     return list;
@@ -330,6 +366,7 @@ class DataMerge {
     required List<TaskTombstone> localTombstones,
     required DataBundle incoming,
     List<FocusSession> localFocusSessions = const <FocusSession>[],
+    Set<String> localDeletedFocusUids = const <String>{},
     DateTime? localExportedAt,
   }) {
     // 墓碑并集
@@ -403,6 +440,7 @@ class DataMerge {
       focusSessions: mergeFocusSessions(
         local: localFocusSessions,
         remote: incoming.focusSessions,
+        deletedUids: incoming.focusDeletedUids.toSet(),
       ),
       // 设置项是一个整体，按谁导出的更晚取舍（两端同时改设置的场景极少，
       // 而且设置项都很小，冲突代价远低于逐项比较的复杂度）

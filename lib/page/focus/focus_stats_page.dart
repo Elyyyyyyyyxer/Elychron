@@ -1,6 +1,7 @@
 import 'package:celechron/design/app_accent.dart';
 import 'package:celechron/design/page_background.dart';
 import 'package:celechron/mod/course_mount_store.dart';
+import 'package:celechron/mod/focus_device.dart';
 import 'package:celechron/database/database_helper.dart';
 import 'package:celechron/model/focus_engine.dart';
 import 'package:celechron/model/focus_session.dart';
@@ -53,6 +54,9 @@ class _FocusStatsPageState extends State<FocusStatsPage> {
         tagsOfTask: _tagsOfTasks(), from: monthStart);
     final byCourse =
         FocusStats.byCourse(sessions, nameOf: _courseName, from: monthStart);
+    // 按设备：这条专注是在哪台机器上做的（电脑 / 安卓 …）
+    // 标注来自 mod/focus_device.dart（uid → 设备名，放 optionsBox，不动 Hive 结构）
+    final byDevice = _byDevice(sessions, monthStart);
     final list = sessions.where((s) => s.focusedTime > Duration.zero).toList();
 
     return CupertinoPageScaffold(
@@ -72,6 +76,9 @@ class _FocusStatsPageState extends State<FocusStatsPage> {
                   _weekChart(context, last7),
                   if (byTask.isNotEmpty) _byTask(context, byTask),
                   if (byCourse.isNotEmpty) _byCourse(context, byCourse),
+                  if (byDevice.isNotEmpty)
+                    _byCourse(context, byDevice,
+                        title: '本月按设备', subtitle: '同一条记录只会算在一台设备上'),
                   if (byTag.isNotEmpty) _byTag(context, byTag),
                   _sessionList(context, list, all),
                 ],
@@ -480,14 +487,49 @@ class _FocusStatsPageState extends State<FocusStatsPage> {
     return '已不在课表里的课程';
   }
 
+  /// 按设备统计本月时长
+  ///
+  /// 口径：每条记录按"产生它的那台设备"归类（见 FocusDevice.labelOf）。
+  /// 没标注过的（升级前的老记录、或对方还没同步过来的）统一归到「未标注」，
+  /// 而不是猜一个 —— 猜错比留白更让人困惑。
+  List<FocusLabelTotal> _byDevice(
+    List<FocusSession> sessions,
+    DateTime from,
+  ) {
+    final totals = <String, Duration>{};
+    for (final session in sessions) {
+      if (session.startedAt.isBefore(from)) continue;
+      final label = FocusDevice.labelOf(session.uid) ?? '未标注';
+      totals[label] = (totals[label] ?? Duration.zero) + session.focusedTime;
+    }
+    final counts = <String, int>{};
+    for (final session in sessions) {
+      if (session.startedAt.isBefore(from)) continue;
+      final label = FocusDevice.labelOf(session.uid) ?? '未标注';
+      counts[label] = (counts[label] ?? 0) + 1;
+    }
+    final list = totals.entries
+        .map((entry) => FocusLabelTotal(
+              label: entry.key,
+              taskUid: null,
+              focused: entry.value,
+              sessions: counts[entry.key] ?? 0,
+            ))
+        .toList();
+    list.sort((a, b) => b.focused.compareTo(a.focused));
+    return list;
+  }
+
   /// 按课程分布， 与专注对象同样的条形图，只是口径换成课程。
   ///
   /// 只统计**归到课程上**的会话（自由专注不进这里），这一点写在标题下面，
   /// 免得用户拿它去和总时长对不上。
   Widget _byCourse(
     BuildContext context,
-    List<FocusLabelTotal> totals,
-  ) {
+    List<FocusLabelTotal> totals, {
+    String title = '本月按课程',
+    String subtitle = '',
+  }) {
     final labelColor =
         CupertinoDynamicColor.resolve(CupertinoColors.secondaryLabel, context);
     final textColor = CupertinoTheme.of(context).textTheme.textStyle.color;
@@ -498,14 +540,16 @@ class _FocusStatsPageState extends State<FocusStatsPage> {
 
     return _card(
       children: [
-        const Text('本月按课程',
-            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+        Text(title,
+            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
         const SizedBox(height: 4),
         Text(
-          // 原来的写法是只算挂到课程上的专注；（自由专注）不计入这里，
-          // 用户 2026-09-17 反馈说看不懂，以为"自由专注永远不归属课程"。
-          // 其实自由专注只要**开始时正在上课**就会算到那门课上，所以这里说清楚。
-          '自由专注只要开始时正在上课，也会算到那门课上；合计 ${focusHuman(sum)}',
+          subtitle.isEmpty
+              // 原来的写法是只算挂到课程上的专注；（自由专注）不计入这里，
+              // 用户 2026-09-17 反馈说看不懂，以为"自由专注永远不归属课程"。
+              // 其实自由专注只要**开始时正在上课**就会算到那门课上，所以这里说清楚。
+              ? '自由专注只要开始时正在上课，也会算到那门课上；合计 ${focusHuman(sum)}'
+              : '${subtitle}；合计 ${focusHuman(sum)}',
           style: TextStyle(fontSize: 11, color: labelColor),
         ),
         const SizedBox(height: 10),
@@ -674,6 +718,8 @@ class _FocusStatsPageState extends State<FocusStatsPage> {
             focusHuman(s.focusedTime),
             if (s.restedOrZero > Duration.zero) '休息 ${focusHuman(s.restTime)}',
             if (s.rounds > 0) '${s.rounds} 轮',
+            // 这条是在哪台设备上专注的（用户要求：同步时标注设备名）
+            if (FocusDevice.labelOf(s.uid) != null) FocusDevice.labelOf(s.uid)!,
             if (!s.completed) '未正常结束',
           ];
           return GestureDetector(

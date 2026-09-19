@@ -4,6 +4,7 @@ import 'package:celechron/database/database_helper.dart';
 import 'package:celechron/mod/database_mod.dart';
 import 'package:celechron/model/option.dart';
 import 'package:celechron/model/task.dart';
+import 'package:celechron/mod/focus_device.dart';
 import 'package:celechron/utils/data_sync.dart';
 import 'package:path_provider/path_provider.dart';
 
@@ -34,6 +35,9 @@ class DataBackup {
       reminderMode: db.getReminderMode(),
       alarmTheme: db.getAlarmTheme(),
       focusSessions: db.getFocusSessions(),
+      // 设备标注与删除记录：纯 JSON 旁挂，不动 Hive 结构（mod/focus_device.dart）
+      focusSessionDevices: FocusDevice.labels(),
+      focusDeletedUids: FocusDevice.deletedUids().toList(),
       focusWorkMinutes: db.getFocusWorkMinutes(),
       focusRestMinutes: db.getFocusRestMinutes(),
       focusRestNotify: db.getFocusRestNotify(),
@@ -111,6 +115,10 @@ class DataBackup {
     }
 
     if (bundle == null) return;
+
+    // 设备标注与删除记录：导入 / 同步进来的那份也收下
+    await FocusDevice.adopt(bundle.focusSessionDevices);
+    await FocusDevice.adoptDeleted(bundle.focusDeletedUids);
 
     // 标签库：合并（保留本地顺序，追加远端新增的）
     final tags = db.getTagLibrary();

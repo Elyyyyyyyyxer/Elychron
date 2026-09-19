@@ -1,5 +1,6 @@
 import 'package:celechron/database/database_helper.dart';
 import 'package:celechron/mod/database_mod.dart';
+import 'package:celechron/mod/focus_device.dart';
 import 'package:celechron/mod/task_runtime_mod.dart';
 import 'package:celechron/model/task.dart';
 import 'package:celechron/page/task/task_controller.dart';
@@ -36,13 +37,25 @@ Future<Map<String, dynamic>> mergeIncomingBundle({
     for (final task in taskList) task.uid: task,
   };
 
+  // 专注记录：本机删过的 + 对方删过的，合并时都算"已删除"，
+  // 否则删掉的记录会被对方原样带回来（原来删除不参与同步）
+  final deletedFocusUids = <String>{
+    ...FocusDevice.deletedUids(),
+    ...incoming.focusDeletedUids,
+  };
+
   final result = DataMerge.merge(
     local: taskList.toList(),
     localTombstones: db.getTombstones(),
     incoming: incoming,
     localFocusSessions: db.getFocusSessions(),
+    localDeletedFocusUids: deletedFocusUids,
     localExportedAt: localExportedAt,
   );
+
+  // 收下对方的设备标注与删除记录（不动 Hive 结构，见 mod/focus_device.dart）
+  await FocusDevice.adopt(incoming.focusSessionDevices);
+  await FocusDevice.adoptDeleted(incoming.focusDeletedUids);
   await DataBackup.applyMerge(db, taskList, result, bundle: incoming);
   taskList.refresh();
 
