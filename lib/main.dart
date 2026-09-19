@@ -1,5 +1,6 @@
 import 'package:celechron/design/app_accent.dart';
 import 'package:celechron/mod/lan_sync_client.dart';
+import 'package:celechron/mod/lan_sync_page.dart';
 import 'package:celechron/mod/lan_sync_server.dart';
 import 'package:celechron/platform/desktop_cupertino_font.dart';
 
@@ -160,6 +161,15 @@ void main(List<String> args) async {
   // 普通用户不需要它：设置里有开关。这个参数是给开发者与脚本用的 ——
   // 带上 --lan 启动就把服务开起来，并把地址与配对码打到标准输出，
   // 于是验收入口（HTTP 面板、配对、拉取、推送）可以完全脚本化。
+  // 调试：直接把局域网同步页推到最前面（用来截图看界面）
+  if (PlatformFeatures.isDesktop && args.contains('--open-lan-page')) {
+    Future<void>.delayed(const Duration(seconds: 4), () {
+      try {
+        Get.to(() => const LanSyncPage());
+      } catch (_) {}
+    });
+  }
+
   // 自检：连自己开的那台服务器走一遍 配对 → 拉取 → 推送。
   // 用来验收**客户端**这条路（跨设备的真实验收还得两台设备）。
   if (PlatformFeatures.isDesktop && args.contains('--lan-selftest')) {
