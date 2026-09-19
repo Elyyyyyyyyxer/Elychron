@@ -1,4 +1,5 @@
 import 'package:celechron/model/task.dart';
+import 'package:celechron/design/app_route.dart';
 import 'package:celechron/page/task/task_controller.dart';
 import 'package:celechron/page/task/task_edit_page.dart';
 import 'package:flutter/cupertino.dart';
@@ -17,7 +18,7 @@ Future<void> openTaskDetail(
   String? highlightSubtaskUid,
 }) async {
   final res = await Navigator.of(context, rootNavigator: true).push<Task>(
-    CupertinoPageRoute<Task>(
+    appPageRoute<Task>(
       builder: (BuildContext context) => TaskEditPage(
         task,
         highlightSubtaskUid: highlightSubtaskUid,

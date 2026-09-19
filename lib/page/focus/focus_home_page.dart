@@ -1,4 +1,5 @@
 import 'package:celechron/design/app_accent.dart';
+import 'package:celechron/design/app_route.dart';
 import 'package:celechron/design/page_background.dart';
 import 'package:celechron/database/database_helper.dart';
 import 'package:celechron/model/focus_engine.dart';
@@ -631,7 +632,7 @@ class _FocusHomePageState extends State<FocusHomePage> {
                     size: 16, color: CupertinoColors.tertiaryLabel),
                 onTap: () async {
                   await Navigator.of(context, rootNavigator: true).push(
-                    CupertinoPageRoute<void>(
+                    appPageRoute<void>(
                       builder: (BuildContext context) => const FocusStatsPage(),
                     ),
                   );

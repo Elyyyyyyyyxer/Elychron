@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:celechron/design/dingtalk_menu.dart';
+import 'package:celechron/design/app_route.dart';
 import 'package:celechron/design/dingtalk_sheet.dart';
 import 'package:celechron/database/database_helper.dart';
 import 'package:celechron/mod/database_mod.dart';
@@ -202,7 +203,7 @@ class HomeModHooks {
       return;
     }
     Navigator.of(context, rootNavigator: true).push(
-      CupertinoPageRoute(
+      appPageRoute(
         builder: (BuildContext context) => TaskAlarmPage(task: task),
         fullscreenDialog: true,
       ),

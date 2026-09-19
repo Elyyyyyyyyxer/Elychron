@@ -10,6 +10,7 @@ import 'package:get/get.dart';
 
 // Custom widgets and colors
 import 'package:celechron/design/multiple_columns.dart';
+import 'package:celechron/design/app_route.dart';
 import 'package:celechron/design/two_line_card.dart';
 import 'package:celechron/design/round_rectangle_card.dart';
 import 'package:celechron/design/custom_colors.dart';
@@ -378,7 +379,7 @@ class ScholarPage extends StatelessWidget {
                                 ])),
                             onTap: () async =>
                                 Navigator.of(context, rootNavigator: true).push(
-                                    CupertinoPageRoute(
+                                    appPageRoute(
                                         builder: (context) => GradeDetailPage(),
                                         fullscreenDialog: true)),
                             child: Column(
@@ -577,7 +578,7 @@ class ScholarPage extends StatelessWidget {
                               titles: const ['课程', '学分', '考试'],
                               onTaps: [
                                 () => Navigator.of(context, rootNavigator: true)
-                                    .push(CupertinoPageRoute(
+                                    .push(appPageRoute(
                                         builder: (context) => CourseListPage(
                                             initialSemesterName:
                                                 _scholarController
@@ -585,7 +586,7 @@ class ScholarPage extends StatelessWidget {
                                         title: '课程')),
                                 null,
                                 () => Navigator.of(context, rootNavigator: true)
-                                    .push(CupertinoPageRoute(
+                                    .push(appPageRoute(
                                         builder: (context) => ExamListPage(
                                             initialSemesterName:
                                                 _scholarController
@@ -603,7 +604,7 @@ class ScholarPage extends StatelessWidget {
                                       onTap: () => Navigator.of(context,
                                                   rootNavigator: true)
                                               .push(
-                                            CupertinoPageRoute(
+                                            appPageRoute(
                                               builder: (context) =>
                                                   CourseSchedulePage(
                                                       _scholarController
@@ -631,7 +632,7 @@ class ScholarPage extends StatelessWidget {
                                       onTap: () => Navigator.of(context,
                                                   rootNavigator: true)
                                               .push(
-                                            CupertinoPageRoute(
+                                            appPageRoute(
                                               builder: (context) =>
                                                   CourseSchedulePage(
                                                       _scholarController
@@ -940,8 +941,7 @@ class ScholarPage extends StatelessWidget {
                         onTap: () async {
                           FocusManager.instance.primaryFocus?.unfocus();
                           Navigator.of(context, rootNavigator: true).push(
-                              CupertinoPageRoute(
-                                  builder: (context) => SearchPage()));
+                              appPageRoute(builder: (context) => SearchPage()));
                         },
                         focusNode: AlwaysDisabledFocusNode(),
                         // Do not popup the keyboard

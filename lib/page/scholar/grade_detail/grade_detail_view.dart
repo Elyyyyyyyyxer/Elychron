@@ -1,4 +1,5 @@
 import 'package:celechron/design/custom_colors.dart';
+import 'package:celechron/design/app_route.dart';
 import 'package:celechron/utils/tuple.dart';
 import 'package:celechron/model/grade.dart';
 import 'package:celechron/model/semester.dart';
@@ -468,7 +469,7 @@ class GradeDetailPage extends StatelessWidget {
                         ),
                         onPressed: () {
                           Navigator.of(context).push(
-                            CupertinoPageRoute(
+                            appPageRoute(
                               builder: (context) => WeightedGpaPage(),
                             ),
                           );

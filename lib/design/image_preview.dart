@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:celechron/design/app_route.dart';
 
 import 'package:flutter/cupertino.dart';
 import 'package:share_plus/share_plus.dart';
@@ -50,7 +51,7 @@ Future<void> showImagePreview(
   required String name,
 }) {
   return Navigator.of(context, rootNavigator: true).push(
-    CupertinoPageRoute<void>(
+    appPageRoute<void>(
       fullscreenDialog: true,
       builder: (BuildContext context) =>
           _ImagePreviewPage(path: path, name: name),

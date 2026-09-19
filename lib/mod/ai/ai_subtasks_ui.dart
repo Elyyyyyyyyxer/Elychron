@@ -1,4 +1,5 @@
 import 'package:celechron/mod/ai/ai_settings_page.dart';
+import 'package:celechron/design/app_route.dart';
 import 'package:celechron/mod/ai/ai_task_draft.dart';
 import 'package:celechron/mod/ai/deepseek.dart';
 import 'package:celechron/model/task.dart';
@@ -32,7 +33,7 @@ Future<bool> _ensureAiReady(BuildContext context) async {
           onPressed: () {
             Navigator.of(context).pop();
             Navigator.of(context, rootNavigator: true).push(
-              CupertinoPageRoute<void>(
+              appPageRoute<void>(
                 builder: (BuildContext context) => const AiSettingsPage(),
               ),
             );

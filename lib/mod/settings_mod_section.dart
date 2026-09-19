@@ -1,4 +1,5 @@
 import 'package:celechron/design/alarm_reliability.dart';
+import 'package:celechron/design/app_route.dart';
 import 'package:celechron/utils/platform_features.dart';
 import 'package:celechron/design/alarm_theme_picker.dart';
 import 'package:celechron/design/dingtalk_sheet.dart';
@@ -119,7 +120,7 @@ List<Widget> modReminderTiles(
         trailing: const BackChervonRow(),
         onTap: () async {
           await Navigator.of(context, rootNavigator: true).push(
-            CupertinoPageRoute<void>(
+            appPageRoute<void>(
               builder: (BuildContext context) => const FocusStatsPage(),
             ),
           );
@@ -277,7 +278,7 @@ Widget modDataSection(
               trailing: const BackChervonRow(),
               onTap: () async {
                 await Navigator.of(context, rootNavigator: true).push(
-                  CupertinoPageRoute<void>(
+                  appPageRoute<void>(
                     builder: (BuildContext context) => const LanSyncPage(),
                   ),
                 );
@@ -552,7 +553,7 @@ Widget modAiSection(
                 await AiConfig.load();
                 if (!context.mounted) return;
                 await Navigator.of(context, rootNavigator: true).push(
-                  CupertinoPageRoute<void>(
+                  appPageRoute<void>(
                     builder: (BuildContext context) => const AiSettingsPage(),
                   ),
                 );

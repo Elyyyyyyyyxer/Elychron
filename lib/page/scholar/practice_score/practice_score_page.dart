@@ -1,4 +1,5 @@
 import 'package:celechron/design/multiple_columns.dart';
+import 'package:celechron/design/app_route.dart';
 import 'package:celechron/model/practice_score_item.dart';
 import 'package:celechron/model/scholar.dart';
 import 'package:flutter/cupertino.dart';
@@ -21,7 +22,7 @@ class PracticeScoreColumns extends StatelessWidget {
 
     void open(int categoryId) {
       Navigator.of(context).push(
-        CupertinoPageRoute<void>(
+        appPageRoute<void>(
           builder: (_) => PracticeScorePage(
             scholar: scholar,
             categoryId: categoryId,
@@ -157,7 +158,7 @@ class PracticeScorePage extends StatelessWidget {
 
   void _openDetail(BuildContext context, PracticeScoreItem item) {
     Navigator.of(context).push(
-      CupertinoPageRoute<void>(
+      appPageRoute<void>(
         builder: (_) => PracticeScoreDetailPage(item: item),
       ),
     );

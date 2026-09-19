@@ -1,5 +1,6 @@
 import 'package:celechron/model/task.dart';
 import 'package:celechron/design/page_background.dart';
+import 'package:celechron/design/app_route.dart';
 import 'package:celechron/page/task/task_edit_page.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:get/get.dart';
@@ -21,7 +22,7 @@ Future<void> openTaskSearch(BuildContext context) async {
     // 拿不到就当空列表，页面会提示"没有找到"
   }
   await Navigator.of(context, rootNavigator: true).push<void>(
-    CupertinoPageRoute<void>(
+    appPageRoute<void>(
       builder: (BuildContext context) => TaskSearchPage(tasks: tasks),
     ),
   );
@@ -113,7 +114,7 @@ class _TaskSearchPageState extends State<TaskSearchPage> {
       behavior: HitTestBehavior.opaque,
       onTap: () async {
         await Navigator.of(context, rootNavigator: true).push(
-          CupertinoPageRoute<void>(
+          appPageRoute<void>(
             builder: (BuildContext context) => TaskEditPage(task),
           ),
         );

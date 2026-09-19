@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:celechron/design/dingtalk_menu.dart';
+import 'package:celechron/design/app_route.dart';
 import 'package:celechron/design/round_rectangle_card.dart';
 import 'package:celechron/design/sub_title.dart';
 import 'package:celechron/database/database_helper.dart';
@@ -246,7 +247,7 @@ class _CourseMaterialsSectionState extends State<CourseMaterialsSection> {
       return;
     }
     await Navigator.of(context, rootNavigator: true).push<void>(
-      CupertinoPageRoute<void>(
+      appPageRoute<void>(
         fullscreenDialog: true,
         builder: (BuildContext context) => _CourseImagePreview(
           file: file,

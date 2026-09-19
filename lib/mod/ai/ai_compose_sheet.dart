@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:celechron/design/app_route.dart';
 
 import 'package:celechron/mod/ai/ai_image.dart';
 import 'package:celechron/mod/ai/ai_settings_page.dart';
@@ -205,7 +206,7 @@ class _AiComposeSheetState extends State<_AiComposeSheet> {
           padding: const EdgeInsets.symmetric(vertical: 12),
           onPressed: () async {
             await Navigator.of(context, rootNavigator: true).push(
-              CupertinoPageRoute<void>(
+              appPageRoute<void>(
                 builder: (BuildContext context) => const AiSettingsPage(),
               ),
             );

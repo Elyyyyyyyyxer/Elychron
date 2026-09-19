@@ -552,6 +552,10 @@ class _CelechronAppState extends State<CelechronApp>
               ),
             );
           },
+          // 桌面端：Get.to / Get.off 这类 GetX 通道也一律不做转场
+          // （用户："电脑上不需要什么丝滑的动画，点击就切换"）
+          defaultTransition:
+              PlatformFeatures.isDesktop ? Transition.noTransition : null,
           title: 'Elychron',
           // ===== v1.5.0：桌面端换一套壳（左侧竖导航 + 中间功能页）=====
           // 里面装的页面与手机端完全一样，只是一行业务逻辑都没有重写。

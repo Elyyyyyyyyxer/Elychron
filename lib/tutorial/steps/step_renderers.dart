@@ -1,4 +1,5 @@
 import 'package:celechron/design/app_accent.dart';
+import 'package:celechron/design/app_route.dart';
 import 'package:celechron/tutorial/tutorial_model.dart';
 import 'package:flutter/cupertino.dart';
 
@@ -287,7 +288,7 @@ class _TutorialImage extends StatelessWidget {
         GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTap: () => Navigator.of(context).push(
-            CupertinoPageRoute<void>(
+            appPageRoute<void>(
               fullscreenDialog: true,
               builder: (context) => _TutorialImageFullScreen(asset: asset),
             ),

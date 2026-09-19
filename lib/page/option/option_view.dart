@@ -10,6 +10,7 @@ import 'package:url_launcher/url_launcher.dart' show launchUrl;
 import 'package:celechron/model/calendar_to_ical.dart';
 import 'package:celechron/model/option.dart';
 import 'package:celechron/design/cupertino_async_switch.dart';
+import 'package:celechron/design/app_route.dart';
 import 'package:celechron/design/page_background.dart';
 // ===== MOD: 导出/导入实现见 lib/mod/settings_data_actions.dart =====
 
@@ -194,7 +195,7 @@ class OptionPage extends StatelessWidget {
                           trailing: const BackChervonRow(),
                           onTap: () async {
                             Navigator.of(context, rootNavigator: true).push(
-                                CupertinoPageRoute(
+                                appPageRoute(
                                     builder: (context) =>
                                         CourseIdMappingEditPage()));
                           },
@@ -413,7 +414,7 @@ class OptionPage extends StatelessWidget {
                     trailing: const BackChervonRow(),
                     onTap: () {
                       Navigator.of(context, rootNavigator: true).push(
-                        CupertinoPageRoute(
+                        appPageRoute(
                           builder: (context) => DiagnosticLogPage(
                             version: _optionController.celechronVersion,
                           ),
@@ -442,7 +443,7 @@ class OptionPage extends StatelessWidget {
                       ),
                       onTap: () async {
                         Navigator.of(context, rootNavigator: true).push(
-                            CupertinoPageRoute(
+                            appPageRoute(
                                 builder: (context) => CreditsPage(
                                     version:
                                         _optionController.celechronVersion)));
@@ -453,7 +454,7 @@ class OptionPage extends StatelessWidget {
                       trailing: const BackChervonRow(),
                       onTap: () async {
                         Navigator.of(context, rootNavigator: true).push(
-                            CupertinoPageRoute(
+                            appPageRoute(
                                 builder: (context) =>
                                     const CustomLicensePage()));
                       },

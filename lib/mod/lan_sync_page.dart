@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:celechron/design/page_background.dart';
+import 'package:celechron/design/app_route.dart';
 import 'package:celechron/design/round_rectangle_card.dart';
 import 'package:celechron/design/sub_title.dart';
 import 'package:celechron/mod/lan_conflicts_page.dart';
@@ -210,7 +211,7 @@ class _LanSyncPageState extends State<LanSyncPage> {
           accent: true,
           onTap: () async {
             await Navigator.of(context, rootNavigator: true).push(
-              CupertinoPageRoute<void>(
+              appPageRoute<void>(
                 builder: (BuildContext context) => const LanConflictsPage(),
               ),
             );

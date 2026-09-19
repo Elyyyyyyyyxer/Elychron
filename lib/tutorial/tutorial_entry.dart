@@ -1,4 +1,5 @@
 import 'package:celechron/design/app_accent.dart';
+import 'package:celechron/design/app_route.dart';
 import 'package:celechron/design/page_background.dart';
 import 'package:celechron/tutorial/tutorial_model.dart';
 import 'package:celechron/tutorial/tutorial_page.dart';
@@ -23,7 +24,7 @@ Future<void> openTutorial(BuildContext context, String id) async {
   final tutorial = TutorialRegistry.byId(id);
   if (tutorial == null) return;
   await Navigator.of(context, rootNavigator: true).push<void>(
-    CupertinoPageRoute<void>(
+    appPageRoute<void>(
       builder: (BuildContext context) => TutorialPage(tutorial: tutorial),
     ),
   );
@@ -34,7 +35,7 @@ Future<void> openTutorialCenter(BuildContext context) async {
   // 进过一次就记下来：第一次打开 App 的引导弹窗据此判断要不要弹
   await TutorialStore.instance.markCenterOpened();
   await Navigator.of(context, rootNavigator: true).push<void>(
-    CupertinoPageRoute<void>(
+    appPageRoute<void>(
       builder: (BuildContext context) => const TutorialCenterPage(),
     ),
   );
@@ -109,7 +110,7 @@ Future<bool> showTutorialOnce(
   }
   if (!context.mounted) return false;
   await Navigator.of(context, rootNavigator: true).push<void>(
-    CupertinoPageRoute<void>(
+    appPageRoute<void>(
       builder: (BuildContext context) => TutorialPage(tutorial: tutorial),
     ),
   );

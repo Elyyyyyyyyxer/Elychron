@@ -1,4 +1,5 @@
 import 'package:celechron/design/dingtalk_sheet.dart';
+import 'package:celechron/design/app_route.dart';
 import 'package:celechron/page/option/diagnostic_log_page.dart';
 import 'package:celechron/page/option/option_controller.dart';
 import 'package:celechron/page/scholar/scholar_controller.dart';
@@ -89,7 +90,7 @@ Future<void> showLoginConnectivityPanel(BuildContext context) async {
         onTap: () {
           Navigator.of(context).pop();
           Navigator.of(context, rootNavigator: true).push(
-            CupertinoPageRoute(
+            appPageRoute(
               builder: (context) => DiagnosticLogPage(
                 version: Get.isRegistered<OptionController>()
                     ? Get.find<OptionController>().celechronVersion

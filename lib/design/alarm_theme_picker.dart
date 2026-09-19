@@ -1,6 +1,7 @@
 import 'dart:ui';
 
 import 'package:celechron/design/alarm_theme.dart';
+import 'package:celechron/design/app_route.dart';
 import 'package:celechron/database/database_helper.dart';
 import 'package:celechron/mod/database_mod.dart';
 import 'package:celechron/model/task.dart';
@@ -49,7 +50,7 @@ class _AlarmThemePickerSheetState extends State<_AlarmThemePickerSheet> {
     if (!mounted) return;
     // 选中后直接打开真实的闹钟页做预览
     await Navigator.of(context, rootNavigator: true).push(
-      CupertinoPageRoute(
+      appPageRoute(
         fullscreenDialog: true,
         builder: (BuildContext context) => TaskAlarmPage(
           task: _previewTask(),

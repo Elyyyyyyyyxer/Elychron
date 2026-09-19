@@ -1,4 +1,5 @@
 import 'dart:math';
+import 'package:celechron/design/app_route.dart';
 
 import 'package:celechron/page/scholar/grade_detail/grade_detail_controller.dart';
 import 'package:flutter/cupertino.dart';
@@ -75,7 +76,7 @@ class _GradeCardState extends State<GradeCard>
         isDown = false;
         if (isCancel) {
           if (!_gradeDetailController.customGpaMode.value) {
-            navigator!.push(CupertinoPageRoute(
+            navigator!.push(appPageRoute(
                 builder: (context) =>
                     CourseDetailPage(courseId: widget.grade.id)));
           }
@@ -94,7 +95,7 @@ class _GradeCardState extends State<GradeCard>
         _animationController.forward();
         await Future.delayed(const Duration(milliseconds: 125));
         isDown = false;
-        navigator!.push(CupertinoPageRoute(
+        navigator!.push(appPageRoute(
             builder: (context) => CourseDetailPage(courseId: widget.grade.id)));
         _animationController.reverse();
       },

@@ -1,4 +1,5 @@
 import 'package:celechron/design/custom_decoration.dart';
+import 'package:celechron/design/app_route.dart';
 import 'package:celechron/design/dingtalk_menu.dart';
 import 'package:celechron/design/tag_manager.dart';
 import 'package:celechron/design/task_filter_sheets.dart';
@@ -446,7 +447,7 @@ class TaskPage extends StatelessWidget {
               }
               // 直接导航到编辑页面
               Task? res = await Navigator.of(context, rootNavigator: true).push(
-                CupertinoPageRoute(
+                appPageRoute(
                   builder: (context) => TaskEditPage(deadline),
                 ),
               );

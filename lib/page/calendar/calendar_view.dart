@@ -1,4 +1,5 @@
 import 'package:celechron/design/app_accent.dart';
+import 'package:celechron/design/app_route.dart';
 import 'package:celechron/design/card_flip.dart';
 import 'package:celechron/design/custom_decoration.dart';
 import 'package:celechron/design/sub_title.dart';
@@ -601,7 +602,7 @@ class CalendarPage extends StatelessWidget {
     return RoundRectangleCard(
       onTap: () async {
         Task? res = await Navigator.of(context).push(
-          CupertinoPageRoute(
+          appPageRoute(
             builder: (BuildContext context) => TaskEditPage(task),
           ),
         );
@@ -706,7 +707,7 @@ class CalendarPage extends StatelessWidget {
       onTap:
           (period.type == PeriodType.classes || period.type == PeriodType.test)
               ? () async => Navigator.of(context, rootNavigator: true).push(
-                  CupertinoPageRoute(
+                  appPageRoute(
                       builder: (context) =>
                           CourseDetailPage(courseId: period.fromUid)))
               : (period.type == PeriodType.user
