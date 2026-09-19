@@ -1,4 +1,6 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
+import 'package:get/get.dart';
 
 /// ===== 桌面端导航状态（v1.5.0）=====
 ///
@@ -19,6 +21,25 @@ class DesktopNav {
 
   static void go(int i) {
     if (i < 0 || i >= count) return;
+    index.value = i;
+  }
+
+  /// 切到某个主页面：**先把二级页面退掉，再换页**
+  ///
+  /// 为什么必须退（用户 2026-09-19 反馈"在某个二级页面时点侧边栏切不过去"）：
+  /// 左侧导航栏挂在根 Navigator **外面**（这样 push 二级页面时它不会被盖住），
+  /// 而二级页面（新建待办、课程详情……）只盖住右边的内容区 ——
+  /// 于是用户点侧边栏时"看得见导航栏，点了却没反应"：
+  /// 新选的主页面在二级页面**下面**，得先把上面那层退掉才看得见。
+  static void goAndPop(int i, {NavigatorState? navigator}) {
+    if (i < 0 || i >= count) return;
+    try {
+      // 平时用 App 的根 navigator；测试可以注入一个自己的（见 desktop_nav_test）
+      final state = navigator ?? Get.key.currentState;
+      state?.popUntil((Route<dynamic> route) => route.isFirst);
+    } catch (_) {
+      // 拿不到 navigator（启动早期等）就只换页
+    }
     index.value = i;
   }
 }

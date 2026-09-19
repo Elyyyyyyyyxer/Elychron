@@ -75,8 +75,9 @@ class _DesktopFrameState extends State<DesktopFrame> {
 
   // 分享 / 闹钟 / 教程跳转这套钩子两端共用；桌面端"跳标签"就是换 DesktopNav.index
   late final HomeModHooks _modHooks = HomeModHooks(
-    jumpToTaskTab: () => DesktopNav.go(1),
-    jumpToTab: DesktopNav.go,
+    // 教程里"去试试"、分享进来跳待办……同样要先退掉二级页面
+    jumpToTaskTab: () => DesktopNav.goAndPop(1),
+    jumpToTab: DesktopNav.goAndPop,
   );
 
   @override
@@ -132,7 +133,7 @@ class _DesktopFrameState extends State<DesktopFrame> {
                       builder: (BuildContext context, int index, Widget? _) =>
                           DesktopNavRail(
                         index: index,
-                        onSelect: DesktopNav.go,
+                        onSelect: DesktopNav.goAndPop,
                       ),
                     ),
                     Expanded(
