@@ -1,4 +1,5 @@
 import 'package:celechron/design/app_accent.dart';
+import 'package:celechron/design/context_menu.dart';
 import 'package:celechron/design/app_route.dart';
 import 'package:celechron/design/page_background.dart';
 import 'package:celechron/tutorial/tutorial_model.dart';
@@ -240,7 +241,7 @@ class _TutorialRow extends StatelessWidget {
         CupertinoDynamicColor.resolve(CupertinoColors.secondaryLabel, context);
 
     // CupertinoListTile 没有 onLongPress，所以外面包一层手势做"长按重置"
-    return GestureDetector(
+    return contextMenuRegion(
       onLongPress: seen
           ? () async {
               await store.reset(tutorial);

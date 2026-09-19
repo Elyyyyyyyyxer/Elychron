@@ -10,6 +10,7 @@ import 'package:url_launcher/url_launcher.dart' show launchUrl;
 import 'package:celechron/model/calendar_to_ical.dart';
 import 'package:celechron/model/option.dart';
 import 'package:celechron/design/cupertino_async_switch.dart';
+import 'package:celechron/design/context_menu.dart';
 import 'package:celechron/design/app_route.dart';
 import 'package:celechron/design/page_background.dart';
 // ===== MOD: 导出/导入实现见 lib/mod/settings_data_actions.dart =====
@@ -94,7 +95,7 @@ class OptionPage extends StatelessWidget {
                         // 长按 = 查看哪些接口是通的（用户 2026-09-17 要求）。
                         // CupertinoListTile 没有 onLongPress，所以外面套一层
                         // GestureDetector， 点按仍然走列表项自己的 onTap。
-                        GestureDetector(
+                        contextMenuRegion(
                           onLongPress: () =>
                               showLoginConnectivityPanel(context),
                           child: CupertinoListTile(

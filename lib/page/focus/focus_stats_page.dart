@@ -1,4 +1,5 @@
 import 'package:celechron/design/app_accent.dart';
+import 'package:celechron/design/context_menu.dart';
 import 'package:celechron/design/page_background.dart';
 import 'package:celechron/mod/course_mount_store.dart';
 import 'package:celechron/mod/focus_device.dart';
@@ -722,7 +723,7 @@ class _FocusStatsPageState extends State<FocusStatsPage> {
             if (FocusDevice.labelOf(s.uid) != null) FocusDevice.labelOf(s.uid)!,
             if (!s.completed) '未正常结束',
           ];
-          return GestureDetector(
+          return contextMenuRegion(
             behavior: HitTestBehavior.opaque,
             onLongPress: () => _confirmDelete(context, s),
             child: Padding(

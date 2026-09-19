@@ -1,4 +1,5 @@
 import 'package:celechron/utils/platform_features.dart';
+import 'package:celechron/design/context_menu.dart';
 import 'package:celechron/mod/login_criteria.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:get/get.dart';
@@ -139,7 +140,7 @@ class _LoginFormState extends State<LoginForm> {
                           autocorrect: false,
                           enableSuggestions: false,
                           obscureText: !_showPassword,
-                          suffix: GestureDetector(
+                          suffix: contextMenuRegion(
                             behavior: HitTestBehavior.opaque,
                             onTap: () =>
                                 setState(() => _showPassword = !_showPassword),
@@ -171,100 +172,108 @@ class _LoginFormState extends State<LoginForm> {
                           ),
                         )),
                     const SizedBox(height: 16),
-                    Obx(() => CupertinoButton(
-                        // ===== MOD: 长按看"哪些接口是通的"（2026-09-17 用户要求）=====
-                        // 登录不上时最想知道的就是这个；放在这里不用先登录进 App。
+                    // 桌面端：右键也能看"哪些接口是通的"
+                    // （CupertinoButton 只有 onLongPress，没有右键，所以外面套一层）
+                    Obx(() => contextMenuRegion(
                         onLongPress: () => showLoginConnectivityPanel(context),
-                        onPressed: () async {
-                          buttonPressed.value = true;
-                          var scholar = Get.find<Rx<Scholar>>(tag: 'scholar');
-                          scholar.update((val) {
-                            val!.username = usernameController.value.text;
-                            val.password = passwordController.value.text;
-                            val.login().then((value) async {
-                              // ===== MOD: 判据只看统一身份认证（见 LoginCriteria）=====
-                              // 以前要求所有子站都登录成功，教务网一崩就登录失败并
-                              // 卡在登录页；现在身份通过就进 App，子站失败只做提示。
-                              if (LoginCriteria.succeeded(value)) {
-                                await val.refresh(
-                                    onPartialUpdate: scholar.refresh);
-                                scholar.refresh();
-                                buttonPressed.value = false;
-                                _optionController.pushOnGradeChange =
-                                    PlatformFeatures.hasBackgroundRefresh;
-                                if (context.mounted) {
-                                  Navigator.of(context).pop();
-                                }
-                                final hint = LoginCriteria.degradedHint(value);
-                                if (hint.isNotEmpty && context.mounted) {
-                                  showCupertinoDialog(
-                                      context: context,
-                                      builder: (context) =>
-                                          CupertinoAlertDialog(
-                                            title: const Text('部分模块暂不可用'),
-                                            content: Text(hint),
+                        child: CupertinoButton(
+                            // ===== MOD: 长按看"哪些接口是通的"（2026-09-17 用户要求）=====
+                            // 登录不上时最想知道的就是这个；放在这里不用先登录进 App。
+                            onLongPress: () =>
+                                showLoginConnectivityPanel(context),
+                            onPressed: () async {
+                              buttonPressed.value = true;
+                              var scholar =
+                                  Get.find<Rx<Scholar>>(tag: 'scholar');
+                              scholar.update((val) {
+                                val!.username = usernameController.value.text;
+                                val.password = passwordController.value.text;
+                                val.login().then((value) async {
+                                  // ===== MOD: 判据只看统一身份认证（见 LoginCriteria）=====
+                                  // 以前要求所有子站都登录成功，教务网一崩就登录失败并
+                                  // 卡在登录页；现在身份通过就进 App，子站失败只做提示。
+                                  if (LoginCriteria.succeeded(value)) {
+                                    await val.refresh(
+                                        onPartialUpdate: scholar.refresh);
+                                    scholar.refresh();
+                                    buttonPressed.value = false;
+                                    _optionController.pushOnGradeChange =
+                                        PlatformFeatures.hasBackgroundRefresh;
+                                    if (context.mounted) {
+                                      Navigator.of(context).pop();
+                                    }
+                                    final hint =
+                                        LoginCriteria.degradedHint(value);
+                                    if (hint.isNotEmpty && context.mounted) {
+                                      showCupertinoDialog(
+                                          context: context,
+                                          builder: (context) =>
+                                              CupertinoAlertDialog(
+                                                title: const Text('部分模块暂不可用'),
+                                                content: Text(hint),
+                                                actions: [
+                                                  CupertinoDialogAction(
+                                                    child: const Text('知道了'),
+                                                    onPressed: () =>
+                                                        Navigator.of(context)
+                                                            .pop(),
+                                                  ),
+                                                ],
+                                              ));
+                                    }
+                                  } else {
+                                    buttonPressed.value = false;
+                                    if (!context.mounted) return;
+                                    // ===== MOD: 报错只说人话 =====
+                                    // 以前把异常原文整段贴出来（含 URL / 状态码 / 响应片段），
+                                    // 一屏都放不下，用户完全看不懂。现在压成一句，
+                                    // 细节去设置 → 诊断与测试里看。
+                                    final raw = value.firstWhere(
+                                        (e) => e != null && e.trim().isNotEmpty,
+                                        orElse: () => null);
+                                    showCupertinoDialog(
+                                        context: context,
+                                        builder: (context) {
+                                          return CupertinoAlertDialog(
+                                            title: const Text('登录失败'),
+                                            content: Padding(
+                                              padding:
+                                                  const EdgeInsets.only(top: 8),
+                                              child: Text(
+                                                FriendlyError.short(raw,
+                                                    fallback: '登录没成功，请稍后重试'),
+                                                style: const TextStyle(
+                                                    fontSize: 15),
+                                              ),
+                                            ),
                                             actions: [
                                               CupertinoDialogAction(
                                                 child: const Text('知道了'),
-                                                onPressed: () =>
-                                                    Navigator.of(context).pop(),
-                                              ),
+                                                onPressed: () async {
+                                                  Navigator.of(context).pop();
+                                                },
+                                              )
                                             ],
-                                          ));
-                                }
-                              } else {
-                                buttonPressed.value = false;
-                                if (!context.mounted) return;
-                                // ===== MOD: 报错只说人话 =====
-                                // 以前把异常原文整段贴出来（含 URL / 状态码 / 响应片段），
-                                // 一屏都放不下，用户完全看不懂。现在压成一句，
-                                // 细节去设置 → 诊断与测试里看。
-                                final raw = value.firstWhere(
-                                    (e) => e != null && e.trim().isNotEmpty,
-                                    orElse: () => null);
-                                showCupertinoDialog(
-                                    context: context,
-                                    builder: (context) {
-                                      return CupertinoAlertDialog(
-                                        title: const Text('登录失败'),
-                                        content: Padding(
-                                          padding:
-                                              const EdgeInsets.only(top: 8),
-                                          child: Text(
-                                            FriendlyError.short(raw,
-                                                fallback: '登录没成功，请稍后重试'),
-                                            style:
-                                                const TextStyle(fontSize: 15),
-                                          ),
-                                        ),
-                                        actions: [
-                                          CupertinoDialogAction(
-                                            child: const Text('知道了'),
-                                            onPressed: () async {
-                                              Navigator.of(context).pop();
-                                            },
-                                          )
-                                        ],
-                                      );
-                                    });
-                              }
-                              ECardWidgetMessenger.update();
-                            });
-                          });
-                        },
-                        color: buttonPressed.value
-                            ? CupertinoColors.inactiveGray
-                            : CupertinoColors.activeBlue,
-                        child: SizedBox(
-                          height: 24,
-                          width: 60,
-                          child: Center(
-                              child: buttonPressed.value
-                                  ? const CupertinoActivityIndicator()
-                                  : const Text('登录',
-                                      style: TextStyle(
-                                          color: CupertinoColors.white))),
-                        ))),
+                                          );
+                                        });
+                                  }
+                                  ECardWidgetMessenger.update();
+                                });
+                              });
+                            },
+                            color: buttonPressed.value
+                                ? CupertinoColors.inactiveGray
+                                : CupertinoColors.activeBlue,
+                            child: SizedBox(
+                              height: 24,
+                              width: 60,
+                              child: Center(
+                                  child: buttonPressed.value
+                                      ? const CupertinoActivityIndicator()
+                                      : const Text('登录',
+                                          style: TextStyle(
+                                              color: CupertinoColors.white))),
+                            )))),
                   ],
                 ),
               ),

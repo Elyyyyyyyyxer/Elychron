@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:celechron/design/dingtalk_menu.dart';
+import 'package:celechron/design/context_menu.dart';
 import 'package:celechron/design/app_route.dart';
 import 'package:celechron/design/round_rectangle_card.dart';
 import 'package:celechron/design/sub_title.dart';
@@ -154,7 +155,7 @@ class _CourseMaterialsSectionState extends State<CourseMaterialsSection> {
     // 图片能预览就预览（2026-09-17 用户要求）：这一块本来就是放课件和板书照片的，
     // 只给一个文件名 + 图标的话，用户得一个个点开才知道哪张是哪张。
     final previewable = isImage && _previewFile(item) != null;
-    return GestureDetector(
+    return contextMenuRegion(
       behavior: HitTestBehavior.opaque,
       onTap: () => previewable ? _preview(item) : _open(item),
       // CupertinoListTile 那套用不上，重命名/删除走长按菜单

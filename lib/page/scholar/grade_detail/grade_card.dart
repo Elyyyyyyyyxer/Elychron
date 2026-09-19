@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'package:celechron/design/app_route.dart';
+import 'package:celechron/design/context_menu.dart';
 
 import 'package:celechron/page/scholar/grade_detail/grade_detail_controller.dart';
 import 'package:flutter/cupertino.dart';
@@ -62,7 +63,7 @@ class _GradeCardState extends State<GradeCard>
     var isDown = false;
     var isCancel = false;
 
-    return GestureDetector(
+    return contextMenuRegion(
       onTapDown: (_) async {
         isDown = true;
         isCancel = false;

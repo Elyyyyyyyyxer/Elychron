@@ -1,4 +1,5 @@
 import 'package:flutter/cupertino.dart';
+import 'package:celechron/design/context_menu.dart';
 
 class TwoLineCard extends StatefulWidget {
   final String title;
@@ -219,7 +220,7 @@ class _TwoLineCardState extends State<TwoLineCard>
     );
 
     return widget.animate
-        ? GestureDetector(
+        ? contextMenuRegion(
             onTapDown: (_) async {
               isDown = true;
               isCancel = false;
@@ -242,7 +243,7 @@ class _TwoLineCardState extends State<TwoLineCard>
           )
         : (widget.onTap == null && widget.onLongPress == null)
             ? core
-            : GestureDetector(
+            : contextMenuRegion(
                 onTap: widget.onTap != null ? () => widget.onTap!.call() : null,
                 onLongPress: widget.onLongPress,
                 child: core,

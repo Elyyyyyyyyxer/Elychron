@@ -1,4 +1,5 @@
 import 'package:celechron/design/alarm_reliability.dart';
+import 'package:celechron/design/context_menu.dart';
 import 'package:celechron/design/app_route.dart';
 import 'package:celechron/utils/platform_features.dart';
 import 'package:celechron/design/alarm_theme_picker.dart';
@@ -141,7 +142,7 @@ List<Widget> modReminderTiles(
             final choice = DesktopAlertSoundStore.current;
             // CupertinoListTile 自己没有 onLongPress，所以外面套一层 GestureDetector：
             // 长按 = 切换音源（彩蛋），单击 = 发一条测试提醒。
-            return GestureDetector(
+            return contextMenuRegion(
               onLongPress: () async {
                 final next = await DesktopAlertSoundStore.toggle();
                 if (context.mounted) setState(() {});

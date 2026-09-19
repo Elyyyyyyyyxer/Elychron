@@ -1,4 +1,5 @@
 import 'package:celechron/design/custom_colors.dart';
+import 'package:celechron/design/context_menu.dart';
 import 'package:celechron/design/app_route.dart';
 import 'package:celechron/utils/tuple.dart';
 import 'package:celechron/model/grade.dart';
@@ -445,7 +446,7 @@ class GradeDetailPage extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     if (_gradeDetailController.customGpaMode.value)
-                      GestureDetector(
+                      contextMenuRegion(
                         child: CupertinoButton(
                           padding: EdgeInsets.zero,
                           child: const Text('长按清空'),
