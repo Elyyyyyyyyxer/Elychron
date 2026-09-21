@@ -11,6 +11,7 @@ import 'package:celechron/mod/friendly_error.dart';
 import 'package:celechron/mod/login_connectivity.dart';
 import 'package:celechron/database/database_helper.dart';
 import 'package:celechron/mod/database_mod.dart';
+import 'package:celechron/mod/auto_relogin.dart';
 
 class LoginForm extends StatefulWidget {
   const LoginForm({super.key});
@@ -193,6 +194,14 @@ class _LoginFormState extends State<LoginForm> {
                                   // 以前要求所有子站都登录成功，教务网一崩就登录失败并
                                   // 卡在登录页；现在身份通过就进 App，子站失败只做提示。
                                   if (LoginCriteria.succeeded(value)) {
+                                    // 登录成功：擦掉"主动退登"记号
+                                    final loginDb =
+                                        Get.find<DatabaseHelper>(tag: 'db');
+                                    await loginDb.setUserLoggedOut(false);
+                                    await loginDb.rememberAccount(
+                                      usernameController.value.text,
+                                      passwordController.value.text,
+                                    );
                                     await val.refresh(
                                         onPartialUpdate: scholar.refresh);
                                     scholar.refresh();

@@ -1,4 +1,6 @@
 import 'package:celechron/design/app_accent.dart';
+import 'package:celechron/mod/auto_relogin.dart';
+import 'package:celechron/mod/login_criteria.dart';
 import 'package:celechron/mod/lan_sync_client.dart';
 import 'package:celechron/mod/lan_sync_page.dart';
 import 'package:celechron/mod/lan_sync_server.dart';
@@ -34,6 +36,7 @@ import 'package:celechron/worker/ecard_widget_messenger.dart';
 import 'package:celechron/worker/todo_widget_messenger.dart';
 import 'package:celechron/database/database_helper.dart';
 import 'package:celechron/utils/global.dart';
+import 'package:celechron/mod/database_mod.dart';
 
 /// 启动路标总开关。**发布版保持 false。**
 ///
@@ -135,9 +138,41 @@ void main(List<String> args) async {
   if (restoredScholar.isLogan && credentialsMissing) {
     debugPrint(
         '[Elychron] 恢复的登录状态缺少凭据（学号=${restoredUsername.isEmpty ? "空" : "有"}、'
-        '密码=${restoredPassword.isEmpty ? "空" : "有"}）→ 按需要重新登录处理');
-    restoredScholar.isLogan = false;
-    restoredScholar.sessionInvalid = true;
+        '密码=${restoredPassword.isEmpty ? "空" : "有"}）');
+    // ===== MOD: 先尝试**自动重登**（用户 2026-09-21 要求）=====
+    // 覆盖安装后密钥库读不出来是常见事，让用户无感恢复；
+    // 但**用户主动退登过就绝不自动登回去**（记号见 mod/auto_relogin.dart）。
+    final loggedOutByChoice = db.userLoggedOutByChoice;
+    final remembered = await db.rememberedAccount();
+    if (shouldAutoRelogin(
+      appThinksLoggedIn: true,
+      loggedOutByUser: loggedOutByChoice,
+      username: remembered.username,
+      password: remembered.password,
+    )) {
+      debugPrint('[Elychron] 尝试自动重登…');
+      try {
+        restoredScholar.username = remembered.username;
+        restoredScholar.password = remembered.password;
+        final result = await restoredScholar.login();
+        if (LoginCriteria.succeeded(result)) {
+          await db.setUserLoggedOut(false);
+          await db.rememberAccount(remembered.username, remembered.password);
+          debugPrint('[Elychron] 自动重登成功');
+        } else {
+          restoredScholar.isLogan = false;
+          restoredScholar.sessionInvalid = true;
+        }
+      } catch (error) {
+        debugPrint('[Elychron] 自动重登失败：$error');
+        restoredScholar.isLogan = false;
+        restoredScholar.sessionInvalid = true;
+      }
+    } else {
+      debugPrint('[Elychron] 不自动重登（主动退登过=$loggedOutByChoice）→ 按需要重新登录处理');
+      restoredScholar.isLogan = false;
+      restoredScholar.sessionInvalid = true;
+    }
   }
 
   Get.put(restoredScholar.obs, tag: 'scholar');

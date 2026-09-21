@@ -20,6 +20,7 @@ import 'package:celechron/model/calendar_to_ical.dart';
 
 import 'package:celechron/utils/task_reminder.dart';
 import 'package:celechron/utils/utils.dart';
+import 'package:celechron/mod/auto_relogin.dart';
 
 const _backgroundScholarFetchTask =
     'top.celechron.celechron.backgroundScholarFetch';
@@ -215,6 +216,12 @@ class OptionController extends GetxController {
   bool get hasNewVersion => _fuse.value.hasNewVersion;
 
   Future<void> logout() async {
+    // 留一个明确记号：用户是**主动**退的，以后绝不能被自动重登悄悄登回去
+    // （账号密码退出时不删，所以不能靠"手上有没有密码"判断，见 mod/auto_relogin.dart）
+    try {
+      final db = Get.find<DatabaseHelper>(tag: 'db');
+      await db.setUserLoggedOut(true);
+    } catch (_) {}
     await scholar.value.logout();
     scholar.refresh();
     pushOnGradeChange = false;
