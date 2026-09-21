@@ -4,6 +4,7 @@ import 'package:celechron/database/database_helper.dart';
 import 'package:celechron/mod/database_mod.dart';
 import 'package:celechron/model/option.dart';
 import 'package:celechron/model/task.dart';
+import 'package:celechron/mod/course_mount_tombstone.dart';
 import 'package:celechron/mod/focus_device.dart';
 import 'package:celechron/utils/data_sync.dart';
 import 'package:path_provider/path_provider.dart';
@@ -45,6 +46,8 @@ class DataBackup {
       brightnessMode: db.getBrightnessMode().index,
       courseIdMapping:
           db.getCourseIdMappingList().map((item) => item.toJson()).toList(),
+      // 课程挂载的删除墓碑（补全墓碑机制：原来删掉的资料/评论会被同步回来）
+      courseMountDeleted: CourseMountTombstone.all().toList(),
       // 课程挂载（课程详情里的资料与评论）—— 2026-09-19 用户反馈"没同步"：
       // 它们存在 courseMountBox 里，原来压根没进同步协议
       courseMounts: db.courseMountBox
@@ -132,7 +135,14 @@ class DataBackup {
 
     // 课程挂载：并集写回（资料按 path 去重、评论按"内容+时间"去重，谁都不丢）
     if (bundle.courseMounts.isNotEmpty) {
+      // 本机删过的 + 对方删过的，合并时都算"已删除"
+      final deletedKeys = <String>{
+        ...CourseMountTombstone.all(),
+        ...bundle.courseMountDeleted,
+      };
+      await CourseMountTombstone.adopt(bundle.courseMountDeleted);
       final merged = DataMerge.mergeCourseMounts(
+        deletedKeys: deletedKeys,
         db.courseMountBox
             .toMap()
             .entries

@@ -102,6 +102,9 @@ class DataBundle {
   /// （CourseMount.toMap 的形状；**只作为值塞进 Map**，不新增 Hive typeId）
   final List<Map<String, dynamic>> courseMounts;
 
+  /// 课程挂载已删除的键（资料/评论的墓碑，见 mod/course_mount_tombstone.dart）
+  final List<String> courseMountDeleted;
+
   /// 白名单内的密钥（见 [SyncSecrets]）。**用户可关掉密钥同步**，关掉时这里是空的。
   final Map<String, String> secrets;
 
@@ -124,6 +127,7 @@ class DataBundle {
     this.brightnessMode = 0,
     this.courseIdMapping = const <Map<String, dynamic>>[],
     this.courseMounts = const <Map<String, dynamic>>[],
+    this.courseMountDeleted = const <String>[],
     this.secrets = const <String, String>{},
   });
 
@@ -142,6 +146,7 @@ class DataBundle {
         'focusSessionDevices': focusSessionDevices,
         'focusDeletedUids': focusDeletedUids,
         'courseMounts': courseMounts,
+        'courseMountDeleted': courseMountDeleted,
         'secrets': SyncSecrets.filter(secrets),
         'settings': {
           'reminderMode': reminderMode,
@@ -193,6 +198,12 @@ class DataBundle {
             TaskJson.tombstoneFromJson(Map<String, dynamic>.from(item));
         if (tombstone != null) tombstones.add(tombstone);
       }
+    }
+
+    final courseMountDeleted = <String>[];
+    final rawMountDeleted = json['courseMountDeleted'];
+    if (rawMountDeleted is List) {
+      courseMountDeleted.addAll(rawMountDeleted.map((item) => item.toString()));
     }
 
     final courseMounts = <Map<String, dynamic>>[];
@@ -285,6 +296,7 @@ class DataBundle {
       brightnessMode: _int(settings['brightnessMode'], 0),
       courseIdMapping: courseIdMapping,
       courseMounts: courseMounts,
+      courseMountDeleted: courseMountDeleted,
       secrets: SyncSecrets.filter(secrets),
     );
   }
@@ -387,8 +399,9 @@ class DataMerge {
   /// 以后再补（写在 docs/V1.5.0_DESKTOP.md 的同步一节里）。
   static List<Map<String, dynamic>> mergeCourseMounts(
     List<Map<String, dynamic>> local,
-    List<Map<String, dynamic>> remote,
-  ) {
+    List<Map<String, dynamic>> remote, {
+    Set<String> deletedKeys = const <String>{},
+  }) {
     final byCourse = <String, Map<String, dynamic>>{};
     final seenAttachments = <String, Set<String>>{};
     final seenComments = <String, Set<String>>{};
@@ -411,6 +424,8 @@ class DataMerge {
           if (item is! Map) continue;
           final path = item['path']?.toString() ?? '';
           if (path.isEmpty || paths.contains(path)) continue;
+          // 删过的资料不再带回来（墓碑，2026-09-19 补全）
+          if (deletedKeys.contains(courseId + '|a|' + path)) continue;
           paths.add(path);
           attachments.add(Map<String, dynamic>.from(item));
         }
@@ -420,6 +435,8 @@ class DataMerge {
               '@' +
               (item['time']?.toString() ?? '');
           if (keys.contains(key)) continue;
+          // 删过的评论不再带回来
+          if (deletedKeys.contains(courseId + '|c|' + key)) continue;
           keys.add(key);
           comments.add(Map<String, dynamic>.from(item));
         }

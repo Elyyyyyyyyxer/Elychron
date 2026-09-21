@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 import 'dart:io';
 
 import 'package:celechron/database/database_helper.dart';
@@ -8,6 +9,7 @@ import 'package:celechron/model/task.dart';
 import 'package:celechron/utils/data_backup.dart';
 import 'package:celechron/utils/data_sync.dart';
 import 'package:get/get.dart';
+import 'package:path_provider/path_provider.dart';
 
 /// ===== 局域网同步的**客户端**（去连另一台设备的 Elychron）=====
 ///
@@ -225,10 +227,135 @@ class LanSyncClient {
       return false;
     }
     final result = await mergeIncomingBundle(incoming: incoming);
+    // 合并完把"对方有、本机没有"的附件文件取回来（附件本体同步）
+    final fetched = await _fetchMissingFiles();
     lastSyncAt = DateTime.now();
-    lastSyncSummary = (result['summary'] ?? '').toString();
+    final summary = (result['summary'] ?? '').toString();
+    lastSyncSummary = fetched > 0 ? '$summary，取回 $fetched 个文件' : summary;
     lastSyncDeviceId = (result['device'] ?? '').toString();
     return true;
+  }
+
+  /// 把对方有、本机没有的附件文件取回来
+  ///
+  /// 为什么需要它：同步协议里附件只有 name/path/size，**二进制不过网** ——
+  /// 于是另一台设备上那一行在、点开是空的。这里在每次拉取之后扫一遍
+  /// 待办附件与课程挂载的资料，缺哪个就按 path 找对方要（GET /file），
+  /// 存进本机的附件目录，并把记录里的 path 改成本机路径。
+  ///
+  /// 只在"本机确实没有这个文件"时才下载，所以重复同步不会反复传。
+  Future<int> _fetchMissingFiles() async {
+    final db = _db;
+    final list = _taskListOf();
+    if (db == null || list == null) return 0;
+    Directory? attachDir;
+    var fetched = 0;
+    var tasksChanged = false;
+
+    Future<String?> grab(String remotePath) async {
+      if (remotePath.isEmpty) return null;
+      if (await File(remotePath).exists()) return null; // 本机已经有了
+      if (attachDir == null) {
+        final docs = await getApplicationDocumentsDirectory();
+        final dir = Directory(docs.path + '/task_attachments');
+        if (!await dir.exists()) await dir.create(recursive: true);
+        attachDir = dir;
+      }
+      final dir = attachDir!;
+      final name = remotePath.split(RegExp(r'[\\/]')).last;
+      final safeName = name.isEmpty ? 'attachment' : name;
+      final stamp = DateTime.now().microsecondsSinceEpoch.toString();
+      final target = File(dir.path + '/' + stamp + '_' + safeName);
+      final raw = await _downloadFile(remotePath);
+      if (raw == null) return null;
+      await target.writeAsBytes(raw);
+      fetched++;
+      return target.path;
+    }
+
+    // (1) 待办附件
+    final tasks = list.toList();
+    for (final task in tasks) {
+      for (final attachment in task.attachments) {
+        final local = await grab(attachment.path);
+        if (local != null) {
+          attachment.path = local;
+          tasksChanged = true;
+        }
+      }
+    }
+    if (tasksChanged) {
+      await db.setTaskList(list);
+      list.refresh();
+    }
+
+    // (2) 课程挂载的资料
+    for (final entry in db.courseMountBox.toMap().entries) {
+      final courseId = entry.key.toString();
+      final raw = entry.value;
+      if (raw is! Map) continue;
+      final attachments = (raw['attachments'] as List?)?.toList();
+      if (attachments == null || attachments.isEmpty) continue;
+      var changed = false;
+      for (final item in attachments) {
+        if (item is! Map) continue;
+        final local = await grab(item['path']?.toString() ?? '');
+        if (local != null) {
+          item['path'] = local;
+          changed = true;
+        }
+      }
+      if (changed) {
+        await db.courseMountBox.put(courseId, <String, dynamic>{
+          'attachments': attachments,
+          'comments': raw['comments'] ?? const <dynamic>[],
+        });
+      }
+    }
+    return fetched;
+  }
+
+  /// 从对方下载一个文件（附件本体）
+  Future<Uint8List?> _downloadFile(String remotePath) async {
+    if (!isPaired) return null;
+    final client = _client();
+    try {
+      final uri = Uri.parse(address + '/file').replace(
+        queryParameters: <String, String>{'path': remotePath},
+      );
+      final request = await client.getUrl(uri);
+      request.headers.set('X-Lan-Token', _token!);
+      final response =
+          await request.close().timeout(const Duration(seconds: 60));
+      if (response.statusCode != 200) {
+        lastError = _explain(response.statusCode, '');
+        return null;
+      }
+      final builder = BytesBuilder(copy: false);
+      await for (final chunk in response) {
+        builder.add(chunk);
+      }
+      return builder.takeBytes();
+    } on Object catch (error) {
+      lastError = _explainNetwork(error);
+      return null;
+    } finally {
+      client.close(force: true);
+    }
+  }
+
+  /// 任何一处用户数据变了都调它：防抖后推给对方
+  ///
+  /// 用户要求「每次操作都会进行一次同步」。原来只盯着待办列表
+  /// （见 startAutoSync），专注记录 / 课程挂载 / 标签这些改了不会触发推送，
+  /// 要等下一次手动同步或别的操作顺带推。现在这些写库的地方都调这个，口径统一。
+  void scheduleSync() {
+    if (!isPaired || !_autoSync || _syncing) return;
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(seconds: 4), () {
+      if (!isPaired || !_autoSync) return;
+      push();
+    });
   }
 
   /// 推送：把本机整份数据发给对方（对方负责合并）

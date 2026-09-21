@@ -3,6 +3,7 @@ import 'package:celechron/model/course_mount.dart';
 import 'package:celechron/model/period.dart';
 import 'package:celechron/model/scholar.dart';
 import 'package:celechron/model/task.dart';
+import 'package:celechron/mod/lan_sync_client.dart';
 import 'package:get/get.dart';
 
 /// 课程挂载（资料 / 评论 / 关联待办）的读写入口。
@@ -25,6 +26,9 @@ extension CourseMountStore on DatabaseHelper {
   /// （用户把资料和评论都删完时，盒子里不该留一条空壳）。
   Future<void> saveCourseMount(CourseMount mount) async {
     if (mount.courseId.isEmpty) return;
+    // 课程挂载是用户数据：存完就让局域网同步推一次
+    // （用户要求"每次操作都会进行一次同步"，见 LanSyncClient.scheduleSync）
+    LanSyncClient.instance.scheduleSync();
     if (mount.isEmpty) {
       await courseMountBox.delete(mount.courseId);
       return;

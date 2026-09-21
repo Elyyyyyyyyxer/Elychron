@@ -11,6 +11,7 @@ import 'package:celechron/model/task.dart';
 import 'package:celechron/utils/data_backup.dart';
 import 'package:celechron/utils/data_sync.dart';
 import 'package:get/get.dart';
+import 'package:path_provider/path_provider.dart';
 
 /// ============ 局域网直连同步（本机当服务器）============
 ///
@@ -169,6 +170,15 @@ class LanSyncServer {
         if (request.method == 'GET') return await _sendBundle(response);
         if (request.method == 'POST') return await _receiveBundle(request);
       }
+      // 附件本体（2026-09-19）：同步协议里只有 name/path/size，二进制得单独取
+      if (path == '/file' && request.method == 'GET') {
+        if (!_authorized(request)) {
+          return _json(response, HttpStatus.unauthorized,
+              {'ok': false, 'error': '未配对或配对已失效，请重新输入配对码'});
+        }
+        return await _sendFile(
+            response, request.uri.queryParameters['path'] ?? '');
+      }
       if (path == '/meta' && request.method == 'GET') {
         if (!_authorized(request)) {
           return _json(response, HttpStatus.unauthorized,
@@ -271,6 +281,41 @@ class LanSyncServer {
         .set('Access-Control-Allow-Headers', 'Content-Type, X-Lan-Token');
     response.write(jsonEncode(data));
     await response.close();
+  }
+
+  /// 送一个附件文件（附件本体同步用）
+  ///
+  /// ⚠️ 安全：path 是**对方给的**，不设防就等于把整台机器的读文件权限交出去。
+  /// 所以只允许取"应用自己文档目录里"的文件（附件都复制在那下面），
+  /// 解析后的绝对路径必须以文档目录开头，否则一律 403。
+  Future<void> _sendFile(HttpResponse response, String rawPath) async {
+    final path = rawPath.isEmpty ? '' : Uri.decodeComponent(rawPath);
+    if (path.isEmpty) {
+      return _json(
+          response, HttpStatus.badRequest, {'ok': false, 'error': '缺少 path'});
+    }
+    try {
+      final docs = (await getApplicationDocumentsDirectory()).absolute.path;
+      final resolved = File(path).absolute.path;
+      if (!resolved.startsWith(docs)) {
+        return _json(response, HttpStatus.forbidden,
+            {'ok': false, 'error': '只能取应用自己目录里的文件'});
+      }
+      final file = File(resolved);
+      if (!await file.exists()) {
+        return _json(
+            response, HttpStatus.notFound, {'ok': false, 'error': '对方没有这个文件'});
+      }
+      response.statusCode = HttpStatus.ok;
+      response.headers.contentType = ContentType.binary;
+      response.headers.contentLength = await file.length();
+      response.headers.set('Cache-Control', 'no-store');
+      await response.addStream(file.openRead());
+      await response.close();
+    } catch (error) {
+      return _json(response, HttpStatus.internalServerError,
+          {'ok': false, 'error': '$error'});
+    }
   }
 
   Future<void> _text(HttpResponse response, int status, String text) async {

@@ -91,6 +91,53 @@ void main() {
     expect(merged, isEmpty);
   });
 
+  test('删掉的资料带墓碑 → 不会再被对方带回来', () {
+    final merged = DataMerge.mergeCourseMounts(
+      <Map<String, dynamic>>[
+        mount('CS101', attachments: <Map<String, dynamic>>[file('/keep.pdf')]),
+      ],
+      <Map<String, dynamic>>[
+        mount('CS101', attachments: <Map<String, dynamic>>[
+          file('/keep.pdf'),
+          file('/deleted.pdf'),
+        ]),
+      ],
+      deletedKeys: <String>{'CS101|a|/deleted.pdf'},
+    );
+    final paths = (merged.single['attachments'] as List<dynamic>)
+        .map((item) => (item as Map)['path'])
+        .toList();
+    expect(paths, <String>['/keep.pdf']);
+  });
+
+  test('删掉的评论同样不会回来（键是 内容@时间）', () {
+    final merged = DataMerge.mergeCourseMounts(
+      <Map<String, dynamic>>[mount('CS101')],
+      <Map<String, dynamic>>[
+        mount('CS101', comments: <Map<String, dynamic>>[comment('删了它', 100)]),
+      ],
+      deletedKeys: <String>{'CS101|c|删了它@100'},
+    );
+    expect((merged.single['comments'] as List<dynamic>), isEmpty);
+  });
+
+  test('墓碑只对那一门课那一条生效，不会误伤别的', () {
+    final merged = DataMerge.mergeCourseMounts(
+      <Map<String, dynamic>>[],
+      <Map<String, dynamic>>[
+        mount('CS101', attachments: <Map<String, dynamic>>[file('/a.pdf')]),
+        mount('CS102', attachments: <Map<String, dynamic>>[file('/a.pdf')]),
+      ],
+      deletedKeys: <String>{'CS101|a|/a.pdf'},
+    );
+    final byCourse = <String, int>{
+      for (final item in merged)
+        item['courseId'] as String: (item['attachments'] as List).length,
+    };
+    expect(byCourse['CS101'], 0);
+    expect(byCourse['CS102'], 1);
+  });
+
   test('两边都空 → 空', () {
     expect(
       DataMerge.mergeCourseMounts(

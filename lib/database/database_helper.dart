@@ -25,6 +25,7 @@ import 'adapters/fuse_adapter.dart';
 import 'adapters/course_id_map_adapter.dart';
 import 'adapters/focus_adapter.dart';
 import 'package:celechron/mod/focus_device.dart';
+import 'package:celechron/mod/lan_sync_client.dart';
 
 /// 启动路标总开关（和 `main.dart` 里那个是**各自文件私有**的同名开关，互不干扰）。
 ///
@@ -597,12 +598,15 @@ class DatabaseHelper {
     await focusBox.put(session.uid, session);
     // 记一笔"这条是本机产生的"（不动 Hive 结构，见 mod/focus_device.dart）
     await FocusDevice.remember(session.uid);
+    // 专注记录也是用户数据：存完就让局域网同步推一次
+    LanSyncClient.instance.scheduleSync();
   }
 
   Future<void> deleteFocusSession(String uid) async {
     await focusBox.delete(uid);
     // 记住"这条被删了"，同步时不再被对方带回来（原来删除不参与同步）
     await FocusDevice.rememberDeleted(uid);
+    LanSyncClient.instance.scheduleSync();
   }
 
   GpaStrategy getGpaStrategy() {

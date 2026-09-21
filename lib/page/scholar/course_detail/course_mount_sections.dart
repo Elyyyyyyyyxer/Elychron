@@ -7,6 +7,7 @@ import 'package:celechron/design/round_rectangle_card.dart';
 import 'package:celechron/design/sub_title.dart';
 import 'package:celechron/database/database_helper.dart';
 import 'package:celechron/mod/course_mount_store.dart';
+import 'package:celechron/mod/course_mount_tombstone.dart';
 import 'package:celechron/model/course_mount.dart';
 import 'package:celechron/model/task.dart';
 import 'package:celechron/page/task/task_controller.dart';
@@ -66,6 +67,10 @@ class _CourseMaterialsSectionState extends State<CourseMaterialsSection> {
   }
 
   Future<void> _remove(int index) async {
+    // 记墓碑：否则另一端同步时会把这条资料原样带回来（用户要求补全墓碑）
+    final removedAttachment = _mount.attachments[index];
+    await CourseMountTombstone.remember(CourseMountTombstone.attachmentKey(
+        _mount.courseId, removedAttachment.path));
     _mount.attachments.removeAt(index);
     await _persist();
   }
@@ -395,6 +400,12 @@ class _CourseCommentsSectionState extends State<CourseCommentsSection> {
   }
 
   Future<void> _remove(int index) async {
+    // 记墓碑（评论没有 uid，用"内容+时间"当身份）
+    final removedComment = _mount.comments[index];
+    await CourseMountTombstone.remember(CourseMountTombstone.commentKey(
+        _mount.courseId,
+        removedComment.content,
+        removedComment.time.millisecondsSinceEpoch));
     _mount.comments.removeAt(index);
     await _db.saveCourseMount(_mount);
     if (mounted) setState(() {});
