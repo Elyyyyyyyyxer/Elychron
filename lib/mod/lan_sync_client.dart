@@ -75,6 +75,13 @@ class LanSyncClient {
 
   /// 开始自动同步（没配对、或用户关掉了，就什么都不做）
   void startAutoSync() {
+    // ignore: avoid_print
+    print('[lan] startAutoSync paired=' +
+        isPaired.toString() +
+        ' auto=' +
+        _autoSync.toString() +
+        ' addr=' +
+        address);
     if (!isPaired || !_autoSync) return;
     final list = _taskListOf();
     if (list != null) {
@@ -89,7 +96,13 @@ class LanSyncClient {
     }
     _pullTimer ??= Timer.periodic(const Duration(seconds: 60), (_) {
       if (!isPaired || !_autoSync || _syncing) return;
-      pull();
+      pull().then((bool ok) {
+        // ignore: avoid_print
+        print('[lan] auto pull ok=' +
+            ok.toString() +
+            ' err=' +
+            (lastError ?? '-'));
+      });
     });
   }
 
@@ -220,7 +233,11 @@ class LanSyncClient {
   Future<bool> _pullInner() async {
     lastError = null;
     final raw = await _getBundleRaw();
-    if (raw == null) return false;
+    if (raw == null) {
+      // ignore: avoid_print
+      print('[lan] pull FAILED to ' + address + ' err=' + (lastError ?? '-'));
+      return false;
+    }
     final incoming = DataBundle.decode(raw);
     if (incoming == null) {
       lastError = '对方给的不是 Elychron 的数据';
