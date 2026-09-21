@@ -45,6 +45,16 @@ class DataBackup {
       brightnessMode: db.getBrightnessMode().index,
       courseIdMapping:
           db.getCourseIdMappingList().map((item) => item.toJson()).toList(),
+      // 课程挂载（课程详情里的资料与评论）—— 2026-09-19 用户反馈"没同步"：
+      // 它们存在 courseMountBox 里，原来压根没进同步协议
+      courseMounts: db.courseMountBox
+          .toMap()
+          .entries
+          .map((entry) => <String, dynamic>{
+                'courseId': entry.key.toString(),
+                ...Map<String, dynamic>.from(entry.value as Map),
+              })
+          .toList(),
       secrets:
           includeSecrets ? await db.getSyncSecrets() : const <String, String>{},
     );
@@ -119,6 +129,29 @@ class DataBackup {
     // 设备标注与删除记录：导入 / 同步进来的那份也收下
     await FocusDevice.adopt(bundle.focusSessionDevices);
     await FocusDevice.adoptDeleted(bundle.focusDeletedUids);
+
+    // 课程挂载：并集写回（资料按 path 去重、评论按"内容+时间"去重，谁都不丢）
+    if (bundle.courseMounts.isNotEmpty) {
+      final merged = DataMerge.mergeCourseMounts(
+        db.courseMountBox
+            .toMap()
+            .entries
+            .map((entry) => <String, dynamic>{
+                  'courseId': entry.key.toString(),
+                  ...Map<String, dynamic>.from(entry.value as Map),
+                })
+            .toList(),
+        bundle.courseMounts,
+      );
+      for (final mount in merged) {
+        final courseId = mount['courseId']?.toString() ?? '';
+        if (courseId.isEmpty) continue;
+        await db.courseMountBox.put(courseId, <String, dynamic>{
+          'attachments': mount['attachments'] ?? const <dynamic>[],
+          'comments': mount['comments'] ?? const <dynamic>[],
+        });
+      }
+    }
 
     // 标签库：合并（保留本地顺序，追加远端新增的）
     final tags = db.getTagLibrary();

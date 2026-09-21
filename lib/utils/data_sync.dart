@@ -93,6 +93,15 @@ class DataBundle {
   /// 课程代码自定义映射（用户在设置里手配的，所以要同步）。用 CourseIdMap 的 JSON 形式。
   final List<Map<String, dynamic>> courseIdMapping;
 
+  /// 课程挂载（课程详情里的**资料**与**评论**）
+  ///
+  /// 2026-09-19 用户反馈「课程挂载的文件、评论好像没有同步」—— 确实没有：
+  /// 它们存在 DatabaseHelper.courseMountBox（以课程代码为键），而 DataBundle
+  /// 从来没带过它。这里补上：每项形如
+  /// {'courseId': …, 'attachments': […], 'comments': […]}
+  /// （CourseMount.toMap 的形状；**只作为值塞进 Map**，不新增 Hive typeId）
+  final List<Map<String, dynamic>> courseMounts;
+
   /// 白名单内的密钥（见 [SyncSecrets]）。**用户可关掉密钥同步**，关掉时这里是空的。
   final Map<String, String> secrets;
 
@@ -114,6 +123,7 @@ class DataBundle {
     this.reminderLeadMinutes = 30,
     this.brightnessMode = 0,
     this.courseIdMapping = const <Map<String, dynamic>>[],
+    this.courseMounts = const <Map<String, dynamic>>[],
     this.secrets = const <String, String>{},
   });
 
@@ -131,6 +141,7 @@ class DataBundle {
         // 这两个是纯 JSON 的旁挂信息（设备标注、删除记录），不进 Hive 结构
         'focusSessionDevices': focusSessionDevices,
         'focusDeletedUids': focusDeletedUids,
+        'courseMounts': courseMounts,
         'secrets': SyncSecrets.filter(secrets),
         'settings': {
           'reminderMode': reminderMode,
@@ -181,6 +192,14 @@ class DataBundle {
         final tombstone =
             TaskJson.tombstoneFromJson(Map<String, dynamic>.from(item));
         if (tombstone != null) tombstones.add(tombstone);
+      }
+    }
+
+    final courseMounts = <Map<String, dynamic>>[];
+    final rawMounts = json['courseMounts'];
+    if (rawMounts is List) {
+      for (final item in rawMounts) {
+        if (item is Map) courseMounts.add(Map<String, dynamic>.from(item));
       }
     }
 
@@ -265,6 +284,7 @@ class DataBundle {
       reminderLeadMinutes: _int(settings['reminderLeadMinutes'], 30),
       brightnessMode: _int(settings['brightnessMode'], 0),
       courseIdMapping: courseIdMapping,
+      courseMounts: courseMounts,
       secrets: SyncSecrets.filter(secrets),
     );
   }
@@ -354,6 +374,63 @@ class DataMerge {
     final list = byUid.values.toList()
       ..sort((a, b) => b.startedAt.compareTo(a.startedAt));
     return list;
+  }
+
+  /// 课程挂载（课程详情里的**资料 / 评论**）的合并
+  ///
+  /// 口径：**取并集，谁都不丢**（2026-09-19 用户要求"直接同步"）。
+  /// - 资料按 path 去重（同一个文件两台都加过就留一条）
+  /// - 评论按"内容 + 时间"去重（评论没有 uid）
+  ///
+  /// ⚠️ 已知局限：**删除不参与**（没有墓碑），在一端删掉的资料/评论可能被另一端带回来。
+  /// 待办与专注记录都已经有墓碑机制，课程挂载这层数据量小、先按并集走，
+  /// 以后再补（写在 docs/V1.5.0_DESKTOP.md 的同步一节里）。
+  static List<Map<String, dynamic>> mergeCourseMounts(
+    List<Map<String, dynamic>> local,
+    List<Map<String, dynamic>> remote,
+  ) {
+    final byCourse = <String, Map<String, dynamic>>{};
+    final seenAttachments = <String, Set<String>>{};
+    final seenComments = <String, Set<String>>{};
+
+    void absorb(List<Map<String, dynamic>> source) {
+      for (final mount in source) {
+        final courseId = mount['courseId']?.toString() ?? '';
+        if (courseId.isEmpty) continue;
+        final target = byCourse.putIfAbsent(
+            courseId, () => <String, dynamic>{'courseId': courseId});
+        final attachments =
+            (target['attachments'] as List?)?.cast<dynamic>().toList() ??
+                <dynamic>[];
+        final comments =
+            (target['comments'] as List?)?.cast<dynamic>().toList() ??
+                <dynamic>[];
+        final paths = seenAttachments.putIfAbsent(courseId, () => <String>{});
+        final keys = seenComments.putIfAbsent(courseId, () => <String>{});
+        for (final item in (mount['attachments'] as List? ?? const [])) {
+          if (item is! Map) continue;
+          final path = item['path']?.toString() ?? '';
+          if (path.isEmpty || paths.contains(path)) continue;
+          paths.add(path);
+          attachments.add(Map<String, dynamic>.from(item));
+        }
+        for (final item in (mount['comments'] as List? ?? const [])) {
+          if (item is! Map) continue;
+          final key = (item['content']?.toString() ?? '') +
+              '@' +
+              (item['time']?.toString() ?? '');
+          if (keys.contains(key)) continue;
+          keys.add(key);
+          comments.add(Map<String, dynamic>.from(item));
+        }
+        target['attachments'] = attachments;
+        target['comments'] = comments;
+      }
+    }
+
+    absorb(local);
+    absorb(remote);
+    return byCourse.values.toList();
   }
 
   /// 把 [incoming] 合并进 [local]：
