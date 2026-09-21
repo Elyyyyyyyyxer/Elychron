@@ -289,7 +289,9 @@ class LanSyncServer {
   /// 所以只允许取"应用自己文档目录里"的文件（附件都复制在那下面），
   /// 解析后的绝对路径必须以文档目录开头，否则一律 403。
   Future<void> _sendFile(HttpResponse response, String rawPath) async {
-    final path = rawPath.isEmpty ? '' : Uri.decodeComponent(rawPath);
+    // 注意：request.uri.queryParameters 已经帮我们解码过一次了，
+    // 这里**不能再** Uri.decodeComponent —— 文件名里带 % 或 + 会被解坏。
+    final path = rawPath;
     if (path.isEmpty) {
       return _json(
           response, HttpStatus.badRequest, {'ok': false, 'error': '缺少 path'});

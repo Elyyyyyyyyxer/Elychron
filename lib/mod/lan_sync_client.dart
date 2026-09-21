@@ -229,6 +229,8 @@ class LanSyncClient {
     final result = await mergeIncomingBundle(incoming: incoming);
     // 合并完把"对方有、本机没有"的附件文件取回来（附件本体同步）
     final fetched = await _fetchMissingFiles();
+    // ignore: avoid_print
+    print('[lan] pull done, fetched=' + fetched.toString());
     lastSyncAt = DateTime.now();
     final summary = (result['summary'] ?? '').toString();
     lastSyncSummary = fetched > 0 ? '$summary，取回 $fetched 个文件' : summary;
@@ -267,9 +269,16 @@ class LanSyncClient {
       final stamp = DateTime.now().microsecondsSinceEpoch.toString();
       final target = File(dir.path + '/' + stamp + '_' + safeName);
       final raw = await _downloadFile(remotePath);
-      if (raw == null) return null;
+      if (raw == null) {
+        // ignore: avoid_print
+        print(
+            '[lan] file FAILED ' + remotePath + '  err=' + (lastError ?? '-'));
+        return null;
+      }
       await target.writeAsBytes(raw);
       fetched++;
+      // ignore: avoid_print
+      print('[lan] file ok ' + raw.length.toString() + 'B -> ' + target.path);
       return target.path;
     }
 

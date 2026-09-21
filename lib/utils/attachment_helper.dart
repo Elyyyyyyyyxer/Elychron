@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:celechron/design/dingtalk_sheet.dart';
 import 'package:celechron/model/task.dart';
+import 'package:celechron/utils/platform_features.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:path_provider/path_provider.dart';
@@ -23,7 +24,9 @@ import 'package:share_plus/share_plus.dart';
 /// 而很多文件没有登记 MIME，会出现"文件明明在却看不见"（iCal 导入踩过这个坑）。
 Future<List<TaskAttachment>> pickAttachments({BuildContext? context}) async {
   var type = FileType.any;
-  if (context != null && context.mounted) {
+  // 桌面端不问"图库还是文件"：电脑上本来就是一个文件对话框，
+  // 再让用户先选一次来源纯属多此一举（用户 2026-09-19 要求）。
+  if (context != null && context.mounted && !PlatformFeatures.isDesktop) {
     final fromGallery = await showDingTalkSheet<bool>(
       context: context,
       title: '添加附件',
