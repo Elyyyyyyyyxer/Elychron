@@ -274,7 +274,16 @@ class WebDavClient {
     var text = Uri.decodeComponent(href.trim());
     try {
       final base = Uri.parse(baseUrl);
-      final target = Uri.parse(text.startsWith('http') ? text : baseUrl + text);
+      // href 里通常已经带了 base 的路径（base=.../dav/、href=/dav/Elychron/...），
+      // 直接拼 baseUrl + href 会多出一段 —— 单测抓到过。
+      final Uri target;
+      if (text.startsWith('http://') || text.startsWith('https://')) {
+        target = Uri.parse(text);
+      } else if (text.startsWith('/')) {
+        target = base.replace(path: text);
+      } else {
+        target = base.resolve(text);
+      }
       // 只留相对 base 的那一段
       if (target.path.startsWith(base.path)) {
         return target.path.substring(base.path.length);
