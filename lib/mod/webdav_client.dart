@@ -17,32 +17,17 @@ import 'dart:typed_data';
 class WebDavClient {
   WebDavClient({
     required String baseUrl,
-    required String username,
+    required this.username,
     required this.password,
     Duration? timeout,
   })  : baseUrl = _normalizeBase(baseUrl),
-        username = username.trim(),
         timeout = timeout ?? const Duration(seconds: 20);
 
   /// 形如 https://dav.jianguoyun.com/dav/（末尾一定有斜杠）
   final String baseUrl;
-
-  /// 用户名（可以中途被改成小写，见 selfCheck 里的说明）
-  String username;
+  final String username;
   final String password;
   final Duration timeout;
-
-  /// ===== 踩过的坑：坚果云的用户名**必须全小写** =====
-  ///
-  /// 实测（2026-09-28）：tixerofficial@outlook.com → 207 ✓
-  ///                    TixerOfficial@outlook.com → 401 ✗
-  /// 服务器是坚果云（WWW-Authenticate: Basic realm="nutstore"），
-  /// 用户从网页复制邮箱时首字母常常是大写，于是"密码明明是对的却连不上"。
-  ///
-  /// 但不能**无条件**小写：Nextcloud 那类自建服务的用户名是大小写敏感的，
-  /// 乱改反而会连不上。所以做法是：**先按原样试，401 再试小写**，
-  /// 成功了就把 username 切成小写（后续请求都走它）。
-  bool _lowercaseTried = false;
 
   static String _normalizeBase(String raw) {
     var text = raw.trim();
