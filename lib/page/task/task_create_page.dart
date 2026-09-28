@@ -16,6 +16,8 @@ import 'package:flutter/material.dart' show Icons;
 import 'package:celechron/mod/course_mount_store.dart';
 import 'package:celechron/mod/ai/ai_compose_sheet.dart';
 import 'package:celechron/design/dingtalk_sheet.dart';
+import 'package:celechron/design/context_menu.dart';
+import 'package:celechron/design/dingtalk_menu.dart';
 
 /// 钉钉风格的新建待办页。
 ///
@@ -290,6 +292,85 @@ class _TaskCreatePageState extends State<TaskCreatePage> {
     } catch (e) {
       if (mounted) _alert('选择文件失败：$e');
     }
+  }
+
+  /// 长按（手机）/ 右键（电脑）：重命名 / 打开 / 删除
+  ///
+  /// 与编辑页（task_edit_page）同一套，课程资料那边更早就有 ——
+  /// 用户 2026-09-21 要求待办附件也能长按重命名。
+  Future<void> _attachmentActions(TaskAttachment attachment) async {
+    await showDingTalkMenu(
+      context,
+      title: attachment.name,
+      items: [
+        DingTalkMenuItem(
+          label: '重命名',
+          icon: CupertinoIcons.pencil,
+          onTap: () => _renameAttachment(attachment),
+        ),
+        DingTalkMenuItem(
+          label: '打开',
+          icon: CupertinoIcons.arrow_up_right_square,
+          onTap: () => _openAttachment(attachment),
+        ),
+        DingTalkMenuItem(
+          label: '删除',
+          icon: CupertinoIcons.trash,
+          destructive: true,
+          onTap: () => setState(() => now.attachments.remove(attachment)),
+        ),
+      ],
+    );
+  }
+
+  /// 只改显示名（TaskAttachment.name），不动磁盘文件名 —— 与课程/编辑页同一口径
+  Future<void> _renameAttachment(TaskAttachment attachment) async {
+    final dot = attachment.name.lastIndexOf('.');
+    final extension = dot > 0 ? attachment.name.substring(dot) : '';
+    final base = dot > 0 ? attachment.name.substring(0, dot) : attachment.name;
+    final textController = TextEditingController(text: base);
+    final name = await showCupertinoDialog<String>(
+      context: context,
+      builder: (BuildContext context) => CupertinoAlertDialog(
+        title: const Text('重命名'),
+        content: Padding(
+          padding: const EdgeInsets.only(top: 10),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              CupertinoTextField(
+                controller: textController,
+                autofocus: true,
+                placeholder: '新名字',
+                onSubmitted: (String value) => Navigator.of(context).pop(value),
+              ),
+              if (extension.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text('后缀 $extension 会保留',
+                      style: const TextStyle(fontSize: 12)),
+                ),
+            ],
+          ),
+        ),
+        actions: [
+          CupertinoDialogAction(
+            child: const Text('取消'),
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+          CupertinoDialogAction(
+            isDefaultAction: true,
+            child: const Text('好'),
+            onPressed: () => Navigator.of(context).pop(textController.text),
+          ),
+        ],
+      ),
+    );
+    if (name == null) return;
+    final trimmed = name.trim();
+    if (trimmed.isEmpty || trimmed == base) return;
+    setState(() => attachment.name = trimmed + extension);
   }
 
   Future<void> _openAttachment(TaskAttachment attachment) async {
@@ -894,43 +975,51 @@ class _TaskCreatePageState extends State<TaskCreatePage> {
               children: [
                 ...now.attachments.map((attachment) {
                   final thumbnail = attachmentThumbnail(attachment.path);
-                  return Column(
-                    children: [
-                      _iconRow(
-                        icon:
-                            thumbnail == null ? CupertinoIcons.paperclip : null,
-                        leading: thumbnail,
-                        onTap: () => _openAttachment(attachment),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                attachment.name,
-                                overflow: TextOverflow.ellipsis,
-                                style:
-                                    TextStyle(fontSize: 15, color: textColor),
+                  return contextMenuRegion(
+                    // 长按（手机）/ 右键（电脑）= 重命名 / 打开 / 删除
+                    // 用户 2026-09-21 要求："待办的附件也可以长按重命名（跟课程一样）" ——
+                    // 编辑页早就有这套（task_edit_page），新建页这次补上。
+                    onLongPress: () => _attachmentActions(attachment),
+                    child: Column(
+                      children: [
+                        _iconRow(
+                          icon: thumbnail == null
+                              ? CupertinoIcons.paperclip
+                              : null,
+                          leading: thumbnail,
+                          onTap: () => _openAttachment(attachment),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  attachment.name,
+                                  overflow: TextOverflow.ellipsis,
+                                  style:
+                                      TextStyle(fontSize: 15, color: textColor),
+                                ),
                               ),
-                            ),
-                            if (formatFileSize(attachment.size).isNotEmpty)
-                              Text(
-                                formatFileSize(attachment.size),
-                                style:
-                                    TextStyle(fontSize: 12, color: labelColor),
-                              ),
-                          ],
+                              if (formatFileSize(attachment.size).isNotEmpty)
+                                Text(
+                                  formatFileSize(attachment.size),
+                                  style: TextStyle(
+                                      fontSize: 12, color: labelColor),
+                                ),
+                            ],
+                          ),
+                          trailing: CupertinoButton(
+                            padding: EdgeInsets.zero,
+                            minimumSize: const Size(32, 32),
+                            onPressed: () {
+                              setState(
+                                  () => now.attachments.remove(attachment));
+                            },
+                            child: Icon(CupertinoIcons.xmark,
+                                size: 16, color: labelColor),
+                          ),
                         ),
-                        trailing: CupertinoButton(
-                          padding: EdgeInsets.zero,
-                          minimumSize: const Size(32, 32),
-                          onPressed: () {
-                            setState(() => now.attachments.remove(attachment));
-                          },
-                          child: Icon(CupertinoIcons.xmark,
-                              size: 16, color: labelColor),
-                        ),
-                      ),
-                      _divider(),
-                    ],
+                        _divider(),
+                      ],
+                    ),
                   );
                 }),
                 _iconRow(
