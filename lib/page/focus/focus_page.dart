@@ -466,12 +466,15 @@ class _FocusPageState extends State<FocusPage> {
     return Duration(minutes: _workMinutes);
   }
 
+  /// 状态说法按用户指定的三个词来（2026-09-21）：
+  /// 「直接算起止时间 + 增设一个状态变量（中断中，进行中，休息中）」
+  ///
+  /// 这三态与 mod/focus_anchor.dart 的 FocusPhaseName 一一对应，
+  /// 也就是持久化进锚点的那份状态 —— 界面上看到的和存下来的是同一件事。
   String get _phaseText {
-    if (_engine.isPaused) {
-      return _engine.remaining == Duration.zero ? '已暂停' : '已暂停';
-    }
-    if (_engine.isResting) return '休息中';
-    return '工作中';
+    if (_engine.isPaused) return FocusPhaseName.paused.label; // 中断中
+    if (_engine.isResting) return FocusPhaseName.resting.label; // 休息中
+    return FocusPhaseName.working.label; // 进行中
   }
 
   String get _phaseHint {
