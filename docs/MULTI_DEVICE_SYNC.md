@@ -140,3 +140,47 @@ Flutter 跨平台跨的是 **UI 层与 Dart 运行时**，不是整个 App。所
 
 等你在这六件事上拍板（尤其 **1 目标形态**、**2 同步范围**、**5 自动还是手动**），
 我就把 S1 的设计细化成可实施的任务清单，然后开工。
+---
+
+## 六、WebDAV 全平台同步（2026-09-28 起，正在做）
+
+> 用户原话：「开始做更加科学的全平台同步！使用 WebDAV 服务……我想要尽可能简化用户操作流程」。
+> 三条拍板：**不做加密**；**要一个校验机制，别每次都把整包拉下来**（省流量）；按建议做预设 + 三步向导。
+
+### 为什么是 WebDAV
+
+局域网同步要求两台设备同时在同一 Wi-Fi，且手机息屏后经常连不上；
+用户要的是「手机改了，电脑上就有」。那必须有一个两边随时都能访问的中转，
+而 WebDAV 是**唯一一个不用我们自己出服务器**的办法（坚果云 / InfiniCloud / Koofr /
+Nextcloud / 群晖 NAS / Alist 都能用），而且和已经造好的 DataBundle + DataMerge 直接接得上。
+
+### 省流量：三层，从便宜到贵，任何一步能断定「不用继续」就收工
+
+| 层 | 请求 | 代价 | 结论 |
+|---|---|---|---|
+| 1 | `PROPFIND meta.json` 只看 ETag/时间/大小 | 几十字节 | 指纹和本机记的一致 → **收工** |
+| 2 | `GET meta.json`（清单，含 revision） | 几百字节 | revision 相同 → **收工** |
+| 3 | `GET/PUT bundle.json`（整包） | 整包 | 只有确实需要时才动 |
+
+远端目录：`Elychron/meta.json`、`Elychron/bundle.json`、`Elychron/devices/<设备号>.json`，
+**全部由程序自己建**，用户永远不用管目录结构。
+
+### 进度
+
+| 阶段 | 文件 | 状态 |
+|---|---|---|
+| W1 客户端 | `lib/mod/webdav_client.dart`（自己写的最小 WebDAV：PROPFIND/GET/PUT/DELETE/MKCOL）、`lib/mod/webdav_sync_state.dart`（清单 + 纯函数决策） | ✅ 真账号验证过 |
+| W2 读写 | `lib/mod/webdav_sync.dart`（自检 + 三轮同步流程） | ✅ 真账号验证过（MKCOL/PUT/GET 字节一致、ETag 未变不变、变了才变） |
+| W3 向导 | `lib/mod/webdav_providers.dart`（预设服务商）、`webdav_config.dart`（配置）、`webdav_settings_page.dart`（三步向导）、`webdav_sync_service.dart`（跑同步 + 自动触发）、`data_change.dart`（改动通知统一入口） | ✅ 代码完成，704 条测试通过、analyze 0 error |
+| W4 附件本体 | 复用 lan_sync_client 的 `_fetchMissingFiles` 思路，并把「上传量」提示做出来（坚果云免费版每月上传 1GB） | ⬜ 未做 |
+| 加密 | —— | ❌ 用户决定不做（数据明文存在用户自己的网盘里） |
+
+### 真机上踩到的两个坑（都已写进代码和测试）
+
+1. **坚果云的用户名必须全小写**：`TixerOfficial@outlook.com` → 401，
+   `tixerofficial@outlook.com` → 207（服务器 `Basic realm="nutstore"`）。
+   处理：预设表标 `lowercaseUsername: true`，输入框里边打边转；
+   同时 `WebDavSync.selfCheck()` 保留「先按原样试，401 再试小写」的兜底
+   —— **不能无条件转小写**，Nextcloud 那类的用户名是大小写敏感的。
+2. **MKCOL 已存在的目录返回 405**（当成成功处理）；**删除 `Elychron/` 根目录返回 403**
+   （无害，目录留着不影响）。
