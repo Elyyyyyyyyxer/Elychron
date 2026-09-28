@@ -2,6 +2,8 @@ import 'package:celechron/design/app_accent.dart';
 import 'package:celechron/mod/auto_relogin.dart';
 import 'package:celechron/mod/homework_tasks.dart';
 import 'package:celechron/mod/login_criteria.dart';
+import 'package:celechron/mod/webdav_config.dart';
+import 'package:celechron/mod/webdav_sync_service.dart';
 import 'package:celechron/mod/lan_sync_client.dart';
 import 'package:celechron/mod/lan_sync_page.dart';
 import 'package:celechron/mod/lan_sync_server.dart';
@@ -215,6 +217,22 @@ void main(List<String> args) async {
         Get.find<DatabaseHelper>(tag: 'db'),
         Get.find<RxList<Task>>(tag: 'taskList'),
       );
+    } catch (_) {}
+  });
+
+  // ===== 全平台同步（WebDAV）：启动读配置，开着就同步一次 =====
+  //
+  // 为什么要等 9 秒：同步会打整包数据（待办 + 课程挂载 + 专注记录），
+  // 启动瞬间数据库和 GetX 里的 taskList 还没就绪，早跑只会白跑一次。
+  // 启动就同步是为了"手机上改了，电脑开起来就能看到"——这是全平台同步
+  // 最要紧的那个体验；只靠本地事件触发是做不到的。
+  Future<void>.delayed(const Duration(seconds: 9), () async {
+    try {
+      await WebDavConfig.load();
+      WebDavSyncService.instance.startAutoSync();
+      if (WebDavConfig.enabled && WebDavConfig.isConfigured) {
+        await WebDavSyncService.instance.syncNow();
+      }
     } catch (_) {}
   });
 

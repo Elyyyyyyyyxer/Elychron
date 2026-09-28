@@ -12,6 +12,10 @@ import 'package:celechron/platform/desktop_notify.dart';
 import 'package:celechron/mod/ai/ai_settings_page.dart';
 import 'package:celechron/mod/ai/deepseek.dart';
 import 'package:celechron/mod/lan_sync_page.dart';
+import 'package:celechron/mod/webdav_config.dart';
+import 'package:celechron/mod/webdav_settings_page.dart';
+import 'package:celechron/mod/webdav_sync_service.dart';
+import 'package:flutter/foundation.dart' show Listenable;
 import 'package:celechron/mod/settings_data_actions.dart';
 import 'package:celechron/page/focus/focus_stats_page.dart';
 import 'package:celechron/page/option/option_controller.dart';
@@ -269,7 +273,13 @@ Widget modDataSection(
             header: Container(
                 padding: const EdgeInsets.only(left: 16),
                 child: Text('数据', style: headerStyle)),
-            children: <CupertinoListTile>[
+            children: <Widget>[
+          // ===== 全平台同步（WebDAV）：不在同一 Wi-Fi 也能同步 =====
+          //
+          // 局域网同步要求两台设备同时在同一个 Wi-Fi 下，而且手机息屏后经常连不上；
+          // 用户要的是"手机改了，电脑上就有"，那必须走一个两边都能访问的中转，
+          // 而 WebDAV 是唯一一个不用我们自己出服务器的办法（坚果云、NAS、Nextcloud 都行）。
+          const _WebDavSyncTile(),
           // 局域网同步（多端协同）尚未完工，公开发布这版先不开放入口。
           // 代码与网页面板都还在 `lib/mod/lan_*.dart` 里，改回 true 即可恢复。
           if (kLanSyncEnabled) ...[
@@ -564,3 +574,68 @@ Widget modAiSection(
         ),
       ),
     );
+
+/// ===== 全平台同步的入口行（设置 → 数据）=====
+///
+/// 副标题要能一眼看出"现在到底同没同步、上次什么时候"，
+/// 因为用户不会为了确认这件事专门点进去。
+class _WebDavSyncTile extends StatefulWidget {
+  const _WebDavSyncTile();
+
+  @override
+  State<_WebDavSyncTile> createState() => _WebDavSyncTileState();
+}
+
+class _WebDavSyncTileState extends State<_WebDavSyncTile> {
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    if (!WebDavConfig.loaded) await WebDavConfig.load();
+    if (!mounted) return;
+    setState(() {});
+    // 已经配好的话，进设置页就把自动同步挂上（不必等用户再点一次开关）
+    if (WebDavConfig.enabled && WebDavConfig.isConfigured) {
+      WebDavSyncService.instance.startAutoSync();
+    }
+  }
+
+  String get _subtitle {
+    if (!WebDavConfig.isConfigured) return '手机 / 电脑之间走网盘同步，点这里三步设置好';
+    final name =
+        WebDavConfig.providerName.isEmpty ? '网盘' : WebDavConfig.providerName;
+    if (!WebDavConfig.enabled) return name + ' · 已暂停，点这里继续';
+    return name + ' · ' + WebDavSyncService.describeLastSync();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: Listenable.merge(<Listenable>[
+        WebDavConfig.revision,
+        WebDavSyncService.revision,
+      ]),
+      builder: (BuildContext context, Widget? _) => CupertinoListTile(
+        title: const Text('全平台同步'),
+        subtitle: Text(
+          _subtitle,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+        ),
+        trailing: const BackChervonRow(),
+        onTap: () async {
+          if (!WebDavConfig.loaded) await WebDavConfig.load();
+          if (!context.mounted) return;
+          await Navigator.of(context, rootNavigator: true).push(
+            appPageRoute<void>(
+              builder: (BuildContext context) => const WebDavSettingsPage(),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}

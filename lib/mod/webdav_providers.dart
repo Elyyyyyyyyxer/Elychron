@@ -26,6 +26,14 @@ class WebDavProvider {
   /// 这个服务商的名字是不是邮箱（坚果云/InfiniCloud 都是邮箱登录）
   final bool usernameIsEmail;
 
+  /// 用户名要不要**边打边转小写**。
+  ///
+  /// 2026-09-28 真账号实测：坚果云的用户名大写 → 401，小写 → 207。
+  /// 用户从网页复制邮箱时首字母常常是大写，于是"密码明明对却怎么都连不上"。
+  /// 与其事后解释，不如在输入框里直接转掉。
+  /// 默认 false —— Nextcloud 那类自建服务的用户名是大小写敏感的，不能乱改。
+  final bool lowercaseUsername;
+
   const WebDavProvider({
     required this.name,
     required this.url,
@@ -33,6 +41,7 @@ class WebDavProvider {
     required this.passwordHint,
     this.passwordPageUrl = '',
     this.usernameIsEmail = true,
+    this.lowercaseUsername = false,
   });
 
   /// 内置预设（顺序 = 界面上的顺序，把国内最顺的放最前）
@@ -43,6 +52,7 @@ class WebDavProvider {
       usernameHint: '坚果云的注册邮箱（**必须全小写**，大写会连不上）',
       passwordHint: '网页版 → 右上角账户信息 → 安全选项 → 添加应用密码',
       passwordPageUrl: 'https://www.jianguoyun.com/dash/security',
+      lowercaseUsername: true,
     ),
     WebDavProvider(
       name: 'InfiniCloud',

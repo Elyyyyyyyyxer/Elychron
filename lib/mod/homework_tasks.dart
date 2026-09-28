@@ -4,7 +4,7 @@ import 'package:celechron/database/database_helper.dart';
 import 'package:celechron/model/scholar.dart';
 import 'package:celechron/model/task.dart';
 import 'package:celechron/model/todo.dart';
-import 'package:celechron/mod/lan_sync_client.dart';
+import 'package:celechron/mod/data_change.dart';
 import 'package:get/get.dart';
 
 /// ===== 作业自动进日程（v1.5.0）=====
@@ -129,7 +129,7 @@ Future<bool> syncHomeworkTasks({
     ..sort(homeworkFirst)
     ..refresh();
   // 作业也是用户数据，同步出去（用户要求"每次操作都同步"）
-  LanSyncClient.instance.scheduleSync();
+  notifyDataChanged();
   return true;
 }
 
