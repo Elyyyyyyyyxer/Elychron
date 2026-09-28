@@ -9,6 +9,7 @@ import 'package:celechron/mod/course_mount_store.dart';
 import 'package:celechron/mod/database_mod.dart';
 import 'package:celechron/mod/focus_runtime.dart';
 import 'package:celechron/mod/focus_suspend.dart';
+import 'package:celechron/mod/focus_anchor.dart';
 import 'package:celechron/model/focus_engine.dart';
 import 'package:celechron/model/focus_session.dart';
 import 'package:celechron/model/scholar.dart';
@@ -45,6 +46,16 @@ class _FocusPageState extends State<FocusPage> {
   late final FocusEngine _engine;
   late final FocusSession _session;
   Timer? _ticker;
+
+  /// ===== 专注锚点（2026-09-21 用户要求）=====
+  ///
+  /// 用户原话：「干脆不在过程中计数了，直接算起止时间 + 增设一个状态变量
+  /// （中断中，进行中，休息中），这样就算后台被杀掉也能保证时间计算准确」。
+  ///
+  /// 这里让锚点当**唯一权威**：每次 _flush（10 秒一次）与每次状态变化都把
+  /// 「此刻的 phase + 累计」写进锚点；结算时以锚点的数为准
+  /// （见 _settle：它会先再锚一次，避免把"App 已死的那段"算进来）。
+  FocusAnchor? _anchor;
   int _ticks = 0;
   FocusPhase _lastPhase = FocusPhase.idle;
 
@@ -143,6 +154,7 @@ class _FocusPageState extends State<FocusPage> {
         : courseNameOf(attributedId);
 
     _lastPhase = _engine.phase;
+    _syncAnchor(); // 开局就落一次锚点
     // 一开始就把该休息了排进系统（锁屏也响）
     _syncRestNotice();
 
@@ -237,6 +249,7 @@ class _FocusPageState extends State<FocusPage> {
     // 段切换（工作→休息 / 休息→工作）时同步该休息了的系统排程
     if (_engine.phase != _lastPhase) {
       _lastPhase = _engine.phase;
+      _syncAnchor(); // 状态变了（工作↔休息）立刻落锚点
       _syncRestNotice();
       // ===== MOD: 休息期间要把免打扰**关掉** =====
       //
@@ -258,7 +271,11 @@ class _FocusPageState extends State<FocusPage> {
     }
 
     // 每 10 秒落一次库：App 被系统杀掉时最多损失 10 秒
-    if (_ticks % 10 == 0) _flush();
+    if (_ticks % 10 == 0) {
+      _flush();
+      // 心跳：每 10 秒把锚点落一次（被杀掉时最多只差这一次心跳）
+      _syncAnchor();
+    }
 
     setState(() {});
   }
@@ -301,9 +318,50 @@ class _FocusPageState extends State<FocusPage> {
     _db?.saveFocusSession(_session);
   }
 
+  /// 把"此刻的事实"写进锚点：状态 + 起点 + 累计（纯推算，不靠计时器累加）
+  void _syncAnchor({bool clear = false}) {
+    if (clear) {
+      _anchor = null;
+      FocusAnchorStore.clear();
+      return;
+    }
+    final phase = switch (_engine.phase) {
+      FocusPhase.working => FocusPhaseName.working,
+      FocusPhase.resting => FocusPhaseName.resting,
+      _ => FocusPhaseName.paused,
+    };
+    final anchor = FocusAnchor(
+      uid: _session.uid,
+      startedAt: _session.startedAt,
+      phase: phase,
+      phaseSince: DateTime.now(),
+      workedBefore: _engine.focused,
+      restedBefore: _engine.rested,
+      workMinutes: _engine.workMinutes,
+      restMinutes: _engine.restMinutes,
+    );
+    _anchor = anchor;
+    FocusAnchorStore.save(anchor);
+  }
+
   /// 结算一次会话（实现挪到 `mod/focus_suspend.dart`，专注首页也要用同一份）
-  void _settle(FocusSession session, {required bool completed}) =>
-      settleFocusSession(_db, session, completed: completed);
+  ///
+  /// ===== MOD: 结算前先重锚一次（2026-09-21）=====
+  /// 锚点的数由墙上时钟推出来，比"每 10 秒落一次库的累加值"更接近真实；
+  /// 而**先重锚**这一步很关键：它把"这一刻的准确累计"固定进 workedBefore，
+  /// 于是后面无论隔多久再算，都不会把 App 已经死掉的那段算进去。
+  void _settle(FocusSession session, {required bool completed}) {
+    final anchor = _anchor;
+    if (anchor != null && anchor.uid == session.uid) {
+      _syncAnchor();
+      final fresh = _anchor;
+      if (fresh != null) {
+        session.focusedTime = fresh.workedBefore;
+        session.restTime = fresh.restedBefore;
+      }
+    }
+    settleFocusSession(_db, session, completed: completed);
+  }
 
   Future<void> _finish() async {
     _ticker?.cancel();
@@ -314,6 +372,7 @@ class _FocusPageState extends State<FocusPage> {
     _settle(_session, completed: true);
     // 既然结算了，"还有一次专注没结束"的入口就不能再留着
     _db?.clearSuspendedFocus();
+    _syncAnchor(clear: true); // 结束了，锚点也要清掉
     if (mounted) Navigator.of(context).pop(true);
   }
 

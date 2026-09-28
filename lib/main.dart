@@ -1,5 +1,6 @@
 import 'package:celechron/design/app_accent.dart';
 import 'package:celechron/mod/auto_relogin.dart';
+import 'package:celechron/mod/homework_tasks.dart';
 import 'package:celechron/mod/login_criteria.dart';
 import 'package:celechron/mod/lan_sync_client.dart';
 import 'package:celechron/mod/lan_sync_page.dart';
@@ -201,6 +202,19 @@ void main(List<String> args) async {
     try {
       LanSyncClient.instance.load();
       LanSyncClient.instance.startAutoSync();
+    } catch (_) {}
+  });
+
+  // ===== 作业自动进日程（2026-09-21 用户要求）=====
+  // 「作业像课程一样自动变成日程一部分，默认优先级比较高，
+  //   存在作业时在待办页面优先展示作业」
+  // 盯着 scholar 的作业列表：每次刷新完就把它同步成待办（幂等，见 mod/homework_tasks.dart）。
+  Future<void>.delayed(const Duration(seconds: 5), () {
+    try {
+      startHomeworkSync(
+        Get.find<DatabaseHelper>(tag: 'db'),
+        Get.find<RxList<Task>>(tag: 'taskList'),
+      );
     } catch (_) {}
   });
 

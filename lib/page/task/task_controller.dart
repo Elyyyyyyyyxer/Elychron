@@ -6,6 +6,7 @@ import 'package:celechron/mod/task_list_filter_mod.dart';
 import 'package:celechron/model/task.dart';
 // ===== MOD: 魔改逻辑集中在 lib/mod/ 下，本文件只留调用点 =====
 import 'package:celechron/mod/loop_guard.dart';
+import 'package:celechron/mod/homework_tasks.dart';
 import 'package:celechron/mod/task_runtime_mod.dart';
 import 'package:celechron/worker/todo_widget_messenger.dart';
 
@@ -143,7 +144,9 @@ class TaskController extends GetxController with TaskListFilterMod {
 
     if (changed) {
       // sort 无条件通知，兼作纯状态翻转（无 RxList 结构操作）时的 UI 通知
-      taskList.sort((a, b) => a.endTime.compareTo(b.endTime));
+      // ===== MOD: 作业置顶（2026-09-21 用户要求"存在作业时优先展示作业"）=====
+      // 自动生成的作业带「作业」标签，homeworkFirst 先按它排序、再按截止时间。
+      taskList.sort(homeworkFirst);
       saveDeadlineListToDb();
     }
 
