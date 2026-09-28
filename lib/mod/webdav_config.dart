@@ -44,6 +44,14 @@ class WebDavConfig {
   static const String _kTrafficDown = 'webdav_traffic_download';
   static const String _kFileIndex = 'webdav_file_index';
 
+  /// 本机路径 → 它在网盘上的名字。
+  ///
+  /// 为什么需要它：从网盘取回来的文件，本机路径是我们自己起的
+  /// （`task_attachments/1749xxxx_照片.jpg`）。下次同步如果再按"本机路径"算哈希，
+  /// 就会算出一个新名字，把**同一份文件重复传上去**一遍 —— 配额白白跑掉一半。
+  /// 记住"这个本地文件是网盘上哪个文件落下来的"，就不会重复传。
+  static const String _kFileOrigin = 'webdav_file_origin';
+
   /// 坚果云免费版：每月上传 1 GB、下载 3 GB。这里留一点余量，
   /// 别把配额跑光 —— 配额用尽是"整个同步都不动了"，比"有些文件没传"严重得多。
   static const int monthlyUploadBudget = 900 * 1024 * 1024;
@@ -68,6 +76,7 @@ class WebDavConfig {
   static int _downloadedBytes = 0;
   static String _trafficMonth = '';
   static String _fileIndexRaw = '{}';
+  static String _fileOriginRaw = '{}';
 
   static bool get enabled => _enabled;
   static String get url => _url;
@@ -83,6 +92,7 @@ class WebDavConfig {
   static int get uploadedBytesThisMonth => _uploadedBytes;
   static int get downloadedBytesThisMonth => _downloadedBytes;
   static String get fileIndexRaw => _fileIndexRaw;
+  static String get fileOriginRaw => _fileOriginRaw;
 
   /// 本月还剩多少上传额度（界面用它决定要不要变红）
   static int get uploadBudgetLeft {
@@ -117,6 +127,7 @@ class WebDavConfig {
       _lastSyncAt = stamp == null ? null : DateTime.tryParse(stamp);
       _fileSync = (box?.get(_kFileSync) as bool?) ?? false;
       _fileIndexRaw = (box?.get(_kFileIndex) as String?) ?? '{}';
+      _fileOriginRaw = (box?.get(_kFileOrigin) as String?) ?? '{}';
       final month = currentMonthKey();
       final storedMonth = (box?.get(_kTrafficMonth) as String?) ?? '';
       if (storedMonth == month) {
@@ -260,6 +271,13 @@ class WebDavConfig {
     _fileIndexRaw = raw;
     try {
       await _db?.optionsBox.put(_kFileIndex, raw);
+    } catch (_) {}
+  }
+
+  static Future<void> setFileOriginRaw(String raw) async {
+    _fileOriginRaw = raw;
+    try {
+      await _db?.optionsBox.put(_kFileOrigin, raw);
     } catch (_) {}
   }
 

@@ -127,6 +127,7 @@ class WebDavFiles {
     DatabaseHelper db,
     List<Task> tasks, {
     required Map<String, int> index,
+    required Map<String, String> origin,
     required int maxFileBytes,
     required int usedThisMonth,
     required int monthlyBudget,
@@ -134,6 +135,13 @@ class WebDavFiles {
     final handles = collectAttachments(db, tasks);
     if (handles.isEmpty) return const WebDavFileResult();
     await _ensureDir();
+    // 顺手清掉已经不存在的路径的记录（附件删了 / 换了一台设备），
+    // 免得这份映射越积越大
+    final alive = <String>{
+      for (final handle in handles)
+        if (handle.path.isNotEmpty) handle.path,
+    };
+    origin.removeWhere((String path, String _) => !alive.contains(path));
     var sent = 0, bytes = 0, skipped = 0;
     for (final handle in handles) {
       final path = handle.path;
@@ -141,7 +149,9 @@ class WebDavFiles {
       final file = File(path);
       if (!await file.exists()) continue; // 本机也没有（还没从对方那儿拉下来）
       final size = await file.length();
-      final name = remoteNameFor(path);
+      // 这个文件是从网盘落下来的话，**继续用它在网盘上的名字**，
+      // 否则会因为本地路径不同而把同一份文件重复传一遍。
+      final name = origin[path] ?? remoteNameFor(path);
       final ok = shouldUpload(
         uploadedBytes: index[name],
         size: size,
@@ -173,16 +183,19 @@ class WebDavFiles {
   Future<WebDavFileResult> downloadMissing(
     DatabaseHelper db,
     List<Task> tasks, {
+    required Map<String, String> origin,
     required Future<void> Function() flush,
   }) async {
     final handles = collectAttachments(db, tasks);
-    final wanted = <String, List<_AttachHandle>>{};
+    final wanted = <String, List<AttachmentHandle>>{};
     for (final handle in handles) {
       final path = handle.path;
       if (path.isEmpty) continue;
       if (await File(path).exists()) continue; // 本机已经有了
-      final name = remoteNameFor(path);
-      wanted.putIfAbsent(name, () => <_AttachHandle>[]).add(handle);
+      // 这个路径是"从网盘落下来的"话，它的网盘名字记在 origin 里；
+      // 本地文件被清掉后还能按原名取回来（否则会按本地路径算出一个不存在的名字）
+      final name = origin[path] ?? remoteNameFor(path);
+      wanted.putIfAbsent(name, () => <AttachmentHandle>[]).add(handle);
     }
     if (wanted.isEmpty) return const WebDavFileResult();
 
@@ -209,6 +222,7 @@ class WebDavFiles {
       final stamp = DateTime.now().microsecondsSinceEpoch.toString();
       final target = File(cache.path + '/' + stamp + '_' + safeName);
       await target.writeAsBytes(raw);
+      origin[target.path] = entry.key;
       for (final handle in entry.value) {
         handle.setPath(target.path);
       }
@@ -260,12 +274,12 @@ class WebDavFiles {
   // ------------------------------------------------------------ 收集附件
 
   /// 待办附件 + 课程挂载资料，两处都要搬（与局域网同步同一口径）
-  static List<_AttachHandle> collectAttachments(
+  static List<AttachmentHandle> collectAttachments(
       DatabaseHelper db, List<Task> tasks) {
-    final result = <_AttachHandle>[];
+    final result = <AttachmentHandle>[];
     for (final task in tasks) {
       for (final attachment in task.attachments) {
-        result.add(_AttachHandle(
+        result.add(AttachmentHandle(
           attachment.path,
           (String next) => attachment.path = next,
         ));
@@ -278,7 +292,7 @@ class WebDavFiles {
       if (attachments == null) continue;
       for (final item in attachments) {
         if (item is! Map) continue;
-        result.add(_AttachHandle(
+        result.add(AttachmentHandle(
           item['path']?.toString() ?? '',
           (String next) => item['path'] = next,
         ));
@@ -325,6 +339,30 @@ class WebDavFiles {
     return result;
   }
 
+  /// 本机路径 → 网盘名字 这份映射的编解码（与索引同一套容错口径：坏了当没有）
+  static Map<String, String> decodeMap(String? raw) {
+    final result = <String, String>{};
+    if (raw == null || raw.isEmpty) return result;
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is Map) {
+        decoded.forEach((key, value) {
+          final text = value?.toString() ?? '';
+          if (text.isNotEmpty) result[key.toString()] = text;
+        });
+      }
+    } catch (_) {}
+    return result;
+  }
+
+  static String encodeStringMap(Map<String, String> map) {
+    try {
+      return jsonEncode(map);
+    } catch (_) {
+      return '{}';
+    }
+  }
+
   static String encodeIndex(Map<String, int> index) {
     try {
       return jsonEncode(index);
@@ -335,8 +373,8 @@ class WebDavFiles {
 }
 
 /// 一条附件记录的可写句柄（待办的字段 / 课程挂载里的 map，两处形状不同）
-class _AttachHandle {
-  _AttachHandle(this.path, this._apply);
+class AttachmentHandle {
+  AttachmentHandle(this.path, this._apply);
 
   String path;
   final void Function(String next) _apply;

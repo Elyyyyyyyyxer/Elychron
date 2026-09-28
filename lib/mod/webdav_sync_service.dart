@@ -102,12 +102,15 @@ class WebDavSyncService {
   ) async {
     if (!WebDavConfig.fileSyncEnabled) return '';
     final files = WebDavFiles(client, rootDir: WebDavSync.rootDir);
+    final index = WebDavFiles.decodeIndex(WebDavConfig.fileIndexRaw);
+    final origin = WebDavFiles.decodeMap(WebDavConfig.fileOriginRaw);
     var fetched = 0, sent = 0, skipped = 0;
     try {
       if (action == SyncAction.pull || action == SyncAction.merge) {
         final result = await files.downloadMissing(
           db,
           taskList.toList(),
+          origin: origin,
           flush: () async {
             await db.setTaskList(taskList);
             taskList.refresh();
@@ -119,11 +122,11 @@ class WebDavSyncService {
         if (result.bytes > 0) await WebDavConfig.addTraffic(down: result.bytes);
       }
       if (action == SyncAction.push || action == SyncAction.merge) {
-        final index = WebDavFiles.decodeIndex(WebDavConfig.fileIndexRaw);
         final result = await files.uploadMissing(
           db,
           taskList.toList(),
           index: index,
+          origin: origin,
           maxFileBytes: WebDavConfig.maxFileBytes,
           usedThisMonth: WebDavConfig.uploadedBytesThisMonth,
           monthlyBudget: WebDavConfig.monthlyUploadBudget,
@@ -135,6 +138,10 @@ class WebDavSyncService {
           await WebDavConfig.addTraffic(up: result.bytes);
         }
       }
+      // origin 两边都可能改（下载时登记、上传时清理），统一落盘一次
+      await WebDavConfig.setFileOriginRaw(
+        WebDavFiles.encodeStringMap(origin),
+      );
     } catch (_) {
       return '附件没传完';
     }

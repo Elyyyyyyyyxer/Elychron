@@ -155,6 +155,23 @@ void main() {
       expect(WebDavFiles.decodeIndex('{"a":"b"}').isEmpty, isTrue);
     });
 
+    test('来源映射往返一致（本机路径 → 网盘名字）', () {
+      final raw = WebDavFiles.encodeStringMap(<String, String>{
+        r'C:\docs\task_attachments\1_a.pdf': 'abcd1234_a.pdf',
+        '/data/user/0/x/files/2_b.jpg': 'ffff0000_b.jpg',
+      });
+      final back = WebDavFiles.decodeMap(raw);
+      expect(back.length, 2);
+      expect(back[r'C:\docs\task_attachments\1_a.pdf'], 'abcd1234_a.pdf');
+      expect(back['/data/user/0/x/files/2_b.jpg'], 'ffff0000_b.jpg');
+    });
+
+    test('来源映射坏了也当没有（与索引同一套容错）', () {
+      expect(WebDavFiles.decodeMap(null).isEmpty, isTrue);
+      expect(WebDavFiles.decodeMap('坏了').isEmpty, isTrue);
+      expect(WebDavFiles.decodeMap('{"a":""}').isEmpty, isTrue);
+    });
+
     test('流量显示成人话', () {
       expect(WebDavFiles.formatBytes(0), '0 B');
       expect(WebDavFiles.formatBytes(999), '999 B');
