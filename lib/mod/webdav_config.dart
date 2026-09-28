@@ -33,6 +33,24 @@ class WebDavConfig {
   static const String _kLastFailed = 'webdav_last_failed';
   static const String _kPasswordSecret = 'webdav_password';
 
+  // ===== W4：附件本体 =====
+  //
+  // 附件二进制默认不过网，否则"第一次同步"会把用户几年的照片全传上来。
+  // 但元数据（name/path/size）一直会同步，所以另一台设备上那一行在、点开是空的；
+  // 打开这个开关才把文件本体也搬过去。
+  static const String _kFileSync = 'webdav_file_sync';
+  static const String _kTrafficMonth = 'webdav_traffic_month';
+  static const String _kTrafficUp = 'webdav_traffic_upload';
+  static const String _kTrafficDown = 'webdav_traffic_download';
+  static const String _kFileIndex = 'webdav_file_index';
+
+  /// 坚果云免费版：每月上传 1 GB、下载 3 GB。这里留一点余量，
+  /// 别把配额跑光 —— 配额用尽是"整个同步都不动了"，比"有些文件没传"严重得多。
+  static const int monthlyUploadBudget = 900 * 1024 * 1024;
+
+  /// 单文件上限：超过就不传（界面上如实说明，不默默跳过）
+  static const int maxFileBytes = 50 * 1024 * 1024;
+
   /// 每次改动 bump 一下，界面用它刷新（不把 Rx 依赖带进这个纯工具类）
   static final ValueNotifier<int> revision = ValueNotifier<int>(0);
 
@@ -45,6 +63,11 @@ class WebDavConfig {
   static bool _lastFailed = false;
   static DateTime? _lastSyncAt;
   static bool _loaded = false;
+  static bool _fileSync = false;
+  static int _uploadedBytes = 0;
+  static int _downloadedBytes = 0;
+  static String _trafficMonth = '';
+  static String _fileIndexRaw = '{}';
 
   static bool get enabled => _enabled;
   static String get url => _url;
@@ -54,6 +77,18 @@ class WebDavConfig {
   static bool get lastFailed => _lastFailed;
   static DateTime? get lastSyncAt => _lastSyncAt;
   static bool get loaded => _loaded;
+
+  /// 附件本体要不要也传（默认关：第一次打开就全传会把网盘配额一把打光）
+  static bool get fileSyncEnabled => _fileSync;
+  static int get uploadedBytesThisMonth => _uploadedBytes;
+  static int get downloadedBytesThisMonth => _downloadedBytes;
+  static String get fileIndexRaw => _fileIndexRaw;
+
+  /// 本月还剩多少上传额度（界面用它决定要不要变红）
+  static int get uploadBudgetLeft {
+    final left = monthlyUploadBudget - _uploadedBytes;
+    return left < 0 ? 0 : left;
+  }
 
   /// 三样都填了才算配置好（缺一样就同步不了，界面据此判断要不要走向导）
   static bool get isConfigured =>
@@ -80,6 +115,23 @@ class WebDavConfig {
       _lastFailed = (box?.get(_kLastFailed) as bool?) ?? false;
       final stamp = box?.get(_kLastSyncAt) as String?;
       _lastSyncAt = stamp == null ? null : DateTime.tryParse(stamp);
+      _fileSync = (box?.get(_kFileSync) as bool?) ?? false;
+      _fileIndexRaw = (box?.get(_kFileIndex) as String?) ?? '{}';
+      final month = currentMonthKey();
+      final storedMonth = (box?.get(_kTrafficMonth) as String?) ?? '';
+      if (storedMonth == month) {
+        _trafficMonth = storedMonth;
+        _uploadedBytes = (box?.get(_kTrafficUp) as int?) ?? 0;
+        _downloadedBytes = (box?.get(_kTrafficDown) as int?) ?? 0;
+      } else {
+        // 跨月了：流量归零（各家免费版的额度都是按月算的）
+        _trafficMonth = month;
+        _uploadedBytes = 0;
+        _downloadedBytes = 0;
+        await box?.put(_kTrafficMonth, month);
+        await box?.put(_kTrafficUp, 0);
+        await box?.put(_kTrafficDown, 0);
+      }
     } catch (_) {}
     try {
       _password = await _storage.read(key: _kPasswordSecret) ?? '';
@@ -172,6 +224,58 @@ class WebDavConfig {
       await _storage.delete(key: _kPasswordSecret);
     } catch (_) {}
     revision.value++;
+  }
+
+  // ------------------------------------------------------------ W4 附件
+
+  static Future<void> setFileSyncEnabled(bool value) async {
+    _fileSync = value;
+    try {
+      await _db?.optionsBox.put(_kFileSync, value);
+    } catch (_) {}
+    revision.value++;
+  }
+
+  /// 记一笔流量（跨月自动归零）
+  static Future<void> addTraffic({int up = 0, int down = 0}) async {
+    if (up == 0 && down == 0) return;
+    final month = currentMonthKey();
+    if (_trafficMonth != month) {
+      _trafficMonth = month;
+      _uploadedBytes = 0;
+      _downloadedBytes = 0;
+    }
+    _uploadedBytes += up;
+    _downloadedBytes += down;
+    final box = _db?.optionsBox;
+    try {
+      await box?.put(_kTrafficMonth, _trafficMonth);
+      await box?.put(_kTrafficUp, _uploadedBytes);
+      await box?.put(_kTrafficDown, _downloadedBytes);
+    } catch (_) {}
+    revision.value++;
+  }
+
+  static Future<void> setFileIndexRaw(String raw) async {
+    _fileIndexRaw = raw;
+    try {
+      await _db?.optionsBox.put(_kFileIndex, raw);
+    } catch (_) {}
+  }
+
+  /// 本机设备号（同步时告诉对方这份数据来自哪台设备）
+  static String get deviceIdOfThisDevice {
+    try {
+      return _db?.getDeviceId() ?? 'device';
+    } catch (_) {
+      return 'device';
+    }
+  }
+
+  /// '2026-09'：流量按月算（各家免费版都是这么算的）
+  static String currentMonthKey([DateTime? now]) {
+    final at = now ?? DateTime.now();
+    return at.year.toString() + '-' + at.month.toString().padLeft(2, '0');
   }
 
   // ------------------------------------------------------------ 造对象

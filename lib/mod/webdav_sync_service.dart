@@ -1,7 +1,10 @@
 import 'dart:async';
 
 import 'package:celechron/database/database_helper.dart';
+import 'package:celechron/mod/focus_device.dart';
 import 'package:celechron/mod/lan_sync_merge.dart';
+import 'package:celechron/mod/webdav_client.dart';
+import 'package:celechron/mod/webdav_files.dart';
 import 'package:celechron/mod/webdav_config.dart';
 import 'package:celechron/mod/webdav_sync.dart';
 import 'package:celechron/mod/webdav_sync_state.dart';
@@ -39,14 +42,19 @@ class WebDavSyncService {
   /// 没配置好就返回 null（界面据此提示"先去设置"）。
   Future<WebDavSyncResult?> syncNow() async {
     if (_running) return _current;
-    final sync = WebDavConfig.buildSync();
-    if (sync == null) return null;
-    final future = _run(sync);
+    final client = WebDavConfig.buildClient();
+    if (client == null) return null;
+    final sync = WebDavSync(
+      client,
+      deviceId: WebDavConfig.deviceIdOfThisDevice,
+      deviceName: FocusDevice.current,
+    );
+    final future = _run(sync, client);
     _current = future;
     return future;
   }
 
-  Future<WebDavSyncResult> _run(WebDavSync sync) async {
+  Future<WebDavSyncResult> _run(WebDavSync sync, WebDavClient client) async {
     _running = true;
     revision.value++;
     try {
@@ -60,8 +68,13 @@ class WebDavSyncService {
           await mergeIncomingBundle(incoming: incoming);
         },
       );
-      await WebDavConfig.recordSync(result.message, failed: result.failed);
-      return result;
+      var message = result.message;
+      if (!result.failed) {
+        final extra = await _syncFiles(client, db, taskList, result.action);
+        if (extra.isNotEmpty) message = message + '，' + extra;
+      }
+      await WebDavConfig.recordSync(message, failed: result.failed);
+      return WebDavSyncResult(result.action, message, failed: result.failed);
     } catch (error) {
       final message = '同步失败：' + error.toString();
       await WebDavConfig.recordSync(message, failed: true);
@@ -70,6 +83,68 @@ class WebDavSyncService {
       _running = false;
       revision.value++;
     }
+  }
+
+  // ------------------------------------------------------------ 附件本体（W4）
+
+  /// 把附件文件本体也搬一遍。返回一句给用户看的话（没搬东西就返回空串）。
+  ///
+  /// 只在**确实需要**的方向上动：
+  /// - 拉过对方的数据（pull / merge）→ 看看有没有哪个附件本机还没有；
+  /// - 推过自己的数据（push / merge）→ 看看有没有哪个附件远端还没有。
+  /// 附件是"加分项"：传不动**不该让整轮同步失败**（元数据已经同步好了），
+  /// 所以这里自己吞异常，只把结果如实告诉用户。
+  Future<String> _syncFiles(
+    WebDavClient client,
+    DatabaseHelper db,
+    RxList<Task> taskList,
+    SyncAction action,
+  ) async {
+    if (!WebDavConfig.fileSyncEnabled) return '';
+    final files = WebDavFiles(client, rootDir: WebDavSync.rootDir);
+    var fetched = 0, sent = 0, skipped = 0;
+    try {
+      if (action == SyncAction.pull || action == SyncAction.merge) {
+        final result = await files.downloadMissing(
+          db,
+          taskList.toList(),
+          flush: () async {
+            await db.setTaskList(taskList);
+            taskList.refresh();
+            await WebDavFiles.flushCourseMounts(db);
+          },
+        );
+        fetched = result.sent;
+        skipped += result.skipped;
+        if (result.bytes > 0) await WebDavConfig.addTraffic(down: result.bytes);
+      }
+      if (action == SyncAction.push || action == SyncAction.merge) {
+        final index = WebDavFiles.decodeIndex(WebDavConfig.fileIndexRaw);
+        final result = await files.uploadMissing(
+          db,
+          taskList.toList(),
+          index: index,
+          maxFileBytes: WebDavConfig.maxFileBytes,
+          usedThisMonth: WebDavConfig.uploadedBytesThisMonth,
+          monthlyBudget: WebDavConfig.monthlyUploadBudget,
+        );
+        sent = result.sent;
+        skipped += result.skipped;
+        if (result.sent > 0) {
+          await WebDavConfig.setFileIndexRaw(WebDavFiles.encodeIndex(index));
+          await WebDavConfig.addTraffic(up: result.bytes);
+        }
+      }
+    } catch (_) {
+      return '附件没传完';
+    }
+    final parts = <String>[];
+    if (fetched > 0) parts.add('取回 ' + fetched.toString() + ' 个文件');
+    if (sent > 0) parts.add('上传 ' + sent.toString() + ' 个文件');
+    if (skipped > 0) {
+      parts.add(skipped.toString() + ' 个附件超出大小/流量上限，没传');
+    }
+    return parts.join('，');
   }
 
   /// 数据一变就排一轮同步（延迟几秒合并连着的多次改动，比如批量导入）。

@@ -172,8 +172,27 @@ Nextcloud / 群晖 NAS / Alist 都能用），而且和已经造好的 DataBundl
 | W1 客户端 | `lib/mod/webdav_client.dart`（自己写的最小 WebDAV：PROPFIND/GET/PUT/DELETE/MKCOL）、`lib/mod/webdav_sync_state.dart`（清单 + 纯函数决策） | ✅ 真账号验证过 |
 | W2 读写 | `lib/mod/webdav_sync.dart`（自检 + 三轮同步流程） | ✅ 真账号验证过（MKCOL/PUT/GET 字节一致、ETag 未变不变、变了才变） |
 | W3 向导 | `lib/mod/webdav_providers.dart`（预设服务商）、`webdav_config.dart`（配置）、`webdav_settings_page.dart`（三步向导）、`webdav_sync_service.dart`（跑同步 + 自动触发）、`data_change.dart`（改动通知统一入口） | ✅ 代码完成，704 条测试通过、analyze 0 error |
-| W4 附件本体 | 复用 lan_sync_client 的 `_fetchMissingFiles` 思路，并把「上传量」提示做出来（坚果云免费版每月上传 1GB） | ⬜ 未做 |
+| W4 附件本体 | `lib/mod/webdav_files.dart`（传文件本体 + 流量账本） | ✅ 代码完成，719 条测试通过、analyze 0 error |
 | 加密 | —— | ❌ 用户决定不做（数据明文存在用户自己的网盘里） |
+
+### W4：附件文件本体
+
+同步包里附件只有 `name/path/size`，**二进制不过包**（见 `data_sync.dart`）——
+所以另一台设备上那一行在、点开是空的。W4 负责把本体搬过去。
+
+远端文件名 = `<来源路径的 FNV-1a 哈希>_<文件名>`，远端目录 `Elychron/files/`。
+
+- **为什么名字里要带哈希**：两台设备上同名不同内容很常见（`IMG_0001.jpg`、`简历.pdf`），
+  拿文件名当身份会互相覆盖；而「来源设备上的绝对路径」就在包的 `path` 字段里，
+  两台设备各自算必然一致，又天然不会撞。
+- **不重复传**：本机记一份索引（远端名 → 上次传出去时的大小），大小没变就跳过。
+  名字里不掺内容指纹是**刻意的取舍**：文件内容改了但大小不变时，最多浪费一次流量，
+  传错数据的风险为零（每次同步都读全文件做哈希，对手机是大负担）。
+- **流量有上限**：默认**关**（第一次打开就把几年的照片全传上去，会把免费额度一把打光）；
+  打开后单文件超 50MB 不传、本月上传超 900MB 不传（坚果云免费版是 1GB/月，留余量），
+  而且**如实告诉用户有几个没传**，不默默跳过。界面上有「本月流量」一栏。
+- 下载侧：先一次 `PROPFIND Elychron/files/` 拿远端的文件清单，再按需下载 ——
+  否则"一次同步几十个请求"，在坚果云上很容易被限流。
 
 ### 真机上踩到的两个坑（都已写进代码和测试）
 

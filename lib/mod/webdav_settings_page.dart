@@ -2,6 +2,7 @@ import 'package:celechron/design/page_background.dart';
 import 'package:celechron/mod/focus_device.dart';
 import 'package:celechron/mod/webdav_client.dart';
 import 'package:celechron/mod/webdav_config.dart';
+import 'package:celechron/mod/webdav_files.dart';
 import 'package:celechron/mod/webdav_providers.dart';
 import 'package:celechron/mod/webdav_sync.dart';
 import 'package:celechron/mod/webdav_sync_service.dart';
@@ -46,6 +47,7 @@ class _WebDavSettingsPageState extends State<WebDavSettingsPage> {
   bool _syncFailed = false;
   bool _obscure = true;
   bool _enabled = false;
+  bool _fileSync = false;
 
   static const Color _accent = Color(0xFFFF699A);
 
@@ -61,6 +63,7 @@ class _WebDavSettingsPageState extends State<WebDavSettingsPage> {
     if (!mounted) return;
     setState(() {
       _enabled = WebDavConfig.enabled;
+      _fileSync = WebDavConfig.fileSyncEnabled;
       _urlController.text = WebDavConfig.url;
       _userController.text = WebDavConfig.username;
       if (WebDavConfig.isConfigured) {
@@ -535,6 +538,42 @@ class _WebDavSettingsPageState extends State<WebDavSettingsPage> {
           trailing: const BackChervonRow(),
           onTap: _busy ? null : _syncNow,
         ),
+        // ===== W4：附件本体 =====
+        //
+        // 默认**关**：第一次打开就把几年的照片全传上去，会把坚果云免费版
+        // 每月 1GB 的额度一把打光，而额度用尽是"整个同步都不动了"，
+        // 比"有些文件没传"严重得多。所以由用户自己决定什么时候开。
+        CupertinoListTile(
+          title: const Text('同步附件文件'),
+          subtitle: Text(
+            _fileSync
+                ? '照片、PPT 这些也会传（超过 50MB 或超出本月额度就不传）'
+                : '关闭时只同步附件信息（名字/大小），文件本体不传',
+          ),
+          trailing: CupertinoSwitch(
+            value: _fileSync,
+            onChanged: (bool value) async {
+              setState(() => _fileSync = value);
+              await WebDavConfig.setFileSyncEnabled(value);
+            },
+          ),
+        ),
+        if (_fileSync)
+          CupertinoListTile(
+            title: const Text('本月流量'),
+            subtitle: Text(
+              '上传 ' +
+                  WebDavFiles.formatBytes(WebDavConfig.uploadedBytesThisMonth) +
+                  ' · 下载 ' +
+                  WebDavFiles.formatBytes(
+                      WebDavConfig.downloadedBytesThisMonth) +
+                  '\n坚果云免费版每月上传 1GB（这里留了余量，到 900MB 就停）',
+            ),
+            trailing: WebDavConfig.uploadBudgetLeft < 100 * 1024 * 1024
+                ? const Icon(CupertinoIcons.exclamationmark_triangle,
+                    color: CupertinoColors.systemOrange)
+                : null,
+          ),
         CupertinoListTile(
           title: const Text('账号'),
           subtitle: Text(
