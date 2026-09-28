@@ -74,7 +74,29 @@ class WebDavSync {
   ///
   /// 做四件事：探测目录 → 建目录 → 写一个探针文件 → 读回来比对 → 删掉。
   /// 只有四步都过，才说明"这个网盘能用来同步"。
-  Future<WebDavCheck> selfCheck() async {
+  /// ===== 韪╄繃鐨勫潙锛氬潥鏋滀簯鐨勭敤鎴峰悕**蹇呴』鍏ㄥ皬鍐?* =====
+  ///
+  /// 瀹炴祴锛?026-09-28锛岀湡璐﹀彿锛夛細
+  ///   tixerofficial@outlook.com 鈫?207 鉁?  ///   TixerOfficial@outlook.com 鈫?401 鉁?  /// 鐢ㄦ埛浠庣綉椤靛鍒堕偖绠辨椂棣栧瓧姣嶅父鏄ぇ鍐欙紝浜庢槸"瀵嗙爜鏄庢槑瀵瑰嵈杩炰笉涓?銆?  /// 浣嗕笉鑳芥棤鏉′欢灏忓啓锛圢extcloud 閭ｇ被鑷缓鏈嶅姟鐨勭敤鎴峰悕澶у皬鍐欐晱鎰燂紝涔辨敼鍙嶈€岃繛涓嶄笂锛夛紝
+  /// 鎵€浠ワ細**鍏堟寜鍘熸牱璇曪紝401 鍐嶈瘯灏忓啓**锛屾垚鍔熶簡灏辨妸 username 鍒囪繃鍘汇€?  Future<WebDavCheck> selfCheck() async {
+    var result = await _selfCheckOnce();
+    final lower = _client.username.toLowerCase();
+    if (!result.ok &&
+        result.message.contains('搴旂敤瀵嗙爜') &&
+        _client.username != lower) {
+      final original = _client.username;
+      _client.username = lower;
+      final retry = await _selfCheckOnce();
+      if (retry.ok) {
+        return const WebDavCheck(true, '杩炴帴姝ｅ父锛屽彲浠ュ悓姝ワ紙鐢ㄦ埛鍚嶅凡鑷姩杞垚灏忓啓锛?);
+      }
+      _client.username = original;
+      result = retry;
+    }
+    return result;
+  }
+
+  Future<WebDavCheck> _selfCheckOnce() async {
     try {
       await _client.propfind(rootDir, depth: 0);
     } on WebDavException catch (error) {
