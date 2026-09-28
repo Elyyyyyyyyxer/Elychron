@@ -348,9 +348,14 @@ class _FocusPageState extends State<FocusPage> {
   }
 
   Future<_ExitChoice> _confirmExit() async {
-    // 一秒都没专注、也没休息过，就别问了， 直接按"结束"处理
+    // ===== MOD: 不再"不满 30 秒就直接结束"（2026-09-21 用户反馈）=====
+    // 用户原话：「目前在专注模式页面，点击返回会直接强行打断」。
+    // 元凶就是下面这条快捷路径：专注不足 30 秒时跳过询问、直接按"结束"结算，
+    // 用户感知到的就是"按返回=被强行打断"。
+    // 现在一律走"暂停并离开"（回来还能接着这次专注做），
+    // 真想结束请用页面上的停止按钮 —— 那条路一直是明确的。
     if (_engine.focused < const Duration(seconds: 30))
-      return _ExitChoice.finish;
+      return _ExitChoice.suspend;
     final result = await showCupertinoDialog<_ExitChoice>(
       context: context,
       builder: (BuildContext context) => CupertinoAlertDialog(
