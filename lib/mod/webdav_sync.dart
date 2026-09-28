@@ -74,7 +74,36 @@ class WebDavSync {
   ///
   /// 做四件事：探测目录 → 建目录 → 写一个探针文件 → 读回来比对 → 删掉。
   /// 只有四步都过，才说明"这个网盘能用来同步"。
+  ///
+  /// ===== 顺带兜住一个真坑：坚果云的用户名**必须全小写** =====
+  ///
+  /// 实测（2026-09-28，真账号）：
+  ///   tixerofficial@outlook.com → 207 ✓
+  ///   TixerOfficial@outlook.com → 401 ✗（服务器 Basic realm="nutstore"）
+  /// 用户从网页复制邮箱时首字母常常是大写 —— 密码明明对，却怎么都连不上。
+  ///
+  /// 但不能**无条件**小写：Nextcloud 那类自建服务的用户名是大小写敏感的，
+  /// 乱改反而会把本来能用的账号改坏。所以：**先按原样试，401 再试小写**，
+  /// 成功了就把 username 切过去（后续请求都走它）。
   Future<WebDavCheck> selfCheck() async {
+    var result = await _selfCheckOnce();
+    final lower = _client.username.toLowerCase();
+    if (!result.ok &&
+        result.message.contains('应用密码') &&
+        _client.username != lower) {
+      final original = _client.username;
+      _client.username = lower;
+      final retry = await _selfCheckOnce();
+      if (retry.ok) {
+        return const WebDavCheck(true, '连接正常，可以同步（用户名已自动转成小写）');
+      }
+      _client.username = original;
+      result = retry;
+    }
+    return result;
+  }
+
+  Future<WebDavCheck> _selfCheckOnce() async {
     try {
       await _client.propfind(rootDir, depth: 0);
     } on WebDavException catch (error) {

@@ -17,15 +17,23 @@ import 'dart:typed_data';
 class WebDavClient {
   WebDavClient({
     required String baseUrl,
-    required this.username,
+    required String username,
     required this.password,
     Duration? timeout,
   })  : baseUrl = _normalizeBase(baseUrl),
+        username = username.trim(),
         timeout = timeout ?? const Duration(seconds: 20);
 
   /// 形如 https://dav.jianguoyun.com/dav/（末尾一定有斜杠）
   final String baseUrl;
-  final String username;
+
+  /// 用户名。
+  ///
+  /// **不是 final**：坚果云要求用户名全小写（实测 2026-09-28：
+  /// TixerOfficial@… → 401、tixerofficial@… → 207），
+  /// 而 Nextcloud 那类自建服务的用户名大小写敏感，不能无条件小写。
+  /// 所以由 selfCheck 先按原样试、401 再换成小写重试一次（见 mod/webdav_sync.dart）。
+  String username;
   final String password;
   final Duration timeout;
 
