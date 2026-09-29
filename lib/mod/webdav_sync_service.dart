@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:celechron/database/database_helper.dart';
 import 'package:celechron/mod/focus_device.dart';
@@ -60,15 +61,37 @@ class WebDavSyncService {
     try {
       final db = Get.find<DatabaseHelper>(tag: 'db');
       final taskList = Get.find<RxList<Task>>(tag: 'taskList');
+      // ===== 本机当前内容的 revision（必须真的算出来）=====
+      //
+      // 一开始这里没传 localRevision，于是 decideSyncAction 的 localDirty
+      // **永远是 false** —— 本机自己的改动永远不算"有改动"，结果是：
+      //   1. 最省流量的第一层（指纹 + revision 都对得上就直接收工）永远不生效；
+      //   2. 本机改的东西要等远端也变了才会被带上去。
+      // 用户看到的现象就是"电脑端同步了个空气"。
+      //
+      // 代价只有一次本地 JSON 编码（没有网络请求），省流量的三层照样有效。
+      final localBundle = await DataBackup.currentBundle(db, taskList.toList());
+      final localRevision = contentRevision(utf8.encode(localBundle.encode()));
+      var mergeSummary = '';
       final result = await sync.sync(
         buildLocal: () => DataBackup.currentBundle(db, taskList.toList()),
         applyRemote: (incoming) async {
           // 合并前会自己落一份本地备份（见 mergeIncomingBundle 内部），
           // 万一合并出意外，用户的原始数据还在。
-          await mergeIncomingBundle(incoming: incoming);
+          final summary = await mergeIncomingBundle(incoming: incoming);
+          // 合并结果（新增/改了几条）原来**被丢掉了** —— 界面上只显示
+          // "已从网盘取回最新数据"，用户根本看不出到底同步进来什么，
+          // 于是"同步了个空气"这种怀疑无从分辨。这里把它记下来给界面看。
+          mergeSummary = (summary['summary'] ?? '').toString();
         },
+        localRevision: localRevision,
       );
       var message = result.message;
+      if (mergeSummary.isNotEmpty &&
+          (result.action == SyncAction.pull ||
+              result.action == SyncAction.merge)) {
+        message = message + '（' + mergeSummary + '）';
+      }
       if (!result.failed) {
         final extra = await _syncFiles(client, db, taskList, result.action);
         if (extra.isNotEmpty) message = message + '，' + extra;
