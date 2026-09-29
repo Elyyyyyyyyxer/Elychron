@@ -8,6 +8,7 @@ import 'package:celechron/mod/webdav_client.dart';
 import 'package:celechron/mod/webdav_files.dart';
 import 'package:celechron/mod/webdav_config.dart';
 import 'package:celechron/mod/webdav_sync.dart';
+import 'package:celechron/mod/webdav_status.dart';
 import 'package:celechron/mod/webdav_sync_state.dart';
 import 'package:celechron/model/task.dart';
 import 'package:celechron/utils/data_backup.dart';
@@ -262,18 +263,7 @@ class WebDavSyncService {
     return text + ' · ' + summary;
   }
 
-  static String formatTime(DateTime time) {
-    String two(int value) => value.toString().padLeft(2, '0');
-    final now = DateTime.now();
-    final hm = two(time.hour) + ':' + two(time.minute);
-    final sameDay =
-        time.year == now.year && time.month == now.month && time.day == now.day;
-    if (sameDay) return '今天 ' + hm;
-    final yesterday = now.subtract(const Duration(days: 1));
-    final isYesterday = time.year == yesterday.year &&
-        time.month == yesterday.month &&
-        time.day == yesterday.day;
-    if (isYesterday) return '昨天 ' + hm;
-    return two(time.month) + '-' + two(time.day) + ' ' + hm;
-  }
+  /// 时间的说法只保留一份（在 webdav_status.dart 里）。这里只做转发 ——
+  /// 两处各写一遍的话，"昨天"和"今天"的边界迟早会出现两种结果。
+  static String formatTime(DateTime time) => formatSyncTime(time);
 }
