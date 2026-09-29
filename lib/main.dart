@@ -35,6 +35,7 @@ import 'package:celechron/page/home_page.dart';
 import 'package:celechron/page/option/ecard_pay_page.dart';
 import 'package:celechron/services/diagnostic_log_service.dart';
 import 'package:celechron/services/refresh_coordinator.dart';
+import 'package:celechron/worker/background_app_refresh.dart';
 import 'package:celechron/worker/ecard_widget_messenger.dart';
 import 'package:celechron/worker/todo_widget_messenger.dart';
 import 'package:celechron/database/database_helper.dart';
@@ -233,6 +234,19 @@ void main(List<String> args) async {
       if (WebDavConfig.enabled && WebDavConfig.isConfigured) {
         await WebDavSyncService.instance.syncNow();
       }
+    } catch (_) {}
+  });
+
+  // ===== 「成绩推送」的一次性开场白（v1.5.0 修）=====
+  //
+  // 用户反馈：「一天会给我推送很多次那个通知」。那句话原来挂在 15 分钟一次的后台
+  // 任务里，读不到"说过了"的记录就会一直弹。现在只在**有界面的地方**说一次：
+  // 开着「推送成绩变动」才说，说过（文件记着）就永不再说。
+  Future<void>.delayed(const Duration(seconds: 12), () async {
+    try {
+      final db = Get.find<DatabaseHelper>(tag: 'db');
+      if (!db.getPushOnGradeChange()) return;
+      await showGradePushIntroOnce();
     } catch (_) {}
   });
 

@@ -1,10 +1,7 @@
-import 'dart:convert';
-
 import 'package:celechron/http/zjuServices/exceptions.dart';
 import 'package:celechron/model/scholar.dart';
 import 'package:celechron/services/diagnostic_log_service.dart';
 import 'package:celechron/services/refresh_coordinator.dart';
-import 'package:celechron/utils/json_utils.dart';
 import 'package:celechron/utils/platform_features.dart';
 import 'package:flutter/foundation.dart';
 import 'package:workmanager/workmanager.dart';
@@ -12,6 +9,75 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../utils/utils.dart';
+import 'notification_dedup.dart';
+
+/// 成绩变动通知的 channel（后台的"有新课出分"和前台那句开场白共用一套，
+/// 免得两处各写一份、以后改了一个忘了另一个）
+const NotificationDetails _gradeNotificationDetails = NotificationDetails(
+  android: AndroidNotificationDetails(
+    'top.celechron.celechron.gradeChange',
+    '成绩变动提醒',
+    importance: Importance.max,
+    priority: Priority.high,
+    showWhen: false,
+  ),
+  iOS: DarwinNotificationDetails(
+    presentSound: true,
+    presentBadge: true,
+    presentBanner: true,
+    presentList: true,
+    sound: 'default',
+    badgeNumber: 0,
+  ),
+);
+
+/// 「成绩推送」的那句开场白 —— **只能在有界面的地方调**（见 main.dart 启动钩子）。
+///
+/// 用户反馈：「一天会给我推送很多次那个通知」。那句开场白原来就挂在
+/// 15 分钟一次的后台任务里，后台 isolate 读不到"说过了"的记录时就会一直弹。
+/// 现在：前台才说、而且用**文件**记着"说过了"，所以一辈子只会出现一次。
+/// 顺带它也是唯一一条带具体数字的说明（已经查到几门出分、当前均绩多少）。
+Future<void> showGradePushIntroOnce() async {
+  if (!PlatformFeatures.hasBackgroundRefresh) return;
+  const fingerprint = 'grade-push-intro-v1';
+  if (await NotificationDedup.everSent('grade_intro', fingerprint)) return;
+
+  final plugin = FlutterLocalNotificationsPlugin();
+  const initializationSettingsAndroid =
+      AndroidInitializationSettings('@mipmap/ic_launcher');
+  const initializationSettingsDarwin = DarwinInitializationSettings(
+    requestSoundPermission: true,
+    requestBadgePermission: true,
+    requestAlertPermission: true,
+  );
+  const initializationSettings = InitializationSettings(
+      android: initializationSettingsAndroid,
+      iOS: initializationSettingsDarwin);
+  await plugin.initialize(initializationSettings);
+
+  // 数字取后台已经查好的那一份（前台的学业页这时可能还没刷新完）
+  final storage = const FlutterSecureStorage();
+  final count = int.tryParse(await storage.read(
+          key: 'gradedCourseCount', iOptions: secureStorageIOSOptions) ??
+      '') ??
+      0;
+  final gpa = double.tryParse(await storage.read(
+          key: 'gpa', iOptions: secureStorageIOSOptions) ?? '') ??
+      0;
+
+  final facts = <String>[];
+  if (count > 0) facts.add('已经查到 ' + count.toString() + ' 门出分');
+  if (gpa.isFinite && gpa > 0) {
+    facts.add('当前均绩 ' + gpa.toStringAsFixed(2));
+  }
+  final head = facts.isEmpty ? '' : facts.join('，') + '。';
+  final body = head +
+      '以后有新课程出分，Elychron 会把课程名和成绩直接告诉你。'
+          '不想收的话：设置 → 推送成绩变动 关掉即可。';
+
+  await plugin.show(0, '成绩推送已开启', body, _gradeNotificationDetails);
+  await NotificationDedup.markSent('grade_intro', fingerprint);
+}
 
 @pragma('vm:entry-point')
 void callbackDispatcher() {
@@ -55,25 +121,6 @@ Future<void> refreshScholar() async {
       iOS: initializationSettingsDarwin);
   await flutterLocalNotificationsPlugin.initialize(initializationSettings);
 
-  // 成绩变动通知 channel
-  const gradeNotificationDetails = NotificationDetails(
-    android: AndroidNotificationDetails(
-      'top.celechron.celechron.gradeChange',
-      '成绩变动提醒',
-      importance: Importance.max,
-      priority: Priority.high,
-      showWhen: false,
-    ),
-    iOS: DarwinNotificationDetails(
-      presentSound: true,
-      presentBadge: true,
-      presentBanner: true,
-      presentList: true,
-      sound: 'default',
-      badgeNumber: 0,
-    ),
-  );
-
   // DDL 截止提醒 channel
   const ddlNotificationDetails = NotificationDetails(
     android: AndroidNotificationDetails(
@@ -111,8 +158,6 @@ Future<void> refreshScholar() async {
       key: 'pushOnGradeChange', iOptions: secureStorageIOSOptions);
   var pushOnDdlReminder = await secureStorage.read(
       key: 'pushOnDdlReminder', iOptions: secureStorageIOSOptions);
-  var notifiedDdlIdsStr = await secureStorage.read(
-      key: 'notifiedDdlIds', iOptions: secureStorageIOSOptions);
 
   try {
     var backgroundYielded = false;
@@ -130,55 +175,64 @@ Future<void> refreshScholar() async {
         .whereType<String>()
         .any((error) => shortErrorText(error).contains(interfaceName));
 
-    // 成绩变动通知
+    // ===== 成绩变动通知 =====
+    //
+    // 2026-09-29 改：**把「首次成绩推送已开启」那条从这里删掉了**。
+    //
+    // 用户反馈：「一天会给我推送很多次那个通知」。那句开场白原来就挂在这个
+    // 后台任务里（每 15 分钟一次），只要那次读不到"说过了"的记录就会再弹一遍；
+    // 而后台 isolate 里读加密存储本来就不是一定成功（见
+    // worker/notification_dedup.dart 的注释）。一条"提个醒"的通知放错地方，
+    // 就成了骚扰。现在它只在有界面的地方说一次（main.dart 启动时调
+    // showGradePushIntroOnce）。
+    //
+    // 这里因此只发**真正的新消息**，而且有两道闸：
+    //   1. 分数或门数确实和上次记下来的不一样；
+    //   2. 同样的内容 6 小时内不重复发（文件记账，不看加密存储的脸色）。
     if (pushOnGradeChange != 'false' && !failed('成绩')) {
-      if (pushOnGradeChangeFuse == null) {
-        await flutterLocalNotificationsPlugin.show(0, '首次成绩推送已开启',
-            // ===== 用户反馈："通知内容还是一个模板，没有具体信息" =====
-            // 原来这条只说"若有新出分的课程会通知您"，一个具体数字都没有。
-            // 现在把**当前已经查到的事实**写进去：已有几门出分、现在均绩多少。
-            // 这样这条通知本身就带信息，而不是一句系统声明。
-            () {
-          final count = scholar.gradedCourseCount;
-          final gpa = scholar.gpa.isNotEmpty ? scholar.gpa[0] : 0.0;
-          final facts = <String>[];
-          if (count > 0) facts.add('已经查到 ' + count.toString() + ' 门出分');
-          if (gpa.isFinite && gpa > 0) {
-            facts.add('当前均绩 ' + gpa.toStringAsFixed(2));
-          }
-          final head = facts.isEmpty ? '' : facts.join('，') + '。';
-          return head +
-              '以后有新课程出分，Elychron 会把课程名和成绩直接告诉你。'
-                  '不想收的话：设置 → 推送成绩变动 关掉即可。';
-        }(), gradeNotificationDetails);
-        await secureStorage.write(
-            key: 'pushOnGradeChangeFuse',
-            value: '1',
-            iOptions: secureStorageIOSOptions);
-      } else if (scholar.gpa[0] != double.tryParse(oldGpa) ||
-          scholar.gradedCourseCount != int.tryParse(gradedCourseCount)) {
-        await flutterLocalNotificationsPlugin.show(0, '成绩变动提醒',
-            '有新出分的课程，可在 Elychron 的学业页面中刷新查看。', gradeNotificationDetails);
+      final gpa = scholar.gpa.isNotEmpty ? scholar.gpa[0] : 0.0;
+      final count = scholar.gradedCourseCount;
+      final fingerprint =
+          'gpa=' + gpa.toStringAsFixed(2) + '|count=' + count.toString();
+      // fuse 为 null = 这个后台任务还没成功跑过一轮，第一次只记数不说话
+      final changed = pushOnGradeChangeFuse != null &&
+          (gpa != double.tryParse(oldGpa) ||
+              count != int.tryParse(gradedCourseCount));
+      if (changed &&
+          !await NotificationDedup.sentRecently(
+              'grade', fingerprint, const Duration(hours: 6))) {
+        await flutterLocalNotificationsPlugin.show(
+            0,
+            '成绩变动提醒',
+            '有新出分的课程，可在 Elychron 的学业页面中刷新查看。',
+            _gradeNotificationDetails);
+        await NotificationDedup.markSent('grade', fingerprint);
       }
       await secureStorage.write(
+          key: 'pushOnGradeChangeFuse',
+          value: '1',
+          iOptions: secureStorageIOSOptions);
+      await secureStorage.write(
           key: 'gpa',
-          value: scholar.gpa[0].toString(),
+          value: gpa.toString(),
           iOptions: secureStorageIOSOptions);
       await secureStorage.write(
           key: 'gradedCourseCount',
-          value: scholar.gradedCourseCount.toString(),
+          value: count.toString(),
           iOptions: secureStorageIOSOptions);
     }
 
     // DDL 截止提醒
     if (pushOnDdlReminder != 'false' && !failed('作业')) {
+      // 存哪改过：原来存在加密存储里，后台 isolate 读不到就会把"提醒过了"
+      // 的记录丢掉，于是同一个作业每 15 分钟提醒一次（见 notification_dedup.dart）。
       Set<String> notifiedDdlIds = {};
-      if (notifiedDdlIdsStr != null && notifiedDdlIdsStr.isNotEmpty) {
-        final decoded = jsonDecode(notifiedDdlIdsStr);
-        notifiedDdlIds = (asDynamicList(decoded) ?? const [])
-            .map(asString)
-            .whereType<String>()
-            .toSet();
+      {
+        final record = await NotificationDedup.read('ddl_ids');
+        final rawIds = record == null ? null : record['ids'];
+        if (rawIds is List) {
+          notifiedDdlIds = rawIds.map((item) => item.toString()).toSet();
+        }
       }
 
       var now = DateTime.now();
@@ -212,10 +266,8 @@ Future<void> refreshScholar() async {
         return todo.first.endTime != null && todo.first.endTime!.isBefore(now);
       });
 
-      await secureStorage.write(
-          key: 'notifiedDdlIds',
-          value: jsonEncode(notifiedDdlIds.toList()),
-          iOptions: secureStorageIOSOptions);
+      await NotificationDedup.write(
+          'ddl_ids', <String, dynamic>{'ids': notifiedDdlIds.toList()});
     }
   } on Object catch (error, stackTrace) {
     if (kDebugMode) {

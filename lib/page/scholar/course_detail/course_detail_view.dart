@@ -3,6 +3,7 @@ import 'package:celechron/design/sub_title.dart';
 import 'package:celechron/design/custom_colors.dart';
 import 'package:celechron/design/persistent_headers.dart';
 import 'package:celechron/design/round_rectangle_card.dart';
+import 'package:celechron/design/page_background.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -425,8 +426,7 @@ class CourseDetailPage extends StatelessWidget {
     final labelColor =
         CupertinoDynamicColor.resolve(CupertinoColors.secondaryLabel, context);
     return CupertinoPageScaffold(
-      backgroundColor: CupertinoDynamicColor.resolve(
-          CupertinoColors.systemGroupedBackground, context),
+      backgroundColor: pageBackground(context),
       child: CustomScrollView(
         slivers: [
           const CelechronSliverTextHeader(subtitle: '课程详情'),
@@ -472,8 +472,7 @@ class CourseDetailPage extends StatelessWidget {
     final current = course;
     if (current == null) return _buildCourseNotFound(context);
     return CupertinoPageScaffold(
-      backgroundColor: CupertinoDynamicColor.resolve(
-          CupertinoColors.systemGroupedBackground, context),
+      backgroundColor: pageBackground(context),
       child: CustomScrollView(
         slivers: [
           const CelechronSliverTextHeader(subtitle: '课程详情'),

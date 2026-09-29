@@ -604,6 +604,19 @@ class _WebDavSettingsPageState extends State<WebDavSettingsPage> {
           borderRadius: BorderRadius.circular(14),
           color: _cardColor,
           border: border == null ? null : Border.all(color: border, width: 1),
+          // 页面底色统一成白之后，白卡在白底上会"消失"（只有一圈粉边那张还能看出来）。
+          // 所以用日程/待办那套卡片的投影口径（见 design/round_rectangle_card.dart）：
+          // 浅色下投影，深色下不投影（深色里靠底色区分本来就够）。
+          boxShadow: CupertinoTheme.of(context).brightness == Brightness.dark
+              ? null
+              : const <BoxShadow>[
+                  BoxShadow(
+                    color: CupertinoColors.systemGrey5,
+                    spreadRadius: 0,
+                    blurRadius: 12,
+                    offset: Offset(0, 6),
+                  ),
+                ],
         ),
         child: child,
       );

@@ -9,6 +9,7 @@ import 'package:celechron/design/sub_title.dart';
 import 'package:celechron/design/persistent_headers.dart';
 import 'package:celechron/design/round_rectangle_card.dart';
 import 'package:celechron/design/animate_button.dart';
+import 'package:celechron/design/page_background.dart';
 import 'package:celechron/design/custom_colors.dart';
 
 import 'exam_list_controller.dart';
@@ -325,8 +326,7 @@ class _ExamListPageState extends State<ExamListPage> {
   @override
   Widget build(BuildContext context) {
     return CupertinoPageScaffold(
-      backgroundColor: CupertinoDynamicColor.resolve(
-          CupertinoColors.systemGroupedBackground, context),
+      backgroundColor: pageBackground(context),
       child: CustomScrollView(
         slivers: [
           const CelechronSliverTextHeader(
