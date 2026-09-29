@@ -493,6 +493,18 @@ class _CelechronAppState extends State<CelechronApp>
     if (state == AppLifecycleState.resumed) {
       _startForegroundLease();
       unawaited(_consumeTodoWidgetCompletions());
+      // ===== 回到前台就查一次全平台同步（v1.5.0）=====
+      //
+      // 用户反馈：「一个端更新了，另一个端不会自动更新」。
+      // 除了"远端改了没人通知我们"这个固有限制（WebDAV 没有推送通道），
+      // 最要紧的是**别让用户干等**：平时靠在跑的那个 10 分钟定时器，
+      // 最短也要等十分钟；而"切回 App"是用户最可能想看到新数据的时刻。
+      // 这里只延迟 2 秒（避开前台动画），只走最便宜那两层（PROPFIND + meta.json），
+      // 没有变化时几十到几百字节就收工。
+      if (WebDavConfig.enabled && WebDavConfig.isConfigured) {
+        WebDavSyncService.instance
+            .scheduleSync(delay: const Duration(seconds: 2));
+      }
     } else if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.hidden ||
         state == AppLifecycleState.detached) {

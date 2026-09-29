@@ -219,14 +219,17 @@ class WebDavSyncService {
   ///
   /// 两个触发点，与局域网同步同一套口径：
   /// - **待办列表一变**就排一轮（其余用户数据走 notifyDataChanged）；
-  /// - 每 10 分钟**主动问一次远端**——只在别的设备上改过时，本机没有任何
+  /// - 每 3 分钟**主动问一次远端**——只在别的设备上改过时，本机没有任何
   ///   本地事件可听，只能靠这个定时器，否则"手机上改了，电脑半天不更新"。
   void startAutoSync() {
     if (!WebDavConfig.enabled || !WebDavConfig.isConfigured) return;
     if (!WebDavConfig.loaded) return;
     final list = _taskListOf();
     _taskSub ??= list?.listen((_) => scheduleSync());
-    _pullTimer ??= Timer.periodic(const Duration(minutes: 10), (_) {
+    // 3 分钟而不是 10 分钟：用户的原话是"一个端更新了，另一个端不能自动更新"。
+    // WebDAV 没有推送通道，只能定时问；而一次"没变化"的检查只有几十到几百字节
+    // （PROPFIND 看指纹 + 读 meta.json），问得勤一点远比让用户干等十分钟划算。
+    _pullTimer ??= Timer.periodic(const Duration(minutes: 3), (_) {
       if (!WebDavConfig.enabled) return;
       syncNow();
     });
