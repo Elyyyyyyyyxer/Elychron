@@ -118,7 +118,32 @@ class DesktopNavRail extends StatelessWidget {
         ),
         child: Row(
           children: <Widget>[
-            Icon(item.icon, size: 19, color: selected ? accent : labelColor),
+            // ===== 爱莉图标（用户要求："电脑端导航栏的图标要是爱莉"）=====
+            //
+            // 爱莉就是我们自己的 App 图标（assets/logo.png，那张粉色圆底头像），
+            // 所以这里不再用系统字形，直接用那张图：
+            // - 裁成圆形（ClipOval）：原图是圆底，方形摆上去会露出四角；
+            // - 未选中压到 55% 透明度，选中时外面套一圈爱莉粉描边 ——
+            //   不靠颜色也能一眼看出当前在哪一页。
+            Container(
+              decoration: selected
+                  ? BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(color: accent, width: 2),
+                    )
+                  : null,
+              child: Opacity(
+                opacity: selected ? 1 : 0.55,
+                child: ClipOval(
+                  child: Image.asset(
+                    'assets/logo.png',
+                    width: 24,
+                    height: 24,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+              ),
+            ),
             const SizedBox(width: 12),
             Text(
               item.label,

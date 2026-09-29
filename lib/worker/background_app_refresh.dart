@@ -133,11 +133,24 @@ Future<void> refreshScholar() async {
     // 成绩变动通知
     if (pushOnGradeChange != 'false' && !failed('成绩')) {
       if (pushOnGradeChangeFuse == null) {
-        await flutterLocalNotificationsPlugin.show(
-            0,
-            '首次成绩推送',
-            '若有新出分的课程，Elychron 将会通知您。若不需要此功能，可在 Elychron 的设置页面中关闭。',
-            gradeNotificationDetails);
+        await flutterLocalNotificationsPlugin.show(0, '首次成绩推送已开启',
+            // ===== 用户反馈："通知内容还是一个模板，没有具体信息" =====
+            // 原来这条只说"若有新出分的课程会通知您"，一个具体数字都没有。
+            // 现在把**当前已经查到的事实**写进去：已有几门出分、现在均绩多少。
+            // 这样这条通知本身就带信息，而不是一句系统声明。
+            () {
+          final count = scholar.gradedCourseCount;
+          final gpa = scholar.gpa.isNotEmpty ? scholar.gpa[0] : 0.0;
+          final facts = <String>[];
+          if (count > 0) facts.add('已经查到 ' + count.toString() + ' 门出分');
+          if (gpa.isFinite && gpa > 0) {
+            facts.add('当前均绩 ' + gpa.toStringAsFixed(2));
+          }
+          final head = facts.isEmpty ? '' : facts.join('，') + '。';
+          return head +
+              '以后有新课程出分，Elychron 会把课程名和成绩直接告诉你。'
+                  '不想收的话：设置 → 推送成绩变动 关掉即可。';
+        }(), gradeNotificationDetails);
         await secureStorage.write(
             key: 'pushOnGradeChangeFuse',
             value: '1',

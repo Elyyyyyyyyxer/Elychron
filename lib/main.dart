@@ -563,6 +563,7 @@ class _CelechronAppState extends State<CelechronApp>
                     : Brightness.light,
             primaryColor: AppAccent.primary, // 爱莉希雅粉
             primaryContrastingColor: CupertinoColors.white,
+
             scaffoldBackgroundColor: CupertinoColors.systemBackground,
             barBackgroundColor: CupertinoColors.systemBackground,
             // 桌面端：主题的基础字体也换成微软雅黑，
@@ -577,6 +578,11 @@ class _CelechronAppState extends State<CelechronApp>
                               fontFamily: desktopFontFamily,
                               fontFamilyFallback: desktopFontFallback,
                               fontWeight: FontWeight.w400,
+                              // ===== 字距放宽一点（用户反馈"字间距比较小，显得难受"，
+                              // 跟进又说了句"再多一点点"）=====
+                              // 手机端保持系统原生字距不动：这一段本来就只在桌面端生效。
+                              // 中文（微软雅黑）在 Flutter 默认字距下小字号会显得挤。
+                              letterSpacing: 0.7,
                             ),
                   )
                 : null,
