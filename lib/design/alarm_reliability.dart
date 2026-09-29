@@ -1,5 +1,8 @@
+import 'dart:io';
+
 import 'package:celechron/design/dingtalk_sheet.dart';
 import 'package:celechron/design/system_alarm_picker.dart';
+import 'package:celechron/mod/system_alarm.dart';
 import 'package:celechron/utils/alarm_player.dart';
 import 'package:flutter/cupertino.dart';
 
@@ -14,6 +17,47 @@ import 'package:flutter/cupertino.dart';
 /// 这里把能查的查出来、能一键跳转的给出按钮，剩下的用文字说清楚。
 /// 弹层用全 App 统一的钉钉风格（见 [showDingTalkPanel]），不再用 iOS 原生对话框。
 Future<void> showAlarmReliabilityDialog(BuildContext context) async {
+  if (Platform.isIOS) {
+    final supported = await SystemAlarm.isSupported();
+    if (!context.mounted) return;
+    await showDingTalkPanel(
+      context: context,
+      title: 'iPhone 闹钟与提醒',
+      subtitle: '系统版本和权限决定可用的提醒方式',
+      children: [
+        DingTalkInfoRow(
+          label: 'Elychron 原生闹钟',
+          value: supported ? '可用' : '不可用',
+          ok: supported,
+        ),
+        DingTalkPanelNote(
+          supported
+              ? 'iOS 26+ 使用 AlarmKit 安排 Elychron 自己的闹钟，可在锁屏响起；它不会写入 Apple 时钟。'
+              : 'iOS 15–25 或闹钟权限被拒绝时，待办使用普通本地通知，不会自动弹出全屏闹钟。',
+        ),
+        const DingTalkPanelNote(
+          '后台学业刷新由 iOS 决定运行时机，15 分钟只是最早尝试时间，不保证每 15 分钟执行。',
+        ),
+      ],
+      secondaryActions: [
+        DingTalkPanelAction(
+          label: '设置原生闹钟',
+          onTap: () {
+            Navigator.of(context).pop();
+            showSystemAlarmPicker(context);
+          },
+        ),
+        DingTalkPanelAction(
+          label: '应用设置',
+          onTap: () {
+            Navigator.of(context).pop();
+            AlarmPlayer.openAppNotificationSettings();
+          },
+        ),
+      ],
+    );
+    return;
+  }
   final canFullScreen = await AlarmPlayer.canUseFullScreenIntent();
   final channelImportance = await AlarmPlayer.alarmChannelImportance();
   final ignoreBattery = await AlarmPlayer.isIgnoringBatteryOptimizations();

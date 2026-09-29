@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:celechron/model/task.dart';
 import 'package:celechron/mod/system_alarm.dart';
 import 'package:flutter/cupertino.dart';
@@ -34,7 +36,13 @@ Future<void> setSystemAlarmForTask(BuildContext context, Task task) async {
   final supported = await SystemAlarm.isSupported();
   if (!context.mounted) return;
   if (!supported) {
-    await _info(context, '没有可用的系统时钟', '这台设备上没有能接收设置闹钟的应用，无法使用系统闹钟。');
+    await _info(
+      context,
+      Platform.isIOS ? '此系统版本无法使用原生闹钟' : '没有可用的系统时钟',
+      Platform.isIOS
+          ? 'Elychron 的原生闹钟需要 iOS 26 或更新版本，并需要允许闹钟权限。当前仍可使用普通待办通知。'
+          : '这台设备上没有能接收设置闹钟的应用，无法使用系统闹钟。',
+    );
     return;
   }
 
@@ -56,12 +64,11 @@ Future<void> setSystemAlarmForTask(BuildContext context, Task task) async {
     context: context,
     barrierDismissible: false,
     builder: (BuildContext context) => CupertinoAlertDialog(
-      title: const Text('交给系统闹钟？'),
+      title: Text(Platform.isIOS ? '设置 Elychron 原生闹钟？' : '交给系统闹钟？'),
       content: Text(
         '${task.summary}\n'
         '${at.year}-${_two(at.month)}-${_two(at.day)} ${_two(at.hour)}:${_two(at.minute)}\n\n'
-        '系统闹钟是**一次性**的，而且**不会随着待办完成或删除而撤销**， '
-        '以后要改时间或取消，得自己打开时钟应用操作。',
+        '${Platform.isIOS ? '这是 Elychron 管理的一次性闹钟，不会写入 Apple 时钟。手动添加后，待办变化不会自动撤销它。' : '系统闹钟是一次性的，而且不会随着待办完成或删除而撤销。以后要改时间或取消，得自己打开时钟应用操作。'}',
       ),
       actions: [
         CupertinoDialogAction(
@@ -85,11 +92,14 @@ Future<void> setSystemAlarmForTask(BuildContext context, Task task) async {
   if (!context.mounted) return;
   await _info(
     context,
-    ok ? '已交给系统时钟' : '没能设成闹钟',
+    ok ? (Platform.isIOS ? '原生闹钟已设置' : '已交给系统时钟') : '没能设成闹钟',
     ok
-        ? '闹钟已写入时钟应用，到点会像起床闹钟一样响。\n'
-            '要改时间或取消，请到时钟应用里操作（我们撤不掉它）。'
-        : '系统拒绝了这次请求。可以打开时钟应用手动加一个闹钟。',
+        ? (Platform.isIOS
+            ? 'Elychron 已安排这次闹钟。它不会出现在 Apple 时钟中。'
+            : '闹钟已写入时钟应用，到点会像起床闹钟一样响。\n要改时间或取消，请到时钟应用里操作（我们撤不掉它）。')
+        : (Platform.isIOS
+            ? '系统拒绝了这次请求。请检查 Elychron 的闹钟权限，或使用普通待办通知。'
+            : '系统拒绝了这次请求。可以打开时钟应用手动加一个闹钟。'),
   );
 }
 
@@ -145,13 +155,13 @@ class _SystemAlarmSheet extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('交给系统闹钟',
-                      style:
-                          TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
+                  Text(Platform.isIOS ? '设置原生闹钟' : '交给系统闹钟',
+                      style: const TextStyle(
+                          fontSize: 17, fontWeight: FontWeight.w600)),
                   const SizedBox(height: 4),
                   Text(
                     '只列出还没到点、且设了提醒或时间的待办。'
-                    '系统闹钟优先级等同起床闹钟，但**不会随待办撤销**。',
+                    '${Platform.isIOS ? 'iOS 26+ 可用；手动设置的闹钟不会随待办撤销。' : '系统闹钟优先级等同起床闹钟，但不会随待办撤销。'}',
                     style: TextStyle(fontSize: 12.5, color: labelColor),
                   ),
                 ],

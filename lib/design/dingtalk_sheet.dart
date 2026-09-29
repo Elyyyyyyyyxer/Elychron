@@ -12,6 +12,7 @@
 /// 这里把它抽出来，让默认提前量 / 专注时长 / 闹钟可靠性 / 导出课程表也用同一套。
 library;
 
+import 'package:celechron/design/adaptive_sheet_frame.dart';
 import 'package:celechron/design/app_accent.dart';
 import 'package:flutter/cupertino.dart';
 
@@ -117,7 +118,8 @@ Future<T?> showDingTalkSheet<T>({
 }) {
   return showCupertinoModalPopup<T>(
     context: context,
-    builder: (BuildContext context) => DingTalkSheetShell(
+    builder: (BuildContext context) => AdaptiveSheetFrame(
+        child: DingTalkSheetShell(
       title: title,
       subtitle: subtitle,
       children: [
@@ -143,7 +145,7 @@ Future<T?> showDingTalkSheet<T>({
           onTap: () => Navigator.of(context).pop(),
         ),
       ],
-    ),
+    )),
   );
 }
 
@@ -386,7 +388,8 @@ Future<void> showDingTalkPanel({
 }) {
   return showCupertinoModalPopup<void>(
     context: context,
-    builder: (BuildContext context) => DingTalkSheetShell(
+    builder: (BuildContext context) => AdaptiveSheetFrame(
+        child: DingTalkSheetShell(
       title: title,
       subtitle: subtitle,
       children: [
@@ -428,6 +431,6 @@ Future<void> showDingTalkPanel({
           onTap: () => Navigator.of(context).pop(),
         ),
       ],
-    ),
+    )),
   );
 }

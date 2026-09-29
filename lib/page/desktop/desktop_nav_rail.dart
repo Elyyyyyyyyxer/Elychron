@@ -14,6 +14,7 @@ class DesktopNavRail extends StatelessWidget {
     required this.index,
     required this.onSelect,
     this.width = 208,
+    this.showDropHint = true,
   });
 
   /// 当前选中的序号
@@ -23,6 +24,7 @@ class DesktopNavRail extends StatelessWidget {
   final ValueChanged<int> onSelect;
 
   final double width;
+  final bool showDropHint;
 
   /// 导航项：与手机端底部标签一一对应（日程 / 待办 / 专注 / 学业 / 设置）
   static const List<DesktopNavItem> items = <DesktopNavItem>[
@@ -88,13 +90,14 @@ class DesktopNavRail extends StatelessWidget {
             for (var i = 0; i < items.length; i++)
               _tile(context, i, labelColor, accent),
             const Spacer(),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
-              child: Text(
-                '把文件拖进窗口即可添加为待办附件',
-                style: TextStyle(fontSize: 11, color: labelColor),
+            if (showDropHint)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+                child: Text(
+                  '把文件拖进窗口即可添加为待办附件',
+                  style: TextStyle(fontSize: 11, color: labelColor),
+                ),
               ),
-            ),
           ],
         ),
       ),

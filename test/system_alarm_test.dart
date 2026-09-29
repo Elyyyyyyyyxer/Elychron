@@ -1,12 +1,14 @@
 import 'package:celechron/model/task.dart';
 import 'package:celechron/mod/system_alarm.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter/services.dart';
 
 /// 把待办交给系统闹钟的挑选规则。
 ///
 /// 这个功能只做手动入口，所以**挑错待办**是主要风险：把备忘型或已过期的列出来，
 /// 用户点了会得到"立刻响"或"根本不该响"的闹钟。
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
   final now = DateTime(2026, 9, 13, 9, 0);
 
   Task task({
@@ -91,5 +93,26 @@ void main() {
   test('闹钟标题带品牌前缀，时钟里能认出是谁设的', () {
     expect(systemAlarmLabelFor(task(summary: '交作业')), 'Elychron · 交作业');
     expect(systemAlarmLabelFor(task(summary: '   ')), 'Elychron · 待办');
+  });
+
+  test('提交完整时间戳，让 iOS 一次性闹钟不会误排到次日', () async {
+    const channel = MethodChannel('celechron/alarm');
+    Map<Object?, Object?>? arguments;
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (call) async {
+      if (call.method == 'setSystemAlarm') {
+        arguments = call.arguments as Map<Object?, Object?>;
+        return true;
+      }
+      return null;
+    });
+    addTearDown(() => TestDefaultBinaryMessengerBinding
+        .instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, null));
+
+    final at = DateTime(2026, 10, 1, 8, 30);
+    expect(await SystemAlarm.set(at: at, label: '开会'), isTrue);
+    expect(arguments?['atMillis'], at.millisecondsSinceEpoch);
+    expect(arguments?['label'], '开会');
   });
 }

@@ -12,6 +12,7 @@ import 'package:celechron/page/focus/focus_home_page.dart';
 import 'package:celechron/page/option/option_view.dart';
 // ===== MOD: 分享接收 / 闹钟逻辑集中在 lib/mod/home_mod_hooks.dart =====
 import 'package:celechron/mod/home_mod_hooks.dart';
+import 'package:celechron/page/tablet/adaptive_home_body.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key, required this.title});
@@ -121,42 +122,11 @@ class _HomePageState extends State<HomePage> {
       ),
     );
 
-    // 以下复刻 CupertinoTabScaffold（resizeToAvoidBottomInset: true）的布局逻辑：
-    // 键盘高度转为内容 Padding 并从子 MediaQuery 移除；本应用标签栏为半透明
-    // （alpha 0.5），栏高只注入 MediaQuery.padding，内容延伸到栏后方由各页
-    // SafeArea 自行避让
-    final MediaQueryData existingMediaQuery = MediaQuery.of(context);
-    MediaQueryData newMediaQuery =
-        existingMediaQuery.removeViewInsets(removeBottom: true);
-    final EdgeInsets contentPadding =
-        EdgeInsets.only(bottom: existingMediaQuery.viewInsets.bottom);
-
-    // 键盘完全盖住标签栏时不再为栏高留白
-    if (tabBar.preferredSize.height > existingMediaQuery.viewInsets.bottom) {
-      final double bottomPadding =
-          tabBar.preferredSize.height + existingMediaQuery.padding.bottom;
-      newMediaQuery = newMediaQuery.copyWith(
-        padding: newMediaQuery.padding.copyWith(bottom: bottomPadding),
-      );
-    }
-
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: CupertinoTheme.of(context).scaffoldBackgroundColor,
-      ),
-      child: Stack(
-        children: [
-          // 内容在下层，半透明标签栏的 BackdropFilter 才有内容可模糊
-          MediaQuery(
-            data: newMediaQuery,
-            child: Padding(padding: contentPadding, child: content),
-          ),
-          // 标签栏放在修改后的 MediaQuery 之外，读原始 viewPadding 计算安全区
-          MediaQuery.withNoTextScaling(
-            child: Align(alignment: Alignment.bottomCenter, child: tabBar),
-          ),
-        ],
-      ),
+    return AdaptiveHomeBody(
+      content: content,
+      bottomBar: tabBar,
+      selectedIndex: _indexNum,
+      onSelect: (index) => _pageController.jumpToPage(index),
     );
   }
 
