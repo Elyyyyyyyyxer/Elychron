@@ -121,7 +121,16 @@ class WebDavSyncService {
         skipped += result.skipped;
         if (result.bytes > 0) await WebDavConfig.addTraffic(down: result.bytes);
       }
-      if (action == SyncAction.push || action == SyncAction.merge) {
+      // 上传：**每次同步都跑一遍**，不看这一轮是什么动作。
+      //
+      // 为什么不能只在 push/merge 时跑（真机验收时发现的缺口）：
+      // 用户打开"同步附件文件"开关之后，如果这段时间没有数据改动，
+      // 每轮同步都是"已是最新，没有传输"—— 附件就永远上不去，
+      // 另一台设备点开依然是空的。
+      //
+      // 每次都跑也不费流量：本地只做 stat + 查索引，不产生网络请求；
+      // 只有真的多出"索引里没有"的文件时才会 PUT。
+      {
         final result = await files.uploadMissing(
           db,
           taskList.toList(),

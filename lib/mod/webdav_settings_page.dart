@@ -361,8 +361,7 @@ class _WebDavSettingsPageState extends State<WebDavSettingsPage> {
     // 服务商那句说明原来当**输入框占位符**用：又长又被截断，
     // 而且里面写着 markdown 的星号加粗 —— 输入框不渲染它，屏幕上直接冒出一对 **。
     // 现在放说明文字里：不截断，也不用加粗。
-    final providerNote =
-        provider == null ? '' : provider.usernameHint + '\n\n';
+    final providerNote = provider == null ? '' : provider.usernameHint + '\n\n';
     final footerText = '这里要填的是【应用密码】，不是登录密码。\n'
             '应用密码是专门给第三方程序用的，随时可以单独删掉，'
             '泄露了也不影响你的账号。\n\n' +
@@ -565,6 +564,10 @@ class _WebDavSettingsPageState extends State<WebDavSettingsPage> {
             onChanged: (bool value) async {
               setState(() => _fileSync = value);
               await WebDavConfig.setFileSyncEnabled(value);
+              // 打开后**立刻跑一轮**：否则要等到下一次数据改动才会上传附件，
+              // 用户会以为开关没生效（真机验收时就是这么发现的：开关是绿的，
+              // 流量却一直是 0 B）。现在点开关就能看到附件真的被传上去。
+              if (value) await _syncNow();
             },
           ),
         ),
