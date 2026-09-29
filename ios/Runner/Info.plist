@@ -46,11 +46,11 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSCalendarsFullAccessUsageDescription</key>
-	<string>Celechron需要完整访问您的日历来同步课程表信息</string>
+	<string>Elychron需要完整访问您的日历来同步课程表信息</string>
 	<key>NSCalendarsUsageDescription</key>
-	<string>Celechron需要访问您的日历来同步课程表信息</string>
+	<string>Elychron需要访问您的日历来同步课程表信息</string>
 	<key>NSContactsUsageDescription</key>
-	<string>Celechron需要访问通讯录来设置事件参与者</string>
+	<string>Elychron需要访问通讯录来设置事件参与者</string>
 	<key>NSAlarmKitUsageDescription</key>
 	<string>Elychron 用于在您设定的待办时间发出闹钟提醒。</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
