@@ -189,7 +189,9 @@ List<Widget> modReminderTiles(
       if (!PlatformFeatures.isDesktop) ...<Widget>[
         CupertinoListTile(
           title: const Text('闹钟可靠性'),
-          subtitle: const Text('全屏闹钟授权、锁屏弹出、电池白名单'),
+          subtitle: Text(PlatformFeatures.isAndroid
+              ? '全屏闹钟授权、锁屏弹出、电池白名单'
+              : 'iPhone 原生闹钟与通知权限'),
           trailing: const BackChervonRow(),
           onTap: () => showAlarmReliabilityDialog(context),
         ),

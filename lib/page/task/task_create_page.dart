@@ -1,4 +1,5 @@
 import 'package:celechron/design/app_accent.dart';
+import 'package:celechron/design/adaptive_form_body.dart';
 import 'package:celechron/design/page_background.dart';
 import 'package:celechron/design/date_picker_sheet.dart';
 import 'package:celechron/design/repeat_sheet.dart';
@@ -1031,7 +1032,7 @@ class _TaskCreatePageState extends State<TaskCreatePage> {
               ],
             ),
           ],
-        ),
+        ).asAdaptiveFormBody(),
       ),
     );
 

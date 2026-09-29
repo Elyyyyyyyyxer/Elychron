@@ -84,7 +84,7 @@ class AlarmPlayer {
 
   /// 跳到本应用的系统通知设置页（重要度被压时，用户需要在这里调回来）
   static Future<void> openAppNotificationSettings() async {
-    if (!PlatformFeatures.hasAlarmChannel) return;
+    if (!PlatformFeatures.isMobile) return;
     try {
       await _channel.invokeMethod<void>('openAppNotificationSettings');
     } catch (_) {}

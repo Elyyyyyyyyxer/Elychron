@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:celechron/database/database_helper.dart';
 import 'package:celechron/design/task_detail_nav.dart';
 import 'package:celechron/model/task.dart';
+import 'package:celechron/mod/system_alarm.dart';
 import 'package:celechron/services/diagnostic_log_service.dart';
 import 'package:celechron/utils/task_alarm_center.dart';
 import 'package:celechron/utils/global.dart';
@@ -70,6 +71,21 @@ class TaskReminder {
               showsUserInterface: false, cancelNotification: true),
         ];
 
+  static const String _iosNotificationCategory = 'elychron_task_reminder';
+  static const String _iosAlarmFallbackCategory = 'elychron_alarm_fallback';
+  static final List<DarwinNotificationAction> _iosActions = [
+    DarwinNotificationAction.plain(
+      'snooze',
+      '延迟 10 分钟',
+      options: {DarwinNotificationActionOption.foreground},
+    ),
+    DarwinNotificationAction.plain(
+      'dismiss',
+      '划掉',
+      options: {DarwinNotificationActionOption.foreground},
+    ),
+  ];
+
   /// 划掉这个按钮为什么要分模式设置 `showsUserInterface`：
   ///
   /// `showsUserInterface: false` 的按钮**不会把 App 拉到前台**，响应只会送到
@@ -122,7 +138,11 @@ class TaskReminder {
 
   static NotificationDetails get _details => NotificationDetails(
         android: mode == modeAlarm ? _alarmDetails : _notificationDetails,
-        iOS: const DarwinNotificationDetails(),
+        iOS: DarwinNotificationDetails(
+          categoryIdentifier: mode == modeAlarm
+              ? _iosAlarmFallbackCategory
+              : _iosNotificationCategory,
+        ),
         macOS: const DarwinNotificationDetails(),
       );
 
@@ -139,10 +159,21 @@ class TaskReminder {
       // 时区库异常时退回 UTC，避免启动崩溃。
     }
 
-    const initializationSettings = InitializationSettings(
-      android: AndroidInitializationSettings('@mipmap/ic_launcher'),
-      iOS: DarwinInitializationSettings(),
-      macOS: DarwinInitializationSettings(),
+    final initializationSettings = InitializationSettings(
+      android: const AndroidInitializationSettings('@mipmap/ic_launcher'),
+      iOS: DarwinInitializationSettings(
+        notificationCategories: [
+          DarwinNotificationCategory(
+            _iosNotificationCategory,
+            actions: _iosActions,
+          ),
+          DarwinNotificationCategory(
+            _iosAlarmFallbackCategory,
+            actions: _iosActions,
+          ),
+        ],
+      ),
+      macOS: const DarwinInitializationSettings(),
     );
     try {
       await _plugin.initialize(
@@ -370,6 +401,7 @@ class TaskReminder {
         final id = _idOf(task.uid);
         try {
           await _plugin.cancel(id);
+          if (Platform.isIOS) await SystemAlarm.cancelTask(task.uid);
           if (_shouldSchedule(task)) {
             await _requestExactAlarmOnce();
             final when = _fireTimeOf(task);
@@ -424,11 +456,22 @@ class TaskReminder {
       _snoozed.remove(uid);
       try {
         await _plugin.cancel(_idOf(uid));
+        if (Platform.isIOS && !uid.startsWith('sub:')) {
+          await SystemAlarm.cancelTask(uid);
+        }
       } catch (_) {}
     }
   }
 
   static Future<void> _schedule(Task task, int id, DateTime when) async {
+    if (Platform.isIOS && mode == modeAlarm) {
+      final scheduled = await SystemAlarm.scheduleTask(
+        uid: task.uid,
+        at: when,
+        label: task.summary.isEmpty ? '待办提醒' : task.summary,
+      );
+      if (scheduled) return;
+    }
     final fireAt = tz.TZDateTime.from(when, tz.local);
     final title = task.summary.isEmpty ? '待办提醒' : task.summary;
     final body = '截止于 ${TimeHelper.chineseDateTime(task.endTime)}';
@@ -628,6 +671,7 @@ class TaskReminder {
     try {
       await _plugin.cancel(_idOf(task.uid));
     } catch (_) {}
+    if (Platform.isIOS) await SystemAlarm.cancelTask(task.uid);
     await _schedule(task, _idOf(task.uid), _snoozed[task.uid]!);
   }
 
@@ -639,6 +683,7 @@ class TaskReminder {
     try {
       await _plugin.cancel(_idOf(task.uid));
     } catch (_) {}
+    if (Platform.isIOS) await SystemAlarm.cancelTask(task.uid);
   }
 
   /// 任务被删除时立刻撤销提醒。
@@ -649,5 +694,6 @@ class TaskReminder {
     try {
       await _plugin.cancel(_idOf(task.uid));
     } catch (_) {}
+    if (Platform.isIOS) await SystemAlarm.cancelTask(task.uid);
   }
 }
