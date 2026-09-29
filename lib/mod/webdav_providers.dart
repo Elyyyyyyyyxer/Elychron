@@ -14,10 +14,15 @@ class WebDavProvider {
   /// 服务商根地址（用户不用记，点一下自动填）
   final String url;
 
-  /// 用户名该填什么（多数是注册邮箱）
+  /// 用户名该填什么（多数是注册邮箱）。
+  ///
+  /// ⚠️ 这句话显示在**输入框下面的说明文字**里（不是占位符），所以：
+  /// - 写成一整句能独立看懂的话；
+  /// - **不要用 markdown 的星号加粗** —— 界面不渲染它，会原样冒出来。
+  ///   （真机截图里就是这么发现占位符中冒出一对 ** 的）
   final String usernameHint;
 
-  /// 应用密码怎么拿（给人看的一句话）
+  /// 应用密码怎么拿（给人看的一句话）。同样：不用 markdown 语法。
   final String passwordHint;
 
   /// 生成应用密码的页面（有就做成按钮直接跳；没有则留空）
@@ -49,41 +54,41 @@ class WebDavProvider {
     WebDavProvider(
       name: '坚果云',
       url: 'https://dav.jianguoyun.com/dav/',
-      usernameHint: '坚果云的注册邮箱（**必须全小写**，大写会连不上）',
-      passwordHint: '网页版 → 右上角账户信息 → 安全选项 → 添加应用密码',
+      usernameHint: '用户名就是坚果云的注册邮箱，必须全小写（大写会连不上）',
+      passwordHint: '网页版 → 安全选项 → 添加应用密码',
       passwordPageUrl: 'https://www.jianguoyun.com/dash/security',
       lowercaseUsername: true,
     ),
     WebDavProvider(
       name: 'InfiniCloud',
       url: 'https://客户端专用域名/',
-      usernameHint: 'InfiniCloud 的注册邮箱',
+      usernameHint: '用户名就是 InfiniCloud 的注册邮箱',
       passwordHint: '网页版 → 设置 → 应用密码（需要先开启 WebDAV/连接功能）',
     ),
     WebDavProvider(
       name: 'Koofr',
       url: 'https://app.koofr.net/dav/Koofr/',
-      usernameHint: 'Koofr 的注册邮箱',
+      usernameHint: '用户名就是 Koofr 的注册邮箱',
       passwordHint: '网页版 → Preferences → App passwords',
     ),
     WebDavProvider(
       name: 'Nextcloud',
       url: 'https://你的域名/remote.php/dav/files/用户名/',
-      usernameHint: 'Nextcloud 的用户名（**大小写敏感**）',
+      usernameHint: '用户名是 Nextcloud 的登录名，它是大小写敏感的',
       passwordHint: '个人设置 → 安全 → 创建新的应用密码',
       usernameIsEmail: false,
     ),
     WebDavProvider(
       name: '群晖 / 威联通 NAS',
       url: 'http://你的内网地址:5005/',
-      usernameHint: 'NAS 的账号',
+      usernameHint: '填 NAS 上那个账号的名字',
       passwordHint: '套件中心装 WebDAV Server → 在 NAS 用户里给这个账号开 WebDAV 权限',
       usernameIsEmail: false,
     ),
     WebDavProvider(
       name: 'Alist / 自建',
       url: 'http://你的地址:5244/dav/',
-      usernameHint: 'Alist 的账号',
+      usernameHint: '填 Alist 后台里显示的账号',
       passwordHint: 'Alist 后台 → 设置 → 添加存储后，用「WebDAV 策略」里显示的用户名密码',
       usernameIsEmail: false,
     ),

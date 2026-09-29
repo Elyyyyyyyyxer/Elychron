@@ -357,6 +357,18 @@ class _WebDavSettingsPageState extends State<WebDavSettingsPage> {
 
   Widget _accountSection() {
     final provider = _provider;
+    // ===== 真机上发现的坑（2026-09-28）=====
+    // 服务商那句说明原来当**输入框占位符**用：又长又被截断，
+    // 而且里面写着 markdown 的星号加粗 —— 输入框不渲染它，屏幕上直接冒出一对 **。
+    // 现在放说明文字里：不截断，也不用加粗。
+    final providerNote =
+        provider == null ? '' : provider.usernameHint + '\n\n';
+    final footerText = '这里要填的是【应用密码】，不是登录密码。\n'
+            '应用密码是专门给第三方程序用的，随时可以单独删掉，'
+            '泄露了也不影响你的账号。\n\n' +
+        providerNote +
+        'Elychron 只把这组账号存在本机（密码存系统密钥库），'
+            '不会上传给任何人。';
     return CupertinoListSection.insetGrouped(
       backgroundColor: pageBackground(context),
       additionalDividerMargin: 2,
@@ -365,11 +377,7 @@ class _WebDavSettingsPageState extends State<WebDavSettingsPage> {
             ? '第 2 步 / 共 3 步 · 填账号'
             : '第 2 步 / 共 3 步 · ' + provider.name + ' 的账号',
       ),
-      footer: Text('这里要填的是【应用密码】，不是登录密码。\n'
-          '应用密码是专门给第三方程序用的，随时可以单独删掉，'
-          '泄露了也不影响你的账号。\n\n'
-          'Elychron 只把这组账号存在本机（密码存系统密钥库），'
-          '不会上传给任何人。'),
+      footer: Text(footerText),
       children: <Widget>[
         _textField(
           label: '地址',
@@ -380,7 +388,9 @@ class _WebDavSettingsPageState extends State<WebDavSettingsPage> {
         _textField(
           label: _usernameLabel,
           controller: _userController,
-          hint: provider?.usernameHint ?? '登录名',
+          hint: provider == null
+              ? '登录名'
+              : (provider.usernameIsEmail ? '注册邮箱' : '用户名'),
           onChanged: _onUsernameChanged,
           autocorrect: false,
         ),

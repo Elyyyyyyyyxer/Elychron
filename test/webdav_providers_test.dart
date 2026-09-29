@@ -35,4 +35,15 @@ void main() {
     expect(nutstore.usernameHint.contains('小写'), isTrue);
     expect(nutstore.passwordPageUrl, isNotEmpty);
   });
+
+  test('提示文字里不能出现 markdown 星号（界面不渲染它，会原样显示出来）', () {
+    // 真机上发现的：占位符里冒出一对 **，因为当初按 markdown 的习惯写了加粗。
+    // 界面只认纯文本 —— 这条测试就是防止后人再"顺手加粗"。
+    for (final provider in WebDavProvider.presets) {
+      expect(provider.usernameHint.contains('**'), isFalse,
+          reason: provider.name + ' 的 usernameHint');
+      expect(provider.passwordHint.contains('**'), isFalse,
+          reason: provider.name + ' 的 passwordHint');
+    }
+  });
 }
