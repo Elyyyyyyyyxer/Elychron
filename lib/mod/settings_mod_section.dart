@@ -1,8 +1,6 @@
-import 'package:celechron/design/alarm_reliability.dart';
 import 'package:celechron/design/context_menu.dart';
 import 'package:celechron/design/app_route.dart';
 import 'package:celechron/utils/platform_features.dart';
-import 'package:celechron/design/alarm_theme_picker.dart';
 import 'package:celechron/design/dingtalk_sheet.dart';
 import 'package:celechron/database/database_helper.dart';
 import 'package:celechron/mod/database_mod.dart';
@@ -88,26 +86,15 @@ List<Widget> modReminderTiles(
   OptionController optionController,
 ) =>
     [
-      CupertinoListTile(
-        title: const Text('待办提醒方式'),
-        subtitle: const Text('通知：横幅弹出+响铃；闹钟：全屏响铃，可延迟或划掉'),
-        trailing: Obx(() => CupertinoSlidingSegmentedControl<int>(
-              children: const {
-                0: Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 10),
-                    child: Text('通知')),
-                1: Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 10),
-                    child: Text('闹钟')),
-              },
-              groupValue: optionController.reminderMode.value,
-              onValueChanged: (value) {
-                if (value != null) {
-                  optionController.setReminderMode(value);
-                }
-              },
-            )),
-      ),
+      // ===== 2026-09-30：删掉「Elychron 自带闹钟」这个提醒方式 =====
+      //
+      // 用户原话：「手机端的闹钟功能始终不实用……我们删掉吧。注意只删掉 Elychron
+      // 自带的闹钟，不删掉"同步到系统闹钟"功能」。
+      //
+      // 自带闹钟 = 到点弹一个全屏响铃页（可延迟 / 划掉，还有配色与"可靠性"授权页）。
+      // 现在提醒方式固定为**通知**，那个选择器与它下面的两行设置一起下线；
+      // 「同步到系统闹钟」（把提醒写进系统时钟 App）在别处，一点没动。
+      //
       // ===== P1：默认提醒提前量 =====
       // 活动锚开始、截止锚截止，各自再提前这么多；提醒型就是那一刻。
       const _ReminderLeadTile(),
@@ -186,23 +173,6 @@ List<Widget> modReminderTiles(
             );
           });
         }),
-      if (!PlatformFeatures.isDesktop) ...<Widget>[
-        CupertinoListTile(
-          title: const Text('闹钟可靠性'),
-          subtitle: const Text('全屏闹钟授权、锁屏弹出、电池白名单'),
-          trailing: const BackChervonRow(),
-          onTap: () => showAlarmReliabilityDialog(context),
-        ),
-        CupertinoListTile(
-          title: const Text('闹钟配色'),
-          subtitle: const Text('闹钟页面四种配色'),
-          trailing: const BackChervonRow(),
-          onTap: () => showAlarmThemePicker(
-            context,
-            onChanged: () {},
-          ),
-        ),
-      ],
     ];
 
 /// 默认提醒提前量这一行：点开选一个值，存进 optionsBox。

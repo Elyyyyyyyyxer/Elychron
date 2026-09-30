@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:celechron/design/dingtalk_menu.dart';
-import 'package:celechron/design/app_route.dart';
 import 'package:celechron/design/dingtalk_sheet.dart';
 import 'package:celechron/database/database_helper.dart';
 import 'package:celechron/mod/database_mod.dart';
@@ -11,7 +10,6 @@ import 'package:celechron/mod/focus_runtime.dart';
 import 'package:celechron/mod/ai/ai_image.dart';
 import 'package:celechron/mod/ai/deepseek.dart';
 import 'package:celechron/model/task.dart';
-import 'package:celechron/page/task/task_alarm_page.dart';
 import 'package:celechron/page/task/task_create_page.dart';
 import 'package:celechron/page/task/task_controller.dart';
 import 'package:celechron/utils/attachment_helper.dart';
@@ -202,12 +200,14 @@ class HomeModHooks {
       );
       return;
     }
-    Navigator.of(context, rootNavigator: true).push(
-      appPageRoute(
-        builder: (BuildContext context) => TaskAlarmPage(task: task),
-        fullscreenDialog: true,
-      ),
-    );
+    // ===== 2026-09-30：手机端不再弹全屏闹钟页 =====
+    //
+    // 「Elychron 自带闹钟」这个功能已经下线（见 mod/database_mod.dart 的
+    // getReminderMode 注释）：提醒方式恒定走**通知**，由 flutter_local_notifications
+    // 那条路发出，不抢全屏。这里保留 TaskAlarmCenter 的去重（前台 tick 与点通知
+    // 共用它，避免同一条提醒响两次），只是不再 push 那个页面。
+    //
+    // 桌面端的 DING（上面那段）照旧 —— 那是桌面自己的提醒方式。
   }
 
   /// 接收系统分享面板发来的图片/文件/文本 → 直接打开新建待办
