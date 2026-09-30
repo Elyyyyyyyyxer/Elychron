@@ -60,15 +60,19 @@ class DesktopNavRail extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(20, 18, 20, 14),
               child: Row(
                 children: <Widget>[
-                  Container(
-                    width: 26,
-                    height: 26,
-                    decoration: BoxDecoration(
-                      color: accent,
-                      borderRadius: BorderRadius.circular(7),
+                  // ===== 左上角这个才是"爱莉"（用户 2026-09-30 明确指出来）=====
+                  //
+                  // 就是 App 图标本身（assets/logo.png，粉色圆底头像）。
+                  // 原来是"爱莉粉方块 + 白色时钟字形"，那只是个占位标。
+                  // 裁成圆角（原图是圆底，方形摆上去会露四角）。
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(7),
+                    child: Image.asset(
+                      'assets/logo.png',
+                      width: 26,
+                      height: 26,
+                      fit: BoxFit.cover,
                     ),
-                    child: const Icon(CupertinoIcons.time_solid,
-                        size: 15, color: CupertinoColors.white),
                   ),
                   const SizedBox(width: 10),
                   // Expanded + 省略号：字体一换（微软雅黑比默认字体宽一点点）
@@ -118,31 +122,17 @@ class DesktopNavRail extends StatelessWidget {
         ),
         child: Row(
           children: <Widget>[
-            // ===== 爱莉图标（用户要求："电脑端导航栏的图标要是爱莉"）=====
+            // 导航项还是系统字形（2026-09-30 更正）。
             //
-            // 爱莉就是我们自己的 App 图标（assets/logo.png，那张粉色圆底头像），
-            // 所以这里不再用系统字形，直接用那张图：
-            // - 裁成圆形（ClipOval）：原图是圆底，方形摆上去会露出四角；
-            // - 未选中压到 55% 透明度，选中时外面套一圈爱莉粉描边 ——
-            //   不靠颜色也能一眼看出当前在哪一页。
-            Container(
-              decoration: selected
-                  ? BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(color: accent, width: 2),
-                    )
-                  : null,
-              child: Opacity(
-                opacity: selected ? 1 : 0.55,
-                child: ClipOval(
-                  child: Image.asset(
-                    'assets/logo.png',
-                    width: 24,
-                    height: 24,
-                    fit: BoxFit.cover,
-                  ),
-                ),
-              ),
+            // 用户的原话：「我让你给电脑版的导航栏图标换成爱莉，不是说把每一个
+            // "日程""待办"等等条目前面加上，删掉。我的意思是最左上角那个大字
+            // Elychron 左边的图标需要换掉」——
+            // 所以爱莉只出现在左上角那个 App 标上（build 里那个 Image.asset），
+            // 每一项这里回到各自的功能图标，一眼能分清是哪一页。
+            Icon(
+              item.icon,
+              size: 19,
+              color: selected ? accent : labelColor,
             ),
             const SizedBox(width: 12),
             Text(

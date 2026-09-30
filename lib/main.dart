@@ -596,7 +596,7 @@ class _CelechronAppState extends State<CelechronApp>
                               // 跟进又说了句"再多一点点"）=====
                               // 手机端保持系统原生字距不动：这一段本来就只在桌面端生效。
                               // 中文（微软雅黑）在 Flutter 默认字距下小字号会显得挤。
-                              letterSpacing: 0.7,
+                              letterSpacing: 1.0,
                             ),
                   )
                 : null,

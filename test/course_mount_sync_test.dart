@@ -145,4 +145,92 @@ void main() {
       isEmpty,
     );
   });
+
+  // ===== 2026-09-30：真机上发现"同一张图出现 4 次" =====
+  //
+  // 原因：从网盘取回来的文件落在各自的 task_attachments/ 下、名字里带本机
+  // 时间戳，所以两台设备上**同一个文件的 path 必然不同**。按 path 去重的话，
+  // 两边一合就是两份，再同步一轮四份；而且"多出来的那份"每次同步还会被当成
+  // 缺失再下载一遍（流量和坚果云配额就是这么被吃掉的）。
+  test('同一个文件在两端的本地路径不同 → 只留一条（本次修的坑）', () {
+    final merged = DataMerge.mergeCourseMounts(
+      <Map<String, dynamic>>[
+        mount('CS101', attachments: <Map<String, dynamic>>[
+          <String, dynamic>{
+            'name': '四则规则.jpg',
+            'path': '/phone/task_attachments/1789_四则规则.jpg',
+            'size': 173900,
+          },
+        ]),
+      ],
+      <Map<String, dynamic>>[
+        mount('CS101', attachments: <Map<String, dynamic>>[
+          <String, dynamic>{
+            'name': '四则规则.jpg',
+            'path': '/desktop/task_attachments/1790_四则规则.jpg',
+            'size': 173900,
+          },
+        ]),
+      ],
+    );
+    final attachments = merged.single['attachments'] as List<dynamic>;
+    expect(attachments.length, 1);
+    // 留下的是本机那份（本地路径还有效的那个），不是对方的
+    expect((attachments.single as Map)['path'],
+        '/phone/task_attachments/1789_四则规则.jpg');
+  });
+
+  test('名字相同但大小不同 → 是两个文件，都留着', () {
+    final merged = DataMerge.mergeCourseMounts(
+      <Map<String, dynamic>>[
+        mount('CS101', attachments: <Map<String, dynamic>>[
+          <String, dynamic>{'name': 'a.jpg', 'path': '/p/a.jpg', 'size': 1},
+        ]),
+      ],
+      <Map<String, dynamic>>[
+        mount('CS101', attachments: <Map<String, dynamic>>[
+          <String, dynamic>{'name': 'a.jpg', 'path': '/d/a.jpg', 'size': 2},
+        ]),
+      ],
+    );
+    expect((merged.single['attachments'] as List<dynamic>).length, 2);
+  });
+
+  test('按身份记的墓碑也认（另一端路径不同也删得掉）', () {
+    final merged = DataMerge.mergeCourseMounts(
+      <Map<String, dynamic>>[
+        mount('CS101', attachments: <Map<String, dynamic>>[file('/keep.pdf')]),
+      ],
+      <Map<String, dynamic>>[
+        mount('CS101', attachments: <Map<String, dynamic>>[
+          <String, dynamic>{
+            'name': 'x.jpg',
+            'path': '/desktop/task_attachments/1790_x.jpg',
+            'size': 5,
+          },
+        ]),
+      ],
+      deletedKeys: <String>{'CS101|a2|x.jpg@5'},
+    );
+    final paths = (merged.single['attachments'] as List<dynamic>)
+        .map((item) => (item as Map)['path'])
+        .toList();
+    expect(paths, <String>['/keep.pdf']);
+  });
+
+  test('老数据没有 name → 退回按 path 去重，不会把两份不同的文件吞掉', () {
+    final merged = DataMerge.mergeCourseMounts(
+      <Map<String, dynamic>>[
+        mount('CS101', attachments: <Map<String, dynamic>>[
+          <String, dynamic>{'path': '/p/a.jpg'},
+        ]),
+      ],
+      <Map<String, dynamic>>[
+        mount('CS101', attachments: <Map<String, dynamic>>[
+          <String, dynamic>{'path': '/d/a.jpg'},
+        ]),
+      ],
+    );
+    expect((merged.single['attachments'] as List<dynamic>).length, 2);
+  });
 }
