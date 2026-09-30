@@ -31,6 +31,7 @@ import 'package:celechron/model/scholar.dart';
 import 'package:celechron/model/option.dart';
 import 'package:celechron/page/desktop/desktop_frame.dart';
 import 'package:celechron/page/desktop/desktop_home.dart';
+import 'package:celechron/page/focus/focus_entry.dart';
 import 'package:celechron/page/home_page.dart';
 import 'package:celechron/page/option/ecard_pay_page.dart';
 import 'package:celechron/services/diagnostic_log_service.dart';
@@ -247,6 +248,20 @@ void main(List<String> args) async {
       final db = Get.find<DatabaseHelper>(tag: 'db');
       if (!db.getPushOnGradeChange()) return;
       await showGradePushIntroOnce();
+    } catch (_) {}
+  });
+
+  // ===== 杀后台回来：静默接回正在进行的专注（2026-09-30）=====
+  //
+  // 用户：「杀后台之前处于什么状态做好记录，回来后读取时间进行比较，
+  // 确认现在应该处于什么状态后直接静默继续（这也就意味着开屏会直接进入专注界面）」。
+  //
+  // 等 6 秒：GetX / 数据库 / 课表都就绪了再动；而且如果这 6 秒里已经有页面被推起来
+  // （比如从分享链接直接进了"新建待办"），就别插一脚抢路由。
+  Future<void>.delayed(const Duration(seconds: 6), () async {
+    try {
+      if (navigatorKey.currentState?.canPop() ?? false) return;
+      await autoResumeInterruptedFocus();
     } catch (_) {}
   });
 
