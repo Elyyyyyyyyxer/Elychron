@@ -140,6 +140,7 @@ void main(List<String> args) async {
   final restoredPassword = restoredScholar.password ?? '';
   final credentialsMissing =
       restoredUsername.isEmpty || restoredPassword.isEmpty;
+  var pendingAutoRelogin = false;
   if (restoredScholar.isLogan && credentialsMissing) {
     debugPrint(
         '[Elychron] 恢复的登录状态缺少凭据（学号=${restoredUsername.isEmpty ? "空" : "有"}、'
@@ -156,23 +157,11 @@ void main(List<String> args) async {
       password: remembered.password,
     )) {
       debugPrint('[Elychron] 尝试自动重登…');
-      try {
-        restoredScholar.username = remembered.username;
-        restoredScholar.password = remembered.password;
-        final result = await restoredScholar.login();
-        if (LoginCriteria.succeeded(result)) {
-          await db.setUserLoggedOut(false);
-          await db.rememberAccount(remembered.username, remembered.password);
-          debugPrint('[Elychron] 自动重登成功');
-        } else {
-          restoredScholar.isLogan = false;
-          restoredScholar.sessionInvalid = true;
-        }
-      } catch (error) {
-        debugPrint('[Elychron] 自动重登失败：$error');
-        restoredScholar.isLogan = false;
-        restoredScholar.sessionInvalid = true;
-      }
+      // 凭据先塞进去、按"登录着"呈现；真正的网络登录挪到 runApp 之后（见文件末尾
+      // 的 finishAutoRelogin）—— 用户反馈"启动延迟很大"，就是被这里的 await 卡住的。
+      restoredScholar.username = remembered.username;
+      restoredScholar.password = remembered.password;
+      pendingAutoRelogin = true;
     } else {
       debugPrint('[Elychron] 不自动重登（主动退登过=$loggedOutByChoice）→ 按需要重新登录处理');
       restoredScholar.isLogan = false;
@@ -195,6 +184,10 @@ void main(List<String> args) async {
     // 注册失败就退回平台默认字体，不影响启动
   }
   runApp(const CelechronApp());
+  // 界面已经起来了，现在才去真的登录（失败会刷新 scholar → 界面提示重新登录）
+  if (pendingAutoRelogin) {
+    unawaited(finishAutoRelogin(restoredScholar, db));
+  }
 
   // ===== 桌面端：命令行直开局域网同步（验收 / 自动化用）=====
   //
@@ -790,3 +783,32 @@ const List<String> desktopFontFallback = <String>[
   'Microsoft YaHei UI',
   'Segoe UI',
 ];
+
+/// 自动重登的**异步**那一半（见 main 里 pendingAutoRelogin 的注释）。
+///
+/// 为什么不写在 `runApp` 之前：那是一次网络登录，卡在那儿用户就是对着白屏等
+/// —— 这正是「启动延迟很大」的来源（覆盖安装后密钥库读不出凭据时必走这条路）。
+/// 登录结果出来 refresh 一次 scholar，界面（Obx）自己跟上。
+Future<void> finishAutoRelogin(Scholar scholar, DatabaseHelper db) async {
+  debugPrint('[Elychron] 尝试自动重登…（后台）');
+    try {
+      scholar.username = scholar.username ?? '';
+      scholar.password = scholar.password ?? '';
+      final result = await scholar.login();
+      if (LoginCriteria.succeeded(result)) {
+        await db.setUserLoggedOut(false);
+        await db.rememberAccount(scholar.username ?? '', scholar.password ?? '');
+        debugPrint('[Elychron] 自动重登成功');
+      } else {
+        scholar.isLogan = false;
+        scholar.sessionInvalid = true;
+      }
+    } catch (error) {
+      debugPrint('[Elychron] 自动重登失败：$error');
+      scholar.isLogan = false;
+      scholar.sessionInvalid = true;
+    }
+  try {
+    Get.find<Rx<Scholar>>(tag: 'scholar').refresh();
+  } catch (_) {}
+}

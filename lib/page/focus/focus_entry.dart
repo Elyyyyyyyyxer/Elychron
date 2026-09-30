@@ -99,12 +99,33 @@ Future<bool?> startFreeFocus(BuildContext context) async {
 Future<bool> autoResumeInterruptedFocus() async {
   final db = _db;
   if (db == null) return false;
-  // 用户主动暂停的那一条：留着他自己决定
-  if (db.suspendedFocus() != null) return false;
-
+  final suspended = db.suspendedFocus();
   final anchor = FocusAnchorStore.load();
+  // 日志：真机上靠 `adb logcat | findstr focus-resume` 就能看清它为什么(没)接管
+  // ignore: avoid_print
+  print('[focus-resume] anchor=' +
+      (anchor == null ? 'none' : anchor.phase.name + '@' + anchor.phaseSince.toIso8601String()) +
+      ' suspended=' +
+      (suspended == null ? 'none' : suspended.uid + '@' + suspended.at.toIso8601String()));
+
   if (anchor == null) return false;
-  if (anchor.phase == FocusPhaseName.paused) return false;
+  // 暂停态不接管（用户选的 (a)：回来仍然是暂停，交给首页那张继续卡片）
+  if (anchor.phase == FocusPhaseName.paused) {
+    // ignore: avoid_print
+    print('[focus-resume] 锚点是暂停 → 不接管');
+    return false;
+  }
+  // ===== 2026-09-30 修正：老暂停不再挡住自动接回 =====
+  //
+  // 用户实测「杀后台回来没有自动进专注页」。原因是这里原来写成
+  // "只要库里存在一条暂停记录就直接放弃" —— 而他库里恰好留着一条**很久以前**
+  // 的暂停（他之前反馈过"很久以前的暂停还在"），于是自动接回永远进不去。
+  // 现在只有"这条暂停就是当前这次会话"时才让位；别的老记录不挡路。
+  if (suspended != null && suspended.uid == anchor.uid) {
+    // ignore: avoid_print
+    print('[focus-resume] 这条会话正是用户主动暂停的那条 → 留给卡片');
+    return false;
+  }
 
   final now = DateTime.now();
   final advanced = advanceFocusAnchor(anchor, now);
@@ -118,7 +139,11 @@ Future<bool> autoResumeInterruptedFocus() async {
       break;
     }
   }
-  if (session == null) return false;
+  if (session == null) {
+    // ignore: avoid_print
+    print('[focus-resume] 没找到未结算的会话记录 → 不接管');
+    return false;
+  }
   session
     ..focusedTime = advanced.worked(now)
     ..restTime = advanced.rested(now);
@@ -134,6 +159,8 @@ Future<bool> autoResumeInterruptedFocus() async {
   );
   db.saveSuspendedFocus(resume);
 
+  // ignore: avoid_print
+  print('[focus-resume] 接管：' + advanced.phase.name + '，剩余 ' + advanced.currentSegmentRemaining(now).inSeconds.toString() + ' 秒');
   final context = navigatorKey.currentContext;
   if (context == null) return false; // 界面还没起来，锚点已更新，下次再接管
   await Navigator.of(context, rootNavigator: true).push<bool>(
