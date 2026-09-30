@@ -83,7 +83,9 @@ Future<void> showGradePushIntroOnce() async {
       '以后有新课程出分，Elychron 会把课程名和成绩直接告诉你。'
           '不想收的话：设置 → 推送成绩变动 关掉即可。';
 
-  await plugin.show(0, '成绩推送已开启', body, _gradeNotificationDetails);
+  // id 用 90001 而不是 0：0 是任何人都可能顺手用的默认 id，
+  // 历史上它和别的通知互相顶掉过（用户反馈"通知全是成绩推送那一条"）。
+  await plugin.show(90001, '成绩推送已开启', body, _gradeNotificationDetails);
   await NotificationDedup.markSent('grade_intro', fingerprint);
   await storage.write(
       key: 'gradePushIntroShown',

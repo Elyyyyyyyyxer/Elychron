@@ -17,6 +17,7 @@ import 'package:flutter/material.dart' show Colors;
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:celechron/utils/platform_features.dart';
+import 'package:celechron/utils/task_reminder.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:celechron/page/scholar/scholar_view.dart';
@@ -251,10 +252,22 @@ void main(List<String> args) async {
   //
   // 等 6 秒：GetX / 数据库 / 课表都就绪了再动；而且如果这 6 秒里已经有页面被推起来
   // （比如从分享链接直接进了"新建待办"），就别插一脚抢路由。
-  Future<void>.delayed(const Duration(seconds: 6), () async {
+  //
+  // ⚠️ 1.2 秒而不是 6 秒：用户反馈"能进专注页了，但要在首页等好一会儿才弹进去"。
+  // 判断本身只是读一次锚点 + 查一遍未结算会话（纯本地数据库操作），根本不用等；
+  // 留一点点时间只为让第一帧和"从分享链接进来"的入口先落位。
+  Future<void>.delayed(const Duration(milliseconds: 1200), () async {
     try {
       if (navigatorKey.currentState?.canPop() ?? false) return;
       await autoResumeInterruptedFocus();
+    } catch (_) {}
+  });
+
+  // ===== 提醒权限：启动就要回来（见 TaskReminder.ensureReminderPermission）=====
+  // 删掉「闹钟可靠性」那一页之后，新装/重装的用户会静默收不到上课/待办提醒。
+  Future<void>.delayed(const Duration(seconds: 3), () async {
+    try {
+      await TaskReminder.ensureReminderPermission();
     } catch (_) {}
   });
 
