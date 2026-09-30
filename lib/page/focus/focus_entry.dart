@@ -99,6 +99,8 @@ Future<bool?> startFreeFocus(BuildContext context) async {
 Future<bool> autoResumeInterruptedFocus() async {
   final db = _db;
   if (db == null) return false;
+  // 专注页本来就开着（用户只是切出去又切回来）→ 别叠第二层
+  if (FocusPage.isOpen) return false;
   final suspended = db.suspendedFocus();
   final anchor = FocusAnchorStore.load();
   // 日志：真机上靠 `adb logcat | findstr focus-resume` 就能看清它为什么(没)接管

@@ -514,6 +514,21 @@ class _CelechronAppState extends State<CelechronApp>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       _startForegroundLease();
+      // ===== 2026-09-30：被"冻结"之后回来，同样要接回专注 =====
+      //
+      // 用户实测「杀后台没有自动进入专注页」。查系统日志（PG_ash / SWAP_Scene）
+      // 才发现华为这边的"杀后台"很多时候是**冻结**（hibernate），进程还活着 ——
+      // 那就不会重新跑 main()，启动钩子自然不触发。
+      //
+      // 所以这里补一条：离开超过 1 分钟再回来（短切换不算，免得把人从别的页面拽走）
+      // 且真的有一次在跑的专注 → 接回专注页（接不到会自己安静返回）。
+      final awaySince = _backgroundedAt;
+      _backgroundedAt = null;
+      if (awaySince != null &&
+          DateTime.now().difference(awaySince) >=
+              const Duration(seconds: 60)) {
+        unawaited(autoResumeInterruptedFocus());
+      }
       unawaited(_consumeTodoWidgetCompletions());
       // ===== 回到前台就查一次全平台同步（v1.5.0）=====
       //
@@ -530,6 +545,7 @@ class _CelechronAppState extends State<CelechronApp>
     } else if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.hidden ||
         state == AppLifecycleState.detached) {
+      _backgroundedAt ??= DateTime.now();
       _stopForegroundLease();
     }
     if (state == AppLifecycleState.paused) {
@@ -558,6 +574,11 @@ class _CelechronAppState extends State<CelechronApp>
       _applyingWidgetCompletions = false;
     }
   }
+
+  /// 什么时候离开前台的（判断"被冻结后回来"用，见 didChangeAppLifecycleState）
+  ///
+  /// ⚠️ 别放到别的类里：它只服务这一个生命周期回调。
+  DateTime? _backgroundedAt;
 
   void _startForegroundLease() {
     unawaited(RefreshCoordinator.setForegroundActive(true));

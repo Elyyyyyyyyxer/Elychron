@@ -38,11 +38,18 @@ class FocusPage extends StatefulWidget {
 
   const FocusPage({super.key, this.task, this.freeLabel, this.resume});
 
+  /// 专注页现在是不是开着（2026-09-30）。
+  ///
+  /// 用途：被系统冻结/杀掉之后再回来时，`autoResumeInterruptedFocus` 会想"接回专注"；
+  /// 但用户本来就停在专注页上的话，再 push 一页就叠成两层了。
+  static bool isOpen = false;
+
   @override
   State<FocusPage> createState() => _FocusPageState();
 }
 
 class _FocusPageState extends State<FocusPage> {
+
   late final FocusEngine _engine;
   late final FocusSession _session;
   Timer? _ticker;
@@ -153,6 +160,8 @@ class _FocusPageState extends State<FocusPage> {
         ? null
         : courseNameOf(attributedId);
 
+    // 标记"专注页开着"，给"杀后台回来自动接回"让路
+    FocusPage.isOpen = true;
     _lastPhase = _engine.phase;
     _syncAnchor(); // 开局就落一次锚点
     // 一开始就把该休息了排进系统（锁屏也响）
@@ -215,6 +224,7 @@ class _FocusPageState extends State<FocusPage> {
     // 离开页面就把还没到点的该休息了撤掉，别让它半夜响
     TaskReminder.cancelFocusRestNotice();
     // 还原免打扰（只还原我们改过的；用户自己开着的话不动）
+    FocusPage.isOpen = false;
     DoNotDisturb.restore();
     super.dispose();
   }
