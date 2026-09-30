@@ -276,4 +276,59 @@ void main() {
       expect(second.removed, 0);
     });
   });
+
+  group('循环待办的下一次：两台各自生成的那份要合成一条（2026-09-30）', () {
+    test('同来源 + 同到期时间 → 只留一条（就是用户看到的「两个洗头」）', () {
+      final parent = buildTask(uid: 'parent-1');
+      // 手机完成一次，生成了「下一次」（uid 是手机上随机生的）
+      final phoneNext = buildTask(uid: 'next-phone')
+        ..fromUid = 'parent-1'
+        ..updatedAt = DateTime(2026, 9, 12, 9, 0);
+      // 电脑也完成了一次，同样生成了「下一次」（uid 是电脑上随机生的）
+      final desktopNext = buildTask(uid: 'next-desktop')
+        ..fromUid = 'parent-1'
+        ..updatedAt = DateTime(2026, 9, 12, 10, 0);
+
+      final merged = DataMerge.merge(
+        local: <Task>[parent, phoneNext],
+        localTombstones: <TaskTombstone>[],
+        incoming: bundleOf(<Task>[desktopNext]),
+      );
+
+      final fromParent = merged.tasks
+          .where((task) => task.fromUid == 'parent-1')
+          .toList();
+      expect(fromParent.length, 1);
+      // 留更晚改过的那条（与其它字段同一个口径）
+      expect(fromParent.single.uid, 'next-desktop');
+    });
+
+    test('同来源但到期时间不同 → 是两次，都留着', () {
+      final first = buildTask(uid: 'n1')..fromUid = 'parent-1';
+      final second = buildTask(uid: 'n2')
+        ..fromUid = 'parent-1'
+        ..endTime = DateTime(2026, 10, 11, 22, 0);
+
+      final merged = DataMerge.merge(
+        local: <Task>[first],
+        localTombstones: <TaskTombstone>[],
+        incoming: bundleOf(<Task>[second]),
+      );
+
+      expect(merged.tasks.length, 2);
+    });
+
+    test('没有来源的普通待办不会被合并掉（同名也不合）', () {
+      final a = buildTask(uid: 'x1', summary: '洗头');
+      final b = buildTask(uid: 'x2', summary: '洗头');
+
+      final merged = DataMerge.merge(
+        local: <Task>[a],
+        localTombstones: <TaskTombstone>[],
+        incoming: bundleOf(<Task>[b]),
+      );
+
+      expect(merged.tasks.length, 2);
+    });
+  });
 }

@@ -34,6 +34,13 @@ class WebDavSyncService {
   bool _running = false;
   Timer? _timer;
   Timer? _pullTimer;
+
+  /// 被网盘限流（503）之后的静默期：这段时间里**自动**轮询不再发请求。
+  ///
+  /// 坚果云的 503 是限流保护而不是宕机（见 webdav_client._explain 的注释），
+  /// 而"每 3 分钟去撞一次"只会让限流更久。手动点「立即同步」/下拉刷新不受影响 ——
+  /// 那是用户明确要看结果的动作。
+  DateTime? _backoffUntil;
   StreamSubscription<List<Task>>? _taskSub;
 
   bool get running => _running;
@@ -97,10 +104,16 @@ class WebDavSyncService {
         final extra = await _syncFiles(client, db, taskList, result.action);
         if (extra.isNotEmpty) message = message + '，' + extra;
       }
+      if (result.failed) {
+        _noteFailure(message);
+      } else {
+        _backoffUntil = null;
+      }
       await WebDavConfig.recordSync(message, failed: result.failed);
       return WebDavSyncResult(result.action, message, failed: result.failed);
     } catch (error) {
       final message = '同步失败：' + error.toString();
+      _noteFailure(message);
       await WebDavConfig.recordSync(message, failed: true);
       return WebDavSyncResult(SyncAction.upToDate, message, failed: true);
     } finally {
@@ -191,11 +204,25 @@ class WebDavSyncService {
   /// 只有用户明确开启了同步才会真的跑。
   void scheduleSync({Duration delay = const Duration(seconds: 8)}) {
     if (!WebDavConfig.enabled || !WebDavConfig.isConfigured) return;
+    if (!_autoAllowed) return;
     _timer?.cancel();
     _timer = Timer(delay, () {
       _timer = null;
       syncNow();
     });
+  }
+
+  /// 失败原因里带限流字样就退避一段时间（30 分钟），别一直去撞。
+  void _noteFailure(String message) {
+    if (message.contains('503') || message.contains('限流')) {
+      _backoffUntil = DateTime.now().add(const Duration(minutes: 30));
+    }
+  }
+
+  /// 现在能不能自动同步（限流静默期里返回 false）
+  bool get _autoAllowed {
+    final until = _backoffUntil;
+    return until == null || !DateTime.now().isBefore(until);
   }
 
   void cancelScheduled() {
@@ -232,6 +259,7 @@ class WebDavSyncService {
     // （PROPFIND 看指纹 + 读 meta.json），问得勤一点远比让用户干等十分钟划算。
     _pullTimer ??= Timer.periodic(const Duration(minutes: 3), (_) {
       if (!WebDavConfig.enabled) return;
+      if (!_autoAllowed) return;
       syncNow();
     });
   }

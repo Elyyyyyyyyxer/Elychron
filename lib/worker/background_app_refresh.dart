@@ -40,7 +40,16 @@ const NotificationDetails _gradeNotificationDetails = NotificationDetails(
 Future<void> showGradePushIntroOnce() async {
   if (!PlatformFeatures.hasBackgroundRefresh) return;
   const fingerprint = 'grade-push-intro-v1';
-  if (await NotificationDedup.everSent('grade_intro', fingerprint)) return;
+  final storage = const FlutterSecureStorage();
+  // 两句"说过了"要都查：文件可靠（跨 isolate 也是同一份）但系统可能清缓存，
+  // 加密存储在前台一定读得到。只要有一个说过了就不再提 ——
+  // 这条通知本来就该一辈子只出现一次（用户：「刚刚又给我推了一遍」）。
+  final saidInFile =
+      await NotificationDedup.everSent('grade_intro', fingerprint);
+  final saidInStorage = await storage.read(
+          key: 'gradePushIntroShown', iOptions: secureStorageIOSOptions) ==
+      '1';
+  if (saidInFile || saidInStorage) return;
 
   final plugin = FlutterLocalNotificationsPlugin();
   const initializationSettingsAndroid =
@@ -56,7 +65,6 @@ Future<void> showGradePushIntroOnce() async {
   await plugin.initialize(initializationSettings);
 
   // 数字取后台已经查好的那一份（前台的学业页这时可能还没刷新完）
-  final storage = const FlutterSecureStorage();
   final count = int.tryParse(await storage.read(
           key: 'gradedCourseCount', iOptions: secureStorageIOSOptions) ??
       '') ??
@@ -77,6 +85,10 @@ Future<void> showGradePushIntroOnce() async {
 
   await plugin.show(0, '成绩推送已开启', body, _gradeNotificationDetails);
   await NotificationDedup.markSent('grade_intro', fingerprint);
+  await storage.write(
+      key: 'gradePushIntroShown',
+      value: '1',
+      iOptions: secureStorageIOSOptions);
 }
 
 @pragma('vm:entry-point')

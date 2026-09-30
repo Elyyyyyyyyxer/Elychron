@@ -227,6 +227,10 @@ class WebDavClient {
     if (status == 405) return '该服务不支持这个操作';
     if (status == 507) return '网盘空间不够了';
     if (status == 0) return '网络不通';
+    // 坚果云那类网盘在"短时间内请求太多"时用 503 限流（不是真宕机；
+    // 社区里 remotely-save 那些插件踩的都是这个坑）。说清是限流，
+    // 用户才知道该"等一会儿再试"，而不是跑去改账号密码。
+    if (status == 503) return '网盘暂时拒绝了这次请求（多半是限流：短时间内请求太多），过几分钟再试就好';
     return 'WebDAV 返回 HTTP ' + status.toString();
   }
 

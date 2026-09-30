@@ -547,6 +547,37 @@ class DataMerge {
       result.add(task);
     }
 
+    // ===== 2026-09-30：循环待办在两台设备上会各自长出"下一次" =====
+    //
+    // spawnNextOccurrences（mod/task_runtime_mod.dart）在用户完成一条循环待办后
+    // 复制一份并 genUid() —— 那是**本机随机**的 uid。手机完成一次、电脑完成一次
+    // 就是两个不同的 uid，而合并是按 uid 取并集的，于是用户看到
+    // "电脑上有两个洗头"（同一天、同一个来源）。
+    //
+    // 身份用「来源 uid + 到期时间」：同一次到期就是同一条。两台各自生成的那份
+    // 必然落进同一个身份，合成一条（谁的 updatedAt 晚听谁的，与其它字段一个口径）。
+    final occurrenceIdentity = <String, Task>{};
+    final collapsed = <Task>[];
+    for (final task in result) {
+      final from = task.fromUid;
+      if (from == null || from.isEmpty) {
+        collapsed.add(task);
+        continue;
+      }
+      final key = from + "-" + task.endTime.toIso8601String();
+      final existing = occurrenceIdentity[key];
+      if (existing == null) {
+        occurrenceIdentity[key] = task;
+        collapsed.add(task);
+      } else if (updatedAtOf(task).isAfter(updatedAtOf(existing))) {
+        // 两条是同一件事的两个副本：留更晚改过的那一条
+        occurrenceIdentity[key] = task;
+        collapsed[collapsed.indexOf(existing)] = task;
+      }
+    }
+    result
+      ..clear()
+      ..addAll(collapsed);
     result.sort((a, b) => a.endTime.compareTo(b.endTime));
 
     return MergeResult(
