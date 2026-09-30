@@ -756,9 +756,22 @@ class _CelechronAppState extends State<CelechronApp>
 /// 天生更"挤"也更"重"。上次加的 letterSpacing 只拉开了字间，笔画本身没变。
 /// 所以这里改用微软雅黑 **Light**（msyhl.ttc，Win10/11 自带）：
 /// 笔画明显变细，最接近手机那种干净观感，而且不用把字体打进包里。
-const String desktopFontFamily = 'Microsoft YaHei Light';
+/// 正文用**鸿蒙字体**（2026-09-30 用户要求「装鸿蒙字体吧」）。
+///
+/// 前情：手机是 3x 屏 + 鸿蒙系统字体（笔画细、字面开阔），电脑是 1x 屏 +
+/// 微软雅黑（笔画粗、字身框更满）—— 同一个字号下雅黑天生又挤又重，
+/// 换成雅黑 Light 用户也觉得"没有好转"。那就直接用**手机那一套字体**：
+/// HarmonyOS Sans SC（华为发布、可免费商用），装到 Windows 用户字体目录后
+/// 按族名引用即可，**不往包里塞 20MB 字体**（手机本来就自带这套字体）。
+///
+/// 装法（一次性，见 README / docs）：把 HarmonyOS_Sans_SC.ttf 复制到
+/// %LOCALAPPDATA%\Microsoft\Windows\Fonts 并写一条注册表；
+/// 没装的机器会顺着 fallback 链退回微软雅黑，功能不受影响。
+const String desktopFontFamily = 'HarmonyOS Sans SC';
 const List<String> desktopFontFallback = <String>[
-  'Microsoft YaHei', // 没装 Light 就退回 Regular，不会变成默认回退字体
+  'HarmonyOS Sans', // 有英文族名的版本
+  'Microsoft YaHei Light', // 没装鸿蒙就退回雅黑 Light
+  'Microsoft YaHei',
   'Microsoft YaHei UI',
   'Segoe UI',
 ];
