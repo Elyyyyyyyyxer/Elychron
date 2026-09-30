@@ -749,8 +749,16 @@ class _CelechronAppState extends State<CelechronApp>
 /// Flutter 在 Windows 上默认用 Segoe UI 渲染，中文字形会退到系统兜底字体，
 /// 粗细和字距都不统一，看着很糊。微软雅黑是 Windows 自带的正式中文字体，
 /// 直接按名字引用即可（不需要把字体文件打进包里）。
-const String desktopFontFamily = 'Microsoft YaHei';
+/// 正文用 Light 那一档（2026-09-30 用户反馈「电脑版这种高度密集的字体」）。
+///
+/// 为什么原来显得密：手机是 3x 屏 + 鸿蒙字体（笔画细、字面开阔），
+/// 电脑是 1x 屏 + 微软雅黑 Regular（笔画粗、字身框更满），同一个字号下
+/// 天生更"挤"也更"重"。上次加的 letterSpacing 只拉开了字间，笔画本身没变。
+/// 所以这里改用微软雅黑 **Light**（msyhl.ttc，Win10/11 自带）：
+/// 笔画明显变细，最接近手机那种干净观感，而且不用把字体打进包里。
+const String desktopFontFamily = 'Microsoft YaHei Light';
 const List<String> desktopFontFallback = <String>[
+  'Microsoft YaHei', // 没装 Light 就退回 Regular，不会变成默认回退字体
   'Microsoft YaHei UI',
   'Segoe UI',
 ];

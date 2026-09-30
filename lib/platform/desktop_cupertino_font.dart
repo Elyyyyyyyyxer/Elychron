@@ -32,7 +32,10 @@ Future<void> registerDesktopCupertinoFont() async {
   if (!PlatformFeatures.isDesktop) return;
   // 微软雅黑优先；它是 .ttc（字体集合），万一引擎不认就退到两个 .ttf
   const candidates = <String>[
-    'C:\\Windows\\Fonts\\msyh.ttc', // 微软雅黑（Win10/11 的正式名字）
+    // Light 优先：正文用 Regular 会显得又挤又重（见 main.dart 里
+    // desktopFontFamily 的注释），弹窗跟正文用同一档才不会有两种粗细。
+    'C:\\Windows\\Fonts\\msyhl.ttc', // 微软雅黑 Light
+    'C:\\Windows\\Fonts\\msyh.ttc', // 微软雅黑（Regular）
     'C:\\Windows\\Fonts\\msyh.ttf',
     'C:\\Windows\\Fonts\\Deng.ttf', // 等线
     'C:\\Windows\\Fonts\\simhei.ttf', // 黑体
