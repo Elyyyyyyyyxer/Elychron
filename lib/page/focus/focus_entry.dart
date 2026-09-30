@@ -143,7 +143,10 @@ Future<bool> autoResumeInterruptedFocus() async {
   }
   if (session == null) {
     // ignore: avoid_print
-    print('[focus-resume] 没找到未结算的会话记录 → 不接管');
+    print('[focus-resume] 没找到未结算的会话记录 → 不接管，并清掉这个说谎的锚点');
+    // 锚点说"在跑"、库里却已经没有未结算的会话（上次正常结束/被结算过）——
+    // 留着它只会让下一轮判断继续迷惑，清掉。
+    await FocusAnchorStore.clear();
     return false;
   }
   session
@@ -167,7 +170,9 @@ Future<bool> autoResumeInterruptedFocus() async {
   if (context == null) return false; // 界面还没起来，锚点已更新，下次再接管
   await Navigator.of(context, rootNavigator: true).push<bool>(
     appPageRoute<bool>(
-      builder: (BuildContext context) => FocusPage(resume: resume),
+      // autoContinue：接回来直接跑，不停在"中断中"等用户点继续
+      builder: (BuildContext context) =>
+          FocusPage(resume: resume, autoContinue: true),
     ),
   );
   return true;

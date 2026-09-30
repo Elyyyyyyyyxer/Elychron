@@ -36,7 +36,22 @@ class FocusPage extends StatefulWidget {
   /// 专注首页会给出继续入口，点它就把它传进来，原样接着做。
   final SuspendedFocus? resume;
 
-  const FocusPage({super.key, this.task, this.freeLabel, this.resume});
+  /// 接回来之后**不等用户点「继续」**，直接接着跑（2026-09-30）。
+  ///
+  /// 用户的要求：「杀后台回来……确认现在应该处于什么状态后**直接静默继续**
+  /// （这也就意味着开屏会直接进入专注界面）」。
+  ///
+  /// 注意与"暂停后离开"区分：那种 resume 要停在中段等用户点继续（用户选的 (a)），
+  /// 所以默认 false，只有 `autoResumeInterruptedFocus` 传 true。
+  final bool autoContinue;
+
+  const FocusPage({
+    super.key,
+    this.task,
+    this.freeLabel,
+    this.resume,
+    this.autoContinue = false,
+  });
 
   /// 专注页现在是不是开着（2026-09-30）。
   ///
@@ -162,6 +177,11 @@ class _FocusPageState extends State<FocusPage> {
 
     // 标记"专注页开着"，给"杀后台回来自动接回"让路
     FocusPage.isOpen = true;
+    // 杀后台被接回来的这次：不问用户，直接接着跑
+    if (widget.autoContinue && _engine.isPaused) {
+      _engine.resume(DateTime.now());
+      FocusRuntime.set(FocusRunState.running);
+    }
     _lastPhase = _engine.phase;
     _syncAnchor(); // 开局就落一次锚点
     // 一开始就把该休息了排进系统（锁屏也响）
