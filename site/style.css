@@ -30,8 +30,8 @@ a:hover{text-decoration:underline}
 .nav{position:sticky; top:0; z-index:9; display:flex; align-items:center; justify-content:space-between;
   padding:14px 26px; background:var(--nav-bg); backdrop-filter:saturate(170%) blur(14px);
   border-bottom:1px solid var(--line)}
-.brand{display:flex; align-items:center; gap:10px; font-weight:700; font-size:16.5px; letter-spacing:-.15px; color:var(--ink)}
-.brand i{width:10px; height:10px; border-radius:3px; background:var(--pink); transform:rotate(45deg); box-shadow:0 0 0 3px var(--pink-soft)}
+.logo{display:flex; align-items:center; gap:10px; font-weight:700; font-size:16.5px; letter-spacing:-.15px; color:var(--ink)}
+.logo i{width:10px; height:10px; border-radius:3px; background:var(--pink); transform:rotate(45deg); box-shadow:0 0 0 3px var(--pink-soft)}
 .nav nav a{margin-left:22px; color:var(--ink-2); font-size:14.5px}
 
 main{max-width:var(--maxw); margin:0 auto; padding:0 26px}
@@ -65,27 +65,71 @@ main{max-width:var(--maxw); margin:0 auto; padding:0 26px}
 .btn.ghost:hover{transform:none; border-color:var(--line-2)}
 .meta{margin-top:22px; font-size:12.5px; color:var(--ink-2); letter-spacing:.01em; opacity:.9}
 
-/* 一周课表 */
-.week{margin:0; display:grid; grid-template-columns:32px 1fr; gap:10px; padding:18px 18px 14px;
-  background:var(--paper-2); border:1px solid var(--line); border-radius:20px;
-  box-shadow:0 24px 60px -44px rgba(120,20,60,.5)}
-.week-rail{display:grid; grid-template-rows:repeat(6,1fr); padding-top:28px}
-.week-rail span{font-size:10px; color:var(--ink-2); align-self:start; transform:translateY(-7px)}
-.week-head{display:grid; grid-template-columns:repeat(7,1fr); gap:6px; margin-bottom:8px}
-.week-head span{font-size:11px; text-align:center; color:var(--ink-2)}
-.week-grid{display:grid; grid-template-columns:repeat(7,1fr); grid-auto-rows:25px; gap:6px}
-.week-grid b{border-radius:6px; background:var(--slot-empty)}
-.week-grid b.a{background:var(--slot-a)} .week-grid b.b{background:var(--slot-b)}
-.week-grid b.c{background:var(--slot-c)} .week-grid b.d{background:var(--slot-d)}
-.week-grid b.e{background:var(--slot-e)}
-.week-grid b:nth-child(n){animation:slot .55s cubic-bezier(.22,.61,.36,1) backwards}
-.week-grid b:nth-child(7n){animation-delay:.04s} .week-grid b:nth-child(7n+1){animation-delay:.08s}
-.week-grid b:nth-child(7n+2){animation-delay:.12s} .week-grid b:nth-child(7n+3){animation-delay:.16s}
-@keyframes slot{from{opacity:0; transform:translateY(5px) scale(.96)} to{opacity:1; transform:none}}
-@media (prefers-reduced-motion:reduce){.week-grid b{animation:none}}
-.legend{list-style:none; display:flex; flex-wrap:wrap; gap:5px 16px; margin:13px 0 2px; padding:0}
-.legend li{font-size:11px; color:var(--ink-2); display:flex; align-items:center; gap:6px}
-.legend i{width:9px; height:9px; border-radius:3px; display:inline-block}
+
+/* ===== 首页动效：各站档案卡聚拢成 Elychron ===== */
+.stack{position:relative; margin:0; perspective:1500px}
+.deck{position:relative; aspect-ratio:1/1.06}
+.card{position:absolute; left:50%; top:50%; width:214px; aspect-ratio:3/4.15; border-radius:15px;
+  padding:16px 16px 14px; display:flex; flex-direction:column; justify-content:space-between;
+  color:#fff; overflow:hidden; transform-origin:50% 60%; transform:translate(-50%,-50%); z-index:1;
+  box-shadow:0 26px 48px -30px rgba(88,16,48,.5), inset 0 1px 0 rgba(255,255,255,.55);
+  animation:gather 1.15s cubic-bezier(.22,.61,.36,1) both}
+.card::after{content:""; position:absolute; inset:0; pointer-events:none;
+  background:linear-gradient(118deg,rgba(255,255,255,.55) 0 16%,rgba(255,255,255,.06) 34%,rgba(255,255,255,0) 52%)}
+.card .no{font-size:9.5px; letter-spacing:.16em; opacity:.8}
+.card .kick{font-size:9px; letter-spacing:.12em; opacity:.62; margin-top:3px}
+.card b{align-self:flex-start; font-size:34px; line-height:1.1; letter-spacing:-.03em; font-weight:800;
+  text-shadow:0 2px 14px rgba(0,0,0,.18)}
+.card .access{font-size:9.5px; letter-spacing:.16em; opacity:.85}
+.s1{background:linear-gradient(165deg,#7C3552,#5A2038); --x:-236px; --y:-52px; --r:-16deg; --z:6px; --s:.88}
+.s2{background:linear-gradient(165deg,#C986AC,#A2567F); --x:-118px; --y:-14px; --r:-7deg; --z:12px; --s:.91}
+.s3{background:linear-gradient(165deg,#E3A0C4,#C2739C); --x:6px;   --y:14px;  --r:3deg;  --z:18px; --s:.94}
+.s4{background:linear-gradient(165deg,#F5B7C5,#DE8CA4); --x:126px;  --y:-16px; --r:10deg; --z:24px; --s:.96}
+.s5{background:linear-gradient(165deg,#FF8FB4,#E5608F); --x:242px;  --y:-56px; --r:17deg; --z:30px; --s:.98}
+.s1{animation-delay:.06s} .s2{animation-delay:.12s} .s3{animation-delay:.18s}
+.s4{animation-delay:.24s} .s5{animation-delay:.3s}
+@keyframes gather{
+  0%{opacity:0; transform:translate(calc(-50% + var(--x)),calc(-50% + var(--y))) rotate(var(--r)) scale(.94)}
+  35%{opacity:1}
+  100%{opacity:1; transform:translate(-50%,-50%) rotate(var(--r) * .12) scale(.86) translateZ(var(--z))}
+}
+.brand{width:236px; aspect-ratio:3/3.6; align-items:center; justify-content:center; gap:14px; z-index:5;
+  background:linear-gradient(170deg,#FFFFFF,#FFF0F5 62%,#FFE2EC);
+  border:1px solid rgba(255,94,147,.22); color:var(--ink);
+  box-shadow:0 34px 60px -30px rgba(88,16,48,.45), inset 0 1px 0 #fff, 0 0 0 6px rgba(255,255,255,.5);
+  animation:brandIn .8s cubic-bezier(.2,.7,.3,1) 1.06s both}
+.brand img{width:96px; height:96px; border-radius:20px; box-shadow:0 14px 26px -14px rgba(88,16,48,.55)}
+.brand .word{font-size:13px; letter-spacing:.42em; font-weight:700; color:var(--pink-dark); padding-left:.42em}
+.brand::after{background:linear-gradient(122deg,rgba(255,255,255,.9) 0 22%,rgba(255,255,255,0) 46%)}
+@keyframes brandIn{from{opacity:0; transform:translate(-50%,-40%) scale(.9)} to{opacity:1; transform:translate(-50%,-50%) scale(1)}}
+.sheen{position:absolute; left:50%; top:50%; width:236px; height:320px; border-radius:16px; overflow:hidden;
+  transform:translate(-50%,-50%); pointer-events:none; z-index:6}
+.sheen::before{content:""; position:absolute; inset:-20% -140%; background:linear-gradient(100deg,transparent 38%,rgba(255,255,255,.85) 50%,transparent 62%);
+  transform:translateX(-70%); animation:sheen 1.35s ease-out 1.5s both}
+@keyframes sheen{to{transform:translateX(70%)}}
+.floor{position:absolute; left:50%; bottom:-14px; width:76%; height:44px; transform:translateX(-50%);
+  background:radial-gradient(60% 60% at 50% 50%,rgba(120,20,60,.22),transparent 72%); filter:blur(6px)}
+.icon-mirror{position:absolute; left:50%; bottom:-6px; width:96px; transform:translateX(-50%) scaleY(-1);
+  opacity:.14; filter:blur(1.2px); border-radius:20px;
+  -webkit-mask-image:linear-gradient(to bottom,rgba(0,0,0,.85),transparent 78%);
+  mask-image:linear-gradient(to bottom,rgba(0,0,0,.85),transparent 78%)}
+.points{list-style:none; margin:26px 0 0; padding:0; display:grid; gap:7px; max-width:27em}
+.points li{display:flex; gap:10px; align-items:baseline; font-size:14px; color:var(--ink-2)}
+.points .mono{flex:0 0 auto; min-width:52px; font-size:10.5px; letter-spacing:.14em; color:var(--pink-dark); font-weight:700}
+@media (prefers-reduced-motion:reduce){
+  .card,.brand,.sheen::before{animation:none}
+  .s1,.s2,.s3,.s4,.s5{transform:translate(-50%,-50%) rotate(0) scale(.86); opacity:1}
+  .brand{transform:translate(-50%,-50%); opacity:1}
+}
+@media (max-width:860px){
+  .deck{aspect-ratio:1/1}
+  .card{width:150px}
+  .brand{width:168px}
+  .card b{font-size:24px}
+  .s1{--x:-132px; --y:-40px} .s2{--x:-66px} .s3{--x:4px; --y:10px}
+  .s4{--x:70px; --y:-12px} .s5{--x:136px; --y:-44px}
+  .sheen{width:168px; height:230px}
+}
 
 /* ===== 通用分节：左侧标签栏 + 右侧内容（呼应课表的时间轴） ===== */
 .section{display:grid; grid-template-columns:118px 1fr; gap:40px; padding:62px 0; border-top:1px solid var(--line)}
@@ -163,4 +207,69 @@ main{max-width:var(--maxw); margin:0 auto; padding:0 26px}
   .rail{padding-top:0}
   .lede br{display:none}
   .nav nav a{margin-left:14px; font-size:13.5px}
+}
+
+/* ===== 首页动效：各站档案卡聚拢成 Elychron（类名 .acard，避开功能卡的 .card）===== */
+.stack{position:relative; margin:0; perspective:1500px}
+.deck{position:relative; aspect-ratio:1/1; transform-style:preserve-3d; transform:rotateX(6deg)}
+.acard{position:absolute; left:50%; top:50%; width:212px; aspect-ratio:3/4.15; border-radius:15px;
+  padding:16px 16px 14px; display:flex; flex-direction:column; justify-content:space-between;
+  color:#fff; overflow:hidden; transform-origin:50% 60%; transform:translate(-50%,-50%);
+  box-shadow:0 26px 48px -30px rgba(88,16,48,.5), inset 0 1px 0 rgba(255,255,255,.5);
+  animation:gather 1.15s cubic-bezier(.22,.61,.36,1) both}
+.acard::after{content:""; position:absolute; inset:0; pointer-events:none;
+  background:linear-gradient(118deg,rgba(255,255,255,.5) 0 15%,rgba(255,255,255,.06) 33%,rgba(255,255,255,0) 52%)}
+.acard .no{font-size:9.5px; letter-spacing:.16em; opacity:.82}
+.acard .kick{font-size:9px; letter-spacing:.12em; opacity:.6; margin-top:3px}
+.acard b{align-self:flex-start; font-size:33px; line-height:1.08; letter-spacing:-.03em; font-weight:800;
+  text-shadow:0 2px 14px rgba(0,0,0,.18)}
+.acard .access{font-size:9.5px; letter-spacing:.16em; opacity:.85}
+.s1{background:linear-gradient(165deg,#7C3552,#572035); --x:-232px; --y:-50px; --r:-16deg; --stack:-2; --sc:.9}
+.s2{background:linear-gradient(165deg,#C986AC,#9F557D); --x:-116px; --y:-12px; --r:-7deg;  --stack:-1; --sc:.925}
+.s3{background:linear-gradient(165deg,#E3A0C4,#C0739B); --x:6px;    --y:14px;  --r:3deg;   --stack:0;  --sc:.95}
+.s4{background:linear-gradient(165deg,#F5B7C5,#DC8AA2); --x:124px;  --y:-16px; --r:10deg;  --stack:1;  --sc:.975}
+.s5{background:linear-gradient(165deg,#FF8FB4,#E35E8D); --x:238px;  --y:-54px; --r:17deg;  --stack:2;  --sc:1}
+.s1{animation-delay:.06s} .s2{animation-delay:.12s} .s3{animation-delay:.18s}
+.s4{animation-delay:.24s} .s5{animation-delay:.3s}
+@keyframes gather{
+  0%{opacity:0; transform:translate(calc(-50% + var(--x)),calc(-50% + var(--y))) rotate(var(--r)) scale(.94)}
+  35%{opacity:1}
+  100%{opacity:1; transform:translate(-50%,calc(-50% + var(--stack) * 7px)) rotate(0deg) scale(var(--sc))}
+}
+.acard.finalcard{z-index:9; width:234px; aspect-ratio:3/3.6; align-items:center; justify-content:center; gap:14px; z-index:5;
+  background:linear-gradient(170deg,#FFFFFF,#FFF0F5 62%,#FFE2EC); border:1px solid rgba(255,94,147,.22);
+  color:var(--ink); box-shadow:0 34px 60px -30px rgba(88,16,48,.45), inset 0 1px 0 #fff, 0 0 0 6px rgba(255,255,255,.5);
+  animation:brandIn .8s cubic-bezier(.2,.7,.3,1) 1.06s both}
+.acard.finalcard img{width:94px; height:94px; border-radius:20px; box-shadow:0 14px 26px -14px rgba(88,16,48,.55)}
+.acard.finalcard .word{font-size:12.5px; letter-spacing:.42em; font-weight:700; color:var(--pink-dark); padding-left:.42em}
+.acard.finalcard::after{background:linear-gradient(122deg,rgba(255,255,255,.9) 0 22%,rgba(255,255,255,0) 46%)}
+@keyframes brandIn{from{opacity:0; transform:translate(-50%,-40%) scale(.9)} to{opacity:1; transform:translate(-50%,-50%) scale(1)}}
+.sheen{position:absolute; left:50%; top:50%; width:234px; height:318px; border-radius:16px; overflow:hidden;
+  transform:translate(-50%,-50%); pointer-events:none; z-index:6}
+.sheen::before{content:""; position:absolute; inset:-20% -140%;
+  background:linear-gradient(100deg,transparent 38%,rgba(255,255,255,.85) 50%,transparent 62%);
+  transform:translateX(-70%); animation:sheen 1.35s ease-out 1.5s both}
+@keyframes sheen{to{transform:translateX(70%)}}
+.floor{position:absolute; left:50%; bottom:-14px; width:76%; height:44px; transform:translateX(-50%);
+  background:radial-gradient(60% 60% at 50% 50%,rgba(120,20,60,.22),transparent 72%); filter:blur(6px)}
+.icon-mirror{position:absolute; left:50%; bottom:-4px; width:94px; transform:translateX(-50%) scaleY(-1);
+  opacity:.14; filter:blur(1.2px); border-radius:20px;
+  -webkit-mask-image:linear-gradient(to bottom,rgba(0,0,0,.85),transparent 78%);
+  mask-image:linear-gradient(to bottom,rgba(0,0,0,.85),transparent 78%)}
+.points{list-style:none; margin:26px 0 0; padding:0; display:grid; gap:7px; max-width:27em}
+.points li{display:flex; gap:10px; align-items:baseline; font-size:14px; color:var(--ink-2)}
+.points .mono{flex:0 0 auto; min-width:54px; font-size:10.5px; letter-spacing:.14em; color:var(--pink-dark); font-weight:700}
+@media (prefers-reduced-motion:reduce){
+  .acard,.sheen::before{animation:none; opacity:1}
+  .s1,.s2,.s3,.s4,.s5{transform:translate(-50%,calc(-50% + var(--stack) * 7px)) scale(var(--sc))}
+  .acard.finalcard{transform:translate(-50%,-50%)}
+}
+@media (max-width:860px){
+  .deck{aspect-ratio:1/.86}
+  .acard{width:150px}
+  .acard.finalcard{width:166px}
+  .acard b{font-size:24px}
+  .s1{--x:-128px; --y:-38px} .s2{--x:-64px} .s3{--x:4px; --y:10px}
+  .s4{--x:68px; --y:-12px} .s5{--x:132px; --y:-42px}
+  .sheen{width:166px; height:228px}
 }
