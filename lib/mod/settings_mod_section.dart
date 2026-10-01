@@ -642,8 +642,19 @@ Widget modCampusSection(
               ),
             ),
           ),
-          // ===== PTA 作业（2026-10-01）=====
-          // 它只读作业、把作业变成待办，所以和紧急电话同属"校园服务"这一组。
-          const PtaHomeworkTile(),
-          const LibraryReservationTile(),
+          // ===== 2026-10-01：PTA / 图书馆预约挪去"教务"那个分组 =====
+          //
+          // 用户明确要求："把「PTA」和「图书馆预约」两行移到「登录」那一类下面，
+          // 也就是和教务同一类"，并且**不许**为它们新开一个灰色分组标题。
+          // 所以这里不再放它们，改由 option_view.dart 的教务分组挂 modAccountTiles()。
         ]));
+
+/// "教务"那个分组里追加的两行（PTA / 图书馆预约）。
+///
+/// 它们的共同点：用的都是**教务那份 ZJU 账号**（PTA 走 PTASession、图书馆走
+/// 统一身份认证），登录态和教务同生共死，所以摆在同一类里最自然。
+/// 用户拍板：不加灰色小标题，直接并进已有分组。
+List<Widget> modAccountTiles(BuildContext context) => <Widget>[
+      const PtaHomeworkTile(),
+      const LibraryReservationTile(),
+    ];

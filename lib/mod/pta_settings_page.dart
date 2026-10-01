@@ -310,7 +310,8 @@ class _PtaHomeworkTileState extends State<PtaHomeworkTile> {
   @override
   Widget build(BuildContext context) {
     return CupertinoListTile(
-      title: const Text('PTA 拼题A'),
+      // 用户要求：显示名从「PTA 拼题A」简化成「PTA」（包名/类名/文件名都不动）
+      title: const Text('PTA'),
       subtitle: Text(_subtitle),
       trailing: const Icon(CupertinoIcons.arrow_right,
           size: 18, color: CupertinoColors.tertiaryLabel),

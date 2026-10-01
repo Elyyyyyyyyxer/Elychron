@@ -251,6 +251,8 @@ class OptionPage extends StatelessWidget {
                           },
                         ),
                       },
+                      // ===== MOD: PTA / 图书馆预约（与教务同类；用户要求不加分组标题）=====
+                      ...modAccountTiles(context),
                       // 构建错误不再浮在日程页顶部；在设置里集中查看和处理。
                       ValueListenableBuilder<int>(
                         valueListenable: AppErrorLog.count,
