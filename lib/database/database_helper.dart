@@ -659,6 +659,7 @@ class DatabaseHelper {
   final String kPtaCookie = 'ptaCookie';
   final String kPtaLastResult = 'ptaLastResult';
   final String kPtaLastSyncAt = 'ptaLastSyncAt';
+  final String kPtaIncludeInClass = 'ptaIncludeInClass';
 
   bool getPtaEnabled() {
     if (optionsBox.get(kPtaEnabled) == null) {
@@ -681,6 +682,18 @@ class DatabaseHelper {
 
   Future<void> setPtaLastResult(String value) async {
     await optionsBox.put(kPtaLastResult, value);
+  }
+
+  /// 当堂实验 / 上机要不要也当成作业（默认不要 —— 那是课上做的事，不是课后作业）
+  bool getPtaIncludeInClass() {
+    if (optionsBox.get(kPtaIncludeInClass) == null) {
+      optionsBox.put(kPtaIncludeInClass, false);
+    }
+    return optionsBox.get(kPtaIncludeInClass) as bool;
+  }
+
+  Future<void> setPtaIncludeInClass(bool value) async {
+    await optionsBox.put(kPtaIncludeInClass, value);
   }
 
   String getPtaLastSyncAt() => optionsBox.get(kPtaLastSyncAt) as String? ?? '';

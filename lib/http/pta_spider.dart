@@ -52,7 +52,10 @@ class PtaSpider {
   void close() => _client.close(force: true);
 
   /// 还没截止的题目集（连同它们里面的考试）→ 作业列表
-  Future<List<Todo>> fetchActive({DateTime? now}) async {
+  Future<({List<Todo> todos, int skippedInClass})> fetchActive({
+    DateTime? now,
+    bool includeInClass = false,
+  }) async {
     final moment = (now ?? DateTime.now()).toUtc().toIso8601String();
     final uri = Uri.parse(host + '/api/problem-sets').replace(
       queryParameters: <String, String>{
@@ -72,7 +75,11 @@ class PtaSpider {
       examsBySetId[id] =
           await _getJson(Uri.parse(host + '/api/problem-sets/' + id + '/exams'), strict: false);
     }
-    return todosFrom(problemSets: problemSets, examsBySetId: examsBySetId);
+    return todosFrom(
+      problemSets: problemSets,
+      examsBySetId: examsBySetId,
+      includeInClass: includeInClass,
+    );
   }
 
   /// 校验 cookie 还有没有效；返回昵称（设置页的「测试连接」用）
@@ -86,11 +93,17 @@ class PtaSpider {
   // ================= 纯函数（单测钉的就是这几条）=================
 
   /// 题目集 + 各自的 /exams 响应 → 作业列表
-  static List<Todo> todosFrom({
+  ///
+  /// [includeInClass] 为 false（默认）时**跳过当堂类型**（当堂实验 / 随堂练习 /
+  /// 上机考试）—— 用户要求：「其中一个作业是当堂实验 …… 这种类型的显然不能
+  /// 成为作业待办」。跳过几条会一并返回，好让界面把话说清楚。
+  static ({List<Todo> todos, int skippedInClass}) todosFrom({
     required List<dynamic> problemSets,
     required Map<String, Map<String, dynamic>?> examsBySetId,
+    bool includeInClass = false,
   }) {
     final todos = <Todo>[];
+    var skippedInClass = 0;
     for (final item in problemSets) {
       if (item is! Map) continue;
       final map = Map<String, dynamic>.from(item);
@@ -105,6 +118,18 @@ class PtaSpider {
       // 没有截止时间的题目集不变成待办（待办没有时间就没有意义）。
       if (endAt == null || endAt.isEmpty) continue;
 
+      // 当堂类型（当堂实验 / 随堂练习 / 上机）不是"课后作业"，不建待办。
+      final startAt = map['startAt']?.toString();
+      final startTime = startAt == null ? null : DateTime.tryParse(startAt);
+      final endTime = DateTime.tryParse(endAt);
+      if (!includeInClass &&
+          startTime != null &&
+          endTime != null &&
+          looksLikeInClass(startTime, endTime)) {
+        skippedInClass++;
+        continue;
+      }
+
       // id 必须**跨刷新稳定**，否则每次刷新都会被当成新作业，待办会重复长出来。
       final examId = exam?['id']?.toString() ?? '';
       final id = exam == null || examId.isEmpty
@@ -118,7 +143,22 @@ class PtaSpider {
         'end_time': endAt,
       }));
     }
-    return todos;
+    return (todos: todos, skippedInClass: skippedInClass);
+  }
+
+  /// 是不是「当堂类型」（当堂实验 / 随堂练习 / 上机考试）？
+  ///
+  /// 判据用**时间窗口**而不是名字 —— 实测（2026-10-01，9 条真实题目集）：
+  /// 当堂类窗口 1.2 / 2.5 / 6.6 / 8.8 小时（**都在同一天内**），
+  /// 课后作业 152 / 169 / 177 小时（跨 6~7 天），中间是巨大的空档；
+  /// 而名字只有一部分带「实验」「作业」，靠名字一定会误判
+  /// （实测有 3 条当堂类名字里一个特征词都没有）。
+  ///
+  /// 所以只认一条：起止在**同一天**（按设备本地时区，也就是学生的北京时间）。
+  static bool looksLikeInClass(DateTime start, DateTime end) {
+    final from = start.toLocal();
+    final to = end.toLocal();
+    return from.year == to.year && from.month == to.month && from.day == to.day;
   }
 
   /// 截止时间：题集里有「考试」就听考试的，否则用题目集自己的

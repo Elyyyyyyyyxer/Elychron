@@ -429,8 +429,15 @@ class _UpcomingViewState extends State<UpcomingView> {
 
   // ---------------------------------------------------------------- 工具
 
-  static String _hm(DateTime t) =>
-      '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+  /// 本地时间的 HH:mm。
+  ///
+  /// 必须 toLocal()：作业截止时间来自服务端的 UTC 字符串
+  /// （例如 2026-10-07T15:59:00Z = 北京 23:59），直接读 hour 会少 8 小时 ——
+  /// 同一份作业在学业页和这一页显示出两个时间，用户一眼就看出来了。
+  static String _hm(DateTime t) {
+    final local = t.toLocal();
+    return '${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}';
+  }
 
   static Color _accentOf(UpcomingKind kind) => switch (kind) {
         UpcomingKind.course => AppAccent.primary,

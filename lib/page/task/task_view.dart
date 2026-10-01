@@ -206,7 +206,9 @@ class TaskPage extends StatelessWidget {
   String _subtaskSummary(Task task) {
     final next = task.nextItineraryStep;
     if (next != null) {
-      final anchor = next.anchorTime!;
+      // 本地时间：作业（学在浙大 / PTA）的时间是服务端 UTC 存进来的，
+      // 直接读 hour 会少 8 小时（见 model/upcoming.dart 里的同款注释）。
+      final anchor = next.anchorTime!.toLocal();
       final now = DateTime.now();
       final today = DateTime(now.year, now.month, now.day);
       final day = DateTime(anchor.year, anchor.month, anchor.day);

@@ -10,7 +10,13 @@ class Todo {
       : id = asString(json["id"]) ?? '',
         name = asString(json["title"]) ?? '未命名作业',
         course = asString(json["course_name"]) ?? '未知课程',
-        endTime = DateTime.tryParse(asString(json["end_time"]) ?? '');
+        // 服务端给的是 UTC（学在浙大 / PTA 都是 "...Z"），这里**立刻转成本地时间**。
+      //
+      // 不转的话，读原始字段的地方就会差 8 小时：2026-10-01 实测同一份作业
+      // 在学业页显示 23:59（那里走了 toStringHumanReadable → toLocal()），
+      // 在接下来页却显示 15:59（那里直接读了 hour/minute）。
+      // 归一到本地之后，下游谁都不用再操心时区。
+      endTime = DateTime.tryParse(asString(json["end_time"]) ?? '')?.toLocal();
 
   Map<String, dynamic> toJson() => {
         'id': id,

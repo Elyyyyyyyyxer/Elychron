@@ -311,10 +311,15 @@ String upcomingCountdown(UpcomingItem item, DateTime now) {
 
 /// 今天 14:30/明天 08:00/9 月 15 日 13:30这种一眼能读的时刻
 String upcomingWhen(UpcomingItem item, DateTime now) {
-  final at = item.at;
+  // 一律按**本地时间**读年月日时分：作业截止时间是服务端给的 UTC
+  // （2026-10-07T15:59:00Z = 北京 23:59），直接读 at.hour 会少 8 小时 ——
+  // 实测同一份作业在学业页显示 23:59、在这一页显示 15:59，
+  // 而下面的"还有 X 小时"（按时刻差算）却是对的，自相矛盾。
+  final at = item.at.toLocal();
+  final localNow = now.toLocal();
   String two(int value) => value.toString().padLeft(2, '0');
   final clock = '${two(at.hour)}:${two(at.minute)}';
-  final today = DateTime(now.year, now.month, now.day);
+  final today = DateTime(localNow.year, localNow.month, localNow.day);
   final day = DateTime(at.year, at.month, at.day);
   final diff = day.difference(today).inDays;
   if (diff == 0) return '今天 $clock';

@@ -117,7 +117,9 @@ class _PtaSettingsPageState extends State<PtaSettingsPage> {
             footer: sectionFooter(
               context,
               '开启后，PTA 上还没截止的题目集 / 考试会当成作业，自动变成待办'
-              '（和学在浙大作业同一条路），于是提醒、通知、跨设备同步都跟着生效。',
+              '（和学在浙大作业同一条路），于是提醒、通知、跨设备同步都跟着生效。'
+              '当堂实验 / 随堂练习这类"课上做完"的不算 —— 它们和课后作业的区别'
+              '按时间窗口判断（实测当堂类都在同一天内，课后作业跨 6~7 天）。',
             ),
             children: <Widget>[
               CupertinoListTile(
@@ -138,6 +140,23 @@ class _PtaSettingsPageState extends State<PtaSettingsPage> {
                     if (value && PtaHomework.cookie.isNotEmpty) {
                       await _run(() => PtaHomework.refresh(force: true));
                     }
+                  },
+                ),
+              ),
+              CupertinoListTile(
+                title: const Text('当堂实验 / 上机也算作业'),
+                subtitle: Text(
+                  PtaHomework.includeInClass
+                      ? '也算：课上做的也会变成待办'
+                      : '不算：只把课后作业变成待办（推荐）',
+                ),
+                trailing: CupertinoSwitch(
+                  value: PtaHomework.includeInClass,
+                  onChanged: (bool value) async {
+                    await PtaHomework.setIncludeInClass(value);
+                    if (!mounted) return;
+                    setState(() {});
+                    await _run(() => PtaHomework.refresh(force: true));
                   },
                 ),
               ),

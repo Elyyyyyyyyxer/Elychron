@@ -26,7 +26,15 @@ class PtaHomework {
   PtaHomework._();
 
   static const String _cacheKey = 'pta_todos';
+  static const String _versionKey = 'ptaParseVersion';
   static const Duration _cacheTtl = Duration(minutes: 30);
+
+  /// 解析/筛选规则一变就要 bump 这个版本号。
+  ///
+  /// 2026-10-01 v2：开始跳过当堂实验/上机（用户：「那种类型的显然不能成为
+  /// 作业待办」）。不 bump 的话，旧缓存里那条当堂实验会被当成"上次的结果"
+  /// 继续用 —— 装上新版本也看不到修复。
+  static const String _parseVersion = 'v2';
 
   /// 上一次成功拉到的 PTA 作业（内存 + 缓存各一份）
   static List<Todo> _lastGood = <Todo>[];
@@ -69,6 +77,13 @@ class PtaHomework {
 
   static bool get configured => enabled && cookie.isNotEmpty;
 
+  /// 当堂实验 / 上机要不要也算作业（默认不算）
+  static bool get includeInClass => _db?.getPtaIncludeInClass() ?? false;
+
+  static Future<void> setIncludeInClass(bool value) async {
+    await _db?.setPtaIncludeInClass(value);
+  }
+
   /// 打码后的 cookie（设置页显示用，绝不整串显示）
   static String get maskedCookie {
     final value = cookie;
@@ -98,6 +113,9 @@ class PtaHomework {
   static void _apply() {
     final scholar = _scholar;
     if (scholar == null || _merging) return;
+    // 本机没开 PTA、也没有本地缓存时什么都别做：那些 pta: 条目可能是
+    // **另一台设备同步过来的**，删掉等于把别人的作业抹掉。
+    if (!enabled && _lastGood.isEmpty) return;
     final current = scholar.value.todos;
     final currentPta =
         current.where((todo) => todo.id.startsWith('pta:')).toList();
@@ -114,8 +132,20 @@ class PtaHomework {
 
   // ================= 生命周期 =================
 
-  /// 启动：读缓存 → 先显示上次的作业 → 挂监听
+  /// 规则升级：丢掉旧版本的缓存与时间戳，逼这一次真的去拉一份新数据
+  static Future<void> _migrateIfNeeded() async {
+    final db = _db;
+    if (db == null) return;
+    if (db.getCachedWebPage(_versionKey) == _parseVersion) return;
+    await db.removeCachedWebPage(_cacheKey);
+    await db.setPtaLastSyncAt('');
+    await db.setPtaLastResult('');
+    await db.setCachedWebPage(_versionKey, _parseVersion);
+  }
+
+  /// 启动：升级检查 → 读缓存 → 先显示上次的作业 → 挂监听
   static Future<void> restore() async {
+    await _migrateIfNeeded();
     final raw = _db?.getCachedWebPage(_cacheKey);
     if (raw != null && raw.isNotEmpty) {
       try {
@@ -154,13 +184,20 @@ class PtaHomework {
     _fetching = true;
     final spider = PtaSpider(cookie: cookie);
     try {
-      final todos = await spider.fetchActive();
+      final parsed = await spider.fetchActive(includeInClass: includeInClass);
+      final todos = parsed.todos;
       _lastGood = todos;
       await _db?.setCachedWebPage(
           _cacheKey, jsonEncode(todos.map((todo) => todo.toJson()).toList()));
       final stamp = DateTime.now().toIso8601String();
       await _db?.setPtaLastSyncAt(stamp);
-      final result = '已同步 ' + todos.length.toString() + ' 条 PTA 作业';
+      var result = '已同步 ' + todos.length.toString() + ' 条 PTA 作业';
+      if (parsed.skippedInClass > 0) {
+        result = result +
+            '（跳过 ' +
+            parsed.skippedInClass.toString() +
+            ' 条当堂实验 / 上机）';
+      }
       await _db?.setPtaLastResult(result);
       _apply();
       DiagnosticLogService.instance.record(
