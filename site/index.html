@@ -30,21 +30,19 @@
 
 <main id="top">
 
+  <!-- Hero：居中（对齐 DSH 官网的排版语言），下面一大块预览就是那张卡片组 -->
   <section class="hero">
-    <div class="hero-text">
-      <p class="eyebrow">Celechron 的非官方改版</p>
-      <h1>把校园里<br><em>七零八落的网页</em><br>收进一张表</h1>
-      <p class="lede">教务、学在浙大、PTA、图书馆、素拓、研究生院 —— 各自一个网站、各自一套页面。
-        Elychron 把它们收成同一张时间表：待办自动归位、多端同步，还带一个你自己的 AI 助手。</p>
-      <div class="cta">
-        <a class="btn primary" href="#download">下载 Android 版</a>
-        <a class="btn" href="#download">Windows 桌面版</a>
-      </div>
-      <p class="meta">开源 · GPLv3 · 与浙江大学官方无关</p>
+    <p class="eyebrow mono">Celechron 的非官方改版</p>
+    <h1>把校园里七零八落的网页<br>收进一张时间表</h1>
+    <p class="lede">教务、学在浙大、PTA、图书馆、素拓、研究生院 —— 各自一个网站、各自一套页面。
+      Elychron 把它们收进同一张表：待办自动归位、多端同步，还带一个你自己的 AI 助手。</p>
+    <div class="cta">
+      <a class="btn primary" href="#download">下载 Android 版</a>
+      <a class="btn" href="#download">Windows 桌面版</a>
     </div>
 
     <figure class="stack">
-      <div class="deck" id="deck" role="group" aria-label="可拖动的校园站点卡片，松手后会聚拢成 Elychron">
+      <div class="deck" id="deck" role="group" aria-label="校园站点的卡片，拖动可以散开或聚拢">
         <div class="acard s1">
           <div class="wchrome"><span class="wdots" aria-hidden="true"><i></i><i></i><i></i></span><span class="wurl mono">zdbk.zju.edu.cn</span></div>
           <div class="wscreen"><span class="kick mono">本科生院 · 课表 · 成绩</span><b>教务</b></div>
@@ -75,98 +73,91 @@
         </div>
         <span class="sheen" aria-hidden="true"></span>
         <div class="floor" aria-hidden="true"></div>
-        <img class="icon-mirror" src="icon.png" alt="" aria-hidden="true" draggable="false">
       </div>
-      <div class="wbar">
-        <button type="button" class="wbtn" id="btnGather" aria-pressed="true">聚拢</button>
-        <button type="button" class="wbtn" id="btnScatter" aria-pressed="false">散开</button>
-      </div>
-      <p class="whint mono">拖动卡片试试</p>
     </figure>
   </section>
 
+  <!-- 四个卖点：左右翻页（滑动手感像手机 App；无卡片盒子，纯排版） -->
   <section id="highlights" class="section">
-    <div class="rail"><p class="label mono">亮点</p></div>
-    <div class="body">
-      <h2>四个卖点，左右翻页</h2>
+    <div class="shead">
+      <h2>四个卖点</h2>
       <p class="sub">手机上左右滑，桌面上用箭头或圆点切换。</p>
-      <div class="slides">
-        <div class="strack" id="strack" tabindex="0" role="group" aria-roledescription="carousel" aria-label="Elychron 的四个卖点">
-          <article class="sslide" role="group" aria-roledescription="slide" aria-label="第 1 页，共 4 页：待办">
-            <p class="snum mono">01 / 04</p>
-            <h3>待办</h3>
-            <ul class="slist">
-              <li><b>类型全面</b>活动、截止、提醒、备忘各自一套规则，不都塞进一个"待办"。</li>
-              <li><b>自由时间逻辑</b>可以只给一个大致时段，不必把每件事都定死到几点。</li>
-              <li><b>附件管理</b>文件、图片、链接都能挂在对应的待办上。</li>
-              <li><b>作业 &amp; 图书馆自动进入</b>学在浙大、PTA 的作业和图书馆预约自动归位。</li>
-            </ul>
-          </article>
-          <article class="sslide" role="group" aria-roledescription="slide" aria-label="第 2 页，共 4 页：AI">
-            <p class="snum mono">02 / 04</p>
-            <h3>AI</h3>
-            <ul class="slist">
-              <li><b>根据通知一键生成</b>把一段通知粘进来，直接拆成待办。</li>
-              <li><b>多模态支持</b>文字、截图、图片都能读。</li>
-              <li><b>子待办规划</b>大任务自动拆成可执行的子步骤。</li>
-              <li><b>默认关闭</b>开启后也只把你选中的内容发给你自己配置的模型服务商。</li>
-            </ul>
-          </article>
-          <article class="sslide" role="group" aria-roledescription="slide" aria-label="第 3 页，共 4 页：多端同步">
-            <p class="snum mono">03 / 04</p>
-            <h3>多端同步</h3>
-            <ul class="slist">
-              <li><b>跨平台通用</b>Android 与 Windows 共用一套数据。</li>
-              <li><b>数据安全</b>同步走你自己的网盘，没有中间服务器。</li>
-              <li><b>云端免费！</b>任何支持 WebDAV 的免费网盘就够，没有订阅费。</li>
-              <li><b>局域网直连</b>同一 Wi-Fi 下的设备可以点对点同步。</li>
-            </ul>
-          </article>
-          <article class="sslide" role="group" aria-roledescription="slide" aria-label="第 4 页，共 4 页：稳定">
-            <p class="snum mono">04 / 04</p>
-            <h3>稳定</h3>
-            <ul class="slist">
-              <li><b>zdbk 挂了也能看课表</b>只要缓存过，教务打不开照样显示。</li>
-              <li><b>多渠道兜底</b>一条路不通，自动换下一条继续试。</li>
-              <li><b>全天候稳定</b>被杀后台也能接回来接着算。</li>
-            </ul>
-          </article>
+    </div>
+    <div class="slides">
+      <div class="strack" id="strack" tabindex="0" role="group" aria-roledescription="carousel" aria-label="Elychron 的四个卖点">
+        <article class="sslide" role="group" aria-roledescription="slide" aria-label="第 1 页，共 4 页：待办">
+          <p class="snum mono">01 / 04</p>
+          <h3>待办</h3>
+          <ul class="slist">
+            <li><b>类型全面</b>活动、截止、提醒、备忘各自一套规则，不都塞进一个"待办"。</li>
+            <li><b>自由时间逻辑</b>可以只给一个大致时段，不必把每件事都定死到几点。</li>
+            <li><b>附件管理</b>文件、图片、链接都能挂在对应的待办上。</li>
+            <li><b>作业 &amp; 图书馆自动进入</b>学在浙大、PTA 的作业和图书馆预约自动归位。</li>
+          </ul>
+        </article>
+        <article class="sslide" role="group" aria-roledescription="slide" aria-label="第 2 页，共 4 页：AI">
+          <p class="snum mono">02 / 04</p>
+          <h3>AI</h3>
+          <ul class="slist">
+            <li><b>根据通知一键生成</b>把一段通知粘进来，直接拆成待办。</li>
+            <li><b>多模态支持</b>文字、截图、图片都能读。</li>
+            <li><b>子待办规划</b>大任务自动拆成可执行的子步骤。</li>
+            <li><b>默认关闭</b>开启后也只把你选中的内容发给你自己配置的模型服务商。</li>
+          </ul>
+        </article>
+        <article class="sslide" role="group" aria-roledescription="slide" aria-label="第 3 页，共 4 页：多端同步">
+          <p class="snum mono">03 / 04</p>
+          <h3>多端同步</h3>
+          <ul class="slist">
+            <li><b>跨平台通用</b>Android 与 Windows 共用一套数据。</li>
+            <li><b>数据安全</b>同步走你自己的网盘，没有中间服务器。</li>
+            <li><b>云端免费！</b>任何支持 WebDAV 的免费网盘就够，没有订阅费。</li>
+            <li><b>局域网直连</b>同一 Wi-Fi 下的设备可以点对点同步。</li>
+          </ul>
+        </article>
+        <article class="sslide" role="group" aria-roledescription="slide" aria-label="第 4 页，共 4 页：稳定">
+          <p class="snum mono">04 / 04</p>
+          <h3>稳定</h3>
+          <ul class="slist">
+            <li><b>zdbk 挂了也能看课表</b>只要缓存过，教务打不开照样显示。</li>
+            <li><b>多渠道兜底</b>一条路不通，自动换下一条继续试。</li>
+            <li><b>全天候稳定</b>被杀后台也能接回来接着算。</li>
+          </ul>
+        </article>
+      </div>
+      <div class="slidebar">
+        <button type="button" class="sarrow" data-dir="-1" aria-label="上一个卖点">←</button>
+        <div class="sdots">
+          <button type="button" class="sdot" aria-label="待办" aria-current="true"></button>
+          <button type="button" class="sdot" aria-label="AI" aria-current="false"></button>
+          <button type="button" class="sdot" aria-label="多端同步" aria-current="false"></button>
+          <button type="button" class="sdot" aria-label="稳定" aria-current="false"></button>
         </div>
-        <div class="slidebar">
-          <button type="button" class="sarrow" data-dir="-1" aria-label="上一个卖点">←</button>
-          <div class="sdots">
-            <button type="button" class="sdot" aria-label="待办" aria-current="true"></button>
-            <button type="button" class="sdot" aria-label="AI" aria-current="false"></button>
-            <button type="button" class="sdot" aria-label="多端同步" aria-current="false"></button>
-            <button type="button" class="sdot" aria-label="稳定" aria-current="false"></button>
-          </div>
-          <button type="button" class="sarrow" data-dir="1" aria-label="下一个卖点">→</button>
-        </div>
+        <button type="button" class="sarrow" data-dir="1" aria-label="下一个卖点">→</button>
       </div>
     </div>
   </section>
 
+  <!-- 功能：发丝分隔的排版清单（不用盒子） -->
   <section id="features" class="section">
-    <div class="rail"><p class="label mono">功能</p></div>
-    <div class="body">
+    <div class="shead">
       <h2>一种时间，四种说法</h2>
       <p class="sub">活动、截止、提醒、备忘 —— 四类时间各按各的规矩提醒你，而不是都塞进一个"待办"里。</p>
-      <div class="grid">
-        <article class="card"><p class="chip">待办</p><h3>四种时间语义</h3><p>什么时候开始、什么时候必须交、什么时候只是提个醒。子待办还能排成一段行程。</p></article>
-        <article class="card"><p class="chip c">专注</p><h3>专注计时</h3><p>工作/休息轮换，自动计入正在上的课；今天、本周、本月的时长与分布。被杀后台再回来也能接着算。</p></article>
-        <article class="card"><p class="chip e">AI</p><h3>助手（默认关闭）</h3><p>填你自己的模型 Key，把一段话整理成待办、拆出子步骤。默认关闭，开启也只把你选中的文字发给你自己的服务商。</p></article>
-        <article class="card"><p class="chip b">作业</p><h3>作业自动进待办</h3><p>学在浙大的作业、PTA 的题目集，变成带截止时间的待办，到点提醒。</p></article>
-        <article class="card"><p class="chip d">预约</p><h3>图书馆预约进待办</h3><p>座位和研讨间的预约带起止时间，直接进日程，到点提醒你去签到。</p></article>
-        <article class="card"><p class="chip">同步</p><h3>多端同步</h3><p>WebDAV：坚果云、InfiniCloud、Koofr、Nextcloud、群晖、Alist 都行。同一 Wi-Fi 下还能局域网直连。</p></article>
-        <article class="card"><p class="chip a">课表</p><h3>课表更顺眼</h3><p>粉色系课程卡片，长按一下把文字全藏起来只看颜色；日历跟手折叠。</p></article>
-        <article class="card"><p class="chip">校园</p><h3>校园服务</h3><p>各校区报警、急诊、各单位电话随包内置，断网也能看，点一下直接拨。</p></article>
-        <article class="card"><p class="chip">桌面</p><h3>教程与桌面版</h3><p>7 篇中文教程边看边点；Windows 桌面版与手机共用一套数据。</p></article>
-      </div>
     </div>
+    <ul class="flist">
+      <li><span class="flabel mono">待办</span><div><h3>四种时间语义</h3><p>什么时候开始、什么时候必须交、什么时候只是提个醒。子待办还能排成一段行程。</p></div></li>
+      <li><span class="flabel mono">专注</span><div><h3>专注计时</h3><p>工作/休息轮换，自动计入正在上的课；今天、本周、本月的时长与分布。被杀后台再回来也能接着算。</p></div></li>
+      <li><span class="flabel mono">AI</span><div><h3>助手（默认关闭）</h3><p>填你自己的模型 Key，把一段话整理成待办、拆出子步骤。开启后也只把你选中的文字发给你自己的服务商。</p></div></li>
+      <li><span class="flabel mono">作业</span><div><h3>作业自动进待办</h3><p>学在浙大的作业、PTA 的题目集，变成带截止时间的待办，到点提醒。</p></div></li>
+      <li><span class="flabel mono">预约</span><div><h3>图书馆预约进待办</h3><p>座位和研讨间的预约带起止时间，直接进日程，到点提醒你去签到。</p></div></li>
+      <li><span class="flabel mono">同步</span><div><h3>多端同步</h3><p>WebDAV：坚果云、InfiniCloud、Koofr、Nextcloud、群晖、Alist 都行。同一 Wi-Fi 下还能局域网直连。</p></div></li>
+      <li><span class="flabel mono">课表</span><div><h3>课表更顺眼</h3><p>粉色系课程卡片，长按一下把文字全藏起来只看颜色；日历跟手折叠。</p></div></li>
+      <li><span class="flabel mono">校园</span><div><h3>校园服务</h3><p>各校区报警、急诊、各单位电话随包内置，断网也能看，点一下直接拨。</p></div></li>
+      <li><span class="flabel mono">桌面</span><div><h3>教程与桌面版</h3><p>7 篇中文教程边看边点；Windows 桌面版与手机共用一套数据。</p></div></li>
+    </ul>
   </section>
 
   <section id="download" class="section">
-    <div class="rail"><p class="label mono">下载</p></div>
     <div class="body">
       <h2>挑一个装</h2>
       <p class="sub">安装包不在本站托管（超过静态托管单文件上限）。国内建议先试 <b>Gitee</b> 或 <b>蓝奏云</b>；GitHub 打不开就走<b>镜像</b>。个人维护的改版，不保证稳定，重要数据请用「设置 → 导出数据」留一份备份。</p>
@@ -209,7 +200,6 @@
   </section>
 
   <section id="privacy" class="section">
-    <div class="rail"><p class="label mono">隐私</p></div>
     <div class="body">
       <h2>我们不看你的数据</h2>
       <div class="seal">
@@ -226,7 +216,6 @@
   </section>
 
   <section id="faq" class="section">
-    <div class="rail"><p class="label mono">常见问题</p></div>
     <div class="body">
       <h2>你可能想问</h2>
       <dl class="faq">
