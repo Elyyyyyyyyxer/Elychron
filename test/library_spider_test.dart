@@ -166,5 +166,32 @@ void main() {
       expect(LibraryConfig.sanitizeToken('Bearer ' + clean), clean);
     });
 
+    test('★ 预约里的 timelist 不能算成额外预约（真机显示"7 条"就是这个 bug）', () {
+      final parsed = LibrarySpider.reservationsFrom(<String, dynamic>{
+        'code': 1,
+        'data': <String, dynamic>{
+          'total': 1,
+          'data': <dynamic>[
+            <String, dynamic>{
+              'id': '110004',
+              'title': '团队讨论',
+              'nameMerge': '主馆-二层-207(8人间)',
+              'beginTime': '2026-09-27 15:00:00',
+              'endTime': '2026-09-27 19:00:00',
+              'timelist': <dynamic>[
+                <String, dynamic>{'start': '15:00', 'end': '16:00'},
+                <String, dynamic>{'start': '16:00', 'end': '17:00'},
+                <String, dynamic>{'start': '17:00', 'end': '18:00'},
+                <String, dynamic>{'start': '18:00', 'end': '19:00'},
+                <String, dynamic>{'start': '19:00', 'end': '20:00'},
+                <String, dynamic>{'start': '20:00', 'end': '21:00'},
+              ],
+            },
+          ],
+        },
+      });
+      expect(parsed, hasLength(1), reason: 'timelist 只是这条预约的时间段，不是新预约');
+    });
+
   });
 }

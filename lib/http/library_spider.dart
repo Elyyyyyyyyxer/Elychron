@@ -403,30 +403,31 @@ class LibrarySpider {
     return body;
   }
 
-  /// 从"我的预约"响应里尽力挑出预约条目（字段名待真数据确认，见类注释）
+  /// 从"我的预约"响应里取出预约条目。
+  ///
+  /// 2026-10-01 实测两种形状：
+  ///   · /api/Member/seat | room | reneges → data 直接是**数组**；
+  ///   · /api/Member/seminar（活动/研讨间）→ data 是**分页对象** {total,…,data:[…]}。
+  /// 所以这里**只看这两个已知位置**，绝不盲目递归 —— 之前递归把每条预约里的
+  /// timelist（6 个小时段）也算成了预约，界面上就显示"7 条预约"（1+6）。
   static List<LibraryReservation> reservationsFrom(Object? response) {
-    final result = <LibraryReservation>[];
-    void walk(Object? node) {
-      if (node is List) {
-        for (final item in node) {
-          walk(item);
-        }
-        return;
-      }
-      if (node is Map) {
-        final map = Map<String, dynamic>.from(node);
-        final parsed = LibraryReservation.fromJson(map);
-        if (parsed != null) result.add(parsed);
-        for (final value in map.values) {
-          // 注意：**对象也要往下钻**。实测 /api/Member/seminar 的形状是
-          // {code, data:{total, per_page, …, data:[…]}} —— 只钻数组会一条都找不到
-          // （这个坑是单测用真实 fixture 抓出来的）。
-          if (value is List || value is Map) walk(value);
-        }
-      }
+    if (response is! Map) return <LibraryReservation>[];
+    final data = response['data'];
+    Object? items;
+    if (data is List) {
+      items = data;
+    } else if (data is Map) {
+      items = data['data'];
     }
+    if (items is! List) return <LibraryReservation>[];
 
-    walk(response);
+    final result = <LibraryReservation>[];
+    for (final item in items) {
+      if (item is! Map) continue;
+      final parsed = LibraryReservation.fromJson(Map<String, dynamic>.from(item));
+      if (parsed != null) result.add(parsed);
+    }
     return result;
   }
+
 }
