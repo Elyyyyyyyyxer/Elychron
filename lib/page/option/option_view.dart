@@ -273,6 +273,9 @@ class OptionPage extends StatelessWidget {
             // ===== MOD: 数据（导出 / 导入）=====
             modDataSection(context,
                 headerStyle: headerFooterTextStyle, margin: _defaultMargin),
+            // ===== MOD: 校园服务（紧急电话）=====
+            modCampusSection(context,
+                headerStyle: headerFooterTextStyle, margin: _defaultMargin),
             // ===== MOD: 教程（入口；内容在 lib/tutorial/modules/）=====
             modTutorialSection(context,
                 headerStyle: headerFooterTextStyle, margin: _defaultMargin),

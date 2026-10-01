@@ -24,6 +24,7 @@ import 'package:celechron/tutorial/tutorial_entry.dart';
 import 'package:celechron/tutorial/tutorial_registry.dart';
 import 'package:celechron/tutorial/tutorial_store.dart';
 import 'package:celechron/design/page_background.dart';
+import 'package:celechron/mod/campus_emergency_page.dart';
 
 /// ============ 设置页里属于魔改的两个区块 ============
 ///
@@ -609,3 +610,34 @@ class _WebDavSyncTileState extends State<_WebDavSyncTile> {
     );
   }
 }
+
+/// ===== 校园服务（2026-09-30）=====
+///
+/// 这类东西的共同点：**偶尔用一次，但用的时候要快**。所以它不进主界面、
+/// 也不该要求联网 —— 紧急电话那份数据就是随包的（见 docs/CAMPUS_SERVICES_PLAN.md）。
+Widget modCampusSection(
+  BuildContext context, {
+  required TextStyle? headerStyle,
+  required EdgeInsetsGeometry margin,
+}) =>
+    SliverToBoxAdapter(
+        child: CupertinoListSection.insetGrouped(
+            backgroundColor: pageBackground(context),
+            additionalDividerMargin: 2,
+            margin: margin,
+            header: Container(
+                padding: const EdgeInsets.only(left: 16),
+                child: Text('校园服务', style: headerStyle)),
+            children: <Widget>[
+          CupertinoListTile(
+            title: const Text('紧急电话'),
+            subtitle: const Text('校区报警 / 急诊 / 各单位电话（随包快照，离线可用）'),
+            trailing: const BackChervonRow(),
+            onTap: () => Navigator.of(context, rootNavigator: true).push(
+              appPageRoute<void>(
+                builder: (BuildContext context) =>
+                    const CampusEmergencyPage(),
+              ),
+            ),
+          ),
+        ]));
