@@ -132,7 +132,7 @@ main{max-width:var(--maxw); margin:0 auto; padding:0 24px}
 .sdot[aria-current="true"]{background:var(--pink); transform:scale(1.3)}
 
 /* 功能：2×2 带内容的面板 */
-.fgrid{display:grid; gap:18px; grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
+.fgrid{display:grid; gap:18px; grid-template-columns:repeat(2,minmax(0,1fr))}
 .fpanel{padding:24px; border-radius:var(--r); border:1px solid var(--line);
   background:linear-gradient(180deg,rgba(255,255,255,.045),rgba(255,255,255,.012));
   display:flex; flex-direction:column; gap:12px}
@@ -282,3 +282,7 @@ body{background:var(--bg)}
 .window .wgroup{color:var(--ink-3)}
 .window .witem{color:var(--ink-2)}
 .window .witem.on{background:rgba(255,255,255,.07); color:var(--ink)}
+
+@media (max-width:820px){ .fgrid{grid-template-columns:1fr} }
+/* 页脚版本标记：一眼看出线上是不是最新 */
+.sitever{margin:0 0 10px; font-size:10.5px; letter-spacing:.14em; color:var(--ink-3); opacity:.8}
