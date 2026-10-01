@@ -245,3 +245,90 @@ html, body { max-width: 100%; overflow-x: hidden; }
 .ios-hint { flex-wrap: wrap; }
 .ios-hint span { flex: 1 1 auto; min-width: 0; line-height: 1.5; }
 .ios-hint button { margin-left: auto; }
+
+/* ============================================================
+   首页交互层（与 index.html 里的脚本契约对齐）
+   · 卡片位置由脚本用**行内 transform** 计算，所以这里必须
+     取消早先那套 CSS 动画（animation 会盖掉行内 transform）
+   · 脚本读的变量：--nx --ny（无单位比例）、--nr（度）、--gi（层级序号）
+   ============================================================ */
+.acard{animation:none !important; transform:none; aspect-ratio:3/4.25; padding:0; overflow:hidden;
+  display:flex; flex-direction:column; color:#fff; z-index:1;
+  box-shadow:0 26px 48px -30px rgba(88,16,48,.5), inset 0 1px 0 rgba(255,255,255,.35)}
+.acard::after{content:none}                       /* 旧的高光层由 .wchrome/.wscreen 接管 */
+.acard.finalcard{z-index:9; animation:brandIn .8s cubic-bezier(.2,.7,.3,1) .15s both}
+.deck.is-dragging{cursor:grabbing}
+.deck.is-dragging .acard{box-shadow:0 34px 60px -28px rgba(88,16,48,.62)}
+#deck{cursor:grab; touch-action:none; user-select:none}
+
+/* 浏览器窗口的顶栏 */
+.wchrome{display:flex; align-items:center; gap:8px; padding:9px 11px 8px;
+  background:rgba(255,255,255,.22); border-bottom:1px solid rgba(255,255,255,.22)}
+.wdots{display:flex; gap:4px; flex:0 0 auto}
+.wdots i{width:7px; height:7px; border-radius:50%; background:rgba(255,255,255,.62)}
+.wurl{font-size:9.5px; letter-spacing:.02em; color:rgba(255,255,255,.9);
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.wscreen{flex:1 1 auto; display:flex; flex-direction:column; justify-content:space-between;
+  gap:8px; padding:13px 14px 15px; position:relative}
+.wscreen::before{content:""; position:absolute; inset:0; pointer-events:none;
+  background:linear-gradient(150deg,rgba(255,255,255,.22) 0 28%,rgba(255,255,255,0) 62%)}
+.wscreen .kick{font-size:9px; letter-spacing:.1em; opacity:.68; line-height:1.5}
+.wscreen b{align-self:flex-start; font-size:30px; line-height:1.06; letter-spacing:-.03em; font-weight:800;
+  text-shadow:0 2px 14px rgba(0,0,0,.16)}
+.wscreen.home{align-items:center; justify-content:center; gap:13px; background:linear-gradient(170deg,#fff,#FFF1F6 66%,#FFE4ED)}
+.wscreen.home img{width:82px; height:82px; border-radius:19px; box-shadow:0 14px 26px -14px rgba(88,16,48,.5)}
+.wscreen.home .word{font-size:11.5px; letter-spacing:.4em; font-weight:700; color:var(--pink-dark); padding-left:.4em}
+.acard.finalcard .wchrome{background:rgba(255,94,147,.10); border-bottom:1px solid rgba(255,94,147,.18)}
+.acard.finalcard .wdots i{background:rgba(255,94,147,.45)}
+.acard.finalcard .wurl{color:var(--pink-dark)}
+/* 六张校园卡的散开姿态（比例值；聚拢时脚本会乘 0，自动叠成一摞） */
+.s1{background:linear-gradient(165deg,#7C3552,#572035); --nx:-0.34; --ny:-0.10; --nr:-13; --gi:0}
+.s2{background:linear-gradient(165deg,#B06A9A,#8C4272); --nx:-0.20; --ny:-0.04; --nr:-7;  --gi:1}
+.s3{background:linear-gradient(165deg,#D98CB4,#B4698F); --nx:-0.07; --ny:0.02;  --nr:-2;  --gi:2}
+.s4{background:linear-gradient(165deg,#F0A8BE,#D07E99); --nx:0.07;  --ny:-0.03; --nr:4;   --gi:3}
+.s5{background:linear-gradient(165deg,#FF9CBB,#E06D8F); --nx:0.20;  --ny:-0.09; --nr:9;   --gi:4}
+.s6{background:linear-gradient(165deg,#FFC0CE,#E88FA6); --nx:0.34;  --ny:-0.13; --nr:15;  --gi:5}
+@media (max-width:560px){ .wscreen b{font-size:22px} .wurl{font-size:8.5px} }
+
+/* 聚拢 / 散开 按钮 + 提示 */
+.wbar{display:flex; gap:9px; justify-content:center; margin-top:14px}
+.wbtn{border:1px solid var(--line-2); background:transparent; color:var(--ink-2); font:inherit; font-size:13px;
+  padding:7px 17px; border-radius:999px; cursor:pointer; transition:border-color .18s, color .18s, background .18s}
+.wbtn:hover{border-color:var(--pink); color:var(--pink-dark)}
+.wbtn[aria-pressed="true"]{background:var(--pink); border-color:var(--pink); color:#fff}
+.whint{margin:10px 0 0; text-align:center; font-size:11px; letter-spacing:.04em; color:var(--ink-2); opacity:.75}
+
+/* ===== 四个卖点：左右翻页（脚本用 scrollLeft + aria-current 同步）===== */
+.slides{position:relative}
+.strack{display:flex; gap:16px; overflow-x:auto; scroll-snap-type:x mandatory; -webkit-overflow-scrolling:touch;
+  scrollbar-width:none; outline:none; padding-bottom:4px}
+.strack::-webkit-scrollbar{display:none}
+.strack:focus-visible{outline:2px solid var(--pink); outline-offset:4px; border-radius:14px}
+.sslide{flex:0 0 100%; scroll-snap-align:start; box-sizing:border-box;
+  background:linear-gradient(180deg,var(--paper-2),var(--paper) 62%);
+  border:1px solid var(--line); border-radius:18px; padding:22px 22px 20px}
+.snum{margin:0 0 10px; font-size:10.5px; letter-spacing:.16em; color:var(--pink-dark); font-weight:700}
+.sslide h3{margin:0 0 14px; font-size:23px; letter-spacing:-.03em}
+.slist{list-style:none; margin:0; padding:0; display:grid; gap:11px}
+.slist li{font-size:14.4px; color:var(--ink-2); line-height:1.62; padding-left:14px; position:relative}
+.slist li::before{content:""; position:absolute; left:0; top:.62em; width:6px; height:6px; border-radius:2px;
+  background:var(--pink); opacity:.85}
+.slist b{color:var(--ink); font-weight:650; margin-right:6px}
+.slidebar{display:flex; align-items:center; justify-content:center; gap:14px; margin-top:14px}
+.sarrow{border:1px solid var(--line-2); background:transparent; color:var(--ink-2); font:inherit; font-size:15px;
+  width:34px; height:34px; border-radius:999px; cursor:pointer; line-height:1}
+.sarrow:hover{border-color:var(--pink); color:var(--pink-dark)}
+.sdots{display:flex; gap:8px}
+.sdot{width:8px; height:8px; padding:0; border:0; border-radius:50%; background:var(--line-2); cursor:pointer;
+  transition:background .2s, transform .2s}
+.sdot[aria-current="true"]{background:var(--pink); transform:scale(1.3)}
+
+/* ===== 隐私块：「NO SERVER」移到正文上方，别把正文挤成窄条 ===== */
+.seal{display:block; padding:17px 19px 16px}
+.seal .seal-tag{display:inline-block; margin:0 0 9px; padding:2px 9px; border-radius:6px;
+  font-size:10px; letter-spacing:.16em; color:#fff; background:var(--pink); font-weight:700}
+.seal p{margin:0}
+
+/* 按钮/提示压在图卡之上，别被盖住 */
+.wbar, .whint{position:relative; z-index:20}
+.deck{overflow:visible}
