@@ -43,7 +43,8 @@ class _LibrarySettingsPageState extends State<LibrarySettingsPage> {
     try {
       message = await action();
     } on Object catch (error) {
-      message = error.toString();
+      // 带上"当前存着的 token 长度"：一眼能看出是"压根没存进去"还是"存了但被服务端拒"
+      message = error.toString() + '｜token 长度=' + LibraryConfig.token.length.toString();
     }
     if (!mounted) return;
     setState(() {

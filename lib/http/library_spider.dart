@@ -339,7 +339,11 @@ class LibrarySpider {
     request.headers.set('X-Requested-With', 'XMLHttpRequest');
     final cookieHeader = _jar.headerFor(uri);
     if (cookieHeader.isNotEmpty) request.headers.set(HttpHeaders.cookieHeader, cookieHeader);
-    request.write(jsonEncode(payload));
+    // 它的前端除了请求头，还会把 authorization 塞进 body（拦截器里那行
+    // {...eval(config.data), authorization: ...}）—— 两边都带上，别猜。
+    final outgoing = <String, dynamic>{...payload};
+    if (_token.isNotEmpty) outgoing['authorization'] = 'bearer' + _token;
+    request.write(jsonEncode(outgoing));
 
     HttpClientResponse response;
     try {

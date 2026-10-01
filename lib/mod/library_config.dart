@@ -38,6 +38,10 @@ class LibraryConfig {
         RegExp(r'^(token|authorization)\s*[:=]\s*', caseSensitive: false), '');
     text = text.replaceFirst(RegExp(r'^bearer\s+', caseSensitive: false), '');
     text = text.replaceAll(RegExp(r'\s'), '');
+    // 复制时带上引号的也一起去掉
+    if (text.length >= 2 && text.startsWith('"') && text.endsWith('"')) {
+      text = text.substring(1, text.length - 1);
+    }
     return text;
   }
 

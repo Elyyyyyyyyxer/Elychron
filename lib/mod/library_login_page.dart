@@ -58,21 +58,47 @@ class _LibraryLoginPageState extends State<LibraryLoginPage> {
       ..loadRequest(Uri.parse(_homeUrl));
   }
 
-  /// 从 WebView 的 sessionStorage 里读 token（读不到就是还没登录）
+  /// 从 WebView 里读 token（读不到就是还没登录）。
+  ///
+  /// 2026-10-01 真机踩的坑：注入 JS 一旦卡住，_harvesting 守卫会把之后所有点击
+  /// **静默丢掉** —— 用户点「完成」什么反应都没有。所以这里：给 JS 调用加超时、
+  /// 手动点击即使"没读到"也一定要有反馈、并且把长度写进诊断日志。
   Future<void> _harvest({bool manual = false}) async {
     final controller = _webView;
-    if (_harvesting || controller == null) return;
+    if (controller == null) return;
+    if (_harvesting) {
+      if (manual && mounted) setState(() => _status = '正在读取登录状态，请稍等一下再点');
+      return;
+    }
     _harvesting = true;
     try {
-      final raw = await controller.runJavaScriptReturningResult(
-          'window.sessionStorage.getItem("token") || ""');
-      final token = LibraryConfig.tokenFromJavaScript(raw);
-      if (token.isEmpty) {
+      // ① 先把"里面到底存了什么"记进日志：键名 + 值长度。
+      //    （这样万一取不到 token，日志能直接告诉我它藏在哪个键下，不用瞎猜。）
+      try {
+        final probe = await controller
+            .runJavaScriptReturningResult(
+                'JSON.stringify({s:Object.keys(window.sessionStorage).map(function(k){return k+":"+String(window.sessionStorage.getItem(k)||"").length}),l:Object.keys(window.localStorage).map(function(k){return k+":"+String(window.localStorage.getItem(k)||"").length})})')
+            .timeout(const Duration(seconds: 8));
         DiagnosticLogService.instance.record(
           module: '图书馆预约',
-          operation: 'webViewLogin',
-          message: 'WebView 里还没看到 token',
+          operation: 'webViewStorage',
+          message: probe.toString().replaceAll('"', ''),
         );
+      } on Object {
+        // 照不出来就算了，不影响后面取 token
+      }
+      // ② sessionStorage 是它的前端用的地方；localStorage 一并兜住（版本差异）
+      final raw = await controller
+          .runJavaScriptReturningResult(
+              'window.sessionStorage.getItem("token") || window.localStorage.getItem("token") || ""')
+          .timeout(const Duration(seconds: 8));
+      final token = LibraryConfig.tokenFromJavaScript(raw);
+      DiagnosticLogService.instance.record(
+        module: '图书馆预约',
+        operation: 'webViewLogin',
+        message: '注入 JS 取到 token 长度=' + token.length.toString(),
+      );
+      if (token.isEmpty) {
         if (manual && mounted) {
           setState(() => _status = '还没登录成功 —— 先在下面登录，再点右上角「完成」');
         }
@@ -100,7 +126,7 @@ class _LibraryLoginPageState extends State<LibraryLoginPage> {
         operation: 'webViewLogin',
         message: '读/验 token 失败：' + error.toString(),
       );
-      if (manual && mounted) setState(() => _status = '还没登录成功或读了读不出来：' + error.toString());
+      if (mounted) setState(() => _status = '没成功：' + error.toString());
     } finally {
       _harvesting = false;
     }
