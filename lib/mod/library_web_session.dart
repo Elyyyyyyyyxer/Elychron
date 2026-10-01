@@ -30,6 +30,11 @@ class LibraryWebSession {
   WebViewController? _controller;
   Completer<void>? _loading;
 
+  /// 页面自己恢复出来的 token（诊断用：能看出"新开一个 WebView 到底还能不能自动恢复登录"）
+  String _token = '';
+
+  String get token => _token;
+
   /// 桌面端没有 webview_flutter，硬构造会抛 —— 一律先问这张表
   bool get available => PlatformFeatures.hasWebViewLogin;
 
@@ -39,6 +44,25 @@ class LibraryWebSession {
   void adopt(WebViewController controller) {
     _controller = controller;
     _loading = null;
+  }
+
+  /// 读一次当前页面里的 token（登录页交接 / 诊断用）
+  Future<Object?> runTokenProbe() async {
+    final controller = _controller;
+    if (controller == null) return null;
+    try {
+      return await controller
+          .runJavaScriptReturningResult(
+              'window.sessionStorage.getItem("token") || ""')
+          .timeout(_jsTimeout);
+    } on Object {
+      return null;
+    }
+  }
+
+  /// 登录页验证成功后把它的 token 也交接过来（诊断/日志用）
+  void adoptToken(String token) {
+    _token = token;
   }
 
   /// 用户点「清除登录信息」时调
@@ -84,7 +108,37 @@ class LibraryWebSession {
     } on Object {
       libraryTrace('图书馆会话：等首页超时（仍然继续尝试）');
     }
+    // ★ 必须等页面**自己把登录态恢复出来**再取数据。
+    //
+    // 2026-10-01 真机踩的：这站的登录态存在 sessionStorage 里，而
+    // **每新建一个 WebView，sessionStorage 都是空的** —— 上一次登录留在那里的
+    // token 不会跟过来。页面刚 onPageFinished 时它的 JS 还没跑完，
+    // 我们立刻发请求就会被判"您尚未登录"（实测日志就是这么写的）。
+    // 所以这里等一下：页面如果还能靠 cookie 恢复登录，它自己会把 token 写回去。
+    _token = await _waitForToken(const Duration(seconds: 12));
+    libraryTrace('图书馆会话：等到的 token 长度=' + _token.length.toString());
     return _controller != null;
+  }
+
+  /// 轮询页面，等它自己把 sessionStorage.token 写回来（等不到就返回空）
+  Future<String> _waitForToken(Duration timeout) async {
+    final controller = _controller;
+    if (controller == null) return '';
+    final deadline = DateTime.now().add(timeout);
+    while (DateTime.now().isBefore(deadline)) {
+      try {
+        final raw = await controller
+            .runJavaScriptReturningResult(
+                'window.sessionStorage.getItem("token") || window.localStorage.getItem("token") || ""')
+            .timeout(_jsTimeout);
+        final text = LibraryConfig.tokenFromJavaScript(raw);
+        if (text.isNotEmpty) return text;
+      } on Object {
+        // 页面还没就绪，接着等
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 400));
+    }
+    return '';
   }
 
   /// 在页面里发一个 POST，把响应正文原样带回来。

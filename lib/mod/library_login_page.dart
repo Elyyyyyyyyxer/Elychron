@@ -113,6 +113,9 @@ class _LibraryLoginPageState extends State<LibraryLoginPage> {
         // 数不出来不影响"登录成功"这个结论
       }
       await LibraryConfig.setEnabled(true);
+      LibraryWebSession.instance.adoptToken(
+          LibraryConfig.tokenFromJavaScript(await LibraryWebSession.instance
+              .runTokenProbe()));
       await LibraryConfig.setLastCount(count);
       await LibraryConfig.setLastResult('页面内登录成功' +
           (name.isEmpty ? '' : '：' + name) +
