@@ -260,10 +260,10 @@
 
     function place(d, t, opacity){
       var W = deck.clientWidth || 1, H = deck.clientHeight || 1;
-      var gs = 0.88 + (d.gi + 2.5) * 0.016;          // 聚拢缩放 0.88 ~ 0.96
+      var gs = 0.80 + d.gi * 0.014;                   // 聚拢缩放 0.80 ~ 0.87（叠起来时能露出边）
       var sc = gs + (1 - gs) * t;
-      var x = d.nx * W * t;
-      var y = d.gi * 7 + d.ny * H * t;
+      var x = d.gi * 1.6 + d.nx * W * t;              // 聚拢时也有一点横向错位，像一摞纸
+      var y = d.gi * 16 + d.ny * H * t;
       d.c.style.transform = 'translate(-50%,-50%) translate(' + x.toFixed(2) + 'px,' + y.toFixed(2) + 'px) rotate(' + (d.nr * t).toFixed(2) + 'deg) scale(' + sc.toFixed(3) + ')';
       if (opacity !== undefined) d.c.style.opacity = opacity;
     }
