@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Elychron —— 浙大人的时间管理 App</title>
+<meta name="description" content="Elychron 是 Celechron 的非官方改版：课表、作业、专注、预约排在同一张时间表上。没有服务器，不收集数据。">
+<meta name="theme-color" content="#FF5E93">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="nav">
+  <a class="brand" href="#top"><i></i>Elychron</a>
+  <nav>
+    <a href="#features">功能</a>
+    <a href="#download">下载</a>
+    <a href="#privacy">隐私</a>
+    <a href="#faq">常见问题</a>
+  </nav>
+</header>
+
+<main id="top">
+
+  <section class="hero">
+    <div class="hero-text">
+      <p class="eyebrow">Celechron 的非官方改版</p>
+      <h1>把一周<br><em>排成你想要的样子</em></h1>
+      <p class="lede">课、作业、专注、图书馆预约，全落在同一张时间表上。<br>
+        没有服务器，数据只留在你自己的设备里。</p>
+      <div class="cta">
+        <a class="btn primary" href="#download">下载 Android 版</a>
+        <a class="btn" href="#download">Windows 桌面版</a>
+      </div>
+      <p class="meta">开源 · GPLv3 · 与浙江大学官方无关</p>
+    </div>
+
+    <figure class="week">
+      <div class="week-rail">
+        <span class="mono">08</span><span class="mono">10</span><span class="mono">14</span><span class="mono">16</span><span class="mono">19</span><span class="mono">21</span>
+      </div>
+      <div class="week-body">
+        <div class="week-head">
+          <span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span>
+        </div>
+        <div class="week-grid">
+          <b class="a"></b><b class="a"></b><b></b><b class="a"></b><b class="b"></b><b></b><b></b>
+          <b class="a"></b><b class="c"></b><b class="a"></b><b></b><b class="b"></b><b class="b"></b><b></b>
+          <b class="c"></b><b></b><b class="c"></b><b class="d"></b><b></b><b class="d"></b><b></b>
+          <b></b><b class="b"></b><b></b><b class="b"></b><b class="a"></b><b></b><b class="d"></b>
+          <b class="e"></b><b></b><b class="d"></b><b></b><b class="e"></b><b class="c"></b><b></b>
+        </div>
+        <ul class="legend">
+          <li><i class="a"></i>课表</li><li><i class="b"></i>作业</li><li><i class="c"></i>专注</li>
+          <li><i class="d"></i>预约</li><li><i class="e"></i>提醒</li>
+        </ul>
+      </div>
+    </figure>
+  </section>
+
+  <section id="features" class="section">
+    <div class="rail"><p class="label mono">功能</p></div>
+    <div class="body">
+      <h2>一种时间，四种说法</h2>
+      <p class="sub">活动、截止、提醒、备忘 —— 四类时间各按各的规矩提醒你，而不是都塞进一个"待办"里。</p>
+      <div class="grid">
+        <article class="card"><p class="chip">待办</p><h3>四种时间语义</h3><p>什么时候开始、什么时候必须交、什么时候只是提个醒。子待办还能排成一段行程。</p></article>
+        <article class="card"><p class="chip c">专注</p><h3>专注计时</h3><p>工作/休息轮换，自动计入正在上的课；今天、本周、本月的时长与分布。被杀后台再回来也能接着算。</p></article>
+        <article class="card"><p class="chip e">AI</p><h3>助手（默认关闭）</h3><p>填你自己的模型 Key，把一段话整理成待办、拆出子步骤。默认关闭，开启也只把你选中的文字发给你自己的服务商。</p></article>
+        <article class="card"><p class="chip b">作业</p><h3>作业自动进待办</h3><p>学在浙大的作业、PTA 的题目集，变成带截止时间的待办，到点提醒。</p></article>
+        <article class="card"><p class="chip d">预约</p><h3>图书馆预约进待办</h3><p>座位和研讨间的预约带起止时间，直接进日程，到点提醒你去签到。</p></article>
+        <article class="card"><p class="chip">同步</p><h3>多端同步</h3><p>WebDAV：坚果云、InfiniCloud、Koofr、Nextcloud、群晖、Alist 都行。同一 Wi-Fi 下还能局域网直连。</p></article>
+        <article class="card"><p class="chip a">课表</p><h3>课表更顺眼</h3><p>粉色系课程卡片，长按一下把文字全藏起来只看颜色；日历跟手折叠。</p></article>
+        <article class="card"><p class="chip">校园</p><h3>校园服务</h3><p>各校区报警、急诊、各单位电话随包内置，断网也能看，点一下直接拨。</p></article>
+        <article class="card"><p class="chip">桌面</p><h3>教程与桌面版</h3><p>7 篇中文教程边看边点；Windows 桌面版与手机共用一套数据。</p></article>
+      </div>
+    </div>
+  </section>
+
+  <section id="download" class="section">
+    <div class="rail"><p class="label mono">下载</p></div>
+    <div class="body">
+      <h2>挑一个装</h2>
+      <p class="sub">安装包不在本站托管（超过静态托管单文件上限）。国内建议先试 <b>Gitee</b> 或 <b>蓝奏云</b>；GitHub 打不开就走<b>镜像</b>。个人维护的改版，不保证稳定，重要数据请用「设置 → 导出数据」留一份备份。</p>
+      <div class="platform">
+        <div class="p-head">
+          <h3>Android</h3>
+          <p class="mono meta-line">APK · arm64 · 28 MB</p>
+        </div>
+        <ul class="mirrors">
+          <li><span class="src">GitHub Releases</span><span class="why">官方最新版，更新最快</span><a class="link" href="https://github.com/Elyyyyyyyyxer/Elychron/releases" rel="noopener">打开</a></li>
+          <li><span class="src">GitHub 镜像</span><span class="why">GitHub 打不开时走这个</span><a class="link todo" href="#" title="待填">待填</a></li>
+          <li><span class="src">Gitee</span><span class="why">国内直连，速度最稳</span><a class="link todo" href="#" title="待填">待填</a></li>
+          <li><span class="src">蓝奏云</span><span class="why">免登录、下载快</span><span class="tail"><a class="link todo" href="#" title="待填">待填</a><span class="code">密码 待填</span></span></li>
+          <li><span class="src">百度网盘</span><span class="why">最稳定，可能限速</span><span class="tail"><a class="link todo" href="#" title="待填">待填</a><span class="code">提取码 待填</span></span></li>
+        </ul>
+      </div>
+
+      <div class="platform">
+        <div class="p-head">
+          <h3>Windows</h3>
+          <p class="mono meta-line">ZIP · Windows 10+</p>
+        </div>
+        <ul class="mirrors">
+          <li><span class="src">GitHub Releases</span><span class="why">官方最新版，更新最快</span><a class="link" href="https://github.com/Elyyyyyyyyxer/Elychron/releases" rel="noopener">打开</a></li>
+          <li><span class="src">GitHub 镜像</span><span class="why">GitHub 打不开时走这个</span><a class="link todo" href="#" title="待填">待填</a></li>
+          <li><span class="src">Gitee</span><span class="why">国内直连，速度最稳</span><a class="link todo" href="#" title="待填">待填</a></li>
+          <li><span class="src">蓝奏云</span><span class="why">免登录、下载快</span><span class="tail"><a class="link todo" href="#" title="待填">待填</a><span class="code">密码 待填</span></span></li>
+          <li><span class="src">百度网盘</span><span class="why">最稳定，可能限速</span><span class="tail"><a class="link todo" href="#" title="待填">待填</a><span class="code">提取码 待填</span></span></li>
+        </ul>
+      </div>
+
+      <div class="platform">
+        <div class="p-head">
+          <h3>iPhone / iPad</h3>
+          <p class="mono meta-line">规划中</p>
+        </div>
+        <p class="sub" style="margin:12px 0 0">没有苹果开发者账号，原生版暂缓；计划走 PWA 网页版路线。</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="privacy" class="section">
+    <div class="rail"><p class="label mono">隐私</p></div>
+    <div class="body">
+      <h2>我们不看你的数据</h2>
+      <div class="seal">
+        <p class="mono seal-tag">NO SERVER</p>
+        <p><b>Elychron 没有自己的服务器</b> —— 不收集、不上传、不分享任何用户数据。这个官网本身也没有统计脚本。</p>
+      </div>
+      <ul class="bullets">
+        <li>待办、标签、设置、课表与成绩缓存都存手机本地（应用私有目录），卸载即删除。</li>
+        <li>AI 整理默认关闭；开启后只把你选中的那段文字发给你自己配置的模型服务商。</li>
+        <li>同步的流量走你自己的网盘；局域网直连只在你自己的设备之间走，公网地址一律拒绝。</li>
+        <li>学校账号（教务 / PTA / 图书馆）只用于在你设备上登录对应网站，不经过任何第三方服务器。</li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="faq" class="section">
+    <div class="rail"><p class="label mono">常见问题</p></div>
+    <div class="body">
+      <h2>你可能想问</h2>
+      <dl class="faq">
+        <div><dt>要花钱吗？</dt><dd>App 免费（GPLv3）。AI 功能要你自己在模型服务商充值，按量计费，跟本项目无关。</dd></div>
+        <div><dt>为什么 AI 要我自己填 Key？</dt><dd>因为没有服务器 —— 也就没地方替你保管 Key，更不会替你付模型的钱。</dd></div>
+        <div><dt>同步必须用坚果云吗？</dt><dd>不必。任何支持 WebDAV 的网盘都行。</dd></div>
+        <div><dt>iOS 什么时候有？</dt><dd>没有苹果开发者账号，计划用 PWA 网页版代替，正在做。</dd></div>
+        <div><dt>跟学校有关系吗？</dt><dd>没有。这是 Celechron 的非官方改版，与浙江大学及上游作者均无隶属关系。</dd></div>
+      </dl>
+    </div>
+  </section>
+
+</main>
+
+<footer class="footer">
+  <p class="mono brandline">ELYCHRON · GPLv3 · 非官方改版</p>
+  <p class="links">
+    <a href="https://github.com/Elyyyyyyyyxer/Elychron" rel="noopener">源码</a>
+    <a href="https://github.com/Elyyyyyyyyxer/Elychron/issues" rel="noopener">问题反馈</a>
+    <a href="https://github.com/Celechron/Celechron" rel="noopener">上游 Celechron</a>
+  </p>
+  <p class="fine">本项目按"原样"提供，不附带任何保证；使用风险自负。与浙江大学无关。官网不放置任何统计与追踪脚本。</p>
+</footer>
+
+</body>
+</html>
