@@ -116,5 +116,32 @@ void main() {
       expect(parsed, hasLength(1));
       expect(parsed.single.title, '正常的一条');
     });
+    test('用真数据对过的字段名：beginTime / endTime / nameMerge（2026-10-01 实测）', () {
+      final parsed = LibrarySpider.reservationsFrom(<String, dynamic>{
+        'code': 1,
+        'data': <String, dynamic>{
+          'total': 1,
+          'data': <dynamic>[
+            <String, dynamic>{
+              'id': '110004',
+              'title': '团队讨论(班团,社团,兴趣小组,项目讨论)',
+              'nameMerge': '主馆-二层-207(8人间)',
+              'beginTime': '2026-09-27 15:00:00',
+              'endTime': '2026-09-27 19:00:00',
+              'statusname': '已使用',
+            },
+          ],
+        },
+      });
+      expect(parsed, hasLength(1));
+      final one = parsed.single;
+      expect(one.place, '主馆-二层-207(8人间)');
+      expect(one.status, '已使用');
+      expect(one.start?.hour, 15);
+      expect(one.end?.hour, 19);
+      // 时段跨了 4 小时 —— 这正是"预约该走 startTime+endTime"而不是只有截止时间的原因
+      expect(one.end!.difference(one.start!).inHours, 4);
+    });
+
   });
 }

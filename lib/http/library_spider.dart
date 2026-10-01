@@ -44,12 +44,14 @@ class LibraryReservation {
   const LibraryReservation({
     required this.title,
     required this.place,
+    required this.status,
     required this.start,
     required this.end,
   });
 
   final String title;
   final String place;
+  final String status;
   final DateTime? start;
   final DateTime? end;
 
@@ -69,14 +71,18 @@ class LibraryReservation {
       return raw.isEmpty ? null : DateTime.tryParse(raw);
     }
 
-    final start = pickTime(<String>['start_time', 'startTime', 'start', 'begin_time', 'date_time']);
-    final end = pickTime(<String>['end_time', 'endTime', 'end', 'finish_time']);
-    final title = pick(<String>['title', 'name', 'room_name', 'seat_name', 'area_name', 'space_name', 'activity_name']);
-    final place = pick(<String>['place', 'address', 'room', 'area', 'space', 'lib_name', 'location']);
+    // 2026-10-01 拿真实数据对过（/api/Member/seminar）：
+    //   beginTime / endTime（"2026-09-27 15:00:00"）、nameMerge（"主馆-二层-207(8人间)"）、
+    //   title（"团队讨论(…)"）、statusname（"已使用"）。其余键名是别处接口的兜底。
+    final start = pickTime(<String>['beginTime', 'begin_time', 'start_time', 'startTime', 'start', 'date_time']);
+    final end = pickTime(<String>['endTime', 'end_time', 'end', 'finish_time']);
+    final title = pick(<String>['title', 'nameMerge', 'room_name', 'seat_name', 'area_name', 'space_name', 'name', 'activity_name']);
+    final place = pick(<String>['nameMerge', 'place', 'address', 'room', 'area', 'space', 'lib_name', 'location']);
     if (title.isEmpty && place.isEmpty && start == null && end == null) return null;
     return LibraryReservation(
       title: title.isEmpty ? '图书馆预约' : title,
       place: place,
+      status: pick(<String>['statusname', 'status_name', 'status']),
       start: start,
       end: end,
     );
@@ -323,7 +329,10 @@ class LibrarySpider {
         final parsed = LibraryReservation.fromJson(map);
         if (parsed != null) result.add(parsed);
         for (final value in map.values) {
-          if (value is List) walk(value);
+          // 注意：**对象也要往下钻**。实测 /api/Member/seminar 的形状是
+          // {code, data:{total, per_page, …, data:[…]}} —— 只钻数组会一条都找不到
+          // （这个坑是单测用真实 fixture 抓出来的）。
+          if (value is List || value is Map) walk(value);
         }
       }
     }
