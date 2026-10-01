@@ -19,6 +19,20 @@ import 'package:webview_flutter/webview_flutter.dart';
 /// webview_flutter 的 WebViewCookieManager.getCookies（安卓底层就是
 /// CookieManager.getCookie），它能读到 HttpOnly ✓。
 ///
+/// 清空**内置浏览器自己的** cookie 库（安卓 / iOS）。
+///
+/// 为什么需要它：WebView 有它自己的一份 cookie，和 App 里存的那份是**两回事**。
+/// 用户点「清除」时如果只清 App 那份，下次打开登录页 WebView 依然是登录状态
+/// （用户实测：「我手动删掉之后进入浏览器还是直接通过，这对调试不太方便」）。
+Future<void> clearPtaWebViewCookies() async {
+  if (!PlatformFeatures.hasWebViewLogin) return;
+  try {
+    await WebViewCookieManager().clearCookies();
+  } on Object {
+    // 清不掉就算了：只影响"干净登录"，不影响别的功能
+  }
+}
+
 /// 只支持安卓 / iOS：webview_flutter 没有 Windows 实现，桌面端继续用"粘贴"。
 class PtaLoginPage extends StatefulWidget {
   const PtaLoginPage({super.key});
@@ -61,7 +75,12 @@ class _PtaLoginPageState extends State<PtaLoginPage> {
     final controller = _webView;
     if (controller == null) return;
     final saved = PtaHomework.cookie;
-    if (saved.isNotEmpty) {
+    if (saved.isEmpty) {
+      // App 里本来就没有登录信息 → 内置浏览器也必须从"未登录"开始。
+      // 不这么做的话，上一次登录留在 WebView cookie 库里的会话会让人
+      // 一进来就"自动通过"，既容易误会也没法调试。
+      await clearPtaWebViewCookies();
+    } else {
       try {
         await WebViewCookieManager().setCookie(WebViewCookie(
           name: 'PTASession',

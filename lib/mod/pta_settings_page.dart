@@ -64,7 +64,9 @@ class _PtaSettingsPageState extends State<PtaSettingsPage> {
         title: const Text('清除 PTA 登录信息'),
         content: const Padding(
           padding: EdgeInsets.only(top: 8),
-          child: Text('清除后不再自动更新 PTA 作业，已经建好的待办不受影响。',
+          child: Text(
+              '清除后不再自动更新 PTA 作业；内置浏览器里的登录状态也会一起清掉'
+              '（下次要重新登录一次）。已经建好的待办不受影响。',
               style: TextStyle(fontSize: 14)),
         ),
         actions: [
@@ -82,6 +84,9 @@ class _PtaSettingsPageState extends State<PtaSettingsPage> {
     );
     if (ok != true) return;
     await PtaHomework.clearCookie();
+    // 只清 App 里那份是不够的：内置浏览器有它自己的 cookie 库，
+    // 不清的话下次打开登录页会"自动通过"（实测踩过）。两份一起清。
+    await clearPtaWebViewCookies();
     if (mounted) setState(() => _result = null);
   }
 
