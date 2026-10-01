@@ -351,7 +351,7 @@ class LibrarySpider {
     request.headers.set('X-Requested-With', 'XMLHttpRequest');
     // 2026-10-01 真机对照：同样的 token 在电脑上 curl 得通、在 App 里被拒/超时，
     // 差别就在这几个头上。补成和浏览器一致的，别再让服务端"认不出这是谁"。
-    request.headers.set(HttpHeaders.originHeader, host);
+    request.headers.set('Origin', host);
     request.headers.set(HttpHeaders.refererHeader, host + '/h5/');
     request.headers.set(HttpHeaders.userAgentHeader,
         'Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) '
