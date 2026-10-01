@@ -2,17 +2,25 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Elychron —— 浙大人的时间管理 App</title>
 <meta name="description" content="Elychron 是 Celechron 的非官方改版：课表、作业、专注、预约排在同一张时间表上。没有服务器，不收集数据。">
 <meta name="theme-color" content="#FF5E93">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Elychron">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon.png">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
 <header class="nav">
-  <a class="logo" href="#top"><i></i>Elychron</a>
+  <a class="logo" href="#top"><img src="icon.png" alt="" width="22" height="22">Elychron</a>
   <nav>
+    <a href="#highlights">亮点</a>
     <a href="#features">功能</a>
     <a href="#download">下载</a>
     <a href="#privacy">隐私</a>
@@ -26,37 +34,116 @@
     <div class="hero-text">
       <p class="eyebrow">Celechron 的非官方改版</p>
       <h1>把校园里<br><em>七零八落的网页</em><br>收进一张表</h1>
-      <p class="lede">教务、学在浙大、PTA、图书馆 —— 各自一个网站、各自一套页面。
+      <p class="lede">教务、学在浙大、PTA、图书馆、素拓、研究生院 —— 各自一个网站、各自一套页面。
         Elychron 把它们收成同一张时间表：待办自动归位、多端同步，还带一个你自己的 AI 助手。</p>
       <div class="cta">
         <a class="btn primary" href="#download">下载 Android 版</a>
         <a class="btn" href="#download">Windows 桌面版</a>
       </div>
-      <ul class="points">
-        <li><span class="mono">AI</span>整理待办、拆出子步骤</li>
-        <li><span class="mono">TODO</span>作业与预约自动进待办</li>
-        <li><span class="mono">SYNC</span>多端同步，走你自己的网盘</li>
-        <li><span class="mono">STABLE</span>被杀后台也能接回</li>
-      </ul>
       <p class="meta">开源 · GPLv3 · 与浙江大学官方无关</p>
     </div>
 
-    <figure class="stack" role="img" aria-label="把教务、学在浙大、PTA、图书馆收进 Elychron">
-      <div class="deck">
-        <div class="acard s1"><span class="no mono">FILE NO. ZJU-001</span><span class="kick mono">INTERNAL DATABASE / 本科生院</span><b>教务</b><span class="access mono">ACCESS FILE →</span></div>
-        <div class="acard s2"><span class="no mono">FILE NO. ZJU-002</span><span class="kick mono">LEARNING PLATFORM / 课程作业</span><b>学在浙大</b><span class="access mono">ACCESS FILE →</span></div>
-        <div class="acard s3"><span class="no mono">FILE NO. PTA-003</span><span class="kick mono">PROBLEM SETS / 题目集</span><b>PTA</b><span class="access mono">ACCESS FILE →</span></div>
-        <div class="acard s4"><span class="no mono">FILE NO. LIB-004</span><span class="kick mono">SPACE RESERVATION / 空间预约</span><b>图书馆</b><span class="access mono">ACCESS FILE →</span></div>
-        <div class="acard s5"><span class="no mono">FILE NO. ZJU-005</span><span class="kick mono">CREDITS &amp; GRADES / 学分成绩</span><b>成绩单</b><span class="access mono">ACCESS FILE →</span></div>
+    <figure class="stack">
+      <div class="deck" id="deck" role="group" aria-label="可拖动的校园站点卡片，松手后会聚拢成 Elychron">
+        <div class="acard s1">
+          <div class="wchrome"><span class="wdots" aria-hidden="true"><i></i><i></i><i></i></span><span class="wurl mono">zdbk.zju.edu.cn</span></div>
+          <div class="wscreen"><span class="kick mono">本科生院 · 课表 · 成绩</span><b>教务</b></div>
+        </div>
+        <div class="acard s2">
+          <div class="wchrome"><span class="wdots" aria-hidden="true"><i></i><i></i><i></i></span><span class="wurl mono">courses.zju.edu.cn</span></div>
+          <div class="wscreen"><span class="kick mono">课程平台 · 作业通知</span><b>学在浙大</b></div>
+        </div>
+        <div class="acard s3">
+          <div class="wchrome"><span class="wdots" aria-hidden="true"><i></i><i></i><i></i></span><span class="wurl mono">pintia.cn</span></div>
+          <div class="wscreen"><span class="kick mono">题目集 · 编程作业</span><b>PTA</b></div>
+        </div>
+        <div class="acard s4">
+          <div class="wchrome"><span class="wdots" aria-hidden="true"><i></i><i></i><i></i></span><span class="wurl mono">booking.lib.zju.edu.cn</span></div>
+          <div class="wscreen"><span class="kick mono">空间预约 · 座位研讨间</span><b>图书馆</b></div>
+        </div>
+        <div class="acard s5">
+          <div class="wchrome"><span class="wdots" aria-hidden="true"><i></i><i></i><i></i></span><span class="wurl mono">sztz.zju.edu.cn</span></div>
+          <div class="wscreen"><span class="kick mono">第二课堂 · 素拓记录</span><b>素拓平台</b></div>
+        </div>
+        <div class="acard s6">
+          <div class="wchrome"><span class="wdots" aria-hidden="true"><i></i><i></i><i></i></span><span class="wurl mono">yjsy.zju.edu.cn</span></div>
+          <div class="wscreen"><span class="kick mono">研究生院 · 培养选课</span><b>研究生院</b></div>
+        </div>
         <div class="acard finalcard">
-          <img src="icon.png" alt="Elychron 图标">
-          <span class="word mono">ELYCHRON</span>
+          <div class="wchrome"><span class="wdots" aria-hidden="true"><i></i><i></i><i></i></span><span class="wurl mono">elychron.pages.dev</span></div>
+          <div class="wscreen home"><img src="icon.png" alt="" draggable="false"><span class="word mono">ELYCHRON</span></div>
         </div>
         <span class="sheen" aria-hidden="true"></span>
+        <div class="floor" aria-hidden="true"></div>
+        <img class="icon-mirror" src="icon.png" alt="" aria-hidden="true" draggable="false">
       </div>
-      <div class="floor" aria-hidden="true"></div>
-      <img class="icon-mirror" src="icon.png" alt="" aria-hidden="true">
+      <div class="wbar">
+        <button type="button" class="wbtn" id="btnGather" aria-pressed="true">聚拢</button>
+        <button type="button" class="wbtn" id="btnScatter" aria-pressed="false">散开</button>
+      </div>
+      <p class="whint mono">拖动卡片试试</p>
     </figure>
+  </section>
+
+  <section id="highlights" class="section">
+    <div class="rail"><p class="label mono">亮点</p></div>
+    <div class="body">
+      <h2>四个卖点，左右翻页</h2>
+      <p class="sub">手机上左右滑，桌面上用箭头或圆点切换。</p>
+      <div class="slides">
+        <div class="strack" id="strack" tabindex="0" role="group" aria-roledescription="carousel" aria-label="Elychron 的四个卖点">
+          <article class="sslide" role="group" aria-roledescription="slide" aria-label="第 1 页，共 4 页：待办">
+            <p class="snum mono">01 / 04</p>
+            <h3>待办</h3>
+            <ul class="slist">
+              <li><b>类型全面</b>活动、截止、提醒、备忘各自一套规则，不都塞进一个"待办"。</li>
+              <li><b>自由时间逻辑</b>可以只给一个大致时段，不必把每件事都定死到几点。</li>
+              <li><b>附件管理</b>文件、图片、链接都能挂在对应的待办上。</li>
+              <li><b>作业 &amp; 图书馆自动进入</b>学在浙大、PTA 的作业和图书馆预约自动归位。</li>
+            </ul>
+          </article>
+          <article class="sslide" role="group" aria-roledescription="slide" aria-label="第 2 页，共 4 页：AI">
+            <p class="snum mono">02 / 04</p>
+            <h3>AI</h3>
+            <ul class="slist">
+              <li><b>根据通知一键生成</b>把一段通知粘进来，直接拆成待办。</li>
+              <li><b>多模态支持</b>文字、截图、图片都能读。</li>
+              <li><b>子待办规划</b>大任务自动拆成可执行的子步骤。</li>
+              <li><b>默认关闭</b>开启后也只把你选中的内容发给你自己配置的模型服务商。</li>
+            </ul>
+          </article>
+          <article class="sslide" role="group" aria-roledescription="slide" aria-label="第 3 页，共 4 页：多端同步">
+            <p class="snum mono">03 / 04</p>
+            <h3>多端同步</h3>
+            <ul class="slist">
+              <li><b>跨平台通用</b>Android 与 Windows 共用一套数据。</li>
+              <li><b>数据安全</b>同步走你自己的网盘，没有中间服务器。</li>
+              <li><b>云端免费！</b>任何支持 WebDAV 的免费网盘就够，没有订阅费。</li>
+              <li><b>局域网直连</b>同一 Wi-Fi 下的设备可以点对点同步。</li>
+            </ul>
+          </article>
+          <article class="sslide" role="group" aria-roledescription="slide" aria-label="第 4 页，共 4 页：稳定">
+            <p class="snum mono">04 / 04</p>
+            <h3>稳定</h3>
+            <ul class="slist">
+              <li><b>zdbk 挂了也能看课表</b>只要缓存过，教务打不开照样显示。</li>
+              <li><b>多渠道兜底</b>一条路不通，自动换下一条继续试。</li>
+              <li><b>全天候稳定</b>被杀后台也能接回来接着算。</li>
+            </ul>
+          </article>
+        </div>
+        <div class="slidebar">
+          <button type="button" class="sarrow" data-dir="-1" aria-label="上一个卖点">←</button>
+          <div class="sdots">
+            <button type="button" class="sdot" aria-label="待办" aria-current="true"></button>
+            <button type="button" class="sdot" aria-label="AI" aria-current="false"></button>
+            <button type="button" class="sdot" aria-label="多端同步" aria-current="false"></button>
+            <button type="button" class="sdot" aria-label="稳定" aria-current="false"></button>
+          </div>
+          <button type="button" class="sarrow" data-dir="1" aria-label="下一个卖点">→</button>
+        </div>
+      </div>
+    </div>
   </section>
 
   <section id="features" class="section">
@@ -126,7 +213,7 @@
     <div class="body">
       <h2>我们不看你的数据</h2>
       <div class="seal">
-        <p class="mono seal-tag">NO SERVER</p>
+        <p class="seal-tag mono">NO SERVER</p>
         <p><b>Elychron 没有自己的服务器</b> —— 不收集、不上传、不分享任何用户数据。这个官网本身也没有统计脚本。</p>
       </div>
       <ul class="bullets">
@@ -164,5 +251,186 @@
   <p class="fine">本项目按"原样"提供，不附带任何保证；使用风险自负。与浙江大学无关。官网不放置任何统计与追踪脚本。</p>
 </footer>
 
+<script>
+(function(){
+  /* ===== 首页：网页卡聚拢 / 散开（拖动 + 按钮；rAF，不用 setInterval） ===== */
+  var deck = document.getElementById('deck');
+  if (deck){
+    var cards = Array.prototype.slice.call(deck.querySelectorAll('.acard:not(.finalcard)'));
+    var btnG = document.getElementById('btnGather');
+    var btnS = document.getElementById('btnScatter');
+    var reduce = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    var state = 0;               // 0 = 聚拢，1 = 散开（目标态）
+    var p = 1;                   // 当前散开程度 0..1
+    var dragging = false, pStart = 0, sx0 = 0, sy0 = 0, raf = 0;
+
+    function num(el, name){ var v = getComputedStyle(el).getPropertyValue(name); return parseFloat(v) || 0; }
+    var data = cards.map(function(c){
+      return { c:c, nx:num(c,'--nx'), ny:num(c,'--ny'), nr:num(c,'--nr'), gi:num(c,'--gi') };
+    });
+
+    function place(d, t, opacity){
+      var W = deck.clientWidth || 1, H = deck.clientHeight || 1;
+      var gs = 0.88 + (d.gi + 2.5) * 0.016;          // 聚拢缩放 0.88 ~ 0.96
+      var sc = gs + (1 - gs) * t;
+      var x = d.nx * W * t;
+      var y = d.gi * 7 + d.ny * H * t;
+      d.c.style.transform = 'translate(-50%,-50%) translate(' + x.toFixed(2) + 'px,' + y.toFixed(2) + 'px) rotate(' + (d.nr * t).toFixed(2) + 'deg) scale(' + sc.toFixed(3) + ')';
+      if (opacity !== undefined) d.c.style.opacity = opacity;
+    }
+    function apply(t){ for (var i=0;i<data.length;i++) place(data[i], t); }
+    function setPressed(){
+      if (btnG) btnG.setAttribute('aria-pressed', state===0 ? 'true' : 'false');
+      if (btnS) btnS.setAttribute('aria-pressed', state===1 ? 'true' : 'false');
+    }
+    function animateTo(target, dur){
+      if (raf){ cancelAnimationFrame(raf); raf = 0; }
+      if (reduce || dur <= 0){ p = target; apply(p); return; }
+      var from = p, t0 = performance.now();
+      function step(now){
+        var k = Math.min(1, (now - t0) / dur);
+        var e = 1 - Math.pow(1 - k, 3);
+        p = from + (target - from) * e;
+        apply(p);
+        if (k < 1){ raf = requestAnimationFrame(step); } else { raf = 0; p = target; }
+      }
+      raf = requestAnimationFrame(step);
+    }
+
+    // 入场：先散开、再聚拢成 Elychron（保留原动效），逐张错开
+    function intro(){
+      if (reduce){
+        for (var i=0;i<data.length;i++){ data[i].c.style.opacity = '1'; }
+        p = 0; apply(0); return;
+      }
+      var t0 = performance.now(), dur = 900, stagger = 60;
+      for (var j=0;j<data.length;j++) place(data[j], 1, 0);
+      function step(now){
+        var done = true;
+        for (var i=0;i<data.length;i++){
+          var k = (now - t0 - i*stagger) / dur;
+          if (k < 0) k = 0;
+          if (k > 1) k = 1; else done = false;
+          var e = 1 - Math.pow(1 - k, 3);
+          place(data[i], 1 - e, Math.min(1, k / 0.35));
+        }
+        if (!done){ requestAnimationFrame(step); }
+        else {
+          p = 0; apply(0);
+          for (var m=0;m<data.length;m++) data[m].c.style.opacity = '1';
+        }
+      }
+      requestAnimationFrame(step);
+    }
+
+    deck.addEventListener('pointerdown', function(e){
+      if (e.button !== undefined && e.button !== 0) return;
+      dragging = true; pStart = p; sx0 = e.clientX; sy0 = e.clientY;
+      deck.classList.add('is-dragging');
+      if (deck.setPointerCapture && e.pointerId !== undefined){ try { deck.setPointerCapture(e.pointerId); } catch (err) {} }
+      if (raf){ cancelAnimationFrame(raf); raf = 0; }
+      e.preventDefault();
+    });
+    deck.addEventListener('pointermove', function(e){
+      if (!dragging) return;
+      var dx = e.clientX - sx0, dy = e.clientY - sy0;
+      var dist = Math.sqrt(dx*dx + dy*dy);
+      var ref = Math.max(120, (deck.clientWidth || 320) * 0.45);
+      // 聚拢态：越拖越散；散开态：越拖越聚拢。松手回到目标态。
+      var t = (state === 0) ? (pStart + dist/ref) : (pStart - dist/ref);
+      p = Math.max(0, Math.min(1, t));
+      apply(p);
+    });
+    function endDrag(){
+      if (!dragging) return;
+      dragging = false;
+      deck.classList.remove('is-dragging');
+      animateTo(state, reduce ? 0 : 480);
+    }
+    deck.addEventListener('pointerup', endDrag);
+    deck.addEventListener('pointercancel', endDrag);
+
+    if (btnG) btnG.addEventListener('click', function(){ state = 0; setPressed(); animateTo(0, 520); });
+    if (btnS) btnS.addEventListener('click', function(){ state = 1; setPressed(); animateTo(1, 520); });
+    window.addEventListener('resize', function(){ if (!dragging && !raf) apply(p); });
+
+    setPressed();
+    requestAnimationFrame(intro);
+  }
+
+  /* ===== 卖点分页：scroll-snap + 圆点 / 箭头同步 ===== */
+  var track = document.getElementById('strack');
+  if (track){
+    var slides = Array.prototype.slice.call(track.querySelectorAll('.sslide'));
+    var dots = Array.prototype.slice.call(document.querySelectorAll('.sdot'));
+    var arrows = Array.prototype.slice.call(document.querySelectorAll('.sarrow'));
+    var reduce2 = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    function stepSize(){
+      if (slides.length < 2) return slides.length ? slides[0].offsetWidth : 1;
+      return slides[1].offsetLeft - slides[0].offsetLeft;
+    }
+    function current(){
+      var st = stepSize() || 1;
+      var i = Math.round(track.scrollLeft / st);
+      return Math.max(0, Math.min(slides.length - 1, i));
+    }
+    function sync(){
+      var i = current();
+      for (var d=0; d<dots.length; d++) dots[d].setAttribute('aria-current', d===i ? 'true' : 'false');
+    }
+    function go(i){
+      i = Math.max(0, Math.min(slides.length - 1, i));
+      var st = stepSize();
+      if (track.scrollTo) track.scrollTo({ left: i*st, behavior: reduce2 ? 'auto' : 'smooth' });
+      else track.scrollLeft = i*st;
+    }
+    var ticking = false;
+    track.addEventListener('scroll', function(){
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(function(){ sync(); ticking = false; });
+    }, { passive: true });
+    dots.forEach(function(dot, i){ dot.addEventListener('click', function(){ go(i); }); });
+    arrows.forEach(function(a){
+      a.addEventListener('click', function(){ go(current() + (parseInt(a.getAttribute('data-dir'), 10) || 0)); });
+    });
+    track.addEventListener('keydown', function(e){
+      if (e.key === 'ArrowRight'){ go(current() + 1); e.preventDefault(); }
+      else if (e.key === 'ArrowLeft'){ go(current() - 1); e.preventDefault(); }
+    });
+    window.addEventListener('resize', sync);
+    sync();
+  }
+})();
+</script>
+
+<div class="ios-hint" id="iosHint" hidden>
+  <span>在 iPhone 上装成 App：点底部<b>分享</b> → <b>添加到主屏幕</b></span>
+  <button type="button" id="iosHintOk">知道了</button>
+</div>
+
+<script>
+  // PWA：缓存外壳，断网也能打开（数据请求不缓存）
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function () { navigator.serviceWorker.register('sw.js').catch(function () {}); });
+  }
+  // 只在 iPhone 的 Safari、且还没装成 App 时，提示"添加到主屏幕"
+  (function () {
+    var hint = document.getElementById('iosHint');
+    if (!hint) return;
+    var standalone = (window.navigator.standalone === true) ||
+      (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+    var ua = navigator.userAgent;
+    var isIOS = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && 'ontouchend' in document);
+    var isSafari = /Safari/.test(ua) && !/CriOS|FxiOS|EdgiOS|Instagram|MicroMessenger/.test(ua);
+    var seen = false;
+    try { seen = localStorage.getItem('ely_ios_hint') === '1'; } catch (e) {}
+    if (isIOS && isSafari && !standalone && !seen) hint.hidden = false;
+    document.getElementById('iosHintOk').addEventListener('click', function () {
+      hint.hidden = true;
+      try { localStorage.setItem('ely_ios_hint', '1'); } catch (e) {}
+    });
+  })();
+</script>
 </body>
 </html>

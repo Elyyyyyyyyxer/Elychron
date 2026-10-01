@@ -208,3 +208,40 @@ main{max-width:var(--maxw); margin:0 auto; padding:0 26px}
   .s4{--x:68px; --y:-12px} .s5{--x:132px; --y:-42px}
   .sheen{width:166px; height:228px}
 }
+
+/* ===== PWA / iPhone 适配 ===== */
+.ios-hint{position:fixed; left:12px; right:12px; bottom:calc(12px + env(safe-area-inset-bottom)); z-index:30;
+  display:flex; gap:12px; align-items:center; padding:12px 14px; border-radius:14px; font-size:13.5px;
+  background:rgba(255,251,253,.95); border:1px solid var(--line-2); color:var(--ink);
+  backdrop-filter:blur(14px); box-shadow:0 18px 40px -24px rgba(88,16,48,.5)}
+.ios-hint[hidden]{display:none}
+.ios-hint button{margin-left:auto; flex:0 0 auto; border:0; border-radius:999px; padding:7px 13px;
+  background:var(--pink); color:#fff; font-size:13px; font-weight:600}
+@media (prefers-color-scheme: dark){
+  .ios-hint{background:rgba(19,12,16,.95)}
+}
+/* 刘海/圆角屏：正文与页脚避开安全区 */
+@supports (padding: env(safe-area-inset-left)) {
+  .nav{padding-left:calc(22px + env(safe-area-inset-left)); padding-right:calc(22px + env(safe-area-inset-right))}
+  main{padding-left:calc(20px + env(safe-area-inset-left)); padding-right:calc(20px + env(safe-area-inset-right))}
+  .hero{padding-top:calc(48px + env(safe-area-inset-top))}
+  .footer{padding-bottom:calc(48px + env(safe-area-inset-bottom))}
+}
+/* 从主屏幕打开时（独立窗口）：隐藏可滚动感、贴顶更自然 */
+@media (display-mode: standalone) {
+  body{overscroll-behavior-y:none}
+  .nav{top:0}
+}
+
+/* ===== 窄屏收口：卡片散开时会横向溢出，这里把整体收回来 ===== */
+html, body { max-width: 100%; overflow-x: hidden; }
+@media (max-width: 560px) {
+  .stack { transform: scale(.62); transform-origin: 50% 46%; margin: -10% 0 -12%; }
+}
+@media (max-width: 400px) {
+  .stack { transform: scale(.54); }
+}
+/* iOS 提示条：文字可换行，按钮永远留在屏幕内 */
+.ios-hint { flex-wrap: wrap; }
+.ios-hint span { flex: 1 1 auto; min-width: 0; line-height: 1.5; }
+.ios-hint button { margin-left: auto; }
