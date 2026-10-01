@@ -171,12 +171,23 @@ String _libraryStamp(DateTime time) {
 
 /// 待办的 description：把原来的长标题、地点座位、状态、时间都写全
 /// （标题已经很短了，详细信息得有个去处）。
+///
+/// 第一行必须是**有用的一句话**：待办卡片只显示描述的第一行（真机上看出来的），
+/// 只写一个标记的话卡片上就只剩"图书馆预约"四个字，比原来的"来自图书馆预约（8）"还糟。
+/// 同时这一行仍以 [kLibraryDescriptionPrefix] 开头，更新时才能认出"还是我们生成的那份"。
 String libraryTaskDescription(LibraryReservation reservation) {
   final lines = <String>[];
+  final detail = libraryPlaceDetail(reservation);
   final title = reservation.title.trim();
-  if (title.isNotEmpty) lines.add('预约内容：' + title);
-  final place = libraryPlaceDetail(reservation);
-  if (place.isNotEmpty && place != title) lines.add('地点座位：' + place);
+  final first = detail.isNotEmpty ? detail : title;
+  if (first.isNotEmpty) {
+    lines.add(kLibraryDescriptionPrefix + '：' + first);
+  } else {
+    lines.add(kLibraryDescriptionPrefix);
+  }
+  if (title.isNotEmpty && title != first && !first.contains(title)) {
+    lines.add('预约内容：' + title);
+  }
   final status = libraryStatusLabel(reservation);
   if (status.isNotEmpty) lines.add('状态：' + status);
   final start = reservation.start;
@@ -184,7 +195,7 @@ String libraryTaskDescription(LibraryReservation reservation) {
   if (start != null && end != null) {
     lines.add('时间：' + _libraryStamp(start) + ' → ' + _libraryStamp(end));
   }
-  return kLibraryDescriptionPrefix + '\n' + lines.join('\n');
+  return lines.join('\n');
 }
 
 /// 状态里该显示的那一段。
