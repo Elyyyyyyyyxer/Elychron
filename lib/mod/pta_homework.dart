@@ -1,8 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:celechron/database/database_helper.dart';
 import 'package:celechron/http/pta_spider.dart';
+import 'package:celechron/utils/utils.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:celechron/model/scholar.dart';
 import 'package:celechron/model/todo.dart';
 import 'package:celechron/services/diagnostic_log_service.dart';
@@ -63,12 +67,15 @@ class PtaHomework {
 
   static Future<void> setEnabled(bool value) async {
     await _db?.setPtaEnabled(value);
+    await _mirror(enabled: value);
   }
 
   static String get cookie => _db?.getPtaCookie() ?? '';
 
   static Future<void> setCookie(String value) async {
-    await _db?.setPtaCookie(value.trim());
+    final trimmed = value.trim();
+    await _db?.setPtaCookie(trimmed);
+    await _mirror(cookie: trimmed);
   }
 
   static String get lastResult => _db?.getPtaLastResult() ?? '';
@@ -82,6 +89,7 @@ class PtaHomework {
 
   static Future<void> setIncludeInClass(bool value) async {
     await _db?.setPtaIncludeInClass(value);
+    await _mirror(includeInClass: value);
   }
 
   /// 打码后的 cookie（设置页显示用，绝不整串显示）
@@ -90,6 +98,92 @@ class PtaHomework {
     if (value.isEmpty) return '（还没填）';
     if (value.length <= 6) return '…';
     return value.substring(0, 4) + '……' + value.substring(value.length - 2);
+  }
+
+  // ================= 后台 isolate 的通道 =================
+  //
+  // 后台任务（WorkManager）跑在**另一个 isolate** 里，那里没有 GetX、也没有 Hive：
+  // 它只能读密钥库、读写普通文件。所以：
+  //   1) 前台保存设置时，把「开没开 / cookie / 当堂算不算」**镜像一份进密钥库**，
+  //      后台照着它自己拉一遍 PTA（这样后台那条「作业截止提醒」也能覆盖 PTA 作业）；
+  //   2) 后台把结果写进**文件**，前台启动时先看文件有没有更新的 —— 文件是两个
+  //      isolate 之间唯一稳的通道（和 NotificationDedup 同一个思路）。
+  static const String _fileName = 'elychron_pta_todos.json';
+
+  static Future<void> _mirror({String? cookie, bool? enabled, bool? includeInClass}) async {
+    const storage = FlutterSecureStorage();
+    try {
+      if (cookie != null) {
+        await storage.write(
+            key: 'ptaCookie', value: cookie, iOptions: secureStorageIOSOptions);
+      }
+      if (enabled != null) {
+        await storage.write(
+            key: 'ptaEnabled',
+            value: enabled ? 'true' : 'false',
+            iOptions: secureStorageIOSOptions);
+      }
+      if (includeInClass != null) {
+        await storage.write(
+            key: 'ptaIncludeInClass',
+            value: includeInClass ? 'true' : 'false',
+            iOptions: secureStorageIOSOptions);
+      }
+    } on Object {
+      // 密钥库偶尔会闹脾气（见 notification_dedup 的注释）：镜像失败只影响后台，
+      // 前台照常能用。
+    }
+  }
+
+  static Future<File> _cacheFile() async {
+    final dir = await getApplicationSupportDirectory();
+    return File(dir.path + Platform.pathSeparator + _fileName);
+  }
+
+  /// 后台 isolate 调它：把拉到的作业写进文件缓存（后台没有 Hive，只写文件）
+  static Future<void> cacheFromBackground(List<Todo> todos) => _writeCache(todos);
+
+  static Future<void> _writeCache(List<Todo> todos) async {
+    await _db?.setCachedWebPage(
+        _cacheKey, jsonEncode(todos.map((todo) => todo.toJson()).toList()));
+    try {
+      final file = await _cacheFile();
+      await file.writeAsString(
+        jsonEncode(<String, dynamic>{
+          'at': DateTime.now().toIso8601String(),
+          'todos': todos.map((todo) => todo.toJson()).toList(),
+        }),
+        flush: true,
+      );
+    } on Object {
+      // 写不了文件就算了（前台还有 Hive 那份）
+    }
+  }
+
+  /// 文件缓存比 Hive 那份新就用文件（后台可能在 App 没打开时拉过一回）
+  static Future<void> _adoptFileCache() async {
+    try {
+      final file = await _cacheFile();
+      if (!await file.exists()) return;
+      final decoded = jsonDecode(await file.readAsString());
+      if (decoded is! Map) return;
+      final at = DateTime.tryParse(decoded['at']?.toString() ?? '');
+      if (at == null) return;
+      final stamp = DateTime.tryParse(lastSyncAt);
+      if (stamp != null && !at.isAfter(stamp)) return;
+      final rawTodos = decoded['todos'];
+      if (rawTodos is! List) return;
+      final todos = rawTodos
+          .whereType<Map>()
+          .map((item) => Todo.fromJson(Map<String, dynamic>.from(item)))
+          .where((todo) => todo.id.isNotEmpty)
+          .toList();
+      _lastGood = todos;
+      await _db?.setPtaLastSyncAt(at.toIso8601String());
+      await _db?.setPtaLastResult('已同步 ' + todos.length.toString() + ' 条 PTA 作业');
+    } on Object {
+      // 读坏了当作没有
+    }
   }
 
   // ================= 合并（纯函数，可单测）=================
@@ -141,11 +235,18 @@ class PtaHomework {
     await db.setPtaLastSyncAt('');
     await db.setPtaLastResult('');
     await db.setCachedWebPage(_versionKey, _parseVersion);
+    try {
+      final file = await _cacheFile();
+      if (await file.exists()) await file.delete();
+    } on Object {
+      // 删不掉也没关系：文件里那份会被当成"比 Hive 旧"
+    }
   }
 
   /// 启动：升级检查 → 读缓存 → 先显示上次的作业 → 挂监听
   static Future<void> restore() async {
     await _migrateIfNeeded();
+    await _adoptFileCache();
     final raw = _db?.getCachedWebPage(_cacheKey);
     if (raw != null && raw.isNotEmpty) {
       try {
@@ -187,8 +288,7 @@ class PtaHomework {
       final parsed = await spider.fetchActive(includeInClass: includeInClass);
       final todos = parsed.todos;
       _lastGood = todos;
-      await _db?.setCachedWebPage(
-          _cacheKey, jsonEncode(todos.map((todo) => todo.toJson()).toList()));
+      await _writeCache(todos);
       final stamp = DateTime.now().toIso8601String();
       await _db?.setPtaLastSyncAt(stamp);
       var result = '已同步 ' + todos.length.toString() + ' 条 PTA 作业';
@@ -265,6 +365,7 @@ class PtaHomework {
   /// 清除 cookie（退出 PTA）
   static Future<void> clearCookie() async {
     await _db?.setPtaCookie('');
+    await _mirror(cookie: '');
     _lastGood = <Todo>[];
     await _db?.removeCachedWebPage(_cacheKey);
     final result = '已清除 PTA 登录信息';

@@ -25,7 +25,11 @@ class WebDavProvider {
   /// 应用密码怎么拿（给人看的一句话）。同样：不用 markdown 语法。
   final String passwordHint;
 
-  /// 生成应用密码的页面（有就做成按钮直接跳；没有则留空）
+  /// 拿应用密码的入口（有就做成按钮直接跳；没有则留空）
+  ///
+  /// 2026-10-01 更正：坚果云**网页版已经不能生成应用密码了**（用户提醒），
+  /// 只能在客户端里「第三方应用管理」生成 —— 所以坚果云那条指向的是下载页，
+  /// 不是一个会让人白跑一趟的网页设置页。
   final String passwordPageUrl;
 
   /// 这个服务商的名字是不是邮箱（坚果云/InfiniCloud 都是邮箱登录）
@@ -55,8 +59,9 @@ class WebDavProvider {
       name: '坚果云',
       url: 'https://dav.jianguoyun.com/dav/',
       usernameHint: '用户名就是坚果云的注册邮箱，必须全小写（大写会连不上）',
-      passwordHint: '网页版 → 安全选项 → 添加应用密码',
-      passwordPageUrl: 'https://www.jianguoyun.com/dash/security',
+      passwordHint: '要装坚果云客户端（手机或电脑）才能拿：设置 → 安全选项 → '
+          '第三方应用管理 → 添加应用密码。网页版已经不给生成了。',
+      passwordPageUrl: 'https://www.jianguoyun.com/s/downloads',
       lowercaseUsername: true,
     ),
     WebDavProvider(

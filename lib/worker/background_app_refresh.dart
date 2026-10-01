@@ -1,6 +1,9 @@
 import 'package:celechron/database/database_helper.dart';
+import 'package:celechron/http/pta_spider.dart';
 import 'package:celechron/http/zjuServices/exceptions.dart';
 import 'package:celechron/model/scholar.dart';
+import 'package:celechron/model/todo.dart';
+import 'package:celechron/mod/pta_homework.dart';
 import 'package:celechron/services/diagnostic_log_service.dart';
 import 'package:celechron/services/refresh_coordinator.dart';
 import 'package:celechron/utils/platform_features.dart';
@@ -305,6 +308,45 @@ Future<void> refreshScholar() async {
           key: 'gradedCourseCount',
           value: count.toString(),
           iOptions: secureStorageIOSOptions);
+    }
+
+    // ===== PTA 作业（2026-10-01）=====
+    //
+    // 后台 isolate 碰不到 Hive，所以开关 / cookie / 当堂开关是前台保存时**镜像**
+    // 进密钥库的（见 mod/pta_homework.dart）。这里照着它自己拉一遍，目的是让下面
+    // 那段「作业截止提醒」也能覆盖 PTA 作业；顺手把结果写进文件缓存，
+    // 前台下次打开直接用（文件是两个 isolate 之间唯一稳的通道）。
+    // PTA 是可选来源：没配、拿不到 cookie、拉失败都不该影响别的提醒。
+    try {
+      final ptaCookie =
+          await secureStorage.read(key: 'ptaCookie', iOptions: secureStorageIOSOptions) ??
+              '';
+      final ptaEnabled =
+          await secureStorage.read(key: 'ptaEnabled', iOptions: secureStorageIOSOptions) ==
+              'true';
+      if (ptaEnabled && ptaCookie.isNotEmpty) {
+        final ptaIncludeInClass = await secureStorage.read(
+                key: 'ptaIncludeInClass', iOptions: secureStorageIOSOptions) ==
+            'true';
+        final spider = PtaSpider(cookie: ptaCookie);
+        try {
+          final parsed =
+              await spider.fetchActive(includeInClass: ptaIncludeInClass);
+          if (parsed.todos.isNotEmpty) {
+            scholar.todos = <Todo>[...scholar.todos, ...parsed.todos];
+            await PtaHomework.cacheFromBackground(parsed.todos);
+          }
+        } finally {
+          spider.close();
+        }
+      }
+    } on Object catch (error) {
+      DiagnosticLogService.instance.record(
+        level: CelechronLogLevel.warning,
+        module: 'PTA',
+        operation: 'backgroundRefresh',
+        message: '后台拉 PTA 作业失败：' + error.toString(),
+      );
     }
 
     // DDL 截止提醒

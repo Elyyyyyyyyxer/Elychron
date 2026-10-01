@@ -116,10 +116,8 @@ class _PtaSettingsPageState extends State<PtaSettingsPage> {
             header: sectionHeader(context, '开关'),
             footer: sectionFooter(
               context,
-              '开启后，PTA 上还没截止的题目集 / 考试会当成作业，自动变成待办'
-              '（和学在浙大作业同一条路），于是提醒、通知、跨设备同步都跟着生效。'
-              '当堂实验 / 随堂练习这类"课上做完"的不算 —— 它们和课后作业的区别'
-              '按时间窗口判断（实测当堂类都在同一天内，课后作业跨 6~7 天）。',
+              'PTA 上还没截止的作业会自动变成待办（和学在浙大作业一样）。'
+              '当堂实验 / 上机不算。',
             ),
             children: <Widget>[
               CupertinoListTile(
@@ -167,9 +165,8 @@ class _PtaSettingsPageState extends State<PtaSettingsPage> {
             header: sectionHeader(context, 'PTASession'),
             footer: sectionFooter(
               context,
-              '怎么拿：电脑浏览器登录 pintia.cn → 按 F12 → Application（应用程序）→ '
-              'Storage → Cookies → https://pintia.cn → 找 PTASession，复制它的 Value。'
-              '它相当于一张临时通行证（不是密码），别发给别人；过期了这一页会提示，重贴一次即可。',
+              '浏览器登录 pintia.cn 后按 F12 → Application → Cookies → 复制 '
+              'PTASession 的值。它不是密码，但别发给别人；过期了这里会提示重贴。',
             ),
             children: <Widget>[
               if (hasCookie)
@@ -230,8 +227,7 @@ class _PtaSettingsPageState extends State<PtaSettingsPage> {
             header: sectionHeader(context, '同步'),
             footer: sectionFooter(
               context,
-              '只读：只请求作业列表（题目集与考试的截止时间），'
-              '不会提交任何作业、也不会改动你的账号。',
+              '只读：不会提交作业，也不会改你的账号。',
             ),
             children: <Widget>[
               CupertinoListTile(
