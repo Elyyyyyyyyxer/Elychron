@@ -142,39 +142,52 @@ class LibrarySpider {
   final LibraryCookieJar _jar = LibraryCookieJar();
 
   bool _loggedIn = false;
+  String _token = '';
 
   bool get loggedIn => _loggedIn;
 
+  /// 是不是已经换到 token（设置页"测试连接"用）
+  bool get hasToken => _token.isNotEmpty;
+
   void close() => _client.close(force: true);
 
-  /// 登录：拿 SSO → 申请 CAS ticket → 消费回调 → 验证
+  /// 登录：拿 SSO → 申请 CAS ticket → **换 token** → 验证
+  ///
+  /// 2026-10-01 实测更正：这个站点的登录态**不在 cookie 上**，而在一个 token 上 ——
+  /// 它的前端把 sessionStorage['token'] 作为 `authorization: bearer<token>` 发给接口
+  /// （只带 PHPSESSID 会被判成"您尚未登录"）。所以不能像素质拓展那样"消费回调建会话"，
+  /// 而要照它自己的流程：拿 ticket 去 /api/cas/user 换 member.token。
   Future<void> login() async {
     final sso = await ZjuAm.getSsoCookie(_client, username, password);
     if (sso == null) {
       throw LibraryAuthException('图书馆预约：统一身份认证没拿到登录态');
     }
-    // 1) 先走一次业务入口，让后端下发它自己的 PHPSESSID（phpCAS 的会话）
     await _primeSession();
-    // 2) 申请一次性 ticket，并**立刻**完整访问回调 —— 只拿 Location 不算数
     final callback = await ZjuAm.getServiceCallback(
       _client,
       sso,
       Uri.parse(casServiceUrl),
       context: '图书馆预约登录',
     );
-    await _consumeCasCallback(callback);
-    // 3) 用业务接口确认不是匿名
-    _loggedIn = true;
-    try {
-      await myInfo();
-    } on LibraryAuthException {
-      _loggedIn = false;
-      rethrow;
+    // ticket 是**一次性**的，必须立刻用掉（换 token），不能留着
+    final ticket = callback.queryParameters['ticket'] ?? '';
+    if (ticket.isEmpty) {
+      throw LibraryAuthException('图书馆预约：没拿到 CAS ticket');
     }
+    final body = await post('/api/cas/user', <String, dynamic>{'cas': ticket});
+    final member = body['member'];
+    final token = member is Map ? (member['token']?.toString() ?? '') : '';
+    if (token.isEmpty) {
+      throw LibraryAuthException(
+          '图书馆预约：登录未完成（' + (body['msg']?.toString() ?? 'code=' + (body['code']?.toString() ?? '?')) + '）');
+    }
+    _token = token;
+    await myInfo(); // 真验一次：不是匿名才算成功
+    _loggedIn = true;
     DiagnosticLogService.instance.record(
       module: '图书馆预约',
       operation: 'login',
-      message: 'CAS 登录完成',
+      message: 'CAS 换 token 完成',
     );
   }
 

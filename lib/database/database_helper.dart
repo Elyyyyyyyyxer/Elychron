@@ -661,6 +661,28 @@ class DatabaseHelper {
   final String kPtaLastSyncAt = 'ptaLastSyncAt';
   final String kPtaIncludeInClass = 'ptaIncludeInClass';
 
+  /// ===== 图书馆空间预约（2026-10-01）=====
+  final String kLibraryEnabled = 'libraryEnabled';
+  final String kLibraryLastResult = 'libraryLastResult';
+
+  bool getLibraryEnabled() {
+    if (optionsBox.get(kLibraryEnabled) == null) {
+      optionsBox.put(kLibraryEnabled, false);
+    }
+    return optionsBox.get(kLibraryEnabled) as bool;
+  }
+
+  Future<void> setLibraryEnabled(bool value) async {
+    await optionsBox.put(kLibraryEnabled, value);
+  }
+
+  String getLibraryLastResult() =>
+      optionsBox.get(kLibraryLastResult) as String? ?? '';
+
+  Future<void> setLibraryLastResult(String value) async {
+    await optionsBox.put(kLibraryLastResult, value);
+  }
+
   bool getPtaEnabled() {
     if (optionsBox.get(kPtaEnabled) == null) {
       optionsBox.put(kPtaEnabled, false);

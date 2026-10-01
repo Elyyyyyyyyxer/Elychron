@@ -25,6 +25,7 @@ import 'package:celechron/tutorial/tutorial_registry.dart';
 import 'package:celechron/tutorial/tutorial_store.dart';
 import 'package:celechron/design/page_background.dart';
 import 'package:celechron/mod/campus_emergency_page.dart';
+import 'package:celechron/mod/library_settings_page.dart';
 import 'package:celechron/mod/pta_settings_page.dart';
 
 /// ============ 设置页里属于魔改的两个区块 ============
@@ -644,4 +645,5 @@ Widget modCampusSection(
           // ===== PTA 作业（2026-10-01）=====
           // 它只读作业、把作业变成待办，所以和紧急电话同属"校园服务"这一组。
           const PtaHomeworkTile(),
+          const LibraryReservationTile(),
         ]));
