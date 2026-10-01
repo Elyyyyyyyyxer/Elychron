@@ -237,4 +237,33 @@ void main() {
     });
   });
 
+  group('标题与状态的小打磨（真机截图暴露的两处）', () {
+    LibraryReservation r(String title, String place, String status) =>
+        LibraryReservation(
+          id: 'x',
+          title: title,
+          place: place,
+          status: status,
+          start: DateTime.parse('2026-10-01 17:44:00'),
+          end: DateTime.parse('2026-10-01 23:58:00'),
+        );
+
+    test('地点已经包含在标题里就不再拼一遍', () {
+      expect(
+        libraryTaskSummary(r('主馆-二层-二层北：Z2F034', '主馆-二层-二层北', '8')),
+        '主馆-二层-二层北：Z2F034',
+      );
+    });
+
+    test('地点是新的信息才拼', () {
+      expect(libraryTaskSummary(r('团队讨论', '主馆-二层-207', '已预约')),
+          '团队讨论 · 主馆-二层-207');
+    });
+
+    test('纯数字的状态不显示（座位接口给的是编号）', () {
+      expect(libraryStatusLabel(r('a', 'b', '8')), '');
+      expect(libraryStatusLabel(r('a', 'b', '已使用')), '已使用');
+    });
+  });
+
 }

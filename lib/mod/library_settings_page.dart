@@ -288,9 +288,9 @@ class _LibrarySettingsPageState extends State<LibrarySettingsPage> {
                       overflow: TextOverflow.ellipsis,
                     ),
                     subtitle: Text(
-                      (reservation.status.isEmpty
+                      (libraryStatusLabel(reservation).isEmpty
                               ? ''
-                              : reservation.status + ' · ') +
+                              : libraryStatusLabel(reservation) + ' · ') +
                           (reservation.start == null
                               ? ''
                               : _hm(reservation.start!)) +

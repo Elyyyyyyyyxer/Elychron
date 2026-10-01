@@ -15,7 +15,7 @@ import 'package:get/get.dart';
 /// 2. **只增不删**：读不到/登录被顶掉/网络不好，都绝不动用户已有的待办；
 /// 3. 打完收工：setTaskList → sort → refresh → notifyDataChanged（跨设备同步也跟着走）。
 ///
-/// 和作业那套唯一的区别：预约是**时段**，所以要 startTime + endTime 都填，
+/// 和作业那套唯一的区别：预约是**时段**，所以 startTime + endTime 都填，
 /// 到点提醒才说得清"什么时候该去、什么时候结束"。
 const String kLibraryTag = '图书馆';
 const String kLibraryUidPrefix = 'lib-';
@@ -27,11 +27,29 @@ bool libraryReservationWanted(LibraryReservation reservation) =>
     reservation.end != null &&
     !reservation.status.contains('取消');
 
-/// 待办标题：地点在场就带上（"团队讨论 · 主馆-二层-207"）
-String libraryTaskSummary(LibraryReservation reservation) =>
-    reservation.place.isEmpty
-        ? reservation.title
-        : reservation.title + ' · ' + reservation.place;
+/// 待办标题：地点和标题不重复时才拼上。
+///
+/// 座位预约的 title 本身就带着馆/层（"主馆-二层-二层北：Z2F034"），
+/// 再拼一次 place 就变成"主馆-二层-二层北 · 主馆-二层-二…"，又长又没用（真机截图看出来的）。
+String libraryTaskSummary(LibraryReservation reservation) {
+  final title = reservation.title.trim();
+  final place = reservation.place.trim();
+  if (place.isEmpty) return title;
+  if (title.isEmpty) return place;
+  if (title.contains(place) || place.contains(title)) return title;
+  return title + ' · ' + place;
+}
+
+/// 状态里该显示的那一段。
+///
+/// 座位接口给的是**编号**（实测是 "8"），直接显示出来就是界面上一个莫名其妙的"8"；
+/// 只有像"已使用"/"已预约"这种真正的名字才显示。
+String libraryStatusLabel(LibraryReservation reservation) {
+  final status = reservation.status.trim();
+  if (status.isEmpty) return '';
+  if (RegExp(r'^[0-9]+$').hasMatch(status)) return '';
+  return status;
+}
 
 /// 图书馆的预约排前面，其次按开始时间
 int libraryFirst(Task a, Task b) {
@@ -67,10 +85,10 @@ Future<String> syncLibraryReservations({
         if (reservation.id.isEmpty) continue;
         byId[reservation.id] = reservation;
       }
-    } on LibraryAuthException {
+    } on LibraryAuthException catch (error) {
       // 登录被顶掉：如实说，但**不清空**已有待办
-      await LibraryConfig.setLastResult('同步失败：登录可能被其它设备顶掉了');
-      return '同步失败：' + '登录可能被其它设备顶掉了';
+      libraryTrace('同步预约：' + path + ' 未登录：' + error.message);
+      return '同步失败：' + error.message;
     } on Object catch (error) {
       libraryTrace('同步预约：' + path + ' 失败：' + error.toString());
     }
@@ -101,8 +119,9 @@ Future<String> syncLibraryReservations({
       task.uid = uid;
       task.priority = TaskPriority.high;
       task.tags = <String>[kLibraryTag];
-      task.description = '来自图书馆预约' +
-          (reservation.status.isEmpty ? '' : '（' + reservation.status + '）');
+      final statusLabel = libraryStatusLabel(reservation);
+      task.description =
+          '来自图书馆预约' + (statusLabel.isEmpty ? '' : '（' + statusLabel + '）');
       taskList.add(task);
       added++;
       continue;
@@ -115,7 +134,8 @@ Future<String> syncLibraryReservations({
       existing.summary = summary;
       touched = true;
     }
-    if (existing.startTime == null || !existing.startTime!.isAtSameMomentAs(start)) {
+    if (existing.startTime == null ||
+        !existing.startTime!.isAtSameMomentAs(start)) {
       existing.startTime = start;
       touched = true;
     }
