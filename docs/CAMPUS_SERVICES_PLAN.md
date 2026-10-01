@@ -100,3 +100,70 @@ detailAPI:   { type: "GET", url: "../apis/detail.js",   dataType: "json" },
 - **主页四个标签不动**：这些是"偶尔用一次"的工具，塞进主导航只会让主界面变脏；
 - 唯一值得"出门"的是**紧急电话**：给它一个 App Shortcut（长按图标直达），紧急时最省事；
 - 图书馆产出的待办走现有待办体系（不新建概念）。
+
+---
+
+## 三、校外可达性实测（2026-10-01，用户在家里 / 手机热点上）
+
+上次是在校内测的，这次在校外重测了一遍，结论差别很大：
+
+| 主机 | 校外 443 | 说明 |
+|---|---|---|
+| `m.lib.zju.edu.cn`（手机版 SPA，接口键名见第二节） | ❌ 超时 | DNS 给的是公网 210.32.13.173，但防火墙只放校网/VPN |
+| `libweb.zju.edu.cn`（电脑版门户，webplus CMS） | ✅ 200 | 只是一堆链接，本身没数据 |
+| `opac.zju.edu.cn`（馆藏/我的借阅） | ⛔ 403 | **官方公告：图书馆OPAC网站因故暂停对公网服务**（原文见下），校外只给 WebVPN 或浙大钉 |
+| `booking.lib.zju.edu.cn/h5/`（**图书馆空间预约系统**） | ✅ **200** | **Vue H5，接口全在这儿，校外直接用** |
+| `webvpn.zju.edu.cn` | ✅ 302 | 校外访问网关 |
+
+OPAC 403 页面原文（存证）：
+
+> 图书馆OPAC网站因故暂停对公网服务。本校师生如有在校外查询馆藏、预约图书、续借图书的需要，
+> 可通过以下方法使用：方法一：登录Web VPN后访问……方法二：通过移动图书馆访问（浙大钉 → 工作台 → 浙大生活 → 图书馆）。
+
+所以**"借阅到期 → 待办"这条只读需求，校外被官方堵死**；要么 WebVPN，要么浙大钉的 ticket。
+
+## 四、图书馆空间预约系统（校外可达，值得做）
+
+`https://booking.lib.zju.edu.cn/h5/` —— Vue 3 + Element Plus，axios `baseURL:"/"`，
+全部接口都是 **POST + JSON**，路径在 `/api/...`。共挖到 **63 个**接口（正则
+`url:"(/api/...)",method:"..."` 从 `assets/index.*.js` 里提取）。
+
+**免登录就能读的**（实测 200）：
+
+```
+POST /api/index/notice     公告列表（实测 13 条，带标题/时间）
+POST /api/index/banner     首页横幅
+POST /api/index/time       服务器时间
+POST /api/index/config     系统配置 —— 但 data 是**加密串**，客户端解密后才用
+```
+
+**要登录的**（实测返回 `{"code":10001,"msg":"您尚未登录"}`）：
+
+```
+座位：  /api/Seat/tree  /api/Seat/seat  /api/Seat/date  /api/seat/map  /api/seat/label
+自习区：/api/Study/libinfo  /api/Study/StudyArea  /api/Study/StudyOpenTime
+研讨间：/api/Room/list  /api/Room/detail  /api/Seminar/*
+我的：  /api/Member/my  /api/Member/seat  /api/Member/room  /api/Member/seminar
+```
+
+**登录方式（关键）**：
+
+- **CAS 统一身份**（推荐）：`POST /api/cas/user`，请求体 `{cas: "<CAS ticket ST-xxx>"}`
+  → 返回 `{code:1, member:{token:...}}`，之后 token 随请求走。
+  这条**不在加密名单里**（见下），是明文 JSON —— 我们 App 已经有 zjuam 那套 CAS 代码，
+  理论上可以**复用教务账号免密登录**，而且校外可用。
+- 账号密码：`POST /api/login/login`（+ `/api/Captcha/verify`）。注意 axios 拦截器里有一份
+  **加密名单**（`/api/login/login`、`/api/Seat/confirm`、`/api/Seminar/confirm` …），
+  这些接口的 body 会被包成 `{aesjson: encrypt(...)}` —— 也就是**密码登录要自己实现前端那套
+  AES 加密 + 处理验证码**，比 CAS 麻烦得多，不推荐。
+- 还有 `/api/login/wxlogin`、`/api/login/dingtalksns`、`/api/login/wxwork`（微信/钉钉）。
+
+**还差一步**：CAS 的 `service` 值（售票口）没在 bundle 里写死 —— `toLogin()` 只是
+`location.hash="#/login"`，登录页是懒加载 chunk，或者 CAS 入口 URL 藏在**加密的
+`/api/index/config`** 里。下一步用真浏览器打开 `#/login` 点一下"统一身份认证"，
+把跳转链抓下来就能确定（不需要账号密码）。
+
+**能变成什么功能**（和"借阅到期→待办"同一个价值，但校外能用）：
+1. **我的预约 → 待办**（`/api/Member/seat|room|seminar`）：约了几点的座位/研讨间，到点提醒；
+2. **座位查询（只读）**：`/api/Seat/tree` + `/api/Seat/seat`，"现在哪个馆还有座"；
+3. 公告（`/api/index/notice`）当首页小卡片，几乎是白捡的。
