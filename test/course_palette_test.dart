@@ -20,9 +20,9 @@ void main() {
       var delta = (hsl.hue - base.hue).abs();
       if (delta > 180) delta = 360 - delta;
       expect(delta <= 6.5, isTrue, reason: 'id-' + i.toString());
-      expect(hsl.lightness >= 0.54 && hsl.lightness <= 0.66, isTrue,
+      expect(hsl.lightness >= 0.60 && hsl.lightness <= 0.72, isTrue,
           reason: 'id-' + i.toString());
-      expect(hsl.saturation >= 0.70, isTrue, reason: 'id-' + i.toString());
+      expect(hsl.saturation >= 0.74, isTrue, reason: 'id-' + i.toString());
     }
   });
 

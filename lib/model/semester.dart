@@ -237,6 +237,32 @@ class Semester {
   void _invalidatePeriodsCache() => _periodsCache = null;
 
   // 构建代价高，缓存结果；任何影响构建输入的 mutator 都必须调用 _invalidatePeriodsCache。
+  /// 第 [firstIndex] 节到第 [lastIndex] 节的**起止钟点**，形如 `10:00 - 11:40`。
+  ///
+  /// 课程卡片只画格子位置、不写钟点，所以"这门课到底几点上"在详情页得写出来
+  /// （用户：「课程详情页面不会显示课程的起止时间」）。
+  /// 数据就是校历配置里那份 [_sessionToTime] —— 与课表把课摆进格子的依据同源，
+  /// 不会出现"表格说 10:00、课表摆到 10:50"这种两套时间。
+  /// 校历里没有这一节（或数据不全）时返回 null，调用方不显示这一行。
+  String? clockRangeOf(int firstIndex, int lastIndex) {
+    final start = _clockOfPeriod(firstIndex, first: true);
+    final end = _clockOfPeriod(lastIndex, first: false);
+    if (start == null || end == null) return null;
+    return start + ' - ' + end;
+  }
+
+  String? _clockOfPeriod(int index, {required bool first}) {
+    // 从 1 开始：校历 sessionTime 的第 0 行是占位（见 _defaultSessionTime 里的
+    // ['00:00','00:00']），所以第 N 节就该取 _sessionToTime[N]。
+    if (index < 1 || index >= _sessionToTime.length) return null;
+    final entry = _sessionToTime[index];
+    if (entry.isEmpty) return null;
+    final moment = first ? entry.first : entry.last;
+    final hours = moment.inHours.toString().padLeft(2, '0');
+    final minutes = (moment.inMinutes % 60).toString().padLeft(2, '0');
+    return hours + ':' + minutes;
+  }
+
   // 调用方不得原地修改返回的列表（需要排序等操作时先拷贝）。
   List<Period> get periods => _periodsCache ??= _buildPeriods();
 
