@@ -17,6 +17,8 @@
 </head>
 <body>
 
+<div class="bgfield" aria-hidden="true"><i></i><i></i><i></i></div>
+
 <header class="navwrap">
   <div class="nav">
     <a class="logo" href="#top"><img src="icon.png" alt="" width="22" height="22"><span>Elychron</span><span class="tagbadge mono">GPLv3</span></a>
@@ -89,8 +91,8 @@
 
   <section id="highlights" class="section">
     <div class="shead center">
-      <h2>四个卖点，都在日常里</h2>
-      <p class="sub">手机上左右滑，桌面上用箭头或圆点切换。</p>
+      <h2>日常里，它替你做的事</h2>
+      <p class="sub">手机上左右滑，桌面上用箭头或圆点切换 —— 它会自己慢慢翻。</p>
     </div>
     <div class="slides">
       <div class="strack" id="strack" tabindex="0" role="group" aria-roledescription="carousel" aria-label="Elychron 的四个卖点">
@@ -324,6 +326,24 @@
     });
     window.addEventListener('resize', sync);
     sync();
+
+    // ===== 自动轮播 =====
+    var AUTO_MS = 6000, holdUntil = 0, timer = 0;
+    function hold(ms){ holdUntil = Date.now() + ms; }
+    function tick(){
+      if (Date.now() < holdUntil || document.hidden) return;
+      go((current() + 1) % slides.length);
+    }
+    if (!reduce && slides.length > 1){
+      timer = setInterval(tick, AUTO_MS);
+      // 用户一旦手动操作，暂停一会儿再继续
+      track.addEventListener('pointerdown', function(){ hold(12000); }, { passive: true });
+      track.addEventListener('wheel', function(){ hold(12000); }, { passive: true });
+      track.addEventListener('keydown', function(){ hold(12000); });
+      dots.forEach(function(d){ d.addEventListener('click', function(){ hold(12000); }); });
+      arrows.forEach(function(a){ a.addEventListener('click', function(){ hold(12000); }); });
+      document.addEventListener('visibilitychange', function(){ if (!document.hidden) hold(1500); });
+    }
   }
 })();
 </script>

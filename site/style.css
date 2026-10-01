@@ -5,11 +5,11 @@
    收尾有强光晕的 CTA、导航是浮起的胶囊。
    ============================================================ */
 :root{
-  --bg:#08080A; --bg-2:#0E0E12; --surface:rgba(255,255,255,.03); --surface-2:rgba(255,255,255,.05);
-  --ink:#F5F5F7; --ink-2:rgba(255,255,255,.64); --ink-3:rgba(255,255,255,.42);
-  --line:rgba(255,255,255,.08); --line-2:rgba(255,255,255,.16);
-  --btn:#F5F5F7; --btn-text:#0B0B0E;
-  --pink:#FF6FA0; --pink-2:#FFA3C4; --pink-glow:rgba(255,111,160,.20);
+  --bg:#FBFAFC; --bg-2:#F4F1F5; --surface:#FFFFFF; --surface-2:#F7F5F8;
+  --ink:#17171C; --ink-2:rgba(0,0,0,.62); --ink-3:rgba(0,0,0,.40);
+  --line:rgba(0,0,0,.08); --line-2:rgba(0,0,0,.14);
+  --btn:#141419; --btn-text:#fff;
+  --pink:#FF5E93; --pink-2:#E8437C; --pink-glow:rgba(255,94,147,.22);
   --pill:100px; --r:16px; --maxw:1120px;
   --font:-apple-system,BlinkMacSystemFont,"PingFang SC","HarmonyOS Sans SC","Microsoft YaHei",system-ui,sans-serif;
   --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
@@ -20,7 +20,7 @@ body{
   margin:0; background:var(--bg); color:var(--ink); font:16px/1.6 var(--font);
   -webkit-font-smoothing:antialiased; overflow-x:hidden;
 }
-body::before{ /* 细点阵，像官网的粒子氛围 */
+body::before, body::after{display:none}
   content:""; position:fixed; inset:0; z-index:0; pointer-events:none; opacity:.5;
   background-image:radial-gradient(rgba(255,255,255,.055) 1px, transparent 1px);
   background-size:26px 26px;
@@ -230,3 +230,55 @@ main{max-width:var(--maxw); margin:0 auto; padding:0 24px}
   .mirrors li{grid-template-columns:1fr auto; row-gap:6px}
   .mirrors .why{grid-column:1 / -1; order:3}
 }
+
+/* ===== 背景：亮色 + 会动的光斑（DSH 那种氛围，但用我们的粉色）===== */
+body{background:var(--bg)}
+.bgfield{position:fixed; inset:0; z-index:0; overflow:hidden; pointer-events:none}
+.bgfield i{position:absolute; display:block; border-radius:50%; filter:blur(70px); opacity:.55;
+  will-change:transform}
+.bgfield i:nth-child(1){width:52vw; height:52vw; left:-8vw; top:-14vw;
+  background:radial-gradient(circle at 40% 40%,rgba(255,111,160,.55),transparent 66%);
+  animation:drift1 26s ease-in-out infinite}
+.bgfield i:nth-child(2){width:44vw; height:44vw; right:-10vw; top:6vw;
+  background:radial-gradient(circle at 50% 50%,rgba(180,120,255,.30),transparent 68%);
+  animation:drift2 34s ease-in-out infinite}
+.bgfield i:nth-child(3){width:60vw; height:40vw; left:18vw; bottom:-16vw;
+  background:radial-gradient(circle at 50% 50%,rgba(255,180,120,.22),transparent 70%);
+  animation:drift3 40s ease-in-out infinite}
+.bgfield::after{content:""; position:absolute; inset:0; opacity:.55;
+  background-image:radial-gradient(rgba(0,0,0,.045) 1px, transparent 1px); background-size:26px 26px;
+  -webkit-mask-image:radial-gradient(120% 80% at 50% 0%,#000 10%,transparent 76%);
+  mask-image:radial-gradient(120% 80% at 50% 0%,#000 10%,transparent 76%)}
+@keyframes drift1{0%,100%{transform:translate3d(0,0,0) scale(1)}50%{transform:translate3d(6vw,4vw,0) scale(1.12)}}
+@keyframes drift2{0%,100%{transform:translate3d(0,0,0) scale(1)}50%{transform:translate3d(-5vw,6vw,0) scale(1.08)}}
+@keyframes drift3{0%,100%{transform:translate3d(0,0,0) scale(1)}50%{transform:translate3d(4vw,-5vw,0) scale(1.14)}}
+@media (prefers-reduced-motion: reduce){ .bgfield i{animation:none} }
+
+/* ===== 亮底适配：导航/面板/收尾都改成浅色玻璃感 ===== */
+.nav{background:rgba(255,255,255,.72); box-shadow:0 14px 34px -26px rgba(0,0,0,.5)}
+.bgfield ~ *{}
+.spanel, .fpanel{background:linear-gradient(180deg,#fff,#FAF8FB); box-shadow:0 18px 40px -34px rgba(0,0,0,.4)}
+.mini{background:#F5F3F7; border-color:var(--line)}
+.window{box-shadow:0 50px 110px -50px rgba(60,20,40,.45), 0 0 90px -30px var(--pink-glow)}
+.endcta .glow{background:radial-gradient(46% 46% at 50% 50%,rgba(255,94,147,.18),transparent 70%)}
+.hero .glow{background:radial-gradient(50% 50% at 50% 50%,rgba(255,94,147,.16),transparent 70%)}
+.links a:hover{color:var(--pink-2)}
+.bullets{color:var(--ink-2)}
+.faq dd{color:var(--ink-2)}
+.sub{color:var(--ink-2)}
+
+/* ===== 窗口是浅色页面上的一块「深色孤岛」：它内部的令牌必须自己带，不能继承页面的亮色 ===== */
+.window{
+  --surface:rgba(255,255,255,.045); --surface-2:rgba(255,255,255,.06);
+  --ink:#F5F5F7; --ink-2:rgba(255,255,255,.66); --ink-3:rgba(255,255,255,.44);
+  --line:rgba(255,255,255,.09); --line-2:rgba(255,255,255,.16);
+  --pink-2:#FFA3C4;
+  color:var(--ink);
+}
+.window .winside{background:rgba(255,255,255,.015)}
+.window .wtile{background:var(--surface)}
+.window .wtile.focus{background:linear-gradient(150deg,rgba(255,111,160,.20),rgba(255,255,255,.03))}
+.window .wlist{background:var(--surface)}
+.window .wgroup{color:var(--ink-3)}
+.window .witem{color:var(--ink-2)}
+.window .witem.on{background:rgba(255,255,255,.07); color:var(--ink)}
