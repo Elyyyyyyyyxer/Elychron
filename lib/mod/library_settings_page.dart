@@ -81,16 +81,17 @@ class _LibrarySettingsPageState extends State<LibrarySettingsPage> {
     });
     final found = <String, LibraryReservation>{};
     var authError = '';
-    for (final path in const <String>[
-      '/api/Member/seat',
-      '/api/Member/room',
-      '/api/Member/seminar',
+    for (final source in const <({String path, String kind})>[
+      (path: '/api/Member/seat', kind: 'seat'),
+      (path: '/api/Member/room', kind: 'room'),
+      (path: '/api/Member/seminar', kind: 'seminar'),
     ]) {
       try {
-        final body = await LibraryWebSession.instance.postJson(path);
-        final decoded = jsonDecode(body);
-        if (path == '/api/Member/my') continue;
-        for (final reservation in LibrarySpider.reservationsFrom(decoded)) {
+        final body = await LibraryWebSession.instance.postJson(source.path);
+        // 原始 JSON 进 logcat：座位号 / 房间名的字段名只能靠它对出来
+        LibrarySpider.traceResponse(source.path, body);
+        for (final reservation in LibrarySpider.reservationsFrom(jsonDecode(body),
+            kind: source.kind)) {
           if (reservation.id.isEmpty) continue;
           found[reservation.id] = reservation;
         }
@@ -111,7 +112,12 @@ class _LibrarySettingsPageState extends State<LibrarySettingsPage> {
       // 名字取不到就算了
     }
 
-    final list = found.values.toList()
+    // 只留"还生效"的：结束时间在将来、且不是已取消 / 已使用。
+    // 用户明确要求——历史预约别再出现在"我的预约"里。
+    final active = DateTime.now();
+    final list = found.values
+        .where((reservation) => libraryReservationActive(reservation, now: active))
+        .toList()
       ..sort((a, b) => (a.start ?? DateTime(2100))
           .compareTo(b.start ?? DateTime(2100)));
     if (!mounted) return;
@@ -282,8 +288,9 @@ class _LibrarySettingsPageState extends State<LibrarySettingsPage> {
               else
                 for (final reservation in _reservations)
                   CupertinoListTile(
+                    // 用户要看到"是哪个座位 / 哪个房间"：地点 + 座位号 / 房间名
                     title: Text(
-                      libraryTaskSummary(reservation),
+                      libraryPlaceDetail(reservation),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -297,13 +304,6 @@ class _LibrarySettingsPageState extends State<LibrarySettingsPage> {
                           (reservation.end == null
                               ? ''
                               : ' → ' + _hm(reservation.end!)),
-                    ),
-                    trailing: Icon(
-                      libraryReservationWanted(reservation)
-                          ? CupertinoIcons.arrow_right
-                          : CupertinoIcons.minus_circle,
-                      size: 18,
-                      color: CupertinoColors.tertiaryLabel,
                     ),
                   ),
             ],

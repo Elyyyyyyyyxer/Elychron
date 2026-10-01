@@ -194,9 +194,79 @@ void main() {
       expect(parsed, hasLength(1), reason: 'timelist 只是这条预约的时间段，不是新预约');
     });
 
+    test('★ 真机 seat 原始 JSON：座位号在 no、状态文案在 statusName（大写 N）', () {
+      final parsed = LibrarySpider.reservationsFrom(<String, dynamic>{
+        'code': 1,
+        'data': <String, dynamic>{
+          'total': 1,
+          'per_page': 10,
+          'current_page': 1,
+          'last_page': 1,
+          'data': <dynamic>[
+            <String, dynamic>{
+              'status': '8',
+              'id': '2821887',
+              'space': '6079',
+              'nameMerge': '主馆-二层-二层北',
+              'no': 'Z2F034',
+              'name': 'Z2F034',
+              'beginTime': '2026-10-01 17:44:22',
+              'endTime': '2026-10-01 23:58:59',
+              'statusName': '已结束',
+              'timelist': <dynamic>[
+                <String, dynamic>{'id': '10794485'},
+              ],
+            },
+          ],
+        },
+      }, kind: 'seat');
+      expect(parsed, hasLength(1));
+      final seat = parsed.single;
+      expect(seat.seatNo, 'Z2F034');
+      expect(seat.place, '主馆-二层-二层北');
+      expect(seat.status, '已结束');
+      expect(seat.kind, 'seat');
+      expect(libraryTaskTitle(seat), '图书馆座位 · Z2F034');
+      expect(libraryPlaceDetail(seat), '主馆-二层-二层北 · Z2F034');
+    });
+
+    test('★ 真机 seminar 原始 JSON：statusname 小写也能认出来（已使用 → 不建待办）', () {
+      final parsed = LibrarySpider.reservationsFrom(<String, dynamic>{
+        'code': 1,
+        'data': <String, dynamic>{
+          'total': 1,
+          'data': <dynamic>[
+            <String, dynamic>{
+              'id': '110004',
+              'status': '4',
+              'title': '团队讨论(班团,社团,兴趣小组,项目讨论)',
+              'nameMerge': '主馆-二层-207(8人间)',
+              'beginTime': '2026-09-27 15:00:00',
+              'endTime': '2026-09-27 19:00:00',
+              'statusname': '已使用',
+            },
+          ],
+        },
+      }, kind: 'seminar');
+      expect(parsed, hasLength(1));
+      final one = parsed.single;
+      expect(one.status, '已使用');
+      expect(one.place, '主馆-二层-207(8人间)');
+      expect(libraryReservationKind(one), 'room');
+      expect(
+        libraryReservationWanted(one,
+            now: DateTime.parse('2026-10-01 12:00:00')),
+        isFalse,
+        reason: '已使用 + 时间已过 → 一条待办都不该建',
+      );
+    });
+
   });
   /// 预约 → 待办 的纯逻辑（网络与 WebView 那部分只能在真机上验）
   group('预约 → 待办：该不该建、建成什么样', () {
+    // 固定一个"现在"，免得测试跟着系统时钟漂（真机 2026-10-01）
+    final now = DateTime.parse('2026-10-01 12:00:00');
+
     LibraryReservation r({
       String id = '110004',
       String title = '团队讨论',
@@ -204,6 +274,9 @@ void main() {
       String status = '已预约',
       String? begin = '2026-10-02 15:00:00',
       String? end = '2026-10-02 19:00:00',
+      String kind = '',
+      String seatNo = '',
+      String roomName = '',
     }) =>
         LibraryReservation(
           id: id,
@@ -212,57 +285,191 @@ void main() {
           status: status,
           start: begin == null ? null : DateTime.parse(begin),
           end: end == null ? null : DateTime.parse(end),
+          kind: kind,
+          seatNo: seatNo,
+          roomName: roomName,
         );
 
-    test('正常预约要变成待办', () {
-      expect(libraryReservationWanted(r()), isTrue);
+    test('正常（还没结束的）预约要变成待办', () {
+      expect(libraryReservationWanted(r(), now: now), isTrue);
     });
 
     test('已取消的不建', () {
-      expect(libraryReservationWanted(r(status: '已取消')), isFalse);
+      expect(libraryReservationWanted(r(status: '已取消'), now: now), isFalse);
+    });
+
+    test('★ 已经过去的预约一条都不建（用户骂过"过期的变成逾期待办"）', () {
+      final past = r(begin: '2026-09-27 15:00:00', end: '2026-09-27 19:00:00');
+      expect(libraryReservationActive(past, now: now), isFalse);
+      expect(libraryReservationWanted(past, now: now), isFalse);
+    });
+
+    test('★ 状态是「已使用」的也不建（哪怕时间还没到）', () {
+      final used = r(status: '已使用');
+      expect(libraryReservationActive(used, now: now), isFalse);
+      expect(libraryReservationWanted(used, now: now), isFalse);
+    });
+
+    test('结束时间刚好等于"现在"算过期（边界）', () {
+      final boundary =
+          r(begin: '2026-10-01 11:00:00', end: '2026-10-01 12:00:00');
+      expect(libraryReservationActive(boundary, now: now), isFalse);
     });
 
     test('没有 id 的不建（uid 不稳定会反复长重复待办）', () {
-      expect(libraryReservationWanted(r(id: '')), isFalse);
+      expect(libraryReservationWanted(r(id: ''), now: now), isFalse);
     });
 
     test('缺开始或缺结束的不建（提醒说不清什么时候去）', () {
-      expect(libraryReservationWanted(r(begin: null)), isFalse);
-      expect(libraryReservationWanted(r(end: null)), isFalse);
-    });
-
-    test('标题带上地点', () {
-      expect(libraryTaskSummary(r()), '团队讨论 · 主馆-二层-207(8人间)');
-      expect(libraryTaskSummary(r(place: '')), '团队讨论');
+      expect(libraryReservationWanted(r(begin: null), now: now), isFalse);
+      expect(libraryReservationWanted(r(end: null), now: now), isFalse);
     });
   });
 
-  group('标题与状态的小打磨（真机截图暴露的两处）', () {
-    LibraryReservation r(String title, String place, String status) =>
+  group('待办短标题：按类型取前缀 + 长度上限', () {
+    LibraryReservation r({
+      required String kind,
+      String title = '团队讨论',
+      String place = '主馆-二层-207(8人间)',
+      String seatNo = '',
+      String roomName = '',
+    }) =>
         LibraryReservation(
           id: 'x',
           title: title,
           place: place,
-          status: status,
-          start: DateTime.parse('2026-10-01 17:44:00'),
-          end: DateTime.parse('2026-10-01 23:58:00'),
+          status: '已预约',
+          start: DateTime.parse('2026-10-02 15:00:00'),
+          end: DateTime.parse('2026-10-02 19:00:00'),
+          kind: kind,
+          seatNo: seatNo,
+          roomName: roomName,
         );
 
-    test('地点已经包含在标题里就不再拼一遍', () {
+    test('座位类：图书馆座位 · 座位号', () {
       expect(
-        libraryTaskSummary(r('主馆-二层-二层北：Z2F034', '主馆-二层-二层北', '8')),
-        '主馆-二层-二层北：Z2F034',
+        libraryTaskTitle(r(kind: 'seat', seatNo: 'Z2F034')),
+        '图书馆座位 · Z2F034',
       );
     });
 
-    test('地点是新的信息才拼', () {
-      expect(libraryTaskSummary(r('团队讨论', '主馆-二层-207', '已预约')),
-          '团队讨论 · 主馆-二层-207');
+    test('座位号缺失时退回地点摘要', () {
+      expect(
+        libraryTaskTitle(r(kind: 'seat', place: '主馆-二层-二层北')),
+        '图书馆座位 · 主馆-二层-二层北',
+      );
+    });
+
+    test('研讨间：图书馆研讨间 · 房间摘要', () {
+      expect(
+        libraryTaskTitle(r(kind: 'room', roomName: '207(8人间)')),
+        '图书馆研讨间 · 207(8人间)',
+      );
+    });
+
+    test('活动类：图书馆活动 · 短标题（长标题的括号说明被去掉）', () {
+      final long = r(
+        kind: 'seminar',
+        title: '团队讨论(班团,社团,兴趣小组,项目讨论)',
+        roomName: '',
+        place: '',
+      );
+      expect(libraryTaskTitle(long), '图书馆活动 · 团队讨论');
+    });
+
+    test('长度上限：超长也绝不越过 kLibraryTaskTitleMax', () {
+      final long = r(
+        kind: 'room',
+        roomName: '主馆-二层-二层北阅览区A排12号研讨间(20人间)',
+      );
+      final title = libraryTaskTitle(long);
+      expect(title.length, lessThanOrEqualTo(kLibraryTaskTitleMax));
+      expect(title.endsWith('…'), isTrue);
+      expect(title.startsWith('图书馆研讨间'), isTrue);
+    });
+
+    test('短标题函数：中英文括号都去掉，没有括号就原样', () {
+      expect(libraryShortTitle('团队讨论(班团,社团)'), '团队讨论');
+      expect(libraryShortTitle('团队讨论（班团）'), '团队讨论');
+      expect(libraryShortTitle('讲座'), '讲座');
+      expect(libraryShortTitle('(开头就是括号)'), '(开头就是括号)');
+    });
+
+    test('分类：有座位号就是座位；接口给研讨间/研讨间字段就是研讨间', () {
+      expect(libraryReservationKind(r(kind: 'seat')), 'seat');
+      expect(libraryReservationKind(r(kind: '', seatNo: 'A1')), 'seat');
+      // 接口叫 seminar、但条目里是"8人间" → 按研讨间处理（真机数据就是这样）
+      expect(libraryReservationKind(r(kind: 'seminar')), 'room');
+      expect(libraryReservationKind(r(kind: '', roomName: '207')), 'room');
+      // 没有任何房间线索的 → 活动
+      expect(
+        libraryReservationKind(r(kind: '', title: '讲座', place: '')), 'activity');
+    });
+  });
+
+  group('设置页那一行 / 待办描述', () {
+    test('列表行是"地点 + 座位号"，重复时不写两遍', () {
+      const seat = LibraryReservation(
+        id: '1',
+        title: '主馆-二层-二层北：Z2F034',
+        place: '主馆-二层-二层北',
+        status: '已预约',
+        start: null,
+        end: null,
+        kind: 'seat',
+        seatNo: 'Z2F034',
+      );
+      expect(libraryPlaceDetail(seat), '主馆-二层-二层北 · Z2F034');
+
+      const room = LibraryReservation(
+        id: '2',
+        title: '团队讨论',
+        place: '主馆-二层-207',
+        status: '已预约',
+        start: null,
+        end: null,
+        kind: 'room',
+        roomName: '8人间',
+      );
+      expect(libraryPlaceDetail(room), '主馆-二层-207 · 8人间');
+    });
+
+    test('描述里保留原来的长标题（标题放不下的都进 description）', () {
+      final reservation = LibraryReservation(
+        id: '3',
+        title: '团队讨论(班团,社团,兴趣小组,项目讨论)',
+        place: '主馆-二层-207(8人间)',
+        status: '已预约',
+        start: DateTime.parse('2026-10-02 15:00:00'),
+        end: DateTime.parse('2026-10-02 19:00:00'),
+        kind: 'room',
+        roomName: '207(8人间)',
+      );
+      final description = libraryTaskDescription(reservation);
+      expect(description.startsWith(kLibraryDescriptionPrefix), isTrue);
+      expect(description, contains('团队讨论(班团,社团,兴趣小组,项目讨论)'));
+      expect(description, contains('主馆-二层-207(8人间)'));
     });
 
     test('纯数字的状态不显示（座位接口给的是编号）', () {
-      expect(libraryStatusLabel(r('a', 'b', '8')), '');
-      expect(libraryStatusLabel(r('a', 'b', '已使用')), '已使用');
+      const numbered = LibraryReservation(
+        id: 'x',
+        title: 'a',
+        place: 'b',
+        status: '8',
+        start: null,
+        end: null,
+      );
+      const named = LibraryReservation(
+        id: 'x',
+        title: 'a',
+        place: 'b',
+        status: '已使用',
+        start: null,
+        end: null,
+      );
+      expect(libraryStatusLabel(numbered), '');
+      expect(libraryStatusLabel(named), '已使用');
     });
   });
 

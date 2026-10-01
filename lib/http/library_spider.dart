@@ -60,6 +60,10 @@ class LibraryReservation {
     required this.status,
     required this.start,
     required this.end,
+    this.kind = '',
+    this.seatNo = '',
+    this.roomName = '',
+    this.areaName = '',
   });
 
   /// 站点的预约 id。**同步待办要靠它**（uid = lib-<id>，稳定才不会反复长出重复待办），
@@ -67,12 +71,29 @@ class LibraryReservation {
   final String id;
 
   final String title;
+
+  /// 地点（实测研讨间接口给的是 nameMerge："主馆-二层-207(8人间)"）
   final String place;
+
   final String status;
   final DateTime? start;
   final DateTime? end;
 
-  static LibraryReservation? fromJson(Map<String, dynamic> json) {
+  /// 来源：seat / room / seminar（由解析入口按接口路径注入，纯数据解析不做网络假设）。
+  /// 待办短标题按它选前缀（座位 / 研讨间 / 活动）。
+  final String kind;
+
+  /// 座位号（座位接口独有；真机 logcat 对字段名后才填得上）
+  final String seatNo;
+
+  /// 房间名（研讨间接口独有）
+  final String roomName;
+
+  /// 馆区 / 楼层（真机 logcat 对字段名后才填得上）
+  final String areaName;
+
+  static LibraryReservation? fromJson(Map<String, dynamic> json,
+      {String kind = ''}) {
     String pick(List<String> keys) {
       for (final key in keys) {
         final value = json[key];
@@ -88,21 +109,59 @@ class LibraryReservation {
       return raw.isEmpty ? null : DateTime.tryParse(raw);
     }
 
-    // 2026-10-01 拿真实数据对过（/api/Member/seminar）：
-    //   beginTime / endTime（"2026-09-27 15:00:00"）、nameMerge（"主馆-二层-207(8人间)"）、
-    //   title（"团队讨论(…)"）、statusname（"已使用"）。其余键名是别处接口的兜底。
+    // ===== 2026-10-01 真机原始 JSON（logcat “原始响应”）对出来的字段名 =====
+    //
+    // seat（/api/Member/seat，data 是分页对象）：
+    //   {"status":"8","id":"2821887","space":"6079","nameMerge":"主馆-二层-二层北",
+    //    "no":"Z2F034","name":"Z2F034","beginTime":"2026-10-01 17:44:22",
+    //    "endTime":"2026-10-01 23:58:59","statusName":"已结束",...}
+    //   → 座位号在 no，地点在 nameMerge，状态文案在 statusName（大写 N）。
+    //
+    // room（/api/Member/room）：data 是数组（这台机器上是空）。
+    //
+    // seminar（/api/Member/seminar，data 是分页对象）：
+    //   {"id":"110004","status":"4","title":"团队讨论(班团,社团,兴趣小组,项目讨论)",
+    //    "nameMerge":"主馆-二层-207(8人间)","statusname":"已使用",...}
+    //   → 状态文案是 statusname（小写 n）！
+    //
+    // 所以状态必须两种大小写都认，否则座位那条会被当成纯数字的 "8" 而不显示状态。
     final start = pickTime(<String>['beginTime', 'begin_time', 'start_time', 'startTime', 'start', 'date_time']);
     final end = pickTime(<String>['endTime', 'end_time', 'end', 'finish_time']);
     final title = pick(<String>['title', 'nameMerge', 'room_name', 'seat_name', 'area_name', 'space_name', 'name', 'activity_name']);
     final place = pick(<String>['nameMerge', 'place', 'address', 'room', 'area', 'space', 'lib_name', 'location']);
+    // 座位号：接口显式字段优先，没有就从标题里"馆区：座位号"冒号后面抠（真机标题长这样：
+    // "主馆-二层-二层北：Z2F034"）。抠不出来就留空，界面自动退回地点。
+    // seat 接口的座位号字段就叫 no（真机 "Z2F034"）；`no` 只在 seat 来源用，
+    // 免得别的接口里同名字段串味。取不到时再从标题的冒号后面抠。
+    final seatKeys = kind == 'seat'
+        ? <String>[
+            'no', 'seatNo', 'seat_no', 'seatCode', 'seat_code', 'seatNum',
+            'seat_num', 'seatName', 'seat_name', 'name'
+          ]
+        : <String>[
+            'seatNo', 'seat_no', 'seatCode', 'seat_code', 'seatNum',
+            'seat_num', 'seatName', 'seat_name'
+          ];
+    var seatNo = pick(seatKeys);
+    if (seatNo.isEmpty) {
+      final match = RegExp(r'[：:]\s*([A-Za-z0-9][A-Za-z0-9\-]{1,15})\s*$').firstMatch(title);
+      if (match != null) seatNo = match.group(1)!;
+    }
+    final roomName = pick(<String>['roomName', 'room_name', 'roomTitle', 'room_title', 'spaceName', 'space_name']);
+    final areaName = pick(<String>['areaName', 'area_name', 'libName', 'lib_name', 'libraryName', 'buildingName', 'floorName', 'floor_name']);
     if (title.isEmpty && place.isEmpty && start == null && end == null) return null;
     return LibraryReservation(
       id: pick(<String>['id', 'reservation_id', 'reserve_id', 'order_id']),
       title: title.isEmpty ? '图书馆预约' : title,
       place: place,
-      status: pick(<String>['statusname', 'status_name', 'status']),
+      // statusname（seminar）/ statusName（seat）都要认；纯数字的 status 只当兜底
+      status: pick(<String>['statusname', 'statusName', 'status_name', 'status']),
       start: start,
       end: end,
+      kind: kind,
+      seatNo: seatNo,
+      roomName: roomName,
+      areaName: areaName,
     );
   }
 }
@@ -294,13 +353,15 @@ class LibrarySpider {
   /// 所以统一交给防御式解析（reservationsFrom），并顺手做去重 + 按开始时间排序。
   Future<List<LibraryReservation>> myReservations() async {
     final all = <LibraryReservation>[];
-    for (final loader in <Future<Map<String, dynamic>> Function()>[
-      mySeats,
-      myRooms,
-      () => post('/api/Member/seminar', <String, dynamic>{}),
+    for (final source in <({String path, String kind})>[
+      (path: '/api/Member/seat', kind: 'seat'),
+      (path: '/api/Member/room', kind: 'room'),
+      (path: '/api/Member/seminar', kind: 'seminar'),
     ]) {
       try {
-        all.addAll(reservationsFrom(await loader()));
+        all.addAll(reservationsFrom(
+            await post(source.path, <String, dynamic>{}),
+            kind: source.kind));
       } on LibraryAuthException {
         rethrow; // 登录失效要一路抛上去
       } on Object {
@@ -416,7 +477,10 @@ class LibrarySpider {
   ///   · /api/Member/seminar（活动/研讨间）→ data 是**分页对象** {total,…,data:[…]}。
   /// 所以这里**只看这两个已知位置**，绝不盲目递归 —— 之前递归把每条预约里的
   /// timelist（6 个小时段）也算成了预约，界面上就显示"7 条预约"（1+6）。
-  static List<LibraryReservation> reservationsFrom(Object? response) {
+  ///
+  /// [kind] 由调用方按接口路径注入（seat / room / seminar），用来给待办选短标题前缀。
+  static List<LibraryReservation> reservationsFrom(Object? response,
+      {String kind = ''}) {
     if (response is! Map) return <LibraryReservation>[];
     final data = response['data'];
     Object? items;
@@ -430,10 +494,21 @@ class LibrarySpider {
     final result = <LibraryReservation>[];
     for (final item in items) {
       if (item is! Map) continue;
-      final parsed = LibraryReservation.fromJson(Map<String, dynamic>.from(item));
+      final parsed = LibraryReservation.fromJson(Map<String, dynamic>.from(item),
+          kind: kind);
       if (parsed != null) result.add(parsed);
     }
     return result;
+  }
+
+  /// 把接口的**原始 JSON** 打进 logcat / 诊断日志。
+  ///
+  /// 为什么要它：座位号、房间名这些字段名只能从真实响应里对出来，界面显示错了
+  /// 只能靠原始数据定位。截断到 4000 字符，避免一条被撑爆。
+  static void traceResponse(String path, String body) {
+    final text =
+        body.length > 4000 ? body.substring(0, 4000) + '…（已截断）' : body;
+    libraryTrace('原始响应 ' + path + '：' + text);
   }
 
 }
