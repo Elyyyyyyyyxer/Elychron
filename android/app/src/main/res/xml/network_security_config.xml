@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 学校的 CAS 登录会把浏览器跳到**明文 HTTP**
+     （http://zjuam.zju.edu.cn/cas/login?service=...），而安卓 9+ 默认禁止明文流量：
+     内置浏览器打开图书馆预约的登录页时就会 net::ERR_CLEARTEXT_NOT_PERMITTED。
+     这里**只对 zju.edu.cn 放开**，其余域名仍然强制 HTTPS。 -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false" />
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">zju.edu.cn</domain>
+    </domain-config>
+</network-security-config>

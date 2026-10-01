@@ -158,5 +158,13 @@ void main() {
     });
   });
 
+    test('粘贴进来的 token 很脏也能洗干净（前缀/换行/空白）', () {
+      const clean = 'abcdef1234567890abcdef1234567890';
+      expect(LibraryConfig.sanitizeToken('  ' + clean + '\n'), clean);
+      expect(LibraryConfig.sanitizeToken('token=' + clean), clean);
+      expect(LibraryConfig.sanitizeToken('authorization: ' + clean), clean);
+      expect(LibraryConfig.sanitizeToken('Bearer ' + clean), clean);
+    });
+
   });
 }

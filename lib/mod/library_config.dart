@@ -24,8 +24,21 @@ class LibraryConfig {
   static String get token => _db?.getLibraryToken() ?? '';
 
   static Future<void> setToken(String value) async {
-    await _db?.setLibraryToken(value.trim());
+    await _db?.setLibraryToken(sanitizeToken(value));
     await _db?.setLibraryEnabled(true); // 存进 token 就是"要用它"
+  }
+
+  /// 把粘贴/注入进来的 token 洗干净。
+  ///
+  /// 从浏览器复制时很容易带上 `token=`、`authorization:`、`bearer ` 前缀，
+  /// 或者粘成好几行 —— 带着这些发给接口就是"您尚未登录"（真机踩过）。
+  static String sanitizeToken(String raw) {
+    var text = raw.trim();
+    text = text.replaceFirst(
+        RegExp(r'^(token|authorization)\s*[:=]\s*', caseSensitive: false), '');
+    text = text.replaceFirst(RegExp(r'^bearer\s+', caseSensitive: false), '');
+    text = text.replaceAll(RegExp(r'\s'), '');
+    return text;
   }
 
   static Future<void> clearToken() async {
