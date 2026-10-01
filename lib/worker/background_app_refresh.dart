@@ -1,3 +1,4 @@
+import 'package:celechron/database/database_helper.dart';
 import 'package:celechron/http/zjuServices/exceptions.dart';
 import 'package:celechron/model/scholar.dart';
 import 'package:celechron/services/diagnostic_log_service.dart';
@@ -11,8 +12,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../utils/utils.dart';
 import 'notification_dedup.dart';
 
-/// 成绩变动通知的 channel（后台的"有新课出分"和前台那句开场白共用一套，
-/// 免得两处各写一份、以后改了一个忘了另一个）
+/// 成绩变动通知的 channel（"有新课程出分"那条真消息走这里）
 const NotificationDetails _gradeNotificationDetails = NotificationDetails(
   android: AndroidNotificationDetails(
     'top.celechron.celechron.gradeChange',
@@ -31,25 +31,87 @@ const NotificationDetails _gradeNotificationDetails = NotificationDetails(
   ),
 );
 
+/// 「成绩推送」这句开场白**单独一条通道**：它只是告知，不该像成绩变动那样
+/// 用 Importance.max 顶一个横幅出来（用户反馈的就是"时不时给我推"）。
+/// 默认重要度 = 有声但不出横幅；成绩本身那条仍然走 _gradeNotificationDetails。
+const NotificationDetails _gradeIntroNotificationDetails = NotificationDetails(
+  android: AndroidNotificationDetails(
+    'top.celechron.celechron.tips',
+    'Elychron 提示',
+    channelDescription: '一次性的说明（比如"成绩推送已开启"），不弹横幅',
+    importance: Importance.defaultImportance,
+    priority: Priority.defaultPriority,
+    showWhen: false,
+  ),
+  iOS: DarwinNotificationDetails(
+    presentSound: false,
+    presentBadge: false,
+    presentBanner: false,
+    presentList: true,
+    badgeNumber: 0,
+  ),
+);
+
 /// 「成绩推送」的那句开场白 —— **只能在有界面的地方调**（见 main.dart 启动钩子）。
 ///
 /// 用户反馈：「一天会给我推送很多次那个通知」。那句开场白原来就挂在
 /// 15 分钟一次的后台任务里，后台 isolate 读不到"说过了"的记录时就会一直弹。
 /// 现在：前台才说、而且用**文件**记着"说过了"，所以一辈子只会出现一次。
 /// 顺带它也是唯一一条带具体数字的说明（已经查到几门出分、当前均绩多少）。
-Future<void> showGradePushIntroOnce() async {
+///
+/// 2026-10-01 第二次修：用户说「始终时不时给我推"成绩推送已开启"」。
+/// 复盘这条通知的"说过了"记在哪：Hive / 文件 / 密钥库三处，之前**只看后两处**，
+/// 而后两处恰恰都可能丢 —— 密钥库在覆盖安装后会读空（某些 ROM，database_helper
+/// 里那个 readAll 超时兜底就是为它加的），临时目录会被清。实测证据：手机在
+/// 08:32 覆盖安装，08:39 又发了这条，而且正文里**连"已经查到 N 门出分"都没有**
+/// （说明当时密钥库确实读空了）。现在正式记录写 Hive（和 pushOnGradeChange
+/// 同一个盒子，覆盖安装、清缓存都带不走），另两处退化成"多一道保险"。
+/// 开场白要不要说？纯判断，方便用测试钉住（三道闸任意一道说"说过了"就不说）。
+///
+/// 三道闸的目的不一样：Hive 是**权威**（覆盖安装带不走），文件和密钥库是
+/// 保险（覆盖安装会丢、缓存会被清）。三个都可能丢一个，丢一个不该让这条
+/// 一辈子只说一次的通知复活。
+bool shouldShowGradePushIntro({
+  required String fingerprint,
+  required String hiveMark,
+  required bool saidInFile,
+  required bool saidInStorage,
+}) {
+  if (hiveMark == fingerprint) return false;
+  if (saidInFile) return false;
+  if (saidInStorage) return false;
+  return true;
+}
+
+Future<void> showGradePushIntroOnce(DatabaseHelper db) async {
   if (!PlatformFeatures.hasBackgroundRefresh) return;
   const fingerprint = 'grade-push-intro-v1';
+
+  // ===== 第一道闸（正式记录）：Hive =====
+  final hiveMark = db.getGradePushIntroShown();
+  if (hiveMark == fingerprint) return;
+
   final storage = const FlutterSecureStorage();
-  // 两句"说过了"要都查：文件可靠（跨 isolate 也是同一份）但系统可能清缓存，
-  // 加密存储在前台一定读得到。只要有一个说过了就不再提 ——
-  // 这条通知本来就该一辈子只出现一次（用户：「刚刚又给我推了一遍」）。
+  // 两句"说过了"还是都查（文件跨 isolate 同一份、密钥库在前台通常读得到），
+  // 但只要有一处丢了就当没说过 —— 所以它们是保险，不是权威（权威是上面那个
+  // Hive 标记）。这条通知本来就该一辈子只出现一次。
   final saidInFile =
       await NotificationDedup.everSent('grade_intro', fingerprint);
   final saidInStorage = await storage.read(
           key: 'gradePushIntroShown', iOptions: secureStorageIOSOptions) ==
       '1';
-  if (saidInFile || saidInStorage) return;
+  final shouldShow = shouldShowGradePushIntro(
+    fingerprint: fingerprint,
+    hiveMark: hiveMark,
+    saidInFile: saidInFile,
+    saidInStorage: saidInStorage,
+  );
+  if (!shouldShow) {
+    // 老记录（文件或密钥库）说过了：把 Hive 这条正式记录补上，
+    // 以后就不用再问那两个不靠谱的地方。不补的话，等它们哪天丢，这条又会复活。
+    await db.setGradePushIntroShown(fingerprint);
+    return;
+  }
 
   final plugin = FlutterLocalNotificationsPlugin();
   const initializationSettingsAndroid =
@@ -85,12 +147,21 @@ Future<void> showGradePushIntroOnce() async {
 
   // id 用 90001 而不是 0：0 是任何人都可能顺手用的默认 id，
   // 历史上它和别的通知互相顶掉过（用户反馈"通知全是成绩推送那一条"）。
-  await plugin.show(90001, '成绩推送已开启', body, _gradeNotificationDetails);
+  await plugin.show(
+      90001, '成绩推送已开启', body, _gradeIntroNotificationDetails);
+  // 三处一起记：Hive 是正式记录，另两处是保险。
+  await db.setGradePushIntroShown(fingerprint);
   await NotificationDedup.markSent('grade_intro', fingerprint);
   await storage.write(
       key: 'gradePushIntroShown',
       value: '1',
       iOptions: secureStorageIOSOptions);
+  DiagnosticLogService.instance.record(
+    module: 'notify',
+    operation: 'gradeIntro',
+    message: '成绩推送开场白已发出（这是唯一一次；'
+        '文件标记=$saidInFile，密钥库标记=$saidInStorage）',
+  );
 }
 
 @pragma('vm:entry-point')

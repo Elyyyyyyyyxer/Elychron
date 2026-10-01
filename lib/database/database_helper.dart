@@ -438,6 +438,17 @@ class DatabaseHelper {
   final String kGpaStrategy = 'gpaStrategy';
   final String kPushOnGradeChange = 'pushOnGradeChange';
   final String kPushOnDdlReminder = 'pushOnDdlReminder';
+
+  /// 「成绩推送已开启」那句开场白说过了吗（2026-10-01）。
+  ///
+  /// 为什么不是密钥库：它是条"一辈子只说一次"的记录，而密钥库在**覆盖安装**
+  /// 之后会读空（某些 ROM 就是这样，database_helper 里那个 readAll 超时兜底
+  /// 就是为这个加的），临时目录又会被清 —— 两处都可能丢，于是那句开场白
+  /// 会跟着标记一起复活（用户反馈「始终时不时给我推"成绩推送已开启"」）。
+  /// 存在 optionsBox 里最稳：和 pushOnGradeChange 同一个盒子，覆盖安装带不走。
+  ///
+  /// ⚠️ 只加一个普通 String 键，不动任何 Hive adapter / 字段计数。
+  final String kGradePushIntroShown = 'gradePushIntroShown';
   // P1：默认提醒提前量（分钟）。活动与截止用它；提醒型就是那一刻本身。
   final String kReminderLeadMinutes = 'reminderLeadMinutes';
   final String kBrightnessMode = 'brightnessMode';
@@ -640,6 +651,14 @@ class DatabaseHelper {
 
   Future<void> setPushOnDdlReminder(bool pushOnDdlReminder) async {
     await optionsBox.put(kPushOnDdlReminder, pushOnDdlReminder);
+  }
+
+  /// 已发过的开场白指纹（空字符串 = 还没说过）
+  String getGradePushIntroShown() =>
+      optionsBox.get(kGradePushIntroShown) as String? ?? '';
+
+  Future<void> setGradePushIntroShown(String fingerprint) async {
+    await optionsBox.put(kGradePushIntroShown, fingerprint);
   }
 
   Future<void> setBrightnessMode(BrightnessMode brightness) async {

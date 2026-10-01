@@ -330,10 +330,7 @@ class ScheduleView extends StatelessWidget {
               0,
               (13 - period[i].item2) * constraints.maxHeight / 13,
             ),
-            child: SessionCard(
-              sessionList: sessionList[i],
-              hideInfomation: false,
-            ),
+            child: SessionCard(sessionList: sessionList[i]),
           ),
         );
       }

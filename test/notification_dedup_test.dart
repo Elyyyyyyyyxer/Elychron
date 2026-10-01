@@ -1,3 +1,4 @@
+import 'package:celechron/worker/background_app_refresh.dart';
 import 'package:celechron/worker/notification_dedup.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -54,5 +55,45 @@ void main() {
         't-ddl', <String, dynamic>{'ids': <String>['a', 'b']});
     final record = await NotificationDedup.read('t-ddl');
     expect(record?['ids'], <String>['a', 'b']);
+  });
+
+  /// 「成绩推送已开启」那条开场白：三道闸（Hive / 文件 / 密钥库）任意一道
+  /// 说"说过了"就不许再说。用户原话：「始终时不时给我推"成绩推送已开启"」——
+  /// 当时只看文件 + 密钥库，而覆盖安装会把密钥库读空、缓存会被清，
+  /// 两道闸一起丢，那条一辈子只说一次的通知就复活了。
+  group('成绩推送开场白：三道闸', () {
+    const fp = 'grade-push-intro-v1';
+    bool show({
+      String hive = '',
+      bool file = false,
+      bool storage = false,
+    }) =>
+        shouldShowGradePushIntro(
+          fingerprint: fp,
+          hiveMark: hive,
+          saidInFile: file,
+          saidInStorage: storage,
+        );
+
+    test('三处都没记过才说', () {
+      expect(show(), isTrue);
+    });
+
+    test('Hive 记过就永远不说（哪怕文件、密钥库都丢了）', () {
+      expect(show(hive: fp), isFalse);
+      expect(show(hive: fp, file: false, storage: false), isFalse);
+    });
+
+    test('Hive 没记但文件记过 → 不说（老版本留下来的记录也算）', () {
+      expect(show(file: true), isFalse);
+    });
+
+    test('Hive 没记但密钥库记过 → 不说', () {
+      expect(show(storage: true), isFalse);
+    });
+
+    test('指纹换代才重新允许说（防止误伤：换了文案要能再说一次）', () {
+      expect(show(hive: 'grade-push-intro-v0'), isTrue);
+    });
   });
 }

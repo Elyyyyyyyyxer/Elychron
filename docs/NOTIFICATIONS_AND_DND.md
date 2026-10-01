@@ -79,3 +79,37 @@ WorkManager 每 15 分钟跑一次（`dumpsys jobscheduler` 实测 `Minimum late
 并且把学业那边的子页面（课程/成绩/考试/培养方案/实践分）以及待办的编辑、
 新建页里硬编码的同一层灰一起换掉了。底部弹窗（登录、课程代码映射）
 保留灰底 —— 那是弹窗自己的观感，不属于"页面底色"。
+
+## 四、2026-10-01：开场白又问了一次（第二次修）
+
+用户：「Elychron 始终时不时给我推『成绩推送已开启』的通知，不知道为什么」。
+
+真机取证（不是猜）：
+
+- 08:32:01 覆盖安装（`dumpsys package` 的 lastUpdateTime）；
+- 08:39:08 那条通知**又发了**（`dumpsys notification` 里的 when=1790815148034）；
+- 关键证据：**正文里没有「已经查到 N 门出分」那句** —— 那两句事实是从
+  `FlutterSecureStorage` 读的，读不到才不显示。也就是说当时密钥库里
+  `gpa` / `gradedCourseCount` 已经是空的：**覆盖安装把密钥库读空了**
+  （不少 ROM 就这样，`database_helper.dart` 里那个 `secureStorage.readAll`
+  的三秒超时兜底就是为同一个坑加的）；
+- 而 08:41 再冷启动一次**没有**重发 —— 说明 08:39 那次把标记重新写回去之后，
+  记录又能正常读到，直到下一次覆盖安装。
+
+结论：这条通知的"说过了"当时只记在**密钥库 + 临时目录**，而这两处恰恰都会丢
+（密钥库覆盖安装后读空、App 缓存会被清），所以每次覆盖安装都会复活一遍。
+
+改法（三层，Hive 是权威）：
+
+1. **Hive（`optionsBox`）记正式标记** `gradePushIntroShown` —— 和
+   `pushOnGradeChange` 同一个盒子，覆盖安装、清缓存都带不走；
+2. 文件 / 密钥库降级成"多一道保险"：任意一处说过了就不发，并且**顺手把 Hive 补上**；
+3. 换成独立的**低优先级通道** `top.celechron.celechron.tips`（Elychron 提示）——
+   它只是告知，不该像成绩变动那样用 `Importance.max` 顶一个横幅出来。
+
+判断本身抽成纯函数 `shouldShowGradePushIntro`，配 5 条单测
+（`test/notification_dedup_test.dart`）。
+
+顺带：`NotificationDedup` 的落盘目录从 `Directory.systemTemp` 换成
+`getApplicationSupportDirectory()`（手机上是 files 目录），拿不到插件时才退回临时目录 ——
+作业截止提醒、成绩变动这两处的去重窗口也跟着一起稳了。

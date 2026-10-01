@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:path_provider/path_provider.dart';
+
 /// ===== 通知去重：用文件，不用加密存储（2026-09-29）=====
 ///
 /// 用户反馈：「一天会给我推送很多次那个通知，然后我本来应该有的消息提醒就没有了」。
@@ -20,18 +22,47 @@ import 'dart:io';
 class NotificationDedup {
   NotificationDedup._();
 
-  /// 放在临时目录下（手机上是 App 私有缓存，桌面端是用户临时目录）。
-  /// 系统清掉它顶多多发一次通知，不会丢任何用户数据。
-  static Directory get directory => Directory(
-      '${Directory.systemTemp.path}${Platform.pathSeparator}celechron_notify');
+  /// 落盘位置解析一次就记住（每个 isolate 各记各的，互不影响）。
+  static Directory? _resolvedDirectory;
 
-  static File fileFor(String key) =>
-      File('${directory.path}${Platform.pathSeparator}$key.json');
+  /// 2026-10-01：**不能再放临时目录**。
+  ///
+  /// 原来放在 Directory.systemTemp（手机上是 App 私有缓存，桌面端是临时目录），
+  /// 还注释说"系统清掉它顶多多发一次"。用户反馈「始终时不时给我推
+  /// '成绩推送已开启'」之后回头看，这个"顶多多发一次"本身就是骚扰：
+  /// 缓存被清、覆盖安装之后，"说过了"的记录跟着一起蒸发，
+  /// 那条本来一辈子只说一次的开场白就又复活一遍。
+  ///
+  /// 现在优先放进 App 自己的支持目录（getApplicationSupportDirectory，
+  /// 手机上是 files 目录，覆盖安装、清缓存都带不走）；后台 isolate 里
+  /// 拿不到插件时退回临时目录 —— 那时候功能不受影响，只是少一道闸。
+  static Future<Directory> resolveDirectory() async {
+    final cached = _resolvedDirectory;
+    if (cached != null) return cached;
+    Directory? resolved;
+    try {
+      final base = await getApplicationSupportDirectory();
+      resolved =
+          Directory('${base.path}${Platform.pathSeparator}celechron_notify');
+      await resolved.create(recursive: true);
+    } on Object {
+      resolved = null;
+    }
+    resolved ??= Directory(
+        '${Directory.systemTemp.path}${Platform.pathSeparator}celechron_notify');
+    _resolvedDirectory = resolved;
+    return resolved;
+  }
+
+  static Future<File> fileFor(String key) async {
+    final directory = await resolveDirectory();
+    return File('${directory.path}${Platform.pathSeparator}$key.json');
+  }
 
   /// 这个 key 上次记了什么（读不到、读坏了都返回 null）
   static Future<Map<String, dynamic>?> read(String key) async {
     try {
-      final file = fileFor(key);
+      final file = await fileFor(key);
       if (!await file.exists()) return null;
       final decoded = jsonDecode(await file.readAsString());
       return decoded is Map ? Map<String, dynamic>.from(decoded) : null;
@@ -42,8 +73,10 @@ class NotificationDedup {
 
   static Future<void> write(String key, Map<String, dynamic> value) async {
     try {
+      final directory = await resolveDirectory();
       await directory.create(recursive: true);
-      await fileFor(key).writeAsString(jsonEncode(value), flush: true);
+      final file = await fileFor(key);
+      await file.writeAsString(jsonEncode(value), flush: true);
     } on Object {
       // 落盘失败只意味着"下次可能多发一次"，不该阻断通知本身
     }

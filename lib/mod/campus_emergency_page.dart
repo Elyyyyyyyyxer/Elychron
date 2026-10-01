@@ -2,7 +2,7 @@ import 'dart:convert';
 
 import 'package:celechron/design/app_accent.dart';
 import 'package:celechron/design/page_background.dart';
-import 'package:celechron/page/option/option_view.dart' show BackChervonRow;
+import 'package:celechron/design/section_text_style.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:url_launcher/url_launcher_string.dart';
@@ -190,8 +190,8 @@ class _CampusEmergencyPageState extends State<CampusEmergencyPage> {
       CupertinoListSection.insetGrouped(
         backgroundColor: pageBackground(context),
         additionalDividerMargin: 2,
-        header: Text(header),
-        footer: footer.isEmpty ? null : Text(footer),
+        header: sectionHeader(context, header),
+        footer: footer.isEmpty ? null : sectionFooter(context, footer),
         children: <Widget>[
           for (final entry in entries)
             CupertinoListTile(
@@ -205,8 +205,7 @@ class _CampusEmergencyPageState extends State<CampusEmergencyPage> {
               subtitle: Text(
                 entry.subtitle.isEmpty
                     ? entry.phone
-                    : entry.subtitle + '
-' + entry.phone,
+                    : entry.subtitle + ' · ' + entry.phone,
               ),
               trailing: Icon(
                 CupertinoIcons.phone_fill,

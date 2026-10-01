@@ -241,7 +241,7 @@ void main(List<String> args) async {
     try {
       final db = Get.find<DatabaseHelper>(tag: 'db');
       if (!db.getPushOnGradeChange()) return;
-      await showGradePushIntroOnce();
+      await showGradePushIntroOnce(db);
     } catch (_) {}
   });
 
