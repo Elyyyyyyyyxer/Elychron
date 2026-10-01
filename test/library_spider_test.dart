@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:celechron/http/library_spider.dart';
+import 'package:celechron/mod/library_config.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// 图书馆空间预约系统（2026-10-01）。
@@ -142,6 +143,20 @@ void main() {
       // 时段跨了 4 小时 —— 这正是"预约该走 startTime+endTime"而不是只有截止时间的原因
       expect(one.end!.difference(one.start!).inHours, 4);
     });
+
+  group('从 WebView 的 JS 返回值里抠 token', () {
+    test('带引号的字符串要脱掉引号', () {
+      expect(LibraryConfig.tokenFromJavaScript('"abc.def.ghi"'), 'abc.def.ghi');
+    });
+    test('没有登录时返回的是 "null" / 空串，都当没有', () {
+      expect(LibraryConfig.tokenFromJavaScript('null'), '');
+      expect(LibraryConfig.tokenFromJavaScript('""'), '');
+      expect(LibraryConfig.tokenFromJavaScript(null), '');
+    });
+    test('转义引号也处理（token 里带引号的极端情况）', () {
+      expect(LibraryConfig.tokenFromJavaScript(r'"a\"b"'), 'a"b');
+    });
+  });
 
   });
 }

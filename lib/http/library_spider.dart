@@ -147,6 +147,15 @@ class LibrarySpider {
   final HttpClient _client;
   final LibraryCookieJar _jar = LibraryCookieJar();
 
+  /// 直接用现成的 token 建一个爬虫（不做 CAS 登录）—— 粘贴 / WebView 取的 token 都走它
+  LibrarySpider.withToken(String token)
+      : username = '',
+        password = '',
+        _client = HttpClient() {
+    _token = token;
+    _loggedIn = token.isNotEmpty;
+  }
+
   bool _loggedIn = false;
   String _token = '';
 
@@ -260,6 +269,48 @@ class LibrarySpider {
 
   /// 我的座位预约
   Future<Map<String, dynamic>> mySeats() => post('/api/Member/seat', <String, dynamic>{});
+
+  /// 我的**全部**预约（座位 + 研讨间 + 活动），合并成一条列表。
+  ///
+  /// 实测形状不一样：seat/room 是**纯数组**，seminar 是**分页对象**（data.data），
+  /// 所以统一交给防御式解析（reservationsFrom），并顺手做去重 + 按开始时间排序。
+  Future<List<LibraryReservation>> myReservations() async {
+    final all = <LibraryReservation>[];
+    for (final loader in <Future<Map<String, dynamic>> Function()>[
+      mySeats,
+      myRooms,
+      () => post('/api/Member/seminar', <String, dynamic>{}),
+    ]) {
+      try {
+        all.addAll(reservationsFrom(await loader()));
+      } on LibraryAuthException {
+        rethrow; // 登录失效要一路抛上去
+      } on Object {
+        // 单个来源失败不影响别的（比如活动接口偶发 500）
+      }
+    }
+    final seen = <String>{};
+    final result = <LibraryReservation>[];
+    for (final item in all) {
+      final key = item.title + '|' + (item.start?.toIso8601String() ?? '') + '|' + item.place;
+      if (seen.add(key)) result.add(item);
+    }
+    result.sort((a, b) {
+      final left = a.start ?? DateTime(2100);
+      final right = b.start ?? DateTime(2100);
+      return left.compareTo(right);
+    });
+    return result;
+  }
+
+  /// 拿现成 token 验一次（"先验再存"用；不写任何东西，只回答"这个 token 能用吗"）
+  Future<String> verify() async {
+    final info = await myInfo();
+    final data = info['data'];
+    final name = data is Map ? (data['name']?.toString() ?? '') : '';
+    _loggedIn = true;
+    return name;
+  }
 
   /// 我的研讨间预约
   Future<Map<String, dynamic>> myRooms() => post('/api/Member/room', <String, dynamic>{});

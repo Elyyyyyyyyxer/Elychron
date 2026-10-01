@@ -676,6 +676,14 @@ class DatabaseHelper {
     await optionsBox.put(kLibraryEnabled, value);
   }
 
+  final String kLibraryToken = 'libraryToken';
+
+  String getLibraryToken() => optionsBox.get(kLibraryToken) as String? ?? '';
+
+  Future<void> setLibraryToken(String value) async {
+    await optionsBox.put(kLibraryToken, value);
+  }
+
   String getLibraryLastResult() =>
       optionsBox.get(kLibraryLastResult) as String? ?? '';
 
