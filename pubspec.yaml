@@ -42,6 +42,7 @@ dependencies:
   local_notifier: ^0.1.6
   desktop_drop: ^0.8.4
   audioplayers: ^6.8.1
+  webview_flutter: ^4.14.1
 
 dev_dependencies:
   flutter_test:

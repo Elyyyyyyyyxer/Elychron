@@ -2,6 +2,8 @@ import 'package:celechron/design/app_route.dart';
 import 'package:celechron/design/page_background.dart';
 import 'package:celechron/design/section_text_style.dart';
 import 'package:celechron/mod/pta_homework.dart';
+import 'package:celechron/mod/pta_login_page.dart';
+import 'package:celechron/utils/platform_features.dart';
 import 'package:celechron/utils/utils.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:url_launcher/url_launcher_string.dart';
@@ -81,6 +83,20 @@ class _PtaSettingsPageState extends State<PtaSettingsPage> {
     if (ok != true) return;
     await PtaHomework.clearCookie();
     if (mounted) setState(() => _result = null);
+  }
+
+  /// 用内置浏览器登录（安卓/iOS）。成功就顺手把开关打开 —— 用户点这个按钮，
+  /// 意思就是要用它。
+  Future<void> _loginWithWebView() async {
+    final result = await Navigator.of(context, rootNavigator: true).push<String>(
+      appPageRoute<String>(
+        builder: (BuildContext context) => const PtaLoginPage(),
+      ),
+    );
+    if (!mounted || result == null) return;
+    await PtaHomework.setEnabled(true);
+    if (!mounted) return;
+    await _run(() => PtaHomework.refresh(force: true));
   }
 
   Future<void> _openPintia() async {
@@ -165,10 +181,23 @@ class _PtaSettingsPageState extends State<PtaSettingsPage> {
             header: sectionHeader(context, 'PTASession'),
             footer: sectionFooter(
               context,
-              '浏览器登录 pintia.cn 后按 F12 → Application → Cookies → 复制 '
-              'PTASession 的值。它不是密码，但别发给别人；过期了这里会提示重贴。',
+              '上面那个按钮会打开内置浏览器，你正常登录一次就行。'
+              '不想用它？也可以从桌面浏览器按 F12 → Application → Cookies 复制 '
+              'PTASession 的值贴到下面。它不是密码，但别发给别人。',
             ),
             children: <Widget>[
+              if (PlatformFeatures.hasWebViewLogin)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: CupertinoButton.filled(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      onPressed: _busy ? null : _loginWithWebView,
+                      child: const Text('用内置浏览器登录（推荐）'),
+                    ),
+                  ),
+                ),
               if (hasCookie)
                 CupertinoListTile(
                   title: const Text('当前'),
