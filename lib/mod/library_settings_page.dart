@@ -52,6 +52,27 @@ class _LibrarySettingsPageState extends State<LibrarySettingsPage> {
       _result = message;
     });
     await LibraryConfig.setLastResult(message);
+    // 副标题会被截断，所以完整文案用弹窗给（用户能看全，也能顺手截图给我）
+    if (message.length > 24) {
+      await showCupertinoDialog<void>(
+        context: this.context,
+        builder: (BuildContext context) => CupertinoAlertDialog(
+          title: const Text('结果'),
+          content: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(message, style: const TextStyle(fontSize: 14)),
+            ),
+          ),
+          actions: <Widget>[
+            CupertinoDialogAction(
+              child: const Text('知道了'),
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+          ],
+        ),
+      );
+    }
   }
 
   /// A：粘贴 token（先验再存）

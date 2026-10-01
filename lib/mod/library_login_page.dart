@@ -77,13 +77,9 @@ class _LibraryLoginPageState extends State<LibraryLoginPage> {
       try {
         final probe = await controller
             .runJavaScriptReturningResult(
-                'JSON.stringify({s:Object.keys(window.sessionStorage).map(function(k){return k+":"+String(window.sessionStorage.getItem(k)||"").length}),l:Object.keys(window.localStorage).map(function(k){return k+":"+String(window.localStorage.getItem(k)||"").length})})')
+                'JSON.stringify({url:location.href,s:Object.keys(window.sessionStorage).map(function(k){return k+":"+String(window.sessionStorage.getItem(k)||"").length}),l:Object.keys(window.localStorage).map(function(k){return k+":"+String(window.localStorage.getItem(k)||"").length})})')
             .timeout(const Duration(seconds: 8));
-        DiagnosticLogService.instance.record(
-          module: '图书馆预约',
-          operation: 'webViewStorage',
-          message: probe.toString().replaceAll('"', ''),
-        );
+        libraryTrace('WebView 存储：' + probe.toString().replaceAll('"', ''));
       } on Object {
         // 照不出来就算了，不影响后面取 token
       }
@@ -93,11 +89,7 @@ class _LibraryLoginPageState extends State<LibraryLoginPage> {
               'window.sessionStorage.getItem("token") || window.localStorage.getItem("token") || ""')
           .timeout(const Duration(seconds: 8));
       final token = LibraryConfig.tokenFromJavaScript(raw);
-      DiagnosticLogService.instance.record(
-        module: '图书馆预约',
-        operation: 'webViewLogin',
-        message: '注入 JS 取到 token 长度=' + token.length.toString(),
-      );
+      libraryTrace('注入 JS 取到 token 长度=' + token.length.toString());
       if (token.isEmpty) {
         if (manual && mounted) {
           setState(() => _status = '还没登录成功 —— 先在下面登录，再点右上角「完成」');
@@ -109,11 +101,8 @@ class _LibraryLoginPageState extends State<LibraryLoginPage> {
       try {
         final name = await spider.verify();
         await LibraryConfig.setToken(token);
-        DiagnosticLogService.instance.record(
-          module: '图书馆预约',
-          operation: 'webViewLogin',
-          message: '从 WebView 验到有效 token，已保存（' + name.length.toString() + ' 字的名字）',
-        );
+        libraryTrace('WebView token 验证通过，已保存（token 长度=' +
+            LibraryConfig.token.length.toString() + '）');
         if (!mounted) return;
         Navigator.of(context).pop(name.isEmpty ? '连接成功' : '连接成功：' + name);
       } finally {
@@ -126,6 +115,7 @@ class _LibraryLoginPageState extends State<LibraryLoginPage> {
         operation: 'webViewLogin',
         message: '读/验 token 失败：' + error.toString(),
       );
+      libraryTrace('WebView 取值/验证失败：' + error.toString());
       if (mounted) setState(() => _status = '没成功：' + error.toString());
     } finally {
       _harvesting = false;

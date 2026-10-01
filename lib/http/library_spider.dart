@@ -17,6 +17,18 @@ import 'package:celechron/services/diagnostic_log_service.dart';
 ///
 /// 接口全是 POST + JSON，路径 /api/...；未登录时后端返回
 /// code=10001「您尚未登录」（实测），我们据此判定登录失效。
+/// 真机排查用：诊断日志写文件（用户自己也能看），**同时打到 logcat**（我能远程读）。
+/// 2026-10-01：图书馆这条路只在真机上走得通，看不见日志就没法查。
+void libraryTrace(String message) {
+  DiagnosticLogService.instance.record(
+    module: '图书馆预约',
+    operation: 'trace',
+    message: message,
+  );
+  // ignore: avoid_print
+  print('[Elychron][图书馆预约] ' + message);
+}
+
 class LibraryAuthException implements Exception {
   LibraryAuthException(this.message);
 
@@ -362,6 +374,12 @@ class LibrarySpider {
     }
     final body = Map<String, dynamic>.from(decoded);
     final code = body['code'];
+    if (code != 1) {
+      libraryTrace('POST ' + path + ' → code=' + code.toString() +
+          ' msg=' + (body['msg']?.toString() ?? body['message']?.toString() ?? '-') +
+          ' token长度=' + _token.length.toString() +
+          ' cookie数=' + _jar.length.toString());
+    }
     if (code == 10001) {
       _loggedIn = false;
       throw LibraryAuthException('图书馆预约：登录已失效（您尚未登录）');
