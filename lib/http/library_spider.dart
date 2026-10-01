@@ -393,7 +393,12 @@ class LibrarySpider {
     }
     if (code == 10001) {
       _loggedIn = false;
-      throw LibraryAuthException('图书馆预约：登录已失效（您尚未登录）');
+      // 把**服务端自己的那句话**原样透出来，别用我们自己编的"登录已失效"糊过去。
+      // 实测 2026-10-01：这网站是**单设备登录** —— 在别处登录一次，这边就被踢，
+      // 服务端会说「请注意,您的账号在其他设备登录！」。用户看到这句才知道该做什么。
+      final reason = (body['msg'] ?? body['message'] ?? '').toString();
+      throw LibraryAuthException(
+          reason.isEmpty ? '图书馆预约：登录已失效' : '图书馆预约：' + reason);
     }
     return body;
   }
