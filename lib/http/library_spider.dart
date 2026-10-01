@@ -54,12 +54,17 @@ class LibraryNotice {
 /// 所以常见键名都认，认不出就留空，绝不因为一个字段缺失整条丢掉。
 class LibraryReservation {
   const LibraryReservation({
+    required this.id,
     required this.title,
     required this.place,
     required this.status,
     required this.start,
     required this.end,
   });
+
+  /// 站点的预约 id。**同步待办要靠它**（uid = lib-<id>，稳定才不会反复长出重复待办），
+  /// 所以没有 id 的条目在同步时会被跳过。
+  final String id;
 
   final String title;
   final String place;
@@ -92,6 +97,7 @@ class LibraryReservation {
     final place = pick(<String>['nameMerge', 'place', 'address', 'room', 'area', 'space', 'lib_name', 'location']);
     if (title.isEmpty && place.isEmpty && start == null && end == null) return null;
     return LibraryReservation(
+      id: pick(<String>['id', 'reservation_id', 'reserve_id', 'order_id']),
       title: title.isEmpty ? '图书馆预约' : title,
       place: place,
       status: pick(<String>['statusname', 'status_name', 'status']),

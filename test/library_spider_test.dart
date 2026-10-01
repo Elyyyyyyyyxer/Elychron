@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:celechron/http/library_spider.dart';
+import 'package:celechron/mod/library_tasks.dart';
 import 'package:celechron/mod/library_config.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -194,4 +195,46 @@ void main() {
     });
 
   });
+  /// 预约 → 待办 的纯逻辑（网络与 WebView 那部分只能在真机上验）
+  group('预约 → 待办：该不该建、建成什么样', () {
+    LibraryReservation r({
+      String id = '110004',
+      String title = '团队讨论',
+      String place = '主馆-二层-207(8人间)',
+      String status = '已预约',
+      String? begin = '2026-10-02 15:00:00',
+      String? end = '2026-10-02 19:00:00',
+    }) =>
+        LibraryReservation(
+          id: id,
+          title: title,
+          place: place,
+          status: status,
+          start: begin == null ? null : DateTime.parse(begin),
+          end: end == null ? null : DateTime.parse(end),
+        );
+
+    test('正常预约要变成待办', () {
+      expect(libraryReservationWanted(r()), isTrue);
+    });
+
+    test('已取消的不建', () {
+      expect(libraryReservationWanted(r(status: '已取消')), isFalse);
+    });
+
+    test('没有 id 的不建（uid 不稳定会反复长重复待办）', () {
+      expect(libraryReservationWanted(r(id: '')), isFalse);
+    });
+
+    test('缺开始或缺结束的不建（提醒说不清什么时候去）', () {
+      expect(libraryReservationWanted(r(begin: null)), isFalse);
+      expect(libraryReservationWanted(r(end: null)), isFalse);
+    });
+
+    test('标题带上地点', () {
+      expect(libraryTaskSummary(r()), '团队讨论 · 主馆-二层-207(8人间)');
+      expect(libraryTaskSummary(r(place: '')), '团队讨论');
+    });
+  });
+
 }

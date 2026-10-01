@@ -4,6 +4,7 @@ import 'package:celechron/design/app_accent.dart';
 import 'package:celechron/design/page_background.dart';
 import 'package:celechron/http/library_spider.dart';
 import 'package:celechron/mod/library_config.dart';
+import 'package:celechron/mod/library_web_session.dart';
 import 'package:celechron/services/diagnostic_log_service.dart';
 import 'package:celechron/utils/platform_features.dart';
 import 'package:flutter/cupertino.dart';
@@ -58,34 +59,9 @@ class _LibraryLoginPageState extends State<LibraryLoginPage> {
         },
       ))
       ..loadRequest(Uri.parse(_homeUrl));
-  }
-
-  /// 在**页面自己的上下文**里发一个 POST 并等它回来。
-  ///
-  /// 不用 runJavaScriptReturningResult 直接 await Promise（各版本支持不一），
-  /// 而是把结果写进一个全局变量再轮询 —— 稳。
-  Future<String> _pageFetch(String path, String body) async {
-    final controller = _webView;
-    if (controller == null) return '';
-    final js = "(function(){window.__ely='PENDING';"
-        "fetch('" + path + "',{method:'POST',credentials:'include',"
-        "headers:{'Content-Type':'application/json;charset=UTF-8',"
-        "'X-Requested-With':'XMLHttpRequest',"
-        "'authorization':'bearer'+(window.sessionStorage.getItem('token')||'')},"
-        "body:" + body + "})"
-        ".then(function(r){return r.text()})"
-        ".then(function(t){window.__ely=t})"
-        ".catch(function(e){window.__ely='ERR:'+e});return 'started';})()";
-    await controller.runJavaScriptReturningResult(js).timeout(const Duration(seconds: 8));
-    for (var i = 0; i < 40; i++) {
-      await Future<void>.delayed(const Duration(milliseconds: 300));
-      final raw = await controller
-          .runJavaScriptReturningResult('window.__ely || ""')
-          .timeout(const Duration(seconds: 8));
-      final text = LibraryConfig.tokenFromJavaScript(raw); // 复用"脱引号"逻辑
-      if (text.isNotEmpty && !text.startsWith('PENDING')) return text;
-    }
-    throw LibraryAuthException('页面内请求超时');
+    // 交接给常驻会话：这个页面就是"那把钥匙"，之后所有读取都用它
+    // （不能另起 HttpClient —— 服务端会当成另一台设备，见 library_web_session 的注释）
+    LibraryWebSession.instance.adopt(_webView!);
   }
 
   /// 从 WebView 里读 token（读不到就是还没登录）。
@@ -109,7 +85,7 @@ class _LibraryLoginPageState extends State<LibraryLoginPage> {
       // **这个页面**里成立，外面那一路在服务端看来就是"另一台设备"
       // （这站还是单设备登录）。
       // 所以：同源 fetch 交给页面自己发，cookie/会话/它的 token 全都自动带上。
-      final me = await _pageFetch('/api/Member/my', '{}');
+      final me = await LibraryWebSession.instance.postJson('/api/Member/my');
       final decodedMe = jsonDecode(me);
       final code = decodedMe is Map ? decodedMe['code'] : null;
       libraryTrace('页面内 /api/Member/my → ' +
@@ -130,13 +106,14 @@ class _LibraryLoginPageState extends State<LibraryLoginPage> {
       // 顺手读一次"我的预约"，用现成的防御式解析数一下
       var count = 0;
       try {
-        count = LibrarySpider.reservationsFrom(
-                jsonDecode(await _pageFetch('/api/Member/seminar', '{}')))
+        count = LibrarySpider.reservationsFrom(jsonDecode(
+                await LibraryWebSession.instance.postJson('/api/Member/seminar')))
             .length;
       } on Object {
         // 数不出来不影响"登录成功"这个结论
       }
       await LibraryConfig.setEnabled(true);
+      await LibraryConfig.setLastCount(count);
       await LibraryConfig.setLastResult('页面内登录成功' +
           (name.isEmpty ? '' : '：' + name) +
           (count > 0 ? '，共 ' + count.toString() + ' 条预约' : ''));

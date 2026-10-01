@@ -49,6 +49,18 @@ class LibraryConfig {
     await _db?.setLibraryToken('');
   }
 
+  static String get lastName => _db?.getLibraryLastName() ?? '';
+
+  static Future<void> setLastName(String value) async {
+    await _db?.setLibraryLastName(value);
+  }
+
+  static int get lastCount => _db?.getLibraryLastCount() ?? 0;
+
+  static Future<void> setLastCount(int value) async {
+    await _db?.setLibraryLastCount(value);
+  }
+
   static String get lastResult => _db?.getLibraryLastResult() ?? '';
 
   static Future<void> setLastResult(String value) async {

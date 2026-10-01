@@ -1,21 +1,25 @@
+import 'dart:convert';
+
+import 'package:celechron/design/app_accent.dart';
 import 'package:celechron/design/app_route.dart';
 import 'package:celechron/design/page_background.dart';
 import 'package:celechron/design/section_text_style.dart';
+import 'package:celechron/database/database_helper.dart';
 import 'package:celechron/http/library_spider.dart';
+import 'package:celechron/model/task.dart';
 import 'package:celechron/mod/library_config.dart';
 import 'package:celechron/mod/library_login_page.dart';
+import 'package:celechron/mod/library_tasks.dart';
+import 'package:celechron/mod/library_web_session.dart';
 import 'package:celechron/utils/platform_features.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:get/get.dart';
 
-/// ===== 设置 → 校园服务 → 图书馆预约（2026-10-01）=====
+/// ===== 设置 → 校园服务 → 图书馆预约 =====
 ///
-/// 只做"登录 + 读数据"：**我的预约**（座位 / 研讨间 / 活动）。
-/// 两条获取登录态的路径，都做：
-///   A 粘贴 token —— 桌面端和兜底都靠它；
-///   B 内置浏览器登录 —— 安卓/iOS，注入 JS 读 sessionStorage 里的 token。
-///
-/// ⚠️ 这站点认证用的是 `authorization: bearer<token>`，**不是 cookie**
-/// （实测只带 PHPSESSID 会被判"您尚未登录"）。详见 docs/CAMPUS_SERVICES_PLAN.md 第四节。
+/// 只做三件事：登录、看我的预约、把预约变成待办。
+/// 数据一律从**那个网页**里取（这站单设备登录，凭据只在页面里成立）——
+/// 见 mod/library_web_session.dart。
 class LibrarySettingsPage extends StatefulWidget {
   const LibrarySettingsPage({super.key});
 
@@ -25,8 +29,21 @@ class LibrarySettingsPage extends StatefulWidget {
 
 class _LibrarySettingsPageState extends State<LibrarySettingsPage> {
   final TextEditingController _tokenController = TextEditingController();
+
   bool _busy = false;
-  String? _result;
+  bool _loadingList = false;
+  String? _status;
+  String _name = '';
+  List<LibraryReservation> _reservations = <LibraryReservation>[];
+
+  @override
+  void initState() {
+    super.initState();
+    _name = LibraryConfig.lastName;
+    if (LibraryConfig.enabled) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _loadReservations());
+    }
+  }
 
   @override
   void dispose() {
@@ -34,65 +51,107 @@ class _LibrarySettingsPageState extends State<LibrarySettingsPage> {
     super.dispose();
   }
 
-  Future<void> _run(Future<String> Function() action) async {
+  DatabaseHelper? get _db {
+    try {
+      return Get.find<DatabaseHelper>(tag: 'db');
+    } catch (_) {
+      return null;
+    }
+  }
+
+  RxList<Task>? get _taskList {
+    try {
+      return Get.find<RxList<Task>>(tag: 'taskList');
+    } catch (_) {
+      return null;
+    }
+  }
+
+  bool get _enabled => LibraryConfig.enabled;
+
+  /// 从网页里读一次"我的预约"（三个来源合并）
+  Future<void> _loadReservations() async {
+    if (!PlatformFeatures.hasWebViewLogin) {
+      setState(() => _status = '桌面端没有内置浏览器，先用「粘贴 token」那套');
+      return;
+    }
+    setState(() {
+      _loadingList = true;
+      _status = null;
+    });
+    final found = <String, LibraryReservation>{};
+    var authError = '';
+    for (final path in const <String>[
+      '/api/Member/seat',
+      '/api/Member/room',
+      '/api/Member/seminar',
+    ]) {
+      try {
+        final body = await LibraryWebSession.instance.postJson(path);
+        final decoded = jsonDecode(body);
+        if (path == '/api/Member/my') continue;
+        for (final reservation in LibrarySpider.reservationsFrom(decoded)) {
+          if (reservation.id.isEmpty) continue;
+          found[reservation.id] = reservation;
+        }
+      } on LibraryAuthException catch (error) {
+        authError = error.message;
+      } on Object {
+        // 单个来源失败不影响别的
+      }
+    }
+    // 顺手取一次姓名（"已连接"要有名字才像样）
+    try {
+      final me = jsonDecode(await LibraryWebSession.instance.postJson('/api/Member/my'));
+      if (me is Map && me['code'] == 1 && me['data'] is Map) {
+        _name = me['data']['name']?.toString() ?? _name;
+        await LibraryConfig.setLastName(_name);
+      }
+    } on Object {
+      // 名字取不到就算了
+    }
+
+    final list = found.values.toList()
+      ..sort((a, b) => (a.start ?? DateTime(2100))
+          .compareTo(b.start ?? DateTime(2100)));
+    if (!mounted) return;
+    setState(() {
+      _loadingList = false;
+      _reservations = list;
+      _status = authError.isEmpty ? null : authError;
+    });
+    await LibraryConfig.setLastCount(list.length);
+    if (authError.isEmpty && list.isNotEmpty) {
+      await LibraryConfig.setEnabled(true);
+    }
+  }
+
+  /// 把预约落成待办
+  Future<void> _syncToTasks() async {
+    final db = _db;
+    final list = _taskList;
+    if (db == null || list == null) {
+      setState(() => _status = '待办还没准备好');
+      return;
+    }
     setState(() {
       _busy = true;
-      _result = null;
+      _status = null;
     });
-    String message;
+    var result = '';
     try {
-      message = await action();
+      result = await syncLibraryReservations(db: db, taskList: list);
     } on Object catch (error) {
-      // 带上"当前存着的 token 长度"：一眼能看出是"压根没存进去"还是"存了但被服务端拒"
-      message = error.toString() + '｜token 长度=' + LibraryConfig.token.length.toString();
+      result = error.toString();
     }
+    await LibraryConfig.setLastResult(result);
     if (!mounted) return;
     setState(() {
       _busy = false;
-      _result = message;
-    });
-    await LibraryConfig.setLastResult(message);
-    // 副标题会被截断，所以完整文案用弹窗给（用户能看全，也能顺手截图给我）
-    if (message.length > 24) {
-      await showCupertinoDialog<void>(
-        context: this.context,
-        builder: (BuildContext context) => CupertinoAlertDialog(
-          title: const Text('结果'),
-          content: SingleChildScrollView(
-            child: Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Text(message, style: const TextStyle(fontSize: 14)),
-            ),
-          ),
-          actions: <Widget>[
-            CupertinoDialogAction(
-              child: const Text('知道了'),
-              onPressed: () => Navigator.of(context).pop(),
-            ),
-          ],
-        ),
-      );
-    }
-  }
-
-  /// A：粘贴 token（先验再存）
-  Future<void> _saveToken() async {
-    final value = _tokenController.text.trim();
-    if (value.isEmpty) return;
-    await _run(() async {
-      final spider = LibrarySpider.withToken(value);
-      try {
-        final name = await spider.verify();
-        await LibraryConfig.setToken(value);
-        _tokenController.clear();
-        return name.isEmpty ? '连接成功' : '连接成功：' + name;
-      } finally {
-        spider.close();
-      }
+      _status = result;
     });
   }
 
-  /// B：内置浏览器登录（安卓/iOS）
   Future<void> _loginWithWebView() async {
     final result = await Navigator.of(context, rootNavigator: true).push<String>(
       appPageRoute<String>(
@@ -100,40 +159,27 @@ class _LibrarySettingsPageState extends State<LibrarySettingsPage> {
       ),
     );
     if (!mounted || result == null) return;
-    setState(() => _result = result);
-    await LibraryConfig.setLastResult(result);
-    await _readReservations();
+    setState(() => _status = result);
+    await _loadReservations();
   }
 
-  /// 读一次我的预约（这是这个功能真正要的东西）
-  Future<void> _readReservations() async {
-    final token = LibraryConfig.token;
-    if (token.isEmpty) {
-      setState(() => _result = '还没填 token');
-      return;
-    }
-    await _run(() async {
-      final spider = LibrarySpider.withToken(token);
-      try {
-        final list = await spider.myReservations();
-        if (list.isEmpty) return '已连接，当前没有预约';
-        final first = list.first;
-        final when = first.start == null ? '' : '（最近 ' + first.start!.toString().substring(5, 16) + '）';
-        return '共 ' + list.length.toString() + ' 条预约' + when;
-      } finally {
-        spider.close();
-      }
-    });
+  Future<void> _saveToken() async {
+    final value = _tokenController.text.trim();
+    if (value.isEmpty) return;
+    await LibraryConfig.setToken(value);
+    _tokenController.clear();
+    if (mounted) setState(() => _status = 'token 已保存（网页会话仍以内置浏览器那条为准）');
   }
 
-  Future<void> _clearToken() async {
+  Future<void> _clear() async {
     final ok = await showCupertinoDialog<bool>(
-      context: this.context,
+      context: context,
       builder: (BuildContext context) => CupertinoAlertDialog(
         title: const Text('清除图书馆登录信息'),
         content: const Padding(
           padding: EdgeInsets.only(top: 8),
-          child: Text('清除后不再读取预约；已经建好的待办不受影响。', style: TextStyle(fontSize: 14)),
+          child: Text('清除后不再读取预约；已经建好的待办不受影响。',
+              style: TextStyle(fontSize: 14)),
         ),
         actions: <Widget>[
           CupertinoDialogAction(
@@ -150,13 +196,28 @@ class _LibrarySettingsPageState extends State<LibrarySettingsPage> {
     );
     if (ok != true) return;
     await LibraryConfig.clearToken();
+    await LibraryConfig.setLastName('');
+    await LibraryConfig.setLastCount(0);
+    LibraryWebSession.instance.reset();
     await clearLibraryWebViewCookies();
-    if (mounted) setState(() => _result = null);
+    if (!mounted) return;
+    setState(() {
+      _reservations = <LibraryReservation>[];
+      _name = '';
+      _status = null;
+    });
+  }
+
+  static String _hm(DateTime t) {
+    final local = t.toLocal();
+    final two = (int v) => v.toString().padLeft(2, '0');
+    return two(local.month) + '-' + two(local.day) + ' ' + two(local.hour) + ':' + two(local.minute);
   }
 
   @override
   Widget build(BuildContext context) {
     final hasToken = LibraryConfig.token.isNotEmpty;
+    final connected = _name.isNotEmpty || _reservations.isNotEmpty;
     return CupertinoPageScaffold(
       backgroundColor: pageBackground(context),
       navigationBar: const CupertinoNavigationBar(middle: Text('图书馆预约')),
@@ -166,42 +227,114 @@ class _LibrarySettingsPageState extends State<LibrarySettingsPage> {
           bottom: 24 + MediaQuery.of(context).padding.bottom,
         ),
         children: <Widget>[
+          // ① 状态
           CupertinoListSection.insetGrouped(
             backgroundColor: pageBackground(context),
-            header: sectionHeader(context, '开关'),
-            footer: sectionFooter(
-              context,
-              '登上之后，图书馆的预约会变成待办/日程（预约是时段，有开始也有结束）。'
-              '只读：不替你预约、也不取消。',
-            ),
             children: <Widget>[
               CupertinoListTile(
-                title: const Text('启用图书馆预约'),
+                leading: Icon(
+                  connected ? CupertinoIcons.check_mark_circled_solid : CupertinoIcons.circle,
+                  size: 22,
+                  color: connected ? AppAccent.primary : CupertinoColors.tertiaryLabel,
+                ),
+                title: Text(connected ? '已连接' : '未连接'),
                 subtitle: Text(
-                  LibraryConfig.enabled
-                      ? (LibraryConfig.lastResult.isEmpty ? '已开启' : LibraryConfig.lastResult)
-                      : '关闭中',
+                  connected
+                      ? (_name.isEmpty ? '' : _name + ' · ') +
+                          _reservations.length.toString() +
+                          ' 条预约'
+                      : '用内置浏览器登录一次即可',
                 ),
-                trailing: CupertinoSwitch(
-                  value: LibraryConfig.enabled,
-                  onChanged: (bool value) async {
-                    await LibraryConfig.setEnabled(value);
-                    if (mounted) setState(() {});
-                  },
+                trailing: _loadingList
+                    ? const CupertinoActivityIndicator()
+                    : CupertinoButton(
+                        padding: EdgeInsets.zero,
+                        child: const Text('刷新'),
+                        onPressed: _busy ? null : _loadReservations,
+                      ),
+              ),
+              if (_status != null)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                  child: Text(
+                    _status!,
+                    style: const TextStyle(fontSize: 13),
+                  ),
                 ),
+            ],
+          ),
+          // ② 我的预约
+          CupertinoListSection.insetGrouped(
+            backgroundColor: pageBackground(context),
+            header: sectionHeader(context, '我的预约'),
+            footer: sectionFooter(context, '只有还生效的预约会变成待办。'),
+            children: <Widget>[
+              if (_loadingList)
+                const CupertinoListTile(
+                  title: Text('正在读取…'),
+                  trailing: CupertinoActivityIndicator(),
+                )
+              else if (_reservations.isEmpty)
+                const CupertinoListTile(
+                  title: Text('当前没有预约'),
+                  subtitle: Text('在图书馆网站约到座位后再来刷新'),
+                )
+              else
+                for (final reservation in _reservations)
+                  CupertinoListTile(
+                    title: Text(
+                      libraryTaskSummary(reservation),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    subtitle: Text(
+                      (reservation.status.isEmpty
+                              ? ''
+                              : reservation.status + ' · ') +
+                          (reservation.start == null
+                              ? ''
+                              : _hm(reservation.start!)) +
+                          (reservation.end == null
+                              ? ''
+                              : ' → ' + _hm(reservation.end!)),
+                    ),
+                    trailing: Icon(
+                      libraryReservationWanted(reservation)
+                          ? CupertinoIcons.arrow_right
+                          : CupertinoIcons.minus_circle,
+                      size: 18,
+                      color: CupertinoColors.tertiaryLabel,
+                    ),
+                  ),
+            ],
+          ),
+          // ③ 同步到待办
+          CupertinoListSection.insetGrouped(
+            backgroundColor: pageBackground(context),
+            header: sectionHeader(context, '同步'),
+            footer: sectionFooter(context, '预约带起止时间，到点会提醒；反复同步不会重复长待办。'),
+            children: <Widget>[
+              CupertinoListTile(
+                title: const Text('同步到待办'),
+                subtitle: Text(
+                  LibraryConfig.lastResult.isEmpty ? '把预约变成待办/日程' : LibraryConfig.lastResult,
+                ),
+                trailing: _busy
+                    ? const CupertinoActivityIndicator()
+                    : const Icon(CupertinoIcons.arrow_down_doc, size: 18),
+                onTap: _busy ? null : _syncToTasks,
               ),
             ],
           ),
+          // ④ 登录
           CupertinoListSection.insetGrouped(
             backgroundColor: pageBackground(context),
             header: sectionHeader(context, '登录'),
             footer: sectionFooter(
               context,
               PlatformFeatures.hasWebViewLogin
-                  ? '上面那个按钮会打开内置浏览器，你正常登录一次就行。'
-                      '不想用它？也可以从桌面浏览器 F12 → Application → Session Storage → 复制 token 贴到下面。'
-                  : '桌面端没有内置浏览器：请在浏览器登录后 F12 → Application → Session Storage → '
-                      '复制 token 贴到下面。',
+                  ? '点一下登录一次就行。'
+                  : '桌面端用浏览器登录后，从 F12 → Application → Session Storage 复制 token。',
             ),
             children: <Widget>[
               if (PlatformFeatures.hasWebViewLogin)
@@ -218,13 +351,13 @@ class _LibrarySettingsPageState extends State<LibrarySettingsPage> {
                 ),
               if (hasToken)
                 CupertinoListTile(
-                  title: const Text('当前'),
+                  title: const Text('当前 token'),
                   subtitle: Text(LibraryConfig.maskedToken),
                   trailing: CupertinoButton(
                     padding: EdgeInsets.zero,
                     child: const Text('清除',
                         style: TextStyle(color: CupertinoColors.systemRed)),
-                    onPressed: _busy ? null : _clearToken,
+                    onPressed: _busy ? null : _clear,
                   ),
                 ),
               Padding(
@@ -233,7 +366,7 @@ class _LibrarySettingsPageState extends State<LibrarySettingsPage> {
                   children: <Widget>[
                     CupertinoTextField(
                       controller: _tokenController,
-                      placeholder: '粘贴 token（很长的一串）',
+                      placeholder: '粘贴 token（桌面端兜底用）',
                       obscureText: true,
                       autocorrect: false,
                       enableSuggestions: false,
@@ -250,26 +383,11 @@ class _LibrarySettingsPageState extends State<LibrarySettingsPage> {
                         color: CupertinoColors.tertiarySystemFill.resolveFrom(context),
                         padding: const EdgeInsets.symmetric(vertical: 10),
                         onPressed: _busy ? null : _saveToken,
-                        child: const Text('保存并测试', style: TextStyle(fontSize: 15)),
+                        child: const Text('保存 token', style: TextStyle(fontSize: 15)),
                       ),
                     ),
                   ],
                 ),
-              ),
-            ],
-          ),
-          CupertinoListSection.insetGrouped(
-            backgroundColor: pageBackground(context),
-            header: sectionHeader(context, '数据'),
-            footer: sectionFooter(context, '只读：不会替你预约、也不会取消任何预约。'),
-            children: <Widget>[
-              CupertinoListTile(
-                title: const Text('读取我的预约'),
-                subtitle: Text(_result ?? (hasToken ? '点一下看看有几条' : '先登录或粘贴 token')),
-                trailing: _busy
-                    ? const CupertinoActivityIndicator()
-                    : const Icon(CupertinoIcons.arrow_clockwise, size: 18),
-                onTap: _busy ? null : _readReservations,
               ),
             ],
           ),
@@ -285,10 +403,13 @@ class LibraryReservationTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    String subtitle = '关闭中；把图书馆的预约变成待办';
+    var subtitle = '关闭中；把图书馆的预约变成待办';
     if (LibraryConfig.enabled) {
-      final last = LibraryConfig.lastResult;
-      subtitle = last.isEmpty ? '已开启' : last;
+      final count = LibraryConfig.lastCount;
+      final name = LibraryConfig.lastName;
+      subtitle = '已连接' +
+          (name.isEmpty ? '' : ' · ' + name) +
+          ' · ' + count.toString() + ' 条预约';
     }
     return CupertinoListTile(
       title: const Text('图书馆预约'),

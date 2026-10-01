@@ -684,6 +684,22 @@ class DatabaseHelper {
     await optionsBox.put(kLibraryToken, value);
   }
 
+  final String kLibraryLastCount = 'libraryLastCount';
+
+  final String kLibraryLastName = 'libraryLastName';
+
+  String getLibraryLastName() => optionsBox.get(kLibraryLastName) as String? ?? '';
+
+  Future<void> setLibraryLastName(String value) async {
+    await optionsBox.put(kLibraryLastName, value);
+  }
+
+  int getLibraryLastCount() => optionsBox.get(kLibraryLastCount) as int? ?? 0;
+
+  Future<void> setLibraryLastCount(int value) async {
+    await optionsBox.put(kLibraryLastCount, value);
+  }
+
   String getLibraryLastResult() =>
       optionsBox.get(kLibraryLastResult) as String? ?? '';
 

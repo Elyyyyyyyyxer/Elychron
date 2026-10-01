@@ -37,6 +37,9 @@ import 'package:celechron/page/home_page.dart';
 import 'package:celechron/page/option/ecard_pay_page.dart';
 import 'package:celechron/services/diagnostic_log_service.dart';
 import 'package:celechron/services/refresh_coordinator.dart';
+import 'package:celechron/mod/library_config.dart';
+import 'package:celechron/mod/library_tasks.dart';
+import 'package:celechron/mod/library_web_session.dart';
 import 'package:celechron/mod/pta_homework.dart';
 import 'package:celechron/worker/background_app_refresh.dart';
 import 'package:celechron/worker/ecard_widget_messenger.dart';
@@ -243,6 +246,26 @@ void main(List<String> args) async {
       final db = Get.find<DatabaseHelper>(tag: 'db');
       if (!db.getPushOnGradeChange()) return;
       await showGradePushIntroOnce(db);
+    } catch (_) {}
+  });
+
+  // ===== 图书馆预约 → 待办（2026-10-01）=====
+  //
+  // 数据只能从"那个网页"里取（这站单设备登录，凭据只在页面里成立），所以这里
+  // 静默把常驻的 WebView 会话拉起来，读一次预约并落成待办。
+  // 20 秒是为了排在前面那些更要紧的启动钩子后面；全程 try/catch，
+  // 失败只写诊断日志，绝不弹窗、也不影响启动。
+  Future<void>.delayed(const Duration(seconds: 20), () async {
+    try {
+      if (!LibraryConfig.enabled) return;
+      if (!PlatformFeatures.hasWebViewLogin) return;
+      final ready = await LibraryWebSession.instance.ensureReady();
+      if (!ready) return;
+      final result = await syncLibraryReservations(
+        db: Get.find<DatabaseHelper>(tag: 'db'),
+        taskList: Get.find<RxList<Task>>(tag: 'taskList'),
+      );
+      await LibraryConfig.setLastResult(result);
     } catch (_) {}
   });
 
