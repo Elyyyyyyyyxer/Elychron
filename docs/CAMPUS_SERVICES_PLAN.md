@@ -167,3 +167,46 @@ POST /api/index/config     系统配置 —— 但 data 是**加密串**，客�
 1. **我的预约 → 待办**（`/api/Member/seat|room|seminar`）：约了几点的座位/研讨间，到点提醒；
 2. **座位查询（只读）**：`/api/Seat/tree` + `/api/Seat/seat`，"现在哪个馆还有座"；
 3. 公告（`/api/index/notice`）当首页小卡片，几乎是白捡的。
+
+### 4.1 登录链（2026-10-01 追完）
+
+**前端加密**：axios 会把这些接口的 body 包成 `{aesjson: <base64>}`：
+`/api/login/login`、`/api/Seat/confirm`、`/api/Seminar/confirm`、`/api/Enter/confirm`、
+`/api/seat/qrcode`、`/api/login/updateUserInfo` …
+加密方式：**AES-128-CBC/PKCS7**，IV = `ZZWBKJ_ZHIHUAWEI`，
+密钥 = `exchangeDateTime(now,41)` × 2 = **当天 `YYYYMMDD` + 它的倒序**（16 字符）。
+
+> 用这招把 `POST /api/index/config` 解密出来了（它返回的就是加密串）：
+> `config.cas_url = https://booking.lib.zju.edu.cn/api/cas/cas`、
+> `web.title = 浙江大学图书馆预约平台`、开放时间 `07:00~23:59`、
+> 取消规则 `seatcancel=-30 / roomcancel=30`、功能开关若干。
+> 想复现：`AES-128-CBC(key=20261001+"10016202", iv="ZZWBKJ_ZHIHUAWEI")`。
+
+**CAS 链（实测跳转）**：
+
+```
+GET https://booking.lib.zju.edu.cn/api/cas/cas
+  302 → http://zjuam.zju.edu.cn/cas/login?service=https%3A%2F%2Fbooking.lib.zju.edu.cn%2Fapi%2Fcas%2Fcas
+        （同时下发 PHPSESSID）
+```
+
+即 **service = `https://booking.lib.zju.edu.cn/api/cas/cas`**（唯一没写死在前端、
+要靠跳转才能看到的值，现在拿到了）。
+
+带假 ticket 打回去是 `500 CAS Authentication failed!`（phpCAS 的味道），
+说明**这个回调是服务端校验 ticket 并建立自己的会话**；另有一条
+`POST /api/cas/user {cas: ticket}` → `{code:1, member:{token}}` 给 SPA 用
+（假 ticket 返回 `code:0`）。
+
+**两条登录路径**：
+- **(A) 跟完整跳转链**（推荐）：我们 App 的 `ZjuAm` 已经会做 zjuam 的密码登录 →
+  用它的 `getServiceCallback` 拿到带 ticket 的回调 URI →
+  **立刻**用同一个 cookie jar GET 它 → 后端建立 PHPSESSID 会话 → 之后直接带 cookie 调 API。
+  全程服务端，不需要前端那套 AES，也不需要验证码 ✓
+- (B) 拿 ticket 去 `POST /api/cas/user` 换 `token` —— 前端那套，得自己保证 ticket 只被消费一次。
+
+**能落成的功能**（校外可用）：
+1. **我的预约 → 待办/日程**：`/api/Member/my|seat|room|seminar`（预约是**时段**，
+   有开始也有结束 —— 比 PTA 的"只有截止时间"更该走 Task 的 startTime+endTime）；
+2. **座位查询**：`/api/Seat/tree` + `/api/Seat/seat`（"哪个馆还有座"）；
+3. 公告：`/api/index/notice`（免登录）。
