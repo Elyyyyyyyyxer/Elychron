@@ -349,6 +349,13 @@ class LibrarySpider {
     request.headers.set(HttpHeaders.contentTypeHeader, 'application/json;charset=UTF-8');
     request.headers.set(HttpHeaders.acceptHeader, 'application/json;charset=UTF-8');
     request.headers.set('X-Requested-With', 'XMLHttpRequest');
+    // 2026-10-01 真机对照：同样的 token 在电脑上 curl 得通、在 App 里被拒/超时，
+    // 差别就在这几个头上。补成和浏览器一致的，别再让服务端"认不出这是谁"。
+    request.headers.set(HttpHeaders.originHeader, host);
+    request.headers.set(HttpHeaders.refererHeader, host + '/h5/');
+    request.headers.set(HttpHeaders.userAgentHeader,
+        'Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) '
+        'Chrome/126.0.0.0 Mobile Safari/537.36');
     final cookieHeader = _jar.headerFor(uri);
     if (cookieHeader.isNotEmpty) request.headers.set(HttpHeaders.cookieHeader, cookieHeader);
     // 它的前端除了请求头，还会把 authorization 塞进 body（拦截器里那行
@@ -359,8 +366,10 @@ class LibrarySpider {
 
     HttpClientResponse response;
     try {
-      response = await request.close().timeout(const Duration(seconds: 15));
+      // 15 秒在真机上不够（WebView 登录后紧接着发请求，实测会超时）→ 放到 30 秒
+      response = await request.close().timeout(const Duration(seconds: 30));
     } on Object catch (error) {
+      libraryTrace('POST ' + path + ' 传输失败：' + error.toString());
       throw LibraryAuthException('图书馆预约：请求超时或中断（' + error.toString() + '）');
     }
     _jar.absorb(uri, response.cookies);
@@ -374,6 +383,8 @@ class LibrarySpider {
     }
     final body = Map<String, dynamic>.from(decoded);
     final code = body['code'];
+    libraryTrace('POST ' + path + ' → code=' + code.toString() +
+        ' token长度=' + _token.length.toString());
     if (code != 1) {
       libraryTrace('POST ' + path + ' → code=' + code.toString() +
           ' msg=' + (body['msg']?.toString() ?? body['message']?.toString() ?? '-') +
