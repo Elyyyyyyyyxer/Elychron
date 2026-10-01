@@ -653,6 +653,42 @@ class DatabaseHelper {
     await optionsBox.put(kPushOnDdlReminder, pushOnDdlReminder);
   }
 
+  /// ===== PTA（拼题A）作业（2026-10-01）=====
+  /// 只加普通键，不动任何 Hive adapter / 字段计数。
+  final String kPtaEnabled = 'ptaEnabled';
+  final String kPtaCookie = 'ptaCookie';
+  final String kPtaLastResult = 'ptaLastResult';
+  final String kPtaLastSyncAt = 'ptaLastSyncAt';
+
+  bool getPtaEnabled() {
+    if (optionsBox.get(kPtaEnabled) == null) {
+      optionsBox.put(kPtaEnabled, false);
+    }
+    return optionsBox.get(kPtaEnabled) as bool;
+  }
+
+  Future<void> setPtaEnabled(bool value) async {
+    await optionsBox.put(kPtaEnabled, value);
+  }
+
+  String getPtaCookie() => optionsBox.get(kPtaCookie) as String? ?? '';
+
+  Future<void> setPtaCookie(String value) async {
+    await optionsBox.put(kPtaCookie, value);
+  }
+
+  String getPtaLastResult() => optionsBox.get(kPtaLastResult) as String? ?? '';
+
+  Future<void> setPtaLastResult(String value) async {
+    await optionsBox.put(kPtaLastResult, value);
+  }
+
+  String getPtaLastSyncAt() => optionsBox.get(kPtaLastSyncAt) as String? ?? '';
+
+  Future<void> setPtaLastSyncAt(String value) async {
+    await optionsBox.put(kPtaLastSyncAt, value);
+  }
+
   /// 已发过的开场白指纹（空字符串 = 还没说过）
   String getGradePushIntroShown() =>
       optionsBox.get(kGradePushIntroShown) as String? ?? '';

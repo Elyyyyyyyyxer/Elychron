@@ -116,3 +116,29 @@ PTA 接进来最省事的位置，就是在最后一步之前**多一路来源**
 2. PTA 作业要不要也**自动进待办**？还是只在学业页列出来、不自动建待办？
 3. 给我一个 `PTASession` 我就能把字段形状实测一遍（只读、只打上面那几个 GET）；
    不给也行 —— 那就先按 vscode-pintia 的定义写，第一次跑通时再对齐。
+
+## 六、实测结果（2026-10-01，真 cookie，已实现）
+
+拿真实 PTASession 打了一遍，**社区文档里有两处和线上不一致**，实现按实测来：
+
+| 项 | 社区定义 | 实测 |
+|---|---|---|
+| 未截止题目集 | — | 2 条，都是 type=EXERCISE / timeType=FIXED_TIME，organizationName=浙江大学 |
+| 题目集截止时间 | problemSets[].endAt | ✅ 对（UTC） |
+| 有考试时的截止时间 | exam.endAt | ✅ 对，且实测与题目集的 endAt 相同 |
+| exam.existsSubmissionsNotCompleted | 有 | ❌ **线上不返回**，别依赖 |
+| exam-problem-status | 数组 | ⚠️ 实际是对象 {problemStatus, examLabelByProblemSetProblemId}；**没有 exam 的题集返回 404**（要当跳过） |
+| permission.permission | 9=无 / 15=有 | ⚠️ 实测 **47**，不能硬编码，只能靠 403/404 判断 |
+| 登录能力（u/current） | — | studentUserLogin=false、studentUser/organization 空 → **学号登录这条对本人账号走不通**；phoneLogin=true（要腾讯验证码）；wechatUser 有 |
+
+时区：endAt 是 UTC（2026-10-07T15:59:00Z = 北京 23:59）。
+我们原样塞进 Todo.endTime，界面统一走 toStringHumanReadable() 里的 toLocal()，
+所以不会差 8 小时（单测钉住了）。
+
+已实现（2026-10-01）：
+- lib/http/pta_spider.dart —— 拉取 + 纯解析（todosFrom / deadlineOf）
+- lib/mod/pta_homework.dart —— 配置（optionsBox，不动 Hive adapter）+ 缓存 +
+  并进 scholar.todos + 过期保留上一次
+- lib/mod/pta_settings_page.dart —— 设置 → 校园服务 → PTA 拼题A
+- main.dart 启动钩子（14 秒）：restore → 挂监听 → 有条件就 refresh
+- test/pta_spider_test.dart —— 7 条（含 Z 时区换算、id 稳定、失败保留）

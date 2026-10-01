@@ -37,6 +37,7 @@ import 'package:celechron/page/home_page.dart';
 import 'package:celechron/page/option/ecard_pay_page.dart';
 import 'package:celechron/services/diagnostic_log_service.dart';
 import 'package:celechron/services/refresh_coordinator.dart';
+import 'package:celechron/mod/pta_homework.dart';
 import 'package:celechron/worker/background_app_refresh.dart';
 import 'package:celechron/worker/ecard_widget_messenger.dart';
 import 'package:celechron/worker/todo_widget_messenger.dart';
@@ -242,6 +243,19 @@ void main(List<String> args) async {
       final db = Get.find<DatabaseHelper>(tag: 'db');
       if (!db.getPushOnGradeChange()) return;
       await showGradePushIntroOnce(db);
+    } catch (_) {}
+  });
+
+  // ===== PTA 作业（2026-10-01）=====
+  //
+  // 先读缓存把上次的作业显示出来（离线也有），再拉一次新的；并挂上
+  // "每次 scholar 变化后并回去"的监听 —— 教务/学在浙大刷新会把
+  // scholar.todos 整体替换，不并回去的话 PTA 那几条会一闪一闪地消失。
+  Future<void>.delayed(const Duration(seconds: 14), () async {
+    try {
+      await PtaHomework.restore();
+      PtaHomework.startMergeListener();
+      if (PtaHomework.configured) await PtaHomework.refresh();
     } catch (_) {}
   });
 
