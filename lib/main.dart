@@ -257,7 +257,12 @@ void main(List<String> args) async {
   // 失败只写诊断日志，绝不弹窗、也不影响启动。
   Future<void>.delayed(const Duration(seconds: 20), () async {
     try {
-      if (!LibraryConfig.enabled) return;
+      // 验证模式（--dart-define=ELY_FORCE_RELOGIN=true）下即使没开启也跑一次，
+      // 这样"后台填表重登"能在不改用户设置的情况下被真机验证（见 LibraryWebSession）。
+      if (!LibraryConfig.enabled &&
+          !LibraryWebSession.instance.forceReloginForTest) {
+        return;
+      }
       if (!PlatformFeatures.hasWebViewLogin) return;
       final ready = await LibraryWebSession.instance.ensureReady();
       if (!ready) return;
