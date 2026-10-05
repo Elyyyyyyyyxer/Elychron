@@ -1,5 +1,6 @@
 import 'package:celechron/http/calendar_config_parser.dart';
 import 'package:celechron/http/zjuServices/response_utils.dart';
+import 'package:celechron/model/period.dart';
 import 'package:celechron/model/semester.dart';
 import 'package:celechron/model/session.dart';
 import 'package:celechron/services/diagnostic_log_service.dart';
@@ -273,4 +274,51 @@ void main() {
     }
     expect(sanitized, contains('<已隐藏>'));
   });
+  /// 课程详情页要显示的「起止时间」（2026-10-01）。
+  ///
+  /// 用户：「课程详情页面不会显示课程的起止时间」。这里钉两件事：
+  /// 校历里那份时间确实读得出来，而且**与日历把课摆放进格子的时刻是同一份**
+  /// （不会出现表格说 10:00、课表摆到 10:50 这种两套时间）。
+  test('详情页的起止钟点与日历里那节课的真实起止时刻一致', () {
+    final semester = Semester('2026-2027秋冬');
+    applyCalendarConfig(
+      buildSafeDefaultCalendarConfig('2026-2027-1'),
+      semester,
+      <DateTime, String>{},
+      context: '虚构未来学期',
+    );
+    final session = Session.fromZdbk({
+      'kcb': '虚构课程<br>虚构教学班<br>虚构教师<br>虚构教室zwf',
+      'sfqd': '1',
+      'xqj': 2,
+      'dsz': '2',
+      'xxq': '秋',
+      'djj': 3,
+      'skcd': 3,
+    });
+    semester.addSession(session, '2026-2027-1');
+
+    final shown = semester.clockRangeOf(session.time.first, session.time.last);
+    expect(shown, isNotNull);
+    expect(shown, matches(RegExp(r'^\d{2}:\d{2} - \d{2}:\d{2}$')));
+
+    final period = semester.periods
+        .firstWhere((item) => item.type == PeriodType.classes);
+    String hm(DateTime time) =>
+        '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
+    expect(shown, hm(period.startTime) + ' - ' + hm(period.endTime));
+  });
+
+  test('校历里没有的节次返回 null（调用方就整行不显示）', () {
+    final semester = Semester('2026-2027秋冬');
+    applyCalendarConfig(
+      buildSafeDefaultCalendarConfig('2026-2027-1'),
+      semester,
+      <DateTime, String>{},
+      context: '虚构未来学期',
+    );
+    expect(semester.clockRangeOf(0, 0), isNull);
+    expect(semester.clockRangeOf(999, 999), isNull);
+  });
+
 }

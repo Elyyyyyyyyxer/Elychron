@@ -34,6 +34,16 @@ class CourseMountTombstone {
   static String attachmentKey(String courseId, String path) =>
       courseId + '|a|' + path;
 
+  /// 资料的**跨设备身份**：名字 + 大小。
+  ///
+  /// 老版本只按 path 记墓碑，而 path 是每台设备自己的（从网盘取回来的文件
+  /// 落在各自的 task_attachments/ 下）—— 在手机上删掉、电脑上那份 path 不同，
+  /// 于是"删了又回来"。新版本两个键都记，合并时两个都认（见
+  /// DataMerge.mergeCourseMounts）。
+  static String attachmentIdentityKey(
+          String courseId, String name, Object? size) =>
+      courseId + '|a2|' + name.trim() + '@' + (size?.toString() ?? '');
+
   static String commentKey(String courseId, String content, int time) =>
       courseId + '|c|' + content + '@' + time.toString();
 

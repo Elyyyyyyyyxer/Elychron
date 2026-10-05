@@ -397,6 +397,15 @@ class DataMerge {
   /// ⚠️ 已知局限：**删除不参与**（没有墓碑），在一端删掉的资料/评论可能被另一端带回来。
   /// 待办与专注记录都已经有墓碑机制，课程挂载这层数据量小、先按并集走，
   /// 以后再补（写在 docs/V1.5.0_DESKTOP.md 的同步一节里）。
+  /// 附件的**跨设备身份**：名字 + 大小（老的没这两项时退回本地路径）。
+  ///
+  /// 为什么不能用 path：路径是每台设备自己的（见 [mergeCourseMounts] 里的注释）。
+  static String attachmentIdentity(String name, Object? size, String path) {
+    final normalized = name.trim();
+    if (normalized.isEmpty) return path;
+    return normalized + '@' + (size?.toString() ?? '');
+  }
+
   static List<Map<String, dynamic>> mergeCourseMounts(
     List<Map<String, dynamic>> local,
     List<Map<String, dynamic>> remote, {
@@ -423,10 +432,26 @@ class DataMerge {
         for (final item in (mount['attachments'] as List? ?? const [])) {
           if (item is! Map) continue;
           final path = item['path']?.toString() ?? '';
-          if (path.isEmpty || paths.contains(path)) continue;
-          // 删过的资料不再带回来（墓碑，2026-09-19 补全）
-          if (deletedKeys.contains(courseId + '|a|' + path)) continue;
-          paths.add(path);
+          if (path.isEmpty) continue;
+          // ===== 2026-09-30：按"文件身份"去重，不再按本地路径 =====
+          //
+          // 路径是**每台设备自己的**：从网盘取回来的文件落在各自的
+          // task_attachments/ 下，名字里还带本机时间戳。按 path 去重，
+          // 手机一份、电脑一份，两边一合就成两份，再同步一轮四份 ——
+          // 真机上就是这个现象（同一张图在课程资料里出现 4 次），
+          // 而且"多出来的那份"本地没有，每次同步还会被当成缺失**再下载一遍**，
+          // 流量和坚果云配额就这么被吃掉的。
+          //
+          // 名字 + 大小才是跨设备的同一个文件（老数据没有这两项时退回按 path）。
+          final identity = attachmentIdentity(
+              item['name']?.toString() ?? '', item['size'], path);
+          if (paths.contains(identity)) continue;
+          // 删过的资料不再带回来（墓碑）：老的按 path 记、新的按身份记，两边都认
+          if (deletedKeys.contains(courseId + '|a|' + path) ||
+              deletedKeys.contains(courseId + '|a2|' + identity)) {
+            continue;
+          }
+          paths.add(identity);
           attachments.add(Map<String, dynamic>.from(item));
         }
         for (final item in (mount['comments'] as List? ?? const [])) {
@@ -522,6 +547,37 @@ class DataMerge {
       result.add(task);
     }
 
+    // ===== 2026-09-30：循环待办在两台设备上会各自长出"下一次" =====
+    //
+    // spawnNextOccurrences（mod/task_runtime_mod.dart）在用户完成一条循环待办后
+    // 复制一份并 genUid() —— 那是**本机随机**的 uid。手机完成一次、电脑完成一次
+    // 就是两个不同的 uid，而合并是按 uid 取并集的，于是用户看到
+    // "电脑上有两个洗头"（同一天、同一个来源）。
+    //
+    // 身份用「来源 uid + 到期时间」：同一次到期就是同一条。两台各自生成的那份
+    // 必然落进同一个身份，合成一条（谁的 updatedAt 晚听谁的，与其它字段一个口径）。
+    final occurrenceIdentity = <String, Task>{};
+    final collapsed = <Task>[];
+    for (final task in result) {
+      final from = task.fromUid;
+      if (from == null || from.isEmpty) {
+        collapsed.add(task);
+        continue;
+      }
+      final key = from + "-" + task.endTime.toIso8601String();
+      final existing = occurrenceIdentity[key];
+      if (existing == null) {
+        occurrenceIdentity[key] = task;
+        collapsed.add(task);
+      } else if (updatedAtOf(task).isAfter(updatedAtOf(existing))) {
+        // 两条是同一件事的两个副本：留更晚改过的那一条
+        occurrenceIdentity[key] = task;
+        collapsed[collapsed.indexOf(existing)] = task;
+      }
+    }
+    result
+      ..clear()
+      ..addAll(collapsed);
     result.sort((a, b) => a.endTime.compareTo(b.endTime));
 
     return MergeResult(

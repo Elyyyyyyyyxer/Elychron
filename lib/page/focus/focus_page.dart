@@ -36,13 +36,35 @@ class FocusPage extends StatefulWidget {
   /// 专注首页会给出继续入口，点它就把它传进来，原样接着做。
   final SuspendedFocus? resume;
 
-  const FocusPage({super.key, this.task, this.freeLabel, this.resume});
+  /// 接回来之后**不等用户点「继续」**，直接接着跑（2026-09-30）。
+  ///
+  /// 用户的要求：「杀后台回来……确认现在应该处于什么状态后**直接静默继续**
+  /// （这也就意味着开屏会直接进入专注界面）」。
+  ///
+  /// 注意与"暂停后离开"区分：那种 resume 要停在中段等用户点继续（用户选的 (a)），
+  /// 所以默认 false，只有 `autoResumeInterruptedFocus` 传 true。
+  final bool autoContinue;
+
+  const FocusPage({
+    super.key,
+    this.task,
+    this.freeLabel,
+    this.resume,
+    this.autoContinue = false,
+  });
+
+  /// 专注页现在是不是开着（2026-09-30）。
+  ///
+  /// 用途：被系统冻结/杀掉之后再回来时，`autoResumeInterruptedFocus` 会想"接回专注"；
+  /// 但用户本来就停在专注页上的话，再 push 一页就叠成两层了。
+  static bool isOpen = false;
 
   @override
   State<FocusPage> createState() => _FocusPageState();
 }
 
 class _FocusPageState extends State<FocusPage> {
+
   late final FocusEngine _engine;
   late final FocusSession _session;
   Timer? _ticker;
@@ -153,6 +175,13 @@ class _FocusPageState extends State<FocusPage> {
         ? null
         : courseNameOf(attributedId);
 
+    // 标记"专注页开着"，给"杀后台回来自动接回"让路
+    FocusPage.isOpen = true;
+    // 杀后台被接回来的这次：不问用户，直接接着跑
+    if (widget.autoContinue && _engine.isPaused) {
+      _engine.resume(DateTime.now());
+      FocusRuntime.set(FocusRunState.running);
+    }
     _lastPhase = _engine.phase;
     _syncAnchor(); // 开局就落一次锚点
     // 一开始就把该休息了排进系统（锁屏也响）
@@ -215,6 +244,7 @@ class _FocusPageState extends State<FocusPage> {
     // 离开页面就把还没到点的该休息了撤掉，别让它半夜响
     TaskReminder.cancelFocusRestNotice();
     // 还原免打扰（只还原我们改过的；用户自己开着的话不动）
+    FocusPage.isOpen = false;
     DoNotDisturb.restore();
     super.dispose();
   }

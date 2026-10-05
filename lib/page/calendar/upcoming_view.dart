@@ -1,8 +1,10 @@
 import 'package:celechron/design/app_accent.dart';
+import 'package:celechron/design/app_route.dart';
 import 'package:celechron/design/round_rectangle_card.dart';
 import 'package:celechron/design/task_detail_nav.dart';
 import 'package:celechron/model/period.dart';
 import 'package:celechron/model/upcoming.dart';
+import 'package:celechron/page/scholar/course_detail/course_detail_view.dart';
 import 'package:flutter/cupertino.dart';
 
 /// 接下来视图：最近的一条大字号，后面几条小字。
@@ -427,8 +429,15 @@ class _UpcomingViewState extends State<UpcomingView> {
 
   // ---------------------------------------------------------------- 工具
 
-  static String _hm(DateTime t) =>
-      '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+  /// 本地时间的 HH:mm。
+  ///
+  /// 必须 toLocal()：作业截止时间来自服务端的 UTC 字符串
+  /// （例如 2026-10-07T15:59:00Z = 北京 23:59），直接读 hour 会少 8 小时 ——
+  /// 同一份作业在学业页和这一页显示出两个时间，用户一眼就看出来了。
+  static String _hm(DateTime t) {
+    final local = t.toLocal();
+    return '${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}';
+  }
 
   static Color _accentOf(UpcomingKind kind) => switch (kind) {
         UpcomingKind.course => AppAccent.primary,
@@ -481,6 +490,12 @@ class _PeriodSheet extends StatelessWidget {
         CupertinoColors.label;
     final description = period.description.trim();
 
+    // 「接下来」里点课程时，弹层的 fromUid 就是课程代码（见 Semester._buildPeriods）。
+    // 用户要求：这个弹层原来只显示信息，进不去正式的课程详情页，得给个入口。
+    // 考试/日程没有对应的课程详情，所以只有课程（classes）才有这个按钮。
+    final courseId =
+        period.type == PeriodType.classes ? period.fromUid : null;
+
     return Container(
       decoration: BoxDecoration(
         color: CupertinoDynamicColor.resolve(
@@ -517,16 +532,36 @@ class _PeriodSheet extends StatelessWidget {
                 _line(CupertinoIcons.doc_text, description, textColor,
                     labelColor),
               const SizedBox(height: 18),
+              if (courseId != null) ...[
+                SizedBox(
+                  width: double.infinity,
+                  child: CupertinoButton(
+                    // 与 App 主按钮一致的爱莉希雅粉（电话/其它主操作用的同一色）
+                    color: AppAccent.primary,
+                    borderRadius: BorderRadius.circular(22),
+                    onPressed: () {
+                      // 先关掉弹层再进详情页：留着弹层的话返回时会重新盖在脸上
+                      final navigator = Navigator.of(context);
+                      navigator.pop();
+                      navigator.push(appPageRoute(
+                        builder: (BuildContext context) =>
+                            CourseDetailPage(courseId: courseId),
+                        title: period.summary,
+                      ));
+                    },
+                    child: const Text('查看课程详情',
+                        style: TextStyle(
+                            color: CupertinoColors.white, fontSize: 16)),
+                  ),
+                ),
+                const SizedBox(height: 4),
+              ],
               SizedBox(
                 width: double.infinity,
                 child: CupertinoButton(
-                  // 与 App 主按钮一致的爱莉希雅粉（电话/其它主操作用的同一色）
-                  color: AppAccent.primary,
-                  borderRadius: BorderRadius.circular(22),
                   onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('知道了',
-                      style: TextStyle(
-                          color: CupertinoColors.white, fontSize: 16)),
+                  child: Text('知道了',
+                      style: TextStyle(color: labelColor, fontSize: 16)),
                 ),
               ),
             ],

@@ -1,7 +1,7 @@
 name: celechron
 description: Elychron —— Celechron 的非官方改版：四种时间语义、子待办行程表、专注计时与统计、AI 整理。
 publish_to: "none"
-version: 1.4.2-elychron.1+10
+version: 1.5.0-elychron.1+11
 environment:
   sdk: ">=3.0.0"
 
@@ -42,6 +42,7 @@ dependencies:
   local_notifier: ^0.1.6
   desktop_drop: ^0.8.4
   audioplayers: ^6.8.1
+  webview_flutter: ^4.14.1
 
 dev_dependencies:
   flutter_test:
@@ -80,6 +81,7 @@ flutter:
     - assets/tutorial/focus/
     # 随包内置的校历（用户 2026-09-17 拍板）：上游那个第三方站老是连不上，
     # 索性把公开的校历 JSON 打进包里；之后**每周**才去试一次远程更新、比差异取新的。
+    - assets/campus/
     - assets/calendar/
     # 桌面端提醒音（见 lib/platform/desktop_notify.dart）：
     # 整个目录一起声明 —— 想换成人声直接把音频丢进来即可，不用改代码。

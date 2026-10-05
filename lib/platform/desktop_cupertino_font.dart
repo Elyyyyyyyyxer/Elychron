@@ -31,11 +31,20 @@ void _log(String message) {
 Future<void> registerDesktopCupertinoFont() async {
   if (!PlatformFeatures.isDesktop) return;
   // 微软雅黑优先；它是 .ttc（字体集合），万一引擎不认就退到两个 .ttf
-  const candidates = <String>[
-    'C:\\Windows\\Fonts\\msyh.ttc', // 微软雅黑（Win10/11 的正式名字）
+  // 鸿蒙字体优先（2026-09-30 用户要求「装鸿蒙字体」）：正文已经用它了，
+  // 这里把写死族名的那批（弹窗 / 菜单）也换成同一套，否则一屏两种字。
+  // 装到"用户字体目录"和"系统字体目录"两种情况都找一遍。
+  final localAppData = Platform.environment['LOCALAPPDATA'] ?? '';
+  final candidates = <String>[
+    if (localAppData.isNotEmpty)
+      localAppData + '\\Microsoft\\Windows\\Fonts\\HarmonyOS_Sans_SC.ttf',
+    'C:\\Windows\\Fonts\\HarmonyOS_Sans_SC.ttf',
+    // 没装鸿蒙就退回微软雅黑（Light 优先，见 main.dart 的注释）
+    'C:\\Windows\\Fonts\\msyhl.ttc',
+    'C:\\Windows\\Fonts\\msyh.ttc',
     'C:\\Windows\\Fonts\\msyh.ttf',
-    'C:\\Windows\\Fonts\\Deng.ttf', // 等线
-    'C:\\Windows\\Fonts\\simhei.ttf', // 黑体
+    'C:\\Windows\\Fonts\\Deng.ttf',
+    'C:\\Windows\\Fonts\\simhei.ttf',
   ];
   for (final path in candidates) {
     try {

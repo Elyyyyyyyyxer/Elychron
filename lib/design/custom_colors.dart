@@ -1,5 +1,32 @@
+import 'package:celechron/design/app_accent.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+
+/// ===== 课程卡片色板（2026-10-01）=====
+///
+/// 用户要求：「课程底色的颜色改成粉色」。
+///
+/// 原来课表卡片的底色是写死的那个蓝（会话卡片 constructor 的默认值），
+/// 跟 App 的粉色主题完全不搭。现在所有课程卡片统一走粉色系：
+/// 底色围绕 AppAccent.primary 取，但**按课程 id 分档**
+/// （色相 ±6°、饱和 ±、明度 0.62~0.70）——
+/// 同一门课每次都是同一个颜色，相邻的课又不会糊成一片。
+///
+/// 2026-10-01 第二版：用户反馈「粉色有点太深了……稍微浅一点明亮一点」，
+/// 于是明度从 0.55~0.65 抬到 0.62~0.70、饱和度也抬一点（更亮）。
+/// 上限压在 0.70：再浅就发灰发白，卡片上的白字就读不动了。
+class CoursePalette {
+  CoursePalette._();
+
+  static Color of(String? courseId) {
+    final seed = (courseId ?? '').hashCode & 0x7fffffff;
+    final base = HSLColor.fromColor(AppAccent.primary);
+    final hue = (base.hue + ((seed % 5) - 2) * 3.0) % 360;
+    final saturation = 0.78 + ((seed ~/ 5) % 2) * 0.08;
+    final lightness = 0.62 + ((seed ~/ 10) % 3) * 0.04;
+    return HSLColor.fromAHSL(1.0, hue, saturation, lightness).toColor();
+  }
+}
 
 class UidColors {
   static Color colorFromUid(String? uid) {

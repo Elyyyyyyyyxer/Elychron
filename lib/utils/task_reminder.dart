@@ -146,6 +146,21 @@ class TaskReminder {
         macOS: const DarwinNotificationDetails(),
       );
 
+  /// ===== 2026-09-30：启动时把"提醒权限"要回来 =====
+  ///
+  /// 这个权限原来是靠设置里「闹钟可靠性」那一页申请的，而那一页随"删掉自带闹钟"
+  /// 一起下线了 —— 老用户（早就授权过）没事，**新装/重装后提醒会静默不响**
+  /// （`zonedSchedule(exactAllowWhileIdle)` 抛异常被吞掉，用户什么提示都没有）。
+  /// 而用户真正在意的"上课/待办提醒"正是走这条路，所以启动时必须主动要一次。
+  static Future<void> ensureReminderPermission() async {
+    try {
+      await _ensureInit();
+      await _requestExactAlarmOnce();
+    } catch (_) {
+      // 申请不到也不影响通知本身，只是到点可能差几分钟
+    }
+  }
+
   /// 只初始化一次；用 Future 缓存避免并发调用时插件还没初始化好就被使用。
   static Future<void> _ensureInit() => _initFuture ??= _doInit();
 

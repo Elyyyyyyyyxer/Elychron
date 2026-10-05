@@ -3,7 +3,9 @@ import 'dart:async';
 import 'package:celechron/mod/ai/deepseek.dart';
 import 'package:celechron/mod/ai/model_resolver.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:celechron/design/app_accent.dart';
 import 'package:celechron/design/page_background.dart';
+import 'package:celechron/design/section_text_style.dart';
 
 /// 设置 → AI 智能助手
 ///
@@ -206,8 +208,9 @@ class _AiSettingsPageState extends State<AiSettingsPage> {
             children: [
               CupertinoListSection.insetGrouped(
                 backgroundColor: pageBackground(context),
-                header: const Text('开关'),
-                footer: const Text(
+                header: sectionHeader(context, '开关'),
+                footer: sectionFooter(
+                  context,
                   '开启后，你选中的待办内容、或分享进来的那段文字，会发送给你配置的'
                   '模型服务商（默认是 DeepSeek 官方接口）。\n'
                   '其余数据仍然只存在本机；不需要 AI 时保持关闭即可。',
@@ -229,8 +232,9 @@ class _AiSettingsPageState extends State<AiSettingsPage> {
               ),
               CupertinoListSection.insetGrouped(
                 backgroundColor: pageBackground(context),
-                header: const Text('API key'),
-                footer: const Text(
+                header: sectionHeader(context, 'API key'),
+                footer: sectionFooter(
+                  context,
                   '去 platform.deepseek.com 申请，复制那串 sk- 开头的密钥。\n'
                   '密钥存在系统密钥库，使用前需给模型厂商充值，'
                   '不会写进数据库，也不会跟着导出数据一起备份出去。',
@@ -283,8 +287,9 @@ class _AiSettingsPageState extends State<AiSettingsPage> {
               ),
               CupertinoListSection.insetGrouped(
                 backgroundColor: pageBackground(context),
-                header: const Text('行为'),
-                footer: const Text(
+                header: sectionHeader(context, '行为'),
+                footer: sectionFooter(
+                  context,
                   '关掉之后，AI 整理出的待办不会再自动带上子待办（有些通知本来就没必要拆步骤）。'
                   ' AI 拆成子待办功能不受影响',
                 ),
@@ -306,8 +311,9 @@ class _AiSettingsPageState extends State<AiSettingsPage> {
               ),
               CupertinoListSection.insetGrouped(
                 backgroundColor: pageBackground(context),
-                header: const Text('模型'),
-                footer: Text(
+                header: sectionHeader(context, '模型'),
+                footer: sectionFooter(
+                  context,
                   AiConfig.isManualModel
                       ? '当前是手动指定。点自动选择可以交回给应用自动选择。'
                       : (ModelResolver.lastAutoPickReason.isEmpty
@@ -327,9 +333,9 @@ class _AiSettingsPageState extends State<AiSettingsPage> {
                     subtitle: const Text('模型更名不受影响，优先选择Flash版本'),
                     trailing: AiConfig.isManualModel
                         ? null
-                        : const Icon(
+                        : Icon(
                             CupertinoIcons.check_mark,
-                            color: CupertinoColors.activeBlue,
+                            color: AppAccent.primary,
                           ),
                     onTap: () => AiConfig.setAutoModel(),
                   ),
@@ -351,9 +357,9 @@ class _AiSettingsPageState extends State<AiSettingsPage> {
                               : '',
                         ),
                         trailing: AiConfig.manualModel == id
-                            ? const Icon(
+                            ? Icon(
                                 CupertinoIcons.check_mark,
-                                color: CupertinoColors.activeBlue,
+                                color: AppAccent.primary,
                               )
                             : null,
                         onTap: () => AiConfig.setModel(id),
@@ -375,8 +381,9 @@ class _AiSettingsPageState extends State<AiSettingsPage> {
               ),
               CupertinoListSection.insetGrouped(
                 backgroundColor: pageBackground(context),
-                header: const Text('接口地址（进阶）'),
-                footer: const Text(
+                header: sectionHeader(context, '接口地址（进阶）'),
+                footer: sectionFooter(
+                  context,
                   '默认用 DeepSeek 官方接口。若使用中转服务或自建服务，'
                   '可以改成一个 OpenAI 兼容的地址。改错会导致调用失败。',
                 ),
@@ -410,7 +417,7 @@ class _AiSettingsPageState extends State<AiSettingsPage> {
               ),
               CupertinoListSection.insetGrouped(
                 backgroundColor: pageBackground(context),
-                header: const Text('连通性'),
+                header: sectionHeader(context, '连通性'),
                 children: [
                   CupertinoListTile(
                     title: const Text('测试连接'),

@@ -8,6 +8,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:get/get.dart';
 import 'package:celechron/design/round_rectangle_card.dart';
 import 'package:celechron/design/two_line_card.dart';
+import 'package:celechron/design/page_background.dart';
 import 'package:celechron/design/persistent_headers.dart';
 import 'grade_card.dart';
 import 'grade_detail_controller.dart';
@@ -371,8 +372,7 @@ class GradeDetailPage extends StatelessWidget {
     final labelColor =
         CupertinoDynamicColor.resolve(CupertinoColors.secondaryLabel, context);
     return CupertinoPageScaffold(
-      backgroundColor: CupertinoDynamicColor.resolve(
-          CupertinoColors.systemGroupedBackground, context),
+      backgroundColor: pageBackground(context),
       child: CustomScrollView(
         slivers: [
           const CelechronSliverTextHeader(subtitle: '成绩'),
@@ -431,8 +431,7 @@ class GradeDetailPage extends StatelessWidget {
       return _buildNoGrades(context);
     }
     return CupertinoPageScaffold(
-      backgroundColor: CupertinoDynamicColor.resolve(
-          CupertinoColors.systemGroupedBackground, context),
+      backgroundColor: pageBackground(context),
       child: CustomScrollView(
         slivers: [
           CelechronSliverTextHeader(

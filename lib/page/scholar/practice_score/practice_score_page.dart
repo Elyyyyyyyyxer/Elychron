@@ -1,5 +1,6 @@
 import 'package:celechron/design/multiple_columns.dart';
 import 'package:celechron/design/app_route.dart';
+import 'package:celechron/design/page_background.dart';
 import 'package:celechron/model/practice_score_item.dart';
 import 'package:celechron/model/scholar.dart';
 import 'package:flutter/cupertino.dart';
@@ -100,10 +101,7 @@ class PracticeScorePage extends StatelessWidget {
       navigationBar: CupertinoNavigationBar(
         middle: Text('$_categoryName项目'),
       ),
-      backgroundColor: CupertinoDynamicColor.resolve(
-        CupertinoColors.systemGroupedBackground,
-        context,
-      ),
+      backgroundColor: pageBackground(context),
       child: SafeArea(
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
@@ -190,10 +188,7 @@ class PracticeScoreDetailPage extends StatelessWidget {
     ];
     return CupertinoPageScaffold(
       navigationBar: const CupertinoNavigationBar(middle: Text('实践项目详情')),
-      backgroundColor: CupertinoDynamicColor.resolve(
-        CupertinoColors.systemGroupedBackground,
-        context,
-      ),
+      backgroundColor: pageBackground(context),
       child: SafeArea(
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),

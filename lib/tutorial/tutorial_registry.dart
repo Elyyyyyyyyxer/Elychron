@@ -3,6 +3,7 @@ import 'package:celechron/tutorial/modules/tutorial_courses.dart';
 import 'package:celechron/tutorial/modules/tutorial_data.dart';
 import 'package:celechron/tutorial/modules/tutorial_focus.dart';
 import 'package:celechron/tutorial/modules/tutorial_setup.dart';
+import 'package:celechron/tutorial/modules/tutorial_sync.dart';
 import 'package:celechron/tutorial/modules/tutorial_tasks.dart';
 import 'package:celechron/tutorial/tutorial_model.dart';
 
@@ -31,6 +32,7 @@ class TutorialRegistry {
     tutorialCourses,
     tutorialFocus,
     tutorialData,
+    tutorialSync,
 
     // 以后加功能时往这里加，例如：
     // tutorialCalendar,

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:celechron/database/database_helper.dart';
 import 'package:celechron/mod/focus_device.dart';
@@ -7,6 +8,7 @@ import 'package:celechron/mod/webdav_client.dart';
 import 'package:celechron/mod/webdav_files.dart';
 import 'package:celechron/mod/webdav_config.dart';
 import 'package:celechron/mod/webdav_sync.dart';
+import 'package:celechron/mod/webdav_status.dart';
 import 'package:celechron/mod/webdav_sync_state.dart';
 import 'package:celechron/model/task.dart';
 import 'package:celechron/utils/data_backup.dart';
@@ -32,6 +34,13 @@ class WebDavSyncService {
   bool _running = false;
   Timer? _timer;
   Timer? _pullTimer;
+
+  /// 被网盘限流（503）之后的静默期：这段时间里**自动**轮询不再发请求。
+  ///
+  /// 坚果云的 503 是限流保护而不是宕机（见 webdav_client._explain 的注释），
+  /// 而"每 3 分钟去撞一次"只会让限流更久。手动点「立即同步」/下拉刷新不受影响 ——
+  /// 那是用户明确要看结果的动作。
+  DateTime? _backoffUntil;
   StreamSubscription<List<Task>>? _taskSub;
 
   bool get running => _running;
@@ -60,23 +69,51 @@ class WebDavSyncService {
     try {
       final db = Get.find<DatabaseHelper>(tag: 'db');
       final taskList = Get.find<RxList<Task>>(tag: 'taskList');
+      // ===== 本机当前内容的 revision（必须真的算出来）=====
+      //
+      // 一开始这里没传 localRevision，于是 decideSyncAction 的 localDirty
+      // **永远是 false** —— 本机自己的改动永远不算"有改动"，结果是：
+      //   1. 最省流量的第一层（指纹 + revision 都对得上就直接收工）永远不生效；
+      //   2. 本机改的东西要等远端也变了才会被带上去。
+      // 用户看到的现象就是"电脑端同步了个空气"。
+      //
+      // 代价只有一次本地 JSON 编码（没有网络请求），省流量的三层照样有效。
+      final localBundle = await DataBackup.currentBundle(db, taskList.toList());
+      final localRevision = contentRevision(utf8.encode(localBundle.encode()));
+      var mergeSummary = '';
       final result = await sync.sync(
         buildLocal: () => DataBackup.currentBundle(db, taskList.toList()),
         applyRemote: (incoming) async {
           // 合并前会自己落一份本地备份（见 mergeIncomingBundle 内部），
           // 万一合并出意外，用户的原始数据还在。
-          await mergeIncomingBundle(incoming: incoming);
+          final summary = await mergeIncomingBundle(incoming: incoming);
+          // 合并结果（新增/改了几条）原来**被丢掉了** —— 界面上只显示
+          // "已从网盘取回最新数据"，用户根本看不出到底同步进来什么，
+          // 于是"同步了个空气"这种怀疑无从分辨。这里把它记下来给界面看。
+          mergeSummary = (summary['summary'] ?? '').toString();
         },
+        localRevision: localRevision,
       );
       var message = result.message;
+      if (mergeSummary.isNotEmpty &&
+          (result.action == SyncAction.pull ||
+              result.action == SyncAction.merge)) {
+        message = message + '（' + mergeSummary + '）';
+      }
       if (!result.failed) {
         final extra = await _syncFiles(client, db, taskList, result.action);
         if (extra.isNotEmpty) message = message + '，' + extra;
+      }
+      if (result.failed) {
+        _noteFailure(message);
+      } else {
+        _backoffUntil = null;
       }
       await WebDavConfig.recordSync(message, failed: result.failed);
       return WebDavSyncResult(result.action, message, failed: result.failed);
     } catch (error) {
       final message = '同步失败：' + error.toString();
+      _noteFailure(message);
       await WebDavConfig.recordSync(message, failed: true);
       return WebDavSyncResult(SyncAction.upToDate, message, failed: true);
     } finally {
@@ -121,7 +158,16 @@ class WebDavSyncService {
         skipped += result.skipped;
         if (result.bytes > 0) await WebDavConfig.addTraffic(down: result.bytes);
       }
-      if (action == SyncAction.push || action == SyncAction.merge) {
+      // 上传：**每次同步都跑一遍**，不看这一轮是什么动作。
+      //
+      // 为什么不能只在 push/merge 时跑（真机验收时发现的缺口）：
+      // 用户打开"同步附件文件"开关之后，如果这段时间没有数据改动，
+      // 每轮同步都是"已是最新，没有传输"—— 附件就永远上不去，
+      // 另一台设备点开依然是空的。
+      //
+      // 每次都跑也不费流量：本地只做 stat + 查索引，不产生网络请求；
+      // 只有真的多出"索引里没有"的文件时才会 PUT。
+      {
         final result = await files.uploadMissing(
           db,
           taskList.toList(),
@@ -158,11 +204,25 @@ class WebDavSyncService {
   /// 只有用户明确开启了同步才会真的跑。
   void scheduleSync({Duration delay = const Duration(seconds: 8)}) {
     if (!WebDavConfig.enabled || !WebDavConfig.isConfigured) return;
+    if (!_autoAllowed) return;
     _timer?.cancel();
     _timer = Timer(delay, () {
       _timer = null;
       syncNow();
     });
+  }
+
+  /// 失败原因里带限流字样就退避一段时间（30 分钟），别一直去撞。
+  void _noteFailure(String message) {
+    if (message.contains('503') || message.contains('限流')) {
+      _backoffUntil = DateTime.now().add(const Duration(minutes: 30));
+    }
+  }
+
+  /// 现在能不能自动同步（限流静默期里返回 false）
+  bool get _autoAllowed {
+    final until = _backoffUntil;
+    return until == null || !DateTime.now().isBefore(until);
   }
 
   void cancelScheduled() {
@@ -187,15 +247,19 @@ class WebDavSyncService {
   ///
   /// 两个触发点，与局域网同步同一套口径：
   /// - **待办列表一变**就排一轮（其余用户数据走 notifyDataChanged）；
-  /// - 每 10 分钟**主动问一次远端**——只在别的设备上改过时，本机没有任何
+  /// - 每 3 分钟**主动问一次远端**——只在别的设备上改过时，本机没有任何
   ///   本地事件可听，只能靠这个定时器，否则"手机上改了，电脑半天不更新"。
   void startAutoSync() {
     if (!WebDavConfig.enabled || !WebDavConfig.isConfigured) return;
     if (!WebDavConfig.loaded) return;
     final list = _taskListOf();
     _taskSub ??= list?.listen((_) => scheduleSync());
-    _pullTimer ??= Timer.periodic(const Duration(minutes: 10), (_) {
+    // 3 分钟而不是 10 分钟：用户的原话是"一个端更新了，另一个端不能自动更新"。
+    // WebDAV 没有推送通道，只能定时问；而一次"没变化"的检查只有几十到几百字节
+    // （PROPFIND 看指纹 + 读 meta.json），问得勤一点远比让用户干等十分钟划算。
+    _pullTimer ??= Timer.periodic(const Duration(minutes: 3), (_) {
       if (!WebDavConfig.enabled) return;
+      if (!_autoAllowed) return;
       syncNow();
     });
   }
@@ -227,18 +291,7 @@ class WebDavSyncService {
     return text + ' · ' + summary;
   }
 
-  static String formatTime(DateTime time) {
-    String two(int value) => value.toString().padLeft(2, '0');
-    final now = DateTime.now();
-    final hm = two(time.hour) + ':' + two(time.minute);
-    final sameDay =
-        time.year == now.year && time.month == now.month && time.day == now.day;
-    if (sameDay) return '今天 ' + hm;
-    final yesterday = now.subtract(const Duration(days: 1));
-    final isYesterday = time.year == yesterday.year &&
-        time.month == yesterday.month &&
-        time.day == yesterday.day;
-    if (isYesterday) return '昨天 ' + hm;
-    return two(time.month) + '-' + two(time.day) + ' ' + hm;
-  }
+  /// 时间的说法只保留一份（在 webdav_status.dart 里）。这里只做转发 ——
+  /// 两处各写一遍的话，"昨天"和"今天"的边界迟早会出现两种结果。
+  static String formatTime(DateTime time) => formatSyncTime(time);
 }

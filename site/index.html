@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Elychron —— 浙大人的时间管理 App</title>
+<meta name="description" content="Elychron 是 Celechron 的非官方改版：课表、作业、专注、预约排在同一张时间表上。没有服务器，不收集数据。">
+<meta name="theme-color" content="#0A0A0C">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Elychron">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="bgfield" aria-hidden="true"><i></i><i></i><i></i></div>
+
+<header class="navwrap">
+  <div class="nav">
+    <a class="logo" href="#top"><img src="icon.png" alt="" width="22" height="22"><span>Elychron</span><span class="tagbadge mono">GPLv3</span></a>
+    <nav class="navlinks">
+      <a href="#highlights">亮点</a>
+      <a href="#features">功能</a>
+      <a href="#privacy">隐私</a>
+      <a href="#faq">常见问题</a>
+    </nav>
+    <a class="btn small primary" href="#download">下载</a>
+  </div>
+</header>
+
+<main id="top">
+
+  <section class="hero">
+    <div class="glow" aria-hidden="true"></div>
+    <p class="eyebrow mono">Celechron 的非官方改版</p>
+    <h1>把校园里七零八落的网页<br>收进一张时间表</h1>
+    <p class="lede">教务、学在浙大、PTA、图书馆、素拓、研究生院 —— 各自一个网站、各自一套页面。
+      Elychron 把它们收进同一张表：作业与预约自动归位，多端同步，还带一个你自己的 AI 助手。</p>
+    <div class="cta">
+      <a class="btn primary" href="#download">下载 Android 版</a>
+      <a class="btn" href="#download">Windows 桌面版</a>
+    </div>
+
+    <!-- 产品预览：真的 App 界面（不是抽象卡片） -->
+    <div class="preview">
+      <div class="window">
+        <div class="winbar">
+          <span class="wdots" aria-hidden="true"><i></i><i></i><i></i></span>
+          <span class="wintitle mono">Elychron</span>
+          <span class="winpill mono">v1.5.0</span>
+        </div>
+        <div class="winbody">
+          <aside class="winside">
+            <p class="wgroup mono">今天</p>
+            <span class="witem on">日程</span>
+            <span class="witem">待办 <b class="wcount">5</b></span>
+            <span class="witem">专注</span>
+            <span class="witem">学业</span>
+            <span class="witem">设置</span>
+          </aside>
+          <div class="winmain">
+            <div class="wtiles">
+              <div class="wtile">
+                <p class="mono wtilelabel">下一件事</p>
+                <b>数字电路实验报告</b>
+                <span class="wsub">今天 23:59 截止 · 来自学在浙大</span>
+              </div>
+              <div class="wtile focus">
+                <p class="mono wtilelabel">专注</p>
+                <b class="num">24:45</b>
+                <span class="wsub">数据结构 · 进行中</span>
+              </div>
+            </div>
+            <div class="wlist">
+              <p class="wgroup mono">待办</p>
+              <div class="wrow"><i class="wdot p"></i><span>高数作业 第 5 章</span><em class="mono">明天 12:00</em></div>
+              <div class="wrow"><i class="wdot p"></i><span>PTA 题目集 7-3</span><em class="mono">10-08 23:59</em></div>
+              <div class="wrow"><i class="wdot g"></i><span>图书馆 · 主馆二层 Z2F034</span><em class="mono">17:44–23:58</em></div>
+              <div class="wrow"><i class="wdot b"></i><span>素拓活动报名</span><em class="mono">本周内</em></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="winreflect" aria-hidden="true"></div>
+    </div>
+  </section>
+
+  <section id="highlights" class="section">
+    <div class="shead center">
+      <h2>日常里，它替你做的事</h2>
+      <p class="sub">手机上左右滑，桌面上用箭头或圆点切换 —— 它会自己慢慢翻。</p>
+    </div>
+    <div class="slides">
+      <div class="strack" id="strack" tabindex="0" role="group" aria-roledescription="carousel" aria-label="Elychron 的四个卖点">
+        <article class="sslide">
+          <div class="spanel">
+            <p class="snum mono">01 / 04</p>
+            <h3>待办</h3>
+            <ul class="slist">
+              <li><b>类型全面</b>活动、截止、提醒、备忘各自一套规则，不都塞进一个"待办"。</li>
+              <li><b>自由时间逻辑</b>可以只给一个大致时段，不必把每件事都定死到几点。</li>
+              <li><b>附件管理</b>文件、图片、链接都能挂在对应的待办上。</li>
+              <li><b>作业 &amp; 图书馆自动进入</b>学在浙大、PTA 的作业和图书馆预约自动归位。</li>
+            </ul>
+          </div>
+        </article>
+        <article class="sslide">
+          <div class="spanel">
+            <p class="snum mono">02 / 04</p>
+            <h3>AI</h3>
+            <ul class="slist">
+              <li><b>根据通知一键生成</b>把一段通知粘进来，直接拆成待办。</li>
+              <li><b>多模态支持</b>文字、截图、图片都能读。</li>
+              <li><b>子待办规划</b>大任务自动拆成可执行的子步骤。</li>
+              <li><b>默认关闭</b>开启后也只把你选中的内容发给你自己配置的模型服务商。</li>
+            </ul>
+          </div>
+        </article>
+        <article class="sslide">
+          <div class="spanel">
+            <p class="snum mono">03 / 04</p>
+            <h3>多端同步</h3>
+            <ul class="slist">
+              <li><b>跨平台通用</b>Android 与 Windows 共用一套数据。</li>
+              <li><b>数据安全</b>同步走你自己的网盘，没有中间服务器。</li>
+              <li><b>云端免费！</b>任何支持 WebDAV 的免费网盘就够，没有订阅费。</li>
+              <li><b>局域网直连</b>同一 Wi-Fi 下的设备可以点对点同步。</li>
+            </ul>
+          </div>
+        </article>
+        <article class="sslide">
+          <div class="spanel">
+            <p class="snum mono">04 / 04</p>
+            <h3>稳定</h3>
+            <ul class="slist">
+              <li><b>zdbk 挂了也能看课表</b>只要缓存过，教务打不开照样显示。</li>
+              <li><b>多渠道兜底</b>一条路不通，自动换下一条继续试。</li>
+              <li><b>全天候稳定</b>被杀后台也能接回来接着算。</li>
+            </ul>
+          </div>
+        </article>
+      </div>
+      <div class="slidebar">
+        <button type="button" class="sarrow" data-dir="-1" aria-label="上一个卖点">←</button>
+        <div class="sdots">
+          <button type="button" class="sdot" aria-label="待办" aria-current="true"></button>
+          <button type="button" class="sdot" aria-label="AI" aria-current="false"></button>
+          <button type="button" class="sdot" aria-label="多端同步" aria-current="false"></button>
+          <button type="button" class="sdot" aria-label="稳定" aria-current="false"></button>
+        </div>
+        <button type="button" class="sarrow" data-dir="1" aria-label="下一个卖点">→</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="features" class="section">
+    <div class="shead center">
+      <h2>一种时间，四种说法</h2>
+      <p class="sub">活动、截止、提醒、备忘 —— 四类时间各按各的规矩提醒你，而不是都塞进一个"待办"里。</p>
+    </div>
+    <div class="fgrid">
+      <article class="fpanel">
+        <h3>作业与预约自动进待办</h3>
+        <p>学在浙大的作业、PTA 的题目集、图书馆的座位与研讨间，带截止时间直接落到待办里。</p>
+        <div class="mini">
+          <div class="wrow"><i class="wdot p"></i><span>PTA · 题目集 7-3</span><em class="mono">23:59</em></div>
+          <div class="wrow"><i class="wdot g"></i><span>图书馆 · Z2F034</span><em class="mono">17:44</em></div>
+        </div>
+      </article>
+      <article class="fpanel">
+        <h3>AI 助手（默认关闭）</h3>
+        <p>把一段通知粘进来，直接拆成待办与子步骤。填你自己的模型 Key，只发给你自己的服务商。</p>
+        <div class="mini chat">
+          <p class="bub user">下周三交数字电路实验报告，先做仿真再做实测</p>
+          <p class="bub ai mono">已拆成 3 条子待办 · 默认关闭</p>
+        </div>
+      </article>
+      <article class="fpanel">
+        <h3>多端同步</h3>
+        <p>WebDAV：坚果云、InfiniCloud、Koofr、Nextcloud、群晖、Alist 都行。同一 Wi-Fi 下还能局域网直连。</p>
+        <div class="mini sync">
+          <span class="dev">Android</span><i class="wire" aria-hidden="true"></i><span class="dev">Windows</span>
+        </div>
+      </article>
+      <article class="fpanel">
+        <h3>课表与专注</h3>
+        <p>粉色系课程卡片、长按藏字只看颜色；专注计时自动计入正在上的课，被杀后台也能接回来。</p>
+        <div class="mini grid">
+          <b class="slot a"></b><b class="slot a"></b><b class="slot"></b><b class="slot c"></b>
+          <b class="slot c"></b><b class="slot"></b><b class="slot a"></b><b class="slot"></b>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <section id="download" class="section">
+    <div class="shead center">
+      <h2>挑一个装</h2>
+      <p class="sub">安装包不在本站托管（超过静态托管单文件上限）。国内建议先试 <b>Gitee</b> 或 <b>蓝奏云</b>；GitHub 打不开就走<b>镜像</b>。个人维护的改版，不保证稳定，重要数据请用「设置 → 导出数据」留一份备份。</p>
+    </div>
+    <div class="platform">
+      <div class="p-head"><h3>Android</h3><p class="meta-line mono">APK · arm64 · 28 MB</p></div>
+      <ul class="mirrors">
+        <li><span class="src">GitHub Releases</span><span class="why">官方最新版，更新最快</span><a class="link" href="https://github.com/Elyyyyyyyyxer/Elychron/releases" rel="noopener">打开</a></li>
+        <li><span class="src">GitHub 镜像</span><span class="why">GitHub 打不开时走这个</span><a class="link todo" href="#" title="待填">待填</a></li>
+        <li><span class="src">Gitee</span><span class="why">国内直连，速度最稳</span><a class="link todo" href="#" title="待填">待填</a></li>
+        <li><span class="src">蓝奏云</span><span class="why">免登录、下载快</span><span class="tail"><a class="link todo" href="#" title="待填">待填</a><span class="code">密码 待填</span></span></li>
+        <li><span class="src">百度网盘</span><span class="why">最稳定，可能限速</span><span class="tail"><a class="link todo" href="#" title="待填">待填</a><span class="code">提取码 待填</span></span></li>
+      </ul>
+    </div>
+    <div class="platform">
+      <div class="p-head"><h3>Windows</h3><p class="meta-line mono">ZIP · Windows 10+</p></div>
+      <ul class="mirrors">
+        <li><span class="src">GitHub Releases</span><span class="why">官方最新版，更新最快</span><a class="link" href="https://github.com/Elyyyyyyyyxer/Elychron/releases" rel="noopener">打开</a></li>
+        <li><span class="src">GitHub 镜像</span><span class="why">GitHub 打不开时走这个</span><a class="link todo" href="#" title="待填">待填</a></li>
+        <li><span class="src">Gitee</span><span class="why">国内直连，速度最稳</span><a class="link todo" href="#" title="待填">待填</a></li>
+        <li><span class="src">蓝奏云</span><span class="why">免登录、下载快</span><span class="tail"><a class="link todo" href="#" title="待填">待填</a><span class="code">密码 待填</span></span></li>
+        <li><span class="src">百度网盘</span><span class="why">最稳定，可能限速</span><span class="tail"><a class="link todo" href="#" title="待填">待填</a><span class="code">提取码 待填</span></span></li>
+      </ul>
+    </div>
+    <div class="platform">
+      <div class="p-head"><h3>iPhone / iPad</h3><p class="meta-line mono">PWA · 规划中</p></div>
+      <p class="why" style="margin:12px 0 0">没有苹果开发者账号，原生版暂缓；计划走 PWA 网页版路线，正在做。</p>
+    </div>
+  </section>
+
+  <section id="privacy" class="section">
+    <div class="shead center">
+      <h2>我们不看你的数据</h2>
+    </div>
+    <div class="seal">
+      <p class="seal-tag mono">NO SERVER</p>
+      <p><b>Elychron 没有自己的服务器</b> —— 不收集、不上传、不分享任何用户数据。这个官网本身也没有统计脚本。</p>
+    </div>
+    <ul class="bullets">
+      <li>待办、标签、设置、课表与成绩缓存都存手机本地（应用私有目录），卸载即删除。</li>
+      <li>AI 整理默认关闭；开启后只把你选中的那段文字发给你自己配置的模型服务商。</li>
+      <li>同步的流量走你自己的网盘；局域网直连只在你自己的设备之间走，公网地址一律拒绝。</li>
+      <li>学校账号（教务 / PTA / 图书馆）只用于在你设备上登录对应网站，不经过任何第三方服务器。</li>
+    </ul>
+  </section>
+
+  <section id="faq" class="section">
+    <div class="shead center"><h2>你可能想问</h2></div>
+    <dl class="faq">
+      <div><dt>要花钱吗？</dt><dd>App 免费（GPLv3）。AI 功能要你自己在模型服务商充值，按量计费，跟本项目无关。</dd></div>
+      <div><dt>为什么 AI 要我自己填 Key？</dt><dd>因为没有服务器 —— 也就没地方替你保管 Key，更不会替你付模型的钱。</dd></div>
+      <div><dt>同步必须用坚果云吗？</dt><dd>不必。任何支持 WebDAV 的网盘都行。</dd></div>
+      <div><dt>iOS 什么时候有？</dt><dd>没有苹果开发者账号，计划用 PWA 网页版代替，正在做。</dd></div>
+      <div><dt>跟学校有关系吗？</dt><dd>没有。这是 Celechron 的非官方改版，与浙江大学及上游作者均无隶属关系。</dd></div>
+    </dl>
+  </section>
+
+  <section class="endcta">
+    <div class="glow" aria-hidden="true"></div>
+    <h2>把这一周，收进 Elychron</h2>
+    <p class="sub">开源、无服务器、数据留在你自己手里。<br>Android 与 Windows 现在就能用，iPhone 走 PWA 路线。</p>
+    <div class="cta">
+      <a class="btn primary" href="#download">下载 Android 版</a>
+      <a class="btn" href="https://github.com/Elyyyyyyyyxer/Elychron" rel="noopener">查看源码</a>
+      <a class="btn" href="https://github.com/Elyyyyyyyyxer/Elychron/issues" rel="noopener">问题反馈</a>
+    </div>
+  </section>
+
+</main>
+
+<footer class="footer">
+  <p class="sitever mono">站点版本 site-2026-10-02-01 · 构建 2026-10-01 15:38 UTC</p>
+  <p class="brandline mono">ELYCHRON · GPLv3 · 非官方改版</p>
+  <p class="links">
+    <a href="https://github.com/Elyyyyyyyyxer/Elychron" rel="noopener">源码</a>
+    <a href="https://github.com/Elyyyyyyyyxer/Elychron/issues" rel="noopener">问题反馈</a>
+    <a href="https://github.com/Celechron/Celechron" rel="noopener">上游 Celechron</a>
+  </p>
+  <p class="fine">本项目按"原样"提供，不附带任何保证；使用风险自负。与浙江大学无关。官网不放置任何统计与追踪脚本。</p>
+</footer>
+
+<div class="ios-hint" id="iosHint" hidden>
+  <span>在 iPhone 上装成 App：点底部<b>分享</b> → <b>添加到主屏幕</b></span>
+  <button type="button" id="iosHintOk">知道了</button>
+</div>
+
+<script>
+(function(){
+  /* ===== 卖点分页：scroll-snap + 圆点 / 箭头同步 ===== */
+  var track = document.getElementById('strack');
+  if (track){
+    var slides = Array.prototype.slice.call(track.querySelectorAll('.sslide'));
+    var dots = Array.prototype.slice.call(document.querySelectorAll('.sdot'));
+    var arrows = Array.prototype.slice.call(document.querySelectorAll('.sarrow'));
+    var reduce = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    function stepSize(){
+      if (slides.length < 2) return slides.length ? slides[0].offsetWidth : 1;
+      return slides[1].offsetLeft - slides[0].offsetLeft;
+    }
+    function current(){
+      var st = stepSize() || 1;
+      var i = Math.round(track.scrollLeft / st);
+      return Math.max(0, Math.min(slides.length - 1, i));
+    }
+    function sync(){
+      var i = current();
+      for (var d=0; d<dots.length; d++) dots[d].setAttribute('aria-current', d===i ? 'true' : 'false');
+    }
+    function go(i){
+      i = Math.max(0, Math.min(slides.length - 1, i));
+      var st = stepSize();
+      if (track.scrollTo) track.scrollTo({ left: i*st, behavior: reduce ? 'auto' : 'smooth' });
+      else track.scrollLeft = i*st;
+    }
+    var ticking = false;
+    track.addEventListener('scroll', function(){
+      if (ticking) return; ticking = true;
+      requestAnimationFrame(function(){ sync(); ticking = false; });
+    }, { passive: true });
+    dots.forEach(function(dot, i){ dot.addEventListener('click', function(){ go(i); }); });
+    arrows.forEach(function(a){
+      a.addEventListener('click', function(){ go(current() + (parseInt(a.getAttribute('data-dir'), 10) || 0)); });
+    });
+    track.addEventListener('keydown', function(e){
+      if (e.key === 'ArrowRight'){ go(current() + 1); e.preventDefault(); }
+      else if (e.key === 'ArrowLeft'){ go(current() - 1); e.preventDefault(); }
+    });
+    window.addEventListener('resize', sync);
+    sync();
+
+    // ===== 自动轮播 =====
+    var AUTO_MS = 6000, holdUntil = 0, timer = 0;
+    function hold(ms){ holdUntil = Date.now() + ms; }
+    function tick(){
+      if (Date.now() < holdUntil || document.hidden) return;
+      go((current() + 1) % slides.length);
+    }
+    if (!reduce && slides.length > 1){
+      timer = setInterval(tick, AUTO_MS);
+      // 用户一旦手动操作，暂停一会儿再继续
+      track.addEventListener('pointerdown', function(){ hold(12000); }, { passive: true });
+      track.addEventListener('wheel', function(){ hold(12000); }, { passive: true });
+      track.addEventListener('keydown', function(){ hold(12000); });
+      dots.forEach(function(d){ d.addEventListener('click', function(){ hold(12000); }); });
+      arrows.forEach(function(a){ a.addEventListener('click', function(){ hold(12000); }); });
+      document.addEventListener('visibilitychange', function(){ if (!document.hidden) hold(1500); });
+    }
+  }
+})();
+</script>
+
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function () { navigator.serviceWorker.register('sw.js').catch(function () {}); });
+  }
+  (function () {
+    var hint = document.getElementById('iosHint');
+    if (!hint) return;
+    var standalone = (window.navigator.standalone === true) ||
+      (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+    var ua = navigator.userAgent;
+    var isIOS = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && 'ontouchend' in document);
+    var isSafari = /Safari/.test(ua) && !/CriOS|FxiOS|EdgiOS|Instagram|MicroMessenger/.test(ua);
+    var seen = false;
+    try { seen = localStorage.getItem('ely_ios_hint') === '1'; } catch (e) {}
+    if (isIOS && isSafari && !standalone && !seen) hint.hidden = false;
+    document.getElementById('iosHintOk').addEventListener('click', function () {
+      hint.hidden = true;
+      try { localStorage.setItem('ely_ios_hint', '1'); } catch (e) {}
+    });
+  })();
+</script>
+</body>
+</html>

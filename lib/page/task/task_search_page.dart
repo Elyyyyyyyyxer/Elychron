@@ -153,7 +153,8 @@ class _TaskSearchPageState extends State<TaskSearchPage> {
   }
 
   static String _timeText(Task task) {
-    final time = task.isEvent ? task.startTime : task.endTime;
+    // 本地时间：作业的时间是服务端 UTC 存进来的，直接读 hour/月日会差 8 小时
+    final time = (task.isEvent ? task.startTime : task.endTime).toLocal();
     final now = DateTime.now();
     String two(int value) => value.toString().padLeft(2, '0');
     final clock = two(time.hour) + ':' + two(time.minute);

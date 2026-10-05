@@ -3,12 +3,14 @@ import 'package:celechron/design/sub_title.dart';
 import 'package:celechron/design/custom_colors.dart';
 import 'package:celechron/design/persistent_headers.dart';
 import 'package:celechron/design/round_rectangle_card.dart';
+import 'package:celechron/design/page_background.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:celechron/model/course.dart';
 
 import 'package:celechron/model/exam.dart';
+import 'package:celechron/model/semester.dart';
 import 'package:celechron/model/session.dart';
 import 'package:celechron/model/scholar.dart';
 import 'package:celechron/page/scholar/course_detail/course_focus_section.dart';
@@ -28,8 +30,12 @@ class CourseDetailPage extends StatelessWidget {
   /// **没排进课表**的课照样有成绩，点它就必然找不到课程。
   final Course? course;
 
+  /// 这门课属于哪个学期。补上"起止时间"要用它取第几节的钟点（见 [clockRangeOf]）。
+  final Semester? semester;
+
   CourseDetailPage({required this.courseId, super.key})
-      : course = _findCourse(courseId);
+      : course = _findCourse(courseId),
+        semester = _findSemester(courseId);
 
   /// 在**所有学期**里按课程代码找这门课（找不到返回 null，绝不抛）
   static Course? _findCourse(String? id) {
@@ -40,6 +46,45 @@ class CourseDetailPage extends StatelessWidget {
       if (found != null) return found;
     }
     return null;
+  }
+
+  /// 找到这门课所在的学期（找不到返回 null）
+  static Semester? _findSemester(String? id) {
+    if (id == null || id.isEmpty) return null;
+    final scholar = Get.find<Rx<Scholar>>(tag: 'scholar').value;
+    for (final semester in scholar.semesters) {
+      if (semester.courses[id] != null) return semester;
+    }
+    return null;
+  }
+
+  /// 一行「时间：10:00 - 11:40」。
+  ///
+  /// 原来详情页只写"周几第几节"，没人告诉你几点上课（用户：「课程详情页面
+  /// 不会显示课程的起止时间」）。钟点取自校历配置（Semester.clockRangeOf），
+  /// 与课表摆格子的依据是同一份数据；取不到就整行不显示。
+  Widget _clockLine(BuildContext context, Session session) {
+    final range = semester?.clockRangeOf(session.time.first, session.time.last);
+    if (range == null) return const SizedBox.shrink();
+    final baseColor = CupertinoTheme.of(context).textTheme.textStyle.color!;
+    return Padding(
+      padding: const EdgeInsets.only(top: 4.0),
+      child: Row(children: [
+        Icon(
+          CupertinoIcons.time,
+          size: 14,
+          color: baseColor.withValues(alpha: 0.5),
+        ),
+        Expanded(
+            child: Text(' 时间：' + range,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.normal,
+                  color: baseColor.withValues(alpha: 0.75),
+                  overflow: TextOverflow.ellipsis,
+                )))
+      ]),
+    );
   }
 
   Widget createSessionCard(context, List<Session> sessions) {
@@ -110,6 +155,7 @@ class CourseDetailPage extends StatelessWidget {
                                     overflow: TextOverflow.ellipsis,
                                   )))
                         ]),
+                        _clockLine(context, sessions[0]),
                       ],
                     ),
                     for (var i = 1; i < sessions.length; i++)
@@ -172,6 +218,7 @@ class CourseDetailPage extends StatelessWidget {
                                           overflow: TextOverflow.ellipsis,
                                         )))
                           ]),
+                          _clockLine(context, sessions[i]),
                         ],
                       )
                   ],
@@ -425,8 +472,7 @@ class CourseDetailPage extends StatelessWidget {
     final labelColor =
         CupertinoDynamicColor.resolve(CupertinoColors.secondaryLabel, context);
     return CupertinoPageScaffold(
-      backgroundColor: CupertinoDynamicColor.resolve(
-          CupertinoColors.systemGroupedBackground, context),
+      backgroundColor: pageBackground(context),
       child: CustomScrollView(
         slivers: [
           const CelechronSliverTextHeader(subtitle: '课程详情'),
@@ -472,8 +518,7 @@ class CourseDetailPage extends StatelessWidget {
     final current = course;
     if (current == null) return _buildCourseNotFound(context);
     return CupertinoPageScaffold(
-      backgroundColor: CupertinoDynamicColor.resolve(
-          CupertinoColors.systemGroupedBackground, context),
+      backgroundColor: pageBackground(context),
       child: CustomScrollView(
         slivers: [
           const CelechronSliverTextHeader(subtitle: '课程详情'),

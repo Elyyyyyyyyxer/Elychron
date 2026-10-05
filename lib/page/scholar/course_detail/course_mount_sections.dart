@@ -71,6 +71,11 @@ class _CourseMaterialsSectionState extends State<CourseMaterialsSection> {
     final removedAttachment = _mount.attachments[index];
     await CourseMountTombstone.remember(CourseMountTombstone.attachmentKey(
         _mount.courseId, removedAttachment.path));
+    // 同时按"名字+大小"记一份：另一端那份的本地路径跟这里不一样，
+    // 只记 path 的话它不会认这条墓碑（删了又回来）。
+    await CourseMountTombstone.remember(
+        CourseMountTombstone.attachmentIdentityKey(_mount.courseId,
+            removedAttachment.name, removedAttachment.size));
     _mount.attachments.removeAt(index);
     await _persist();
   }

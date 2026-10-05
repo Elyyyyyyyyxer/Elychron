@@ -54,6 +54,31 @@ class _FocusHomePageState extends State<FocusHomePage> {
         _adoptedNotice = '上次专注（${focusHuman(adopted.focusedTime)}）中途被系统打断了，'
             '已经保留在这里，可以继续';
       }
+
+      // ===== 2026-09-30：停太久的"暂停"自动结算 =====
+      //
+      // 用户反馈：「电脑上有一个很久以前的暂停被同步到了手机上，手机上暂停并计入后
+      // 重新打开仍然存在，电脑上也没有自动消失」，同时「今天至少快四个小时，
+      // 但显示 2h12m」。
+      //
+      // 原因：暂停中的会话只是一个躺在库里的状态（挂在同步的设置里，所以两台会
+      // 看到同一条），它**只等用户点「继续 / 结束」**。用户不点，它就永远在那儿；
+      // 而暂停期间不计时是设计如此，于是那一段已经专注的时间**永远进不了统计** ——
+      // 用户丢的不是记录，是那几个小时。
+      //
+      // 规则：离开超过 12 小时（跨了一夜）就当那次专注结束了，**时长照记**，
+      // 并给用户一句说明 —— 不要去问"你还继续吗"，那时候用户早就不记得了。
+      final stale = db.suspendedFocus();
+      if (stale != null &&
+          DateTime.now().difference(stale.at) > const Duration(hours: 12)) {
+        final staleSession = db.suspendedSession();
+        if (staleSession != null) {
+          settleFocusSession(db, staleSession, completed: true);
+          db.clearSuspendedFocus();
+          _adoptedNotice = '有一次专注（${focusHuman(staleSession.focusedTime)}）停了太久，'
+              '已经自动结算，时长照常计入';
+        }
+      }
     }
     _syncFocusRuntime();
   }

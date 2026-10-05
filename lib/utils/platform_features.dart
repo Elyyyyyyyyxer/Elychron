@@ -35,6 +35,12 @@ final class PlatformFeatures {
     return isMobile;
   }
 
+  /// 能不能用**内置 WebView 登录**（2026-10-01，PTA 用）。
+  ///
+  /// webview_flutter 只有安卓 / iOS 实现：桌面端根本没有这套插件，
+  /// 硬构造 WebViewController 会直接抛。桌面继续走"从浏览器复制 cookie"。
+  static bool get hasWebViewLogin => isMobile;
+
   static bool get hasWidgetSupport {
     return isMobile;
   }

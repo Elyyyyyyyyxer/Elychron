@@ -21,6 +21,8 @@ import 'task_search_page.dart';
 import 'dart:async';
 import 'package:get/get.dart';
 import 'package:celechron/mod/task_batch_edit.dart';
+import 'package:celechron/mod/webdav_config.dart';
+import 'package:celechron/mod/webdav_sync_service.dart';
 import 'package:celechron/design/app_accent.dart';
 
 class TaskPage extends StatelessWidget {
@@ -204,7 +206,9 @@ class TaskPage extends StatelessWidget {
   String _subtaskSummary(Task task) {
     final next = task.nextItineraryStep;
     if (next != null) {
-      final anchor = next.anchorTime!;
+      // 本地时间：作业（学在浙大 / PTA）的时间是服务端 UTC 存进来的，
+      // 直接读 hour 会少 8 小时（见 model/upcoming.dart 里的同款注释）。
+      final anchor = next.anchorTime!.toLocal();
       final now = DateTime.now();
       final today = DateTime(now.year, now.month, now.day);
       final day = DateTime(anchor.year, anchor.month, anchor.day);
@@ -781,6 +785,21 @@ class TaskPage extends StatelessWidget {
                       ),
                     ],
                   ),
+                ),
+                // ===== MOD: 下拉刷新（2026-09-30 用户要求）=====
+                //
+                // 「我们增加一个下拉刷新的功能好了，这样也比较直观方便」。
+                // 拉一下 = 立刻跨设备同步一次 + 重新读一遍本地待办。
+                // 学业页本来就有下拉刷新（scholar_view.dart），这里对齐口径：
+                // 只负责"去拉数据"，不改列表内容；没配置同步就只做本地刷新。
+                CupertinoSliverRefreshControl(
+                  onRefresh: () async {
+                    if (WebDavConfig.enabled && WebDavConfig.isConfigured) {
+                      await WebDavSyncService.instance.syncNow();
+                    }
+                    _taskController.updateDeadlineListTime();
+                    _taskController.taskList.refresh();
+                  },
                 ),
                 _buildFilterRow(context),
                 _buildTagRow(context),

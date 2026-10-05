@@ -26,6 +26,13 @@ import 'package:get/get.dart';
 ///    所以记一个「已忽略」集合（optionsBox，和墓碑同一套做法，不动 Hive 结构）。
 const String kHomeworkTag = '作业';
 const String kHomeworkUidPrefix = 'hw-';
+
+/// 作业的来源（写进待办的描述里）。
+///
+/// PTA 的作业 id 带 pta: 前缀（见 http/pta_spider.dart）—— 原来这里写死
+/// "来自学在浙大"，PTA 的作业建出来的待办就会挂着错的来源。
+String _sourceLabelOf(Todo todo) =>
+    todo.id.startsWith('pta:') ? '来自 PTA 拼题A：' : '来自学在浙大：';
 const String _kDismissedKey = 'homeworkDismissed';
 
 bool taskIsHomework(Task task) => task.tags.contains(kHomeworkTag);
@@ -94,7 +101,7 @@ Future<bool> syncHomeworkTasks({
       task.priority = TaskPriority.high; // 用户要求：默认优先级比较高
       task.tags = <String>[kHomeworkTag];
       if (todo.course.isNotEmpty) {
-        task.description = '来自学在浙大：' + todo.course;
+        task.description = _sourceLabelOf(todo) + todo.course;
       }
       taskList.add(task);
       changed = true;
@@ -116,6 +123,15 @@ Future<bool> syncHomeworkTasks({
     if (!existing.tags.contains(kHomeworkTag)) {
       existing.tags = <String>[...existing.tags, kHomeworkTag];
       touched = true;
+    }
+    // 来源可能搞错过（PTA 的作业一度被写成"来自学在浙大"）。
+    // 只动我们自己生成的那种（以"来自"开头），不碰用户手写的描述。
+    if (todo.course.isNotEmpty && existing.description.startsWith('来自')) {
+      final expected = _sourceLabelOf(todo) + todo.course;
+      if (existing.description != expected) {
+        existing.description = expected;
+        touched = true;
+      }
     }
     if (touched) {
       existing.updatedAt = at;

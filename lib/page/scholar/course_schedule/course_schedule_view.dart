@@ -12,23 +12,16 @@ import 'package:celechron/design/two_line_card.dart';
 import 'course_card.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:celechron/design/page_background.dart';
+import 'package:celechron/design/section_text_style.dart';
 
 class CourseSchedulePage extends StatelessWidget {
   late final CourseScheduleController _courseScheduleController;
 
   CourseSchedulePage(String name, bool first, {super.key}) {
-    bool initialHideCourseInfomation = false;
-    try {
-      initialHideCourseInfomation =
-          Get.find<CourseScheduleController>().hideCourseInfomation.value;
-    } catch (e) {
-      // not initialized
-    }
     Get.delete<CourseScheduleController>();
     _courseScheduleController = Get.put(CourseScheduleController(
       initialName: name,
       initialFirstOrSecondSemester: first,
-      initialHideCourseInfomation: initialHideCourseInfomation,
     ));
   }
 
@@ -439,13 +432,7 @@ class CourseSchedulePage extends StatelessWidget {
               0,
               (13 - period[i].item2) * constraints.maxHeight / 13,
             ),
-            child: Obx(
-              () => SessionCard(
-                sessionList: sessionList[i],
-                hideInfomation:
-                    _courseScheduleController.hideCourseInfomation.value,
-              ),
-            ),
+            child: SessionCard(sessionList: sessionList[i]),
           ),
         );
       }
@@ -469,8 +456,7 @@ class CourseSchedulePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return CupertinoPageScaffold(
-      backgroundColor: CupertinoDynamicColor.resolve(
-          CupertinoColors.systemGroupedBackground, context),
+      backgroundColor: pageBackground(context),
       child: CustomScrollView(
         slivers: [
           const CelechronSliverTextHeader(subtitle: '课表'),
@@ -494,25 +480,30 @@ class CourseSchedulePage extends StatelessWidget {
                   // const SizedBox(height: 8),
                   _courseSchedule(context),
                   const SizedBox(height: 20),
-                  Obx(
-                    () => CupertinoListSection.insetGrouped(
-                      backgroundColor: pageBackground(context),
-                      margin: const EdgeInsetsDirectional.fromSTEB(
-                          0.0, 0.0, 0.0, 10.0),
-                      additionalDividerMargin: 2,
-                      children: <CupertinoListTile>[
-                        CupertinoListTile(
-                            title: const Text('隐藏课程信息'),
-                            trailing: CupertinoSwitch(
-                              value: _courseScheduleController
-                                  .hideCourseInfomation.value,
-                              onChanged: (value) async {
-                                _courseScheduleController
-                                    .hideCourseInfomation.value = value;
-                              },
-                            )),
-                      ],
-                    ),
+                  ValueListenableBuilder<bool>(
+                    valueListenable: courseCardHideText,
+                    builder: (BuildContext context, bool hideText, Widget? _) =>
+                        CupertinoListSection.insetGrouped(
+                          backgroundColor: pageBackground(context),
+                          margin: const EdgeInsetsDirectional.fromSTEB(
+                              0.0, 0.0, 0.0, 10.0),
+                          additionalDividerMargin: 2,
+                          header: sectionHeader(context, '显示'),
+                          footer: sectionFooter(
+                            context,
+                            '也可以在任意课程卡片上长按来切换 —— '
+                            '长按一下全部藏起来，再长按一下放出来。',
+                          ),
+                          children: <CupertinoListTile>[
+                            CupertinoListTile(
+                                title: const Text('隐藏卡片上的文字'),
+                                trailing: CupertinoSwitch(
+                                  value: hideText,
+                                  onChanged: (bool value) =>
+                                      courseCardHideText.value = value,
+                                )),
+                          ],
+                        ),
                   ),
                 ],
               ),

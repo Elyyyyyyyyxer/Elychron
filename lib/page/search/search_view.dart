@@ -1,6 +1,7 @@
 // Official packages
 import 'package:extended_sliver/extended_sliver.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:celechron/design/page_background.dart';
 import 'package:celechron/page/scholar/course_list/course_brief_card.dart';
 import 'package:get/get.dart';
 
@@ -14,8 +15,7 @@ class SearchPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return CupertinoPageScaffold(
-        backgroundColor: CupertinoDynamicColor.resolve(
-            CupertinoColors.systemGroupedBackground, context),
+        backgroundColor: pageBackground(context),
         child: SafeArea(
             child: CustomScrollView(slivers: [
           SliverPinnedToBoxAdapter(

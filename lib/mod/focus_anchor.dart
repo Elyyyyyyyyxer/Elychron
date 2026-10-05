@@ -190,3 +190,42 @@ class FocusAnchorStore {
     } catch (_) {}
   }
 }
+
+/// ===== 2026-09-30：把锚点按**墙上时钟**推进到 [now] =====
+///
+/// 用户原话：「杀后台之前处于什么状态（专注进行中，专注暂停，休息进行中，休息暂停）
+/// 做好记录，回来后读取时间进行比较，确认现在应该处于什么状态后直接静默继续
+/// （这也就意味着开屏会直接进入专注界面）」。
+///
+/// 所以这里**不是**"接着刚才的剩余时间倒数"，而是把离开期间的每一段都补上：
+/// 工作段走完就切休息、休息走完再切回工作，一直推到 now。
+/// 期间累计的专注 / 休息时长一并记进锚点 —— 那正是用户之前丢的东西：
+/// 老逻辑把"被杀"当成"暂停后离开"，而暂停期间不计时，并且要用户点一下才恢复；
+/// 用户不点，那几个小时就永远进不了 FocusSession 记录（"今天至少快四个小时，
+/// 显示却只有 2h12m"）。
+///
+/// 【暂停】原样返回、一段都不推：暂停是用户**主动按的**，暂停期间本来就不该计时
+/// （见 FocusEngine 的"暂停期间不计入任何时长"），回来时仍然停在暂停上等他点继续。
+///
+/// 纯函数（只看 now），单测直接钉。
+FocusAnchor advanceFocusAnchor(FocusAnchor anchor, DateTime now) {
+  if (anchor.phase == FocusPhaseName.paused) return anchor;
+  var current = anchor;
+  // 上限只是防脏数据导致死循环（正常离开不会跨这么多段）
+  for (var guard = 0; guard < 2000; guard++) {
+    if (current.phase == FocusPhaseName.paused) return current;
+    final planned = Duration(
+        minutes: current.phase == FocusPhaseName.resting
+            ? current.restMinutes
+            : current.workMinutes);
+    if (planned <= Duration.zero) return current;
+    final segmentEnd = current.phaseSince.add(planned);
+    if (segmentEnd.isAfter(now)) return current; // 这一段还没走完
+    final next = current.phase == FocusPhaseName.resting
+        ? FocusPhaseName.working
+        : FocusPhaseName.resting;
+    // switchingTo 会把"本段已走的部分"结算进累计，并把本段起点重锚到段末
+    current = current.switchingTo(next, segmentEnd);
+  }
+  return current;
+}

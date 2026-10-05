@@ -17,6 +17,7 @@ import 'package:flutter/material.dart' show Colors;
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:celechron/utils/platform_features.dart';
+import 'package:celechron/utils/task_reminder.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:celechron/page/scholar/scholar_view.dart';
@@ -31,10 +32,16 @@ import 'package:celechron/model/scholar.dart';
 import 'package:celechron/model/option.dart';
 import 'package:celechron/page/desktop/desktop_frame.dart';
 import 'package:celechron/page/desktop/desktop_home.dart';
+import 'package:celechron/page/focus/focus_entry.dart';
 import 'package:celechron/page/home_page.dart';
 import 'package:celechron/page/option/ecard_pay_page.dart';
 import 'package:celechron/services/diagnostic_log_service.dart';
 import 'package:celechron/services/refresh_coordinator.dart';
+import 'package:celechron/mod/library_config.dart';
+import 'package:celechron/mod/library_tasks.dart';
+import 'package:celechron/mod/library_web_session.dart';
+import 'package:celechron/mod/pta_homework.dart';
+import 'package:celechron/worker/background_app_refresh.dart';
 import 'package:celechron/worker/ecard_widget_messenger.dart';
 import 'package:celechron/worker/todo_widget_messenger.dart';
 import 'package:celechron/database/database_helper.dart';
@@ -138,6 +145,7 @@ void main(List<String> args) async {
   final restoredPassword = restoredScholar.password ?? '';
   final credentialsMissing =
       restoredUsername.isEmpty || restoredPassword.isEmpty;
+  var pendingAutoRelogin = false;
   if (restoredScholar.isLogan && credentialsMissing) {
     debugPrint(
         '[Elychron] 恢复的登录状态缺少凭据（学号=${restoredUsername.isEmpty ? "空" : "有"}、'
@@ -154,23 +162,11 @@ void main(List<String> args) async {
       password: remembered.password,
     )) {
       debugPrint('[Elychron] 尝试自动重登…');
-      try {
-        restoredScholar.username = remembered.username;
-        restoredScholar.password = remembered.password;
-        final result = await restoredScholar.login();
-        if (LoginCriteria.succeeded(result)) {
-          await db.setUserLoggedOut(false);
-          await db.rememberAccount(remembered.username, remembered.password);
-          debugPrint('[Elychron] 自动重登成功');
-        } else {
-          restoredScholar.isLogan = false;
-          restoredScholar.sessionInvalid = true;
-        }
-      } catch (error) {
-        debugPrint('[Elychron] 自动重登失败：$error');
-        restoredScholar.isLogan = false;
-        restoredScholar.sessionInvalid = true;
-      }
+      // 凭据先塞进去、按"登录着"呈现；真正的网络登录挪到 runApp 之后（见文件末尾
+      // 的 finishAutoRelogin）—— 用户反馈"启动延迟很大"，就是被这里的 await 卡住的。
+      restoredScholar.username = remembered.username;
+      restoredScholar.password = remembered.password;
+      pendingAutoRelogin = true;
     } else {
       debugPrint('[Elychron] 不自动重登（主动退登过=$loggedOutByChoice）→ 按需要重新登录处理');
       restoredScholar.isLogan = false;
@@ -193,6 +189,10 @@ void main(List<String> args) async {
     // 注册失败就退回平台默认字体，不影响启动
   }
   runApp(const CelechronApp());
+  // 界面已经起来了，现在才去真的登录（失败会刷新 scholar → 界面提示重新登录）
+  if (pendingAutoRelogin) {
+    unawaited(finishAutoRelogin(restoredScholar, db));
+  }
 
   // ===== 桌面端：命令行直开局域网同步（验收 / 自动化用）=====
   //
@@ -233,6 +233,83 @@ void main(List<String> args) async {
       if (WebDavConfig.enabled && WebDavConfig.isConfigured) {
         await WebDavSyncService.instance.syncNow();
       }
+    } catch (_) {}
+  });
+
+  // ===== 「成绩推送」的一次性开场白（v1.5.0 修）=====
+  //
+  // 用户反馈：「一天会给我推送很多次那个通知」。那句话原来挂在 15 分钟一次的后台
+  // 任务里，读不到"说过了"的记录就会一直弹。现在只在**有界面的地方**说一次：
+  // 开着「推送成绩变动」才说，说过（文件记着）就永不再说。
+  Future<void>.delayed(const Duration(seconds: 12), () async {
+    try {
+      final db = Get.find<DatabaseHelper>(tag: 'db');
+      if (!db.getPushOnGradeChange()) return;
+      await showGradePushIntroOnce(db);
+    } catch (_) {}
+  });
+
+  // ===== 图书馆预约 → 待办（2026-10-01）=====
+  //
+  // 数据只能从"那个网页"里取（这站单设备登录，凭据只在页面里成立），所以这里
+  // 静默把常驻的 WebView 会话拉起来，读一次预约并落成待办。
+  // 20 秒是为了排在前面那些更要紧的启动钩子后面；全程 try/catch，
+  // 失败只写诊断日志，绝不弹窗、也不影响启动。
+  Future<void>.delayed(const Duration(seconds: 20), () async {
+    try {
+      // 验证模式（--dart-define=ELY_FORCE_RELOGIN=true）下即使没开启也跑一次，
+      // 这样"后台填表重登"能在不改用户设置的情况下被真机验证（见 LibraryWebSession）。
+      if (!LibraryConfig.enabled &&
+          !LibraryWebSession.instance.forceReloginForTest) {
+        return;
+      }
+      if (!PlatformFeatures.hasWebViewLogin) return;
+      final ready = await LibraryWebSession.instance.ensureReady();
+      if (!ready) return;
+      final result = await syncLibraryReservations(
+        db: Get.find<DatabaseHelper>(tag: 'db'),
+        taskList: Get.find<RxList<Task>>(tag: 'taskList'),
+      );
+      await LibraryConfig.setLastResult(result);
+    } catch (_) {}
+  });
+
+  // ===== PTA 作业（2026-10-01）=====
+  //
+  // 先读缓存把上次的作业显示出来（离线也有），再拉一次新的；并挂上
+  // "每次 scholar 变化后并回去"的监听 —— 教务/学在浙大刷新会把
+  // scholar.todos 整体替换，不并回去的话 PTA 那几条会一闪一闪地消失。
+  Future<void>.delayed(const Duration(seconds: 14), () async {
+    try {
+      await PtaHomework.restore();
+      PtaHomework.startMergeListener();
+      if (PtaHomework.configured) await PtaHomework.refresh();
+    } catch (_) {}
+  });
+
+  // ===== 杀后台回来：静默接回正在进行的专注（2026-09-30）=====
+  //
+  // 用户：「杀后台之前处于什么状态做好记录，回来后读取时间进行比较，
+  // 确认现在应该处于什么状态后直接静默继续（这也就意味着开屏会直接进入专注界面）」。
+  //
+  // 等 6 秒：GetX / 数据库 / 课表都就绪了再动；而且如果这 6 秒里已经有页面被推起来
+  // （比如从分享链接直接进了"新建待办"），就别插一脚抢路由。
+  //
+  // ⚠️ 1.2 秒而不是 6 秒：用户反馈"能进专注页了，但要在首页等好一会儿才弹进去"。
+  // 判断本身只是读一次锚点 + 查一遍未结算会话（纯本地数据库操作），根本不用等；
+  // 留一点点时间只为让第一帧和"从分享链接进来"的入口先落位。
+  Future<void>.delayed(const Duration(milliseconds: 1200), () async {
+    try {
+      if (navigatorKey.currentState?.canPop() ?? false) return;
+      await autoResumeInterruptedFocus();
+    } catch (_) {}
+  });
+
+  // ===== 提醒权限：启动就要回来（见 TaskReminder.ensureReminderPermission）=====
+  // 删掉「闹钟可靠性」那一页之后，新装/重装的用户会静默收不到上课/待办提醒。
+  Future<void>.delayed(const Duration(seconds: 3), () async {
+    try {
+      await TaskReminder.ensureReminderPermission();
     } catch (_) {}
   });
 
@@ -492,10 +569,38 @@ class _CelechronAppState extends State<CelechronApp>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       _startForegroundLease();
+      // ===== 2026-09-30：被"冻结"之后回来，同样要接回专注 =====
+      //
+      // 用户实测「杀后台没有自动进入专注页」。查系统日志（PG_ash / SWAP_Scene）
+      // 才发现华为这边的"杀后台"很多时候是**冻结**（hibernate），进程还活着 ——
+      // 那就不会重新跑 main()，启动钩子自然不触发。
+      //
+      // 所以这里补一条：离开超过 1 分钟再回来（短切换不算，免得把人从别的页面拽走）
+      // 且真的有一次在跑的专注 → 接回专注页（接不到会自己安静返回）。
+      final awaySince = _backgroundedAt;
+      _backgroundedAt = null;
+      if (awaySince != null &&
+          DateTime.now().difference(awaySince) >=
+              const Duration(seconds: 60)) {
+        unawaited(autoResumeInterruptedFocus());
+      }
       unawaited(_consumeTodoWidgetCompletions());
+      // ===== 回到前台就查一次全平台同步（v1.5.0）=====
+      //
+      // 用户反馈：「一个端更新了，另一个端不会自动更新」。
+      // 除了"远端改了没人通知我们"这个固有限制（WebDAV 没有推送通道），
+      // 最要紧的是**别让用户干等**：平时靠在跑的那个 10 分钟定时器，
+      // 最短也要等十分钟；而"切回 App"是用户最可能想看到新数据的时刻。
+      // 这里只延迟 2 秒（避开前台动画），只走最便宜那两层（PROPFIND + meta.json），
+      // 没有变化时几十到几百字节就收工。
+      if (WebDavConfig.enabled && WebDavConfig.isConfigured) {
+        WebDavSyncService.instance
+            .scheduleSync(delay: const Duration(seconds: 2));
+      }
     } else if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.hidden ||
         state == AppLifecycleState.detached) {
+      _backgroundedAt ??= DateTime.now();
       _stopForegroundLease();
     }
     if (state == AppLifecycleState.paused) {
@@ -525,6 +630,11 @@ class _CelechronAppState extends State<CelechronApp>
     }
   }
 
+  /// 什么时候离开前台的（判断"被冻结后回来"用，见 didChangeAppLifecycleState）
+  ///
+  /// ⚠️ 别放到别的类里：它只服务这一个生命周期回调。
+  DateTime? _backgroundedAt;
+
   void _startForegroundLease() {
     unawaited(RefreshCoordinator.setForegroundActive(true));
     _foregroundLeaseHeartbeat ??= Timer.periodic(
@@ -551,6 +661,7 @@ class _CelechronAppState extends State<CelechronApp>
                     : Brightness.light,
             primaryColor: AppAccent.primary, // 爱莉希雅粉
             primaryContrastingColor: CupertinoColors.white,
+
             scaffoldBackgroundColor: CupertinoColors.systemBackground,
             barBackgroundColor: CupertinoColors.systemBackground,
             // 桌面端：主题的基础字体也换成微软雅黑，
@@ -565,6 +676,11 @@ class _CelechronAppState extends State<CelechronApp>
                               fontFamily: desktopFontFamily,
                               fontFamilyFallback: desktopFontFallback,
                               fontWeight: FontWeight.w400,
+                              // ===== 字距放宽一点（用户反馈"字间距比较小，显得难受"，
+                              // 跟进又说了句"再多一点点"）=====
+                              // 手机端保持系统原生字距不动：这一段本来就只在桌面端生效。
+                              // 中文（微软雅黑）在 Flutter 默认字距下小字号会显得挤。
+                              letterSpacing: 0.5,
                             ),
                   )
                 : null,
@@ -719,8 +835,58 @@ class _CelechronAppState extends State<CelechronApp>
 /// Flutter 在 Windows 上默认用 Segoe UI 渲染，中文字形会退到系统兜底字体，
 /// 粗细和字距都不统一，看着很糊。微软雅黑是 Windows 自带的正式中文字体，
 /// 直接按名字引用即可（不需要把字体文件打进包里）。
-const String desktopFontFamily = 'Microsoft YaHei';
+/// 正文用 Light 那一档（2026-09-30 用户反馈「电脑版这种高度密集的字体」）。
+///
+/// 为什么原来显得密：手机是 3x 屏 + 鸿蒙字体（笔画细、字面开阔），
+/// 电脑是 1x 屏 + 微软雅黑 Regular（笔画粗、字身框更满），同一个字号下
+/// 天生更"挤"也更"重"。上次加的 letterSpacing 只拉开了字间，笔画本身没变。
+/// 所以这里改用微软雅黑 **Light**（msyhl.ttc，Win10/11 自带）：
+/// 笔画明显变细，最接近手机那种干净观感，而且不用把字体打进包里。
+/// 正文用**鸿蒙字体**（2026-09-30 用户要求「装鸿蒙字体吧」）。
+///
+/// 前情：手机是 3x 屏 + 鸿蒙系统字体（笔画细、字面开阔），电脑是 1x 屏 +
+/// 微软雅黑（笔画粗、字身框更满）—— 同一个字号下雅黑天生又挤又重，
+/// 换成雅黑 Light 用户也觉得"没有好转"。那就直接用**手机那一套字体**：
+/// HarmonyOS Sans SC（华为发布、可免费商用），装到 Windows 用户字体目录后
+/// 按族名引用即可，**不往包里塞 20MB 字体**（手机本来就自带这套字体）。
+///
+/// 装法（一次性，见 README / docs）：把 HarmonyOS_Sans_SC.ttf 复制到
+/// %LOCALAPPDATA%\Microsoft\Windows\Fonts 并写一条注册表；
+/// 没装的机器会顺着 fallback 链退回微软雅黑，功能不受影响。
+const String desktopFontFamily = 'HarmonyOS Sans SC';
 const List<String> desktopFontFallback = <String>[
+  'HarmonyOS Sans', // 有英文族名的版本
+  'Microsoft YaHei Light', // 没装鸿蒙就退回雅黑 Light
+  'Microsoft YaHei',
   'Microsoft YaHei UI',
   'Segoe UI',
 ];
+
+/// 自动重登的**异步**那一半（见 main 里 pendingAutoRelogin 的注释）。
+///
+/// 为什么不写在 `runApp` 之前：那是一次网络登录，卡在那儿用户就是对着白屏等
+/// —— 这正是「启动延迟很大」的来源（覆盖安装后密钥库读不出凭据时必走这条路）。
+/// 登录结果出来 refresh 一次 scholar，界面（Obx）自己跟上。
+Future<void> finishAutoRelogin(Scholar scholar, DatabaseHelper db) async {
+  debugPrint('[Elychron] 尝试自动重登…（后台）');
+    try {
+      scholar.username = scholar.username ?? '';
+      scholar.password = scholar.password ?? '';
+      final result = await scholar.login();
+      if (LoginCriteria.succeeded(result)) {
+        await db.setUserLoggedOut(false);
+        await db.rememberAccount(scholar.username ?? '', scholar.password ?? '');
+        debugPrint('[Elychron] 自动重登成功');
+      } else {
+        scholar.isLogan = false;
+        scholar.sessionInvalid = true;
+      }
+    } catch (error) {
+      debugPrint('[Elychron] 自动重登失败：$error');
+      scholar.isLogan = false;
+      scholar.sessionInvalid = true;
+    }
+  try {
+    Get.find<Rx<Scholar>>(tag: 'scholar').refresh();
+  } catch (_) {}
+}

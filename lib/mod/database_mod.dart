@@ -182,8 +182,17 @@ extension DatabaseModExt on DatabaseHelper {
   // 提醒方式：0 = 通知（横幅+响铃），1 = 闹钟模式
 
   int getReminderMode() {
-    final value = optionsBox.get(kReminderModeKey);
-    if (value is int) return value;
+    // ===== 2026-09-30：提醒方式恒定 = 通知（0）=====
+    //
+    // 用户：「手机端的闹钟功能始终不实用……我们删掉吧。注意只删掉 Elychron 自带的
+    // 闹钟，不删掉"同步到系统闹钟"功能」。
+    //
+    // 自带闹钟 = 到点弹那个**全屏响铃页**（可延迟 / 划掉，还带配色和"可靠性"授权页）。
+    // 这里把读出来的档位**钉死为通知**：老用户库里存着 1 也没关系，
+    // 不必动 Hive 结构（用户反复强调过别动字段），所有走 mode 的分支自然会走通知那条。
+    //
+    // ⚠️ 「同步到系统闹钟」是另一套东西（把提醒写进系统时钟 App，见 mod/system_alarm.dart），
+    // 完全没动。
     return 0;
   }
 

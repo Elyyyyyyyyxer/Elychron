@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:celechron/design/custom_colors.dart';
 import 'package:celechron/design/round_rectangle_card.dart';
 import 'package:celechron/design/two_line_card.dart';
+import 'package:celechron/design/page_background.dart';
 import 'package:celechron/design/persistent_headers.dart';
 import 'package:celechron/page/scholar/grade_detail/weighted_gpa_controller.dart';
 
@@ -150,8 +151,7 @@ class WeightedGpaPage extends StatelessWidget {
       affectGpaGrades.sort((a, b) => a.name.compareTo(b.name));
 
       return CupertinoPageScaffold(
-        backgroundColor: CupertinoDynamicColor.resolve(
-            CupertinoColors.systemGroupedBackground, context),
+        backgroundColor: pageBackground(context),
         child: CustomScrollView(
           slivers: [
             CelechronSliverTextHeader(

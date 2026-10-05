@@ -1,22 +1,35 @@
 import 'package:celechron/page/scholar/course_detail/course_detail_view.dart';
 import 'package:celechron/design/app_route.dart';
+import 'package:celechron/design/custom_colors.dart';
 import 'package:flutter/cupertino.dart';
 
 import 'package:celechron/model/session.dart';
 
+/// ===== 课表卡片「只留颜色、不留字」的全局状态（2026-10-01）=====
+///
+/// 用户要求：「长按课程卡片的空白处，把所有课程卡片上的文字都藏起来」。
+///
+/// 为什么做成全局而不是某个页面里的局部状态：同一个学期有**两处**课表
+/// （日程标签页里的课表、学业标签页里的课表）。长按藏起来之后换一处看，
+/// 文字当然也该是藏着的 —— 否则用户得藏两遍。
+/// 学业页那个开关现在也是这一个状态（开关和长按完全等价）。
+final ValueNotifier<bool> courseCardHideText = ValueNotifier<bool>(false);
+
+void toggleCourseCardHideText() {
+  courseCardHideText.value = !courseCardHideText.value;
+}
+
 class SessionCard extends StatefulWidget {
   final List<Session> sessionList;
-  final CupertinoDynamicColor backgroundColor;
-  final bool hideInfomation;
+
+  /// 卡片底色。不传就按课程 id 从粉色板里取一个
+  /// （同一门课永远是同一个颜色，见 CoursePalette）。
+  final Color? backgroundColor;
 
   const SessionCard({
     super.key,
     required this.sessionList,
-    this.hideInfomation = false,
-    this.backgroundColor = const CupertinoDynamicColor.withBrightness(
-      color: Color.fromRGBO(0, 141, 236, 1.0),
-      darkColor: Color.fromRGBO(0, 108, 180, 1.0),
-    ),
+    this.backgroundColor,
   });
 
   @override
@@ -52,12 +65,21 @@ class _SessionCardState extends State<SessionCard>
 
   @override
   Widget build(BuildContext context) {
+    // 长按切换"藏不藏字"只重建这一层：卡片自己的按压缩放动画状态不受影响。
+    return ValueListenableBuilder<bool>(
+      valueListenable: courseCardHideText,
+      builder: (BuildContext context, bool hideText, Widget? _) =>
+          _buildCard(context, hideText),
+    );
+  }
+
+  Widget _buildCard(BuildContext context, bool hideText) {
     var isDown = false;
     var isCancel = false;
 
     String sessionName = "";
     String sessionLocation = "";
-    if (!widget.hideInfomation) {
+    if (!hideText) {
       if (widget.sessionList.length == 1) {
         sessionName = widget.sessionList[0].name;
         sessionLocation = widget.sessionList[0].location ?? '未知地点';
@@ -71,6 +93,8 @@ class _SessionCardState extends State<SessionCard>
     }
 
     return GestureDetector(
+      // 长按卡片（空白处也算）= 把字藏起来 / 放出来
+      onLongPress: toggleCourseCardHideText,
       onTapDown: (_) async {
         isDown = true;
         isCancel = false;
@@ -157,7 +181,11 @@ class _SessionCardState extends State<SessionCard>
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(4),
               color: CupertinoDynamicColor.resolve(
-                  widget.backgroundColor, context),
+                  widget.backgroundColor ??
+                      CoursePalette.of(widget.sessionList.isEmpty
+                          ? null
+                          : widget.sessionList.first.id),
+                  context),
             ),
             child: ClipRect(
               child: Padding(
@@ -188,8 +216,7 @@ class _SessionCardState extends State<SessionCard>
                             ),
                       ),
                     ),
-                    if (!widget.hideInfomation &&
-                        sessionLocation.isNotEmpty) ...[
+                    if (!hideText && sessionLocation.isNotEmpty) ...[
                       const SizedBox(height: 2),
                       Flexible(
                         fit: FlexFit.loose,

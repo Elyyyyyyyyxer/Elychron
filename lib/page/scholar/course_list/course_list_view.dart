@@ -6,6 +6,7 @@ import 'package:get/get.dart';
 import 'package:celechron/page/scholar/course_list/course_brief_card.dart';
 import 'package:celechron/design/persistent_headers.dart';
 import 'package:celechron/design/round_rectangle_card.dart';
+import 'package:celechron/design/page_background.dart';
 
 import 'package:celechron/design/animate_button.dart';
 import 'package:celechron/design/custom_colors.dart';
@@ -60,8 +61,7 @@ class CourseListPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return CupertinoPageScaffold(
-      backgroundColor: CupertinoDynamicColor.resolve(
-          CupertinoColors.systemGroupedBackground, context),
+      backgroundColor: pageBackground(context),
       child: CustomScrollView(
         slivers: [
           const CelechronSliverTextHeader(subtitle: '课程'),
