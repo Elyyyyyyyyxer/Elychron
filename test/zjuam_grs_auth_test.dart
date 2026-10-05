@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:celechron/http/zjuServices/grs_new.dart';
+import 'package:celechron/http/zjuServices/exceptions.dart';
 import 'package:celechron/http/zjuServices/zjuam.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -52,6 +53,7 @@ final _pubKeyUri = Uri.parse('https://zjuam.zju.edu.cn/cas/v2/getPubKey');
 void _expectPasswordLogin(
   _ScriptedHttpClient client, {
   required String cookieValue,
+  HttpClientResponse? loginResponse,
 }) {
   final modulus = List<String>.filled(128, 'f').join();
   client
@@ -74,10 +76,11 @@ void _expectPasswordLogin(
     )
     ..expectPost(
       _loginUri,
-      _ScriptedResponse(
-        statusCode: HttpStatus.found,
-        cookies: [Cookie('iPlanetDirectoryPro', cookieValue)],
-      ),
+      loginResponse ??
+          _ScriptedResponse(
+            statusCode: HttpStatus.found,
+            cookies: [Cookie('iPlanetDirectoryPro', cookieValue)],
+          ),
     );
 }
 
@@ -86,6 +89,92 @@ void main() {
 
   setUp(() {
     FlutterSecureStorage.setMockInitialValues({});
+  });
+
+  test('认证拒绝时用户能看到服务器验证码提示，不泄露表单正文', () async {
+    final client = _ScriptedHttpClient();
+    _expectPasswordLogin(client,
+        cookieValue: 'unused',
+        loginResponse: _ScriptedResponse(statusCode: HttpStatus.ok, body: '''
+<html><form><p class="error" id="errormsg" role="heading">
+  <span>验证码错误</span>，请重新输入
+</p><input name="execution" value="secret-execution"></form></html>
+'''));
+    await expectLater(
+      ZjuAm.getSsoCookie(client, 'captcha-test-user', 'test-password'),
+      throwsA(predicate((Object error) =>
+          shortErrorText(error).contains('验证码错误') &&
+          !error.toString().contains('secret-execution') &&
+          !shortErrorText(error).contains('<span>'))),
+    );
+  });
+
+  test('认证错误字段内回显的账号密码被隐藏', () async {
+    final client = _ScriptedHttpClient();
+    _expectPasswordLogin(client,
+        cookieValue: 'unused',
+        loginResponse: _ScriptedResponse(statusCode: HttpStatus.ok, body: '''
+<html><p id='errormsg'>用户 privacy-test-user 认证失败 test-password</p></html>
+'''));
+    await expectLater(
+      ZjuAm.getSsoCookie(client, 'privacy-test-user', 'test-password'),
+      throwsA(predicate((Object error) =>
+          shortErrorText(error).contains('认证失败') &&
+          !error.toString().contains('privacy-test-user') &&
+          !error.toString().contains('test-password'))),
+    );
+  });
+
+  test('认证页没有明确错误时不断言学号或密码错误', () async {
+    final client = _ScriptedHttpClient();
+    _expectPasswordLogin(client,
+        cookieValue: 'unused',
+        loginResponse: _ScriptedResponse(
+            statusCode: HttpStatus.ok,
+            body: '<html><p id="errormsg">  </p></html>'));
+    await expectLater(
+      ZjuAm.getSsoCookie(client, 'empty-error-user', 'test-password'),
+      throwsA(predicate((Object error) =>
+          shortErrorText(error).contains('未成功') &&
+          !error.toString().contains('学号或密码错误'))),
+    );
+  });
+
+  for (final encoded in [
+    'synthetic&quot;password&lt;end&gt;',
+    'synthetic&#34;password&#x3c;end&#X3E;',
+  ]) {
+    test('认证错误中的转义凭据不会进入提示或日志：$encoded', () async {
+      final client = _ScriptedHttpClient();
+      _expectPasswordLogin(client,
+          cookieValue: 'unused',
+          loginResponse: _ScriptedResponse(
+              statusCode: HttpStatus.ok,
+              body: '<html><p id="errormsg">认证失败 $encoded</p></html>'));
+      await expectLater(
+        ZjuAm.getSsoCookie(
+            client, 'escaped-error-user', 'synthetic"password<end>'),
+        throwsA(predicate((Object error) =>
+            shortErrorText(error).contains('认证失败') &&
+            !error.toString().contains('synthetic') &&
+            !error.toString().contains(encoded))),
+      );
+    });
+  }
+
+  test('无法解码的错误实体安全回退，不暴露可逆的凭据', () async {
+    final client = _ScriptedHttpClient();
+    _expectPasswordLogin(client,
+        cookieValue: 'unused',
+        loginResponse: _ScriptedResponse(
+            statusCode: HttpStatus.ok,
+            body: '<html><p id="errormsg">认证失败 synthetic&eacute;</p></html>'));
+    await expectLater(
+      ZjuAm.getSsoCookie(client, 'unknown-entity-user', 'syntheticé'),
+      throwsA(predicate((Object error) =>
+          shortErrorText(error).contains('未成功') &&
+          !error.toString().contains('synthetic'))),
+    );
   });
 
   test('旧版持久化 SSO Cookie 被忽略并删除，启动使用密码新建会话', () async {

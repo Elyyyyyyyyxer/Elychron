@@ -308,10 +308,12 @@ class ZjuAm {
         return cookie;
       } else {
         final location = response.headers.value(HttpHeaders.locationHeader);
-        throw LoginException("统一身份认证失败，学号或密码错误，或认证会话已失效"
-            "；HTTP ${response.statusCode}"
-            "${location == null ? '' : '；Location $location'}"
-            "；响应摘要：${responseSummary(body)}");
+        throw ExceptionWithMessage(
+          _loginRejectionMessage(body, username, password),
+          details: 'HTTP ${response.statusCode}'
+              '${location == null ? '' : '；Location $location'}'
+              '；响应摘要：${responseSummary(body)}',
+        );
       }
     } on Object catch (error, stackTrace) {
       throw exceptionFrom(
@@ -321,5 +323,50 @@ class ZjuAm {
         stackTrace: stackTrace,
       );
     }
+  }
+
+  static String _loginRejectionMessage(
+      String body, String username, String password) {
+    // 只读取 CAS 的错误字段，不把包含凭据与会话令牌的整个表单写入日志。
+    final errorHtml = RegExp(
+      r'''<p\b[^>]*\bid\s*=\s*["']errormsg["'][^>]*>(.*?)</p\s*>''',
+      caseSensitive: false,
+      dotAll: true,
+    ).firstMatch(body)?.group(1);
+    const entities = {
+      'amp': '&',
+      'lt': '<',
+      'gt': '>',
+      'quot': '"',
+      'apos': "'",
+      'nbsp': ' ',
+    };
+    var message = (errorHtml ?? '')
+        .replaceAll(RegExp(r'<[^>]*>'), ' ')
+        .replaceAllMapped(RegExp(r'&(#(?:[xX][0-9a-fA-F]+|[0-9]+)|[a-zA-Z]+);'),
+            (match) {
+      final entity = match.group(1)!;
+      if (!entity.startsWith('#')) return entities[entity] ?? match.group(0)!;
+      final hex = entity.length > 2 && entity[1].toLowerCase() == 'x';
+      final scalar =
+          int.tryParse(entity.substring(hex ? 2 : 1), radix: hex ? 16 : 10);
+      if (scalar == null ||
+          scalar < 1 ||
+          scalar > 0x10ffff ||
+          (scalar >= 0xd800 && scalar <= 0xdfff)) return match.group(0)!;
+      return String.fromCharCode(scalar);
+    });
+    for (final credential in [username, password]) {
+      if (credential.isNotEmpty) {
+        message = message.replaceAll(credential, '<已隐藏>');
+      }
+    }
+    message = message.replaceAll(RegExp(r'\s+'), ' ').trim();
+    if (message.isEmpty ||
+        RegExp(r'&(?:#[xX]?[0-9A-Za-z]+|[A-Za-z][A-Za-z0-9]*);')
+            .hasMatch(message)) {
+      return '认证未成功，请在浙大官网确认账号状态后重试';
+    }
+    return '认证未通过：${redactSensitive(message)}';
   }
 }
