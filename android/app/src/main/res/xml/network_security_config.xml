@@ -7,5 +7,6 @@
     <base-config cleartextTrafficPermitted="false" />
     <domain-config cleartextTrafficPermitted="true">
         <domain includeSubdomains="true">zju.edu.cn</domain>
+        <domain>10.203.16.55</domain>
     </domain-config>
 </network-security-config>

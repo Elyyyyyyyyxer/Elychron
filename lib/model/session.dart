@@ -49,6 +49,9 @@ class Session {
   String get semesterId => id!.substring(1, 12);
   bool get showOnTimetable => !customRepeat || customRepeatWeeks.length >= 3;
 
+  /// 外部实验安排可以给出精确钟点；普通课程继续按校历节次计算。
+  String? get explicitClockRange => null;
+
   static const String dayMap = '零一二三四五六日';
 
   Session.empty()

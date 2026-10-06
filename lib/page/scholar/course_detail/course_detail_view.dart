@@ -64,7 +64,8 @@ class CourseDetailPage extends StatelessWidget {
   /// 不会显示课程的起止时间」）。钟点取自校历配置（Semester.clockRangeOf），
   /// 与课表摆格子的依据是同一份数据；取不到就整行不显示。
   Widget _clockLine(BuildContext context, Session session) {
-    final range = semester?.clockRangeOf(session.time.first, session.time.last);
+    final range = session.explicitClockRange ??
+        semester?.clockRangeOf(session.time.first, session.time.last);
     if (range == null) return const SizedBox.shrink();
     final baseColor = CupertinoTheme.of(context).textTheme.textStyle.color!;
     return Padding(

@@ -27,7 +27,7 @@ List<String> carryOverTimetablesFrom(
   final carried = <String>[];
   for (final semester in incoming) {
     final old = byName[semester.name];
-    if (old == null || old.sessions.isEmpty || semester.sessions.isNotEmpty) {
+    if (old == null || old._sessions.isEmpty || semester._sessions.isNotEmpty) {
       continue;
     }
     semester.mergePartialFrom(old);
@@ -43,6 +43,24 @@ class Semester {
   final List<Exam> _exams;
   final List<Grade> _grades;
   final List<Session> _sessions;
+
+  // 外部选课结果只在内存中叠加，独立缓存由来源管理，避免混入教务的 JSON。
+  Map<String, Course> physicsLabCourses = {};
+  List<Session> physicsLabSessions = [];
+  List<Period> physicsLabPeriods = [];
+
+  void applyPhysicsLabProjection(Semester projection) {
+    if (!hasCalendar && projection.hasCalendar) {
+      _sessionToTime = projection._sessionToTime;
+      _dayOfWeekToDays = projection._dayOfWeekToDays;
+      _holidays = projection._holidays;
+      _exchanges = projection._exchanges;
+      _invalidatePeriodsCache();
+    }
+    physicsLabCourses = projection.physicsLabCourses;
+    physicsLabSessions = projection.physicsLabSessions;
+    physicsLabPeriods = projection.physicsLabPeriods;
+  }
 
   // 第几节课 => 时间
   // 例如，对于第六节课，_sessionToTime[6].first = 13:25, _sessionToTime[6].last = 14:10
@@ -105,11 +123,11 @@ class Semester {
 
   // 课程数据
   Map<String, Course> get courses {
-    return _courses;
+    return physicsLabCourses.isEmpty ? _courses : {..._courses, ...physicsLabCourses};
   }
 
   int get courseCount {
-    return _courses.length;
+    return courses.length;
   }
 
   int get examCount {
@@ -131,7 +149,8 @@ class Semester {
   }
 
   // 所有课程（几乎没用，绘制课程表是要分学期的，看下面的）
-  List<Session> get sessions => _sessions;
+  List<Session> get sessions => physicsLabSessions.isEmpty
+      ? _sessions : [..._sessions, ...physicsLabSessions];
 
   void mergePartialFrom(Semester incoming) {
     // 用于部分刷新失败时补充新数据；空或不完整对象不得替换已有课程安排。
@@ -145,7 +164,7 @@ class Semester {
       return null;
     }
 
-    for (final entry in incoming.courses.entries) {
+    for (final entry in incoming._courses.entries) {
       final existing = matchingCourse(entry.value);
       if (existing == null) {
         _courses[entry.key] = entry.value;
@@ -167,7 +186,7 @@ class Semester {
         if (!duplicate) existing.exams.add(exam);
       }
     }
-    for (final session in incoming.sessions) {
+    for (final session in incoming._sessions) {
       final duplicate = _sessions.any((existing) =>
           existing.id == session.id &&
           existing.dayOfWeek == session.dayOfWeek &&
@@ -194,7 +213,7 @@ class Semester {
 
   // 上半学期课表
   List<List<Session>> get firstHalfTimetable {
-    return _sessions
+    return sessions
         .where((e) => e.firstHalf && e.confirmed && e.showOnTimetable)
         .fold(<List<Session>>[[], [], [], [], [], [], [], []], (p, e) {
       p[e.dayOfWeek].add(e);
@@ -204,7 +223,7 @@ class Semester {
 
   // 下半学期课表
   List<List<Session>> get secondHalfTimetable {
-    return _sessions
+    return sessions
         .where((e) => e.secondHalf && e.confirmed && e.showOnTimetable)
         .fold(<List<Session>>[[], [], [], [], [], [], [], []], (p, e) {
       p[e.dayOfWeek].add(e);
@@ -264,7 +283,10 @@ class Semester {
   }
 
   // 调用方不得原地修改返回的列表（需要排序等操作时先拷贝）。
-  List<Period> get periods => _periodsCache ??= _buildPeriods();
+  List<Period> get periods {
+    final regular = _periodsCache ??= _buildPeriods();
+    return physicsLabPeriods.isEmpty ? regular : [...regular, ...physicsLabPeriods];
+  }
 
   List<Period> _buildPeriods() {
     List<Period> periods = [];

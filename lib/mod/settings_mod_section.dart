@@ -1,4 +1,5 @@
 import 'package:celechron/design/context_menu.dart';
+import 'package:celechron/mod/physics_lab_page.dart';
 import 'package:celechron/design/app_route.dart';
 import 'package:celechron/utils/platform_features.dart';
 import 'package:celechron/design/dingtalk_sheet.dart';
@@ -657,4 +658,5 @@ Widget modCampusSection(
 List<Widget> modAccountTiles(BuildContext context) => <Widget>[
       const PtaHomeworkTile(),
       const LibraryReservationTile(),
+      const PhysicsLabTile(),
     ];

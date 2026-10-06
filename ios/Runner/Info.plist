@@ -45,6 +45,17 @@
 	<false/>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSExceptionDomains</key>
+		<dict>
+			<key>10.203.16.55</key>
+			<dict>
+				<key>NSExceptionAllowsInsecureHTTPLoads</key>
+				<true/>
+			</dict>
+		</dict>
+	</dict>
 	<key>NSCalendarsFullAccessUsageDescription</key>
 	<string>Elychron需要完整访问您的日历来同步课程表信息</string>
 	<key>NSCalendarsUsageDescription</key>

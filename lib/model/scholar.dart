@@ -122,11 +122,12 @@ class Scholar {
 
   Semester get thisSemester {
     if (semesters.length > 1) {
-      if (semesters[1]
-          .periods
-          .last
-          .endTime
-          .isAfter(DateTime.now().subtract(const Duration(days: 14)))) {
+      if (semesters[1].periods.isNotEmpty &&
+          semesters[1]
+              .periods
+              .last
+              .endTime
+              .isAfter(DateTime.now().subtract(const Duration(days: 14)))) {
         return semesters[1];
       } else {
         return semesters[0];

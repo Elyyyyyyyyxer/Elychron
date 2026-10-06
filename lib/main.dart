@@ -1,5 +1,6 @@
 import 'package:celechron/design/app_accent.dart';
 import 'package:celechron/mod/auto_relogin.dart';
+import 'package:celechron/mod/physics_lab_service.dart';
 import 'package:celechron/mod/homework_tasks.dart';
 import 'package:celechron/mod/login_criteria.dart';
 import 'package:celechron/mod/webdav_config.dart';
@@ -275,6 +276,10 @@ void main(List<String> args) async {
   });
 
   // ===== PTA 作业（2026-10-01）=====
+  Future<void>.delayed(const Duration(seconds: 18), () async {
+    await PhysicsLabService.instance.start();
+    await PhysicsLabService.instance.refresh();
+  });
   //
   // 先读缓存把上次的作业显示出来（离线也有），再拉一次新的；并挂上
   // "每次 scholar 变化后并回去"的监听 —— 教务/学在浙大刷新会把
@@ -569,6 +574,7 @@ class _CelechronAppState extends State<CelechronApp>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       _startForegroundLease();
+      unawaited(PhysicsLabService.instance.refresh());
       // ===== 2026-09-30：被"冻结"之后回来，同样要接回专注 =====
       //
       // 用户实测「杀后台没有自动进入专注页」。查系统日志（PG_ash / SWAP_Scene）
