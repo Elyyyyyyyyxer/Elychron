@@ -75,6 +75,7 @@ void main() {
 
   setUp(() async {
     debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+    FlutterSecureStorage.setMockInitialValues({});
     messenger.setMockMethodCallHandler(
         channel, (_) async => 'group.synthetic.ABCDEF1234');
     await initializeSecureStorageIOSOptions();

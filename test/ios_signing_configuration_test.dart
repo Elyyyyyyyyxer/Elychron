@@ -2,6 +2,7 @@ import 'package:celechron/utils/utils.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -9,7 +10,10 @@ void main() {
   final messenger =
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
 
-  setUp(() => debugDefaultTargetPlatformOverride = TargetPlatform.iOS);
+  setUp(() {
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+    FlutterSecureStorage.setMockInitialValues({});
+  });
   tearDown(() {
     messenger.setMockMethodCallHandler(channel, null);
     debugDefaultTargetPlatformOverride = null;

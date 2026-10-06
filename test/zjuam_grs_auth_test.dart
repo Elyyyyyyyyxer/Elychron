@@ -7,6 +7,10 @@ import 'package:celechron/http/zjuServices/grs_new.dart';
 import 'package:celechron/http/zjuServices/exceptions.dart';
 import 'package:celechron/http/zjuServices/zjuam.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:flutter_secure_storage_platform_interface/flutter_secure_storage_platform_interface.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
+import 'package:celechron/utils/utils.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 const _cacheKeyPrefix = 'zju_sso_cookie_';
@@ -89,6 +93,65 @@ void main() {
 
   setUp(() {
     FlutterSecureStorage.setMockInitialValues({});
+  });
+
+  test('自签缺少 App Group 权限时使用私有钥匙串并正常发起密码认证', () async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+    const signing = MethodChannel('celechron/signing');
+    const keychain =
+        MethodChannel('plugins.it_nomads.com/flutter_secure_storage');
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    final privateItems = <String, String>{};
+    FlutterSecureStoragePlatform.instance = MethodChannelFlutterSecureStorage();
+    messenger.setMockMethodCallHandler(
+        signing, (_) async => 'group.top.celechron.celechron');
+    messenger.setMockMethodCallHandler(keychain, (call) async {
+      final arguments = Map<String, dynamic>.from(call.arguments as Map);
+      final options = Map<String, dynamic>.from(arguments['options'] as Map);
+      if (options['groupId'] != null) {
+        throw PlatformException(
+            code: 'Unexpected security result code',
+            message: 'A required entitlement is not present',
+            details: -34018);
+      }
+      final key = arguments['key'] as String;
+      switch (call.method) {
+        case 'write':
+          privateItems[key] = arguments['value'] as String;
+          return null;
+        case 'read':
+          return privateItems[key];
+        case 'delete':
+          privateItems.remove(key);
+          return null;
+        default:
+          throw StateError('Unexpected synthetic keychain call');
+      }
+    });
+    try {
+      await initializeSecureStorageIOSOptions();
+      final client = _ScriptedHttpClient();
+      _expectPasswordLogin(client, cookieValue: 'synthetic-private-cookie');
+      final cookie = await ZjuAm.getSsoCookie(
+          client, 'synthetic-resigned-user', 'synthetic-password');
+      expect(cookie?.value, 'synthetic-private-cookie');
+      expect(client.pendingDescriptions, isEmpty);
+      expect(secureStorageIOSOptions.toMap()['groupId'], isNull);
+      await const FlutterSecureStorage().write(
+          key: 'username',
+          value: 'synthetic-resigned-user',
+          iOptions: secureStorageIOSOptions);
+      expect(
+          await const FlutterSecureStorage()
+              .read(key: 'username', iOptions: secureStorageIOSOptions),
+          'synthetic-resigned-user');
+    } finally {
+      messenger.setMockMethodCallHandler(signing, null);
+      messenger.setMockMethodCallHandler(keychain, null);
+      debugDefaultTargetPlatformOverride = null;
+      FlutterSecureStorage.setMockInitialValues({});
+    }
   });
 
   test('认证拒绝时用户能看到服务器验证码提示，不泄露表单正文', () async {

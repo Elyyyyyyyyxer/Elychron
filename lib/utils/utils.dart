@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_secure_storage_platform_interface/flutter_secure_storage_platform_interface.dart';
+import 'package:uuid/uuid.dart';
 
 DateTime dateOnly(DateTime date, {int? hour, int? minute}) {
   return DateTime(date.year, date.month, date.day, hour ?? 0, minute ?? 0);
@@ -47,9 +49,37 @@ Future<void> initializeSecureStorageIOSOptions() async {
   } on Object {
     // Missing sharing capability must not prevent private Keychain login.
   }
+  // Signing metadata alone does not grant access: some signers strip App Groups.
+  if (group != null && !await _canUseSharedKeychain(group)) group = null;
   _secureStorageIOSOptions = IOSOptions(
     accessibility: KeychainAccessibility.first_unlock,
     accountName: 'Celechron',
     groupId: group,
   );
+}
+
+Future<bool> _canUseSharedKeychain(String group) async {
+  final storage = FlutterSecureStoragePlatform.instance;
+  final options = IOSOptions(
+    accessibility: KeychainAccessibility.first_unlock,
+    accountName: 'CelechronSigningProbe',
+    groupId: group,
+  ).toMap();
+  final key = 'capability-${const Uuid().v4()}';
+  const timeout = Duration(seconds: 2);
+  try {
+    await storage
+        .write(key: key, value: 'available', options: options)
+        .timeout(timeout);
+    return await storage.read(key: key, options: options).timeout(timeout) ==
+        'available';
+  } on Object {
+    return false;
+  } finally {
+    try {
+      await storage.delete(key: key, options: options).timeout(timeout);
+    } on Object {
+      // A timed-out native write may finish later; always attempt scoped cleanup.
+    }
+  }
 }

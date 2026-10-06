@@ -30,6 +30,7 @@ dependencies:
       path: workmanager
   flutter_local_notifications: ^17.2.4
   flutter_secure_storage: ^9.2.4
+  flutter_secure_storage_platform_interface: ^1.1.2
   qr_flutter:
   app_links:
   crypto: 
