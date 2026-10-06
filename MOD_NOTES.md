@@ -1,5 +1,7 @@
 # Celechron 魔改版说明
 
+> 当前 Android 重新编译与签名步骤见 [Android 构建说明](docs/android-build.md)，苹果专属能力、iPad 适配与 IPA 签名见 [苹果平台说明](docs/ios-port.md)。以下旧版工程路径与实测记录保留为历史资料，以 README 和上述说明为当前入口。
+
 ## 一句话
 
 把 Celechron 的「任务/日程」改造成钉钉待办详情页的形态：完成待办按钮、大标题、描述、截止时间带提醒铃铛、优先级、子待办、附件、本地评论，并新增实时倒计时。*（「时间安排」已在后续迭代中按要求移除）*
@@ -228,18 +230,16 @@
 
 ## 构建
 
-```powershell
-pwsh -File D:\学习资料\celechron魔改\build_apk.ps1
+在仓库根目录重新编译（macOS / Windows 均使用相同 Flutter 命令）：
+
+```bash
+flutter pub get
+flutter analyze --no-pub --no-fatal-infos --no-fatal-warnings
+flutter test --no-pub
+flutter build apk --release --target-platform android-arm64 --no-tree-shake-icons --no-pub
 ```
 
-产物：`Celechron\build\app\outputs\flutter-apk\app-release.apk`（当前 25.2 MB）
-
-手动构建：
-
-```powershell
-cd D:\celechron-mod\Celechron
-D:\flutter\bin\flutter.bat build apk --release --target-platform android-arm64 --no-tree-shake-icons
-```
+产物：`build/app/outputs/flutter-apk/app-release.apk`。环境、签名兼容及覆盖安装步骤见 [docs/android-build.md](docs/android-build.md)。以下构建链修复与旧设备验收是历史记录，不代表本轮已重新编译 APK。
 
 ### 构建链上的三处必要调整
 
