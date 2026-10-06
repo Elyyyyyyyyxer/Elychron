@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:flutter/services.dart';
 
 DateTime dateOnly(DateTime date, {int? hour, int? minute}) {
   return DateTime(date.year, date.month, date.day, hour ?? 0, minute ?? 0);
@@ -24,12 +25,31 @@ String toStringHumanReadable(DateTime dateTime) {
   return str;
 }
 
-const secureStorageIOSOptions = !kReleaseMode
-    ? IOSOptions(
+var _secureStorageIOSOptions = !kReleaseMode
+    ? const IOSOptions(
         accessibility: KeychainAccessibility.first_unlock,
         accountName: 'Celechron',
         groupId: 'group.top.celechron.celechron.debug')
-    : IOSOptions(
+    : const IOSOptions(
         accessibility: KeychainAccessibility.first_unlock,
         accountName: 'Celechron',
         groupId: 'group.top.celechron.celechron');
+
+IOSOptions get secureStorageIOSOptions => _secureStorageIOSOptions;
+
+Future<void> initializeSecureStorageIOSOptions() async {
+  if (kIsWeb || defaultTargetPlatform != TargetPlatform.iOS) return;
+  String? group;
+  try {
+    group = await const MethodChannel('celechron/signing')
+        .invokeMethod<String>('getAppGroup')
+        .timeout(const Duration(seconds: 2));
+  } on Object {
+    // Missing sharing capability must not prevent private Keychain login.
+  }
+  _secureStorageIOSOptions = IOSOptions(
+    accessibility: KeychainAccessibility.first_unlock,
+    accountName: 'Celechron',
+    groupId: group,
+  );
+}

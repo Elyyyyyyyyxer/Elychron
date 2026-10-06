@@ -23,11 +23,11 @@ struct ECardWidgetProvider: TimelineProvider {
     }
     
     func getTimeline(in context: Context, completion: @escaping (Timeline<Entry>) -> Void) {
-    #if DEBUG
-        let accessGroup = "group.top.celechron.celechron.debug"
-    #else
-        let accessGroup = "group.top.celechron.celechron"
-    #endif
+        guard let accessGroup = AppGroupConfiguration.identifier() else {
+            completion(Timeline(entries: [ECardEntry(date: Date(), balance: -1)],
+                                policy: .after(Date(timeIntervalSinceNow: 1800))))
+            return
+        }
         let keychainQuery: [CFString: Any] = [
             kSecClass: kSecClassGenericPassword,
             kSecAttrAccessible: kSecAttrAccessibleAfterFirstUnlock,

@@ -7,6 +7,10 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		A736600AB2BF4CBBAC031002 /* AppGroupConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = A736600AB2BF4CBBAC031001 /* AppGroupConfiguration.swift */; };
+		A736600AB2BF4CBBAC031003 /* AppGroupConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = A736600AB2BF4CBBAC031001 /* AppGroupConfiguration.swift */; };
+		A736600AB2BF4CBBAC031004 /* AppGroupConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = A736600AB2BF4CBBAC031001 /* AppGroupConfiguration.swift */; };
+
 		03569248F5079DC7985D411E /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9319897E1E7BD1683E183AF7 /* Foundation.framework */; };
 		1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */ = {isa = PBXBuildFile; fileRef = 1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */; };
 		3B3967161E833CAA004F5970 /* AppFrameworkInfo.plist in Resources */ = {isa = PBXBuildFile; fileRef = 3B3967151E833CAA004F5970 /* AppFrameworkInfo.plist */; };
@@ -76,6 +80,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		A736600AB2BF4CBBAC031001 /* AppGroupConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppGroupConfiguration.swift; sourceTree = "<group>"; };
 		0728470552EC922C1A4BEE0B /* ShareExtensionDebug.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; path = ShareExtensionDebug.entitlements; sourceTree = "<group>"; };
 		1498D2321E8E86230040F4C2 /* GeneratedPluginRegistrant.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = GeneratedPluginRegistrant.h; sourceTree = "<group>"; };
 		1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = GeneratedPluginRegistrant.m; sourceTree = "<group>"; };
@@ -159,6 +164,7 @@
 			isa = PBXGroup;
 			children = (
 				ABEBF7A1EB9664E1E12D035E /* ShareInbox.swift */,
+				A736600AB2BF4CBBAC031001 /* AppGroupConfiguration.swift */,
 			);
 			name = ShareSupport;
 			path = ShareSupport;
@@ -515,6 +521,7 @@
 			files = (
 				D426989361322CFC4FDB5A9B /* ShareViewController.swift in Sources */,
 				BC4865557FFB65B64554F8E1 /* ShareInbox.swift in Sources */,
+				A736600AB2BF4CBBAC031002 /* AppGroupConfiguration.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -526,6 +533,7 @@
 				E08278D82BF2085100F840B8 /* FlowMessenger.swift in Sources */,
 				1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */,
 				5B59EFEDE1FE2D742A15987B /* ShareInbox.swift in Sources */,
+				A736600AB2BF4CBBAC031003 /* AppGroupConfiguration.swift in Sources */,
 				C082E1C563A38B81CD5FA941 /* ShareStreamHandler.swift in Sources */,
 				C99F491CED54DD85E6337BBB /* NativeAlarmBridge.swift in Sources */,
 			);
@@ -536,6 +544,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				E052FFAE2BE287E600031D98 /* FlowWidget.swift in Sources */,
+				A736600AB2BF4CBBAC031004 /* AppGroupConfiguration.swift in Sources */,
 				E08278DA2BF20ECD00F840B8 /* FlowWidgetView.swift in Sources */,
 				E07112912C3BA66800A8D9BA /* ECardWidget.swift in Sources */,
 				E052FFAA2BE287E600031D98 /* WidgetExtensionsBundle.swift in Sources */,

@@ -5,13 +5,21 @@ import workmanager
 import flutter_local_notifications
 
 extension FlutterError: Error {}
+
+private func registerSigningConfiguration(messenger: FlutterBinaryMessenger) {
+    let channel = FlutterMethodChannel(name: "celechron/signing", binaryMessenger: messenger)
+    channel.setMethodCallHandler { call, result in
+        if call.method == "getAppGroup" {
+            result(AppGroupConfiguration.identifier())
+        } else {
+            result(FlutterMethodNotImplemented)
+        }
+    }
+}
+
 private class FlowMessengerImplementation: FlowMessenger {
     func transfer(data: FlowMessage, completion: @escaping (Result<Bool, Error>) -> Void) {
-#if DEBUG
-        let userDefaults = UserDefaults(suiteName: "group.top.celechron.celechron.debug")
-#else
-        let userDefaults = UserDefaults(suiteName: "group.top.celechron.celechron")
-#endif
+        let userDefaults = AppGroupConfiguration.identifier().flatMap { UserDefaults(suiteName: $0) }
         userDefaults?.set(try? JSONEncoder().encode(data.flowListDto), forKey: "flowList")
         if #available(iOS 14.0, *) {
             WidgetCenter.shared.reloadTimelines(ofKind: "FlowWidget")
@@ -37,12 +45,18 @@ private class FlowMessengerImplementation: FlowMessenger {
         WorkmanagerPlugin.registerPeriodicTask(withIdentifier: "top.celechron.celechron.backgroundScholarFetch", frequency: NSNumber(value: 15 * 60))
         WorkmanagerPlugin.setPluginRegistrantCallback { registry in
             GeneratedPluginRegistrant.register(with: registry)
+            if let registrar = registry.registrar(forPlugin: "ElychronSigning") {
+                registerSigningConfiguration(messenger: registrar.messenger())
+            }
         }
 
         // Notification MethodChannel
         UNUserNotificationCenter.current().delegate = self as UNUserNotificationCenterDelegate
         FlutterLocalNotificationsPlugin.setPluginRegistrantCallback { (registry) in
             GeneratedPluginRegistrant.register(with: registry)
+            if let registrar = registry.registrar(forPlugin: "ElychronSigning") {
+                registerSigningConfiguration(messenger: registrar.messenger())
+            }
         }
 
         return super.application(application, didFinishLaunchingWithOptions: launchOptions)
@@ -50,6 +64,7 @@ private class FlowMessengerImplementation: FlowMessenger {
 
     func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
         GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
+        registerSigningConfiguration(messenger: engineBridge.applicationRegistrar.messenger())
 
         // Flow widget MethodChannel
         FlowMessengerSetup.setUp(binaryMessenger: engineBridge.applicationRegistrar.messenger(), api: FlowMessengerImplementation())

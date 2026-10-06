@@ -185,6 +185,7 @@ void callbackDispatcher() {
 }
 
 Future<void> refreshScholar() async {
+  await initializeSecureStorageIOSOptions();
   if (await RefreshCoordinator.shouldYieldBackground()) {
     DiagnosticLogService.instance.record(
       module: 'refresh',

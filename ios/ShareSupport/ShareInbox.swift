@@ -1,16 +1,14 @@
 import Foundation
 
 enum ShareInbox {
-    static func groupIdentifier() -> String {
-        let bundle = Bundle.main.bundleIdentifier ?? ""
-        return bundle.contains(".debug")
-            ? "group.top.celechron.celechron.debug"
-            : "group.top.celechron.celechron"
+    static func groupIdentifier() -> String? {
+        AppGroupConfiguration.identifier()
     }
 
     static func directory() throws -> URL {
-        guard let root = FileManager.default.containerURL(
-            forSecurityApplicationGroupIdentifier: groupIdentifier()) else {
+        guard let identifier = groupIdentifier(),
+              let root = FileManager.default.containerURL(
+            forSecurityApplicationGroupIdentifier: identifier) else {
             throw NSError(domain: "ElychronShare", code: 1,
                           userInfo: [NSLocalizedDescriptionKey: "App Group unavailable"])
         }

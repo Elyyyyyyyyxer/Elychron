@@ -12,10 +12,13 @@ import 'adapters/duration_adapter.dart';
 import 'adapters/scholar_adapter.dart';
 import 'package:celechron/model/focus_session.dart';
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
+import 'package:crypto/crypto.dart';
 
 import 'package:celechron/utils/data_sync.dart';
-import 'package:flutter/foundation.dart' show debugPrint;
+import 'package:flutter/foundation.dart'
+    show debugPrint, defaultTargetPlatform, kIsWeb, TargetPlatform;
 import 'package:path_provider/path_provider.dart';
 import 'package:celechron/mod/ai/deepseek.dart';
 import 'package:uuid/uuid.dart';
@@ -336,6 +339,7 @@ class DatabaseHelper {
   late final FlutterSecureStorage secureStorage;
 
   Future<void> init() async {
+    await initializeSecureStorageIOSOptions();
     Hive.registerAdapter(DurationAdapter());
     Hive.registerAdapter(ScholarAdapter());
     Hive.registerAdapter(DeadlineStatusAdapter());
@@ -394,25 +398,49 @@ class DatabaseHelper {
         await optionsBox.delete(legacyKey);
       }
     }
-    // Migrate all items without groupID
-    //
-    // ===== MOD：整段加保险，且**绝不阻塞启动** =====
-    // 原来这里是裸的 `await secureStorage.readAll(...)`：密钥库一旦不返回
-    // （某些 ROM 覆盖安装后就会这样），main() 就永远走不到 runApp，
-    // 用户看到的就是"App 打不开"（进程活着、无异常、无首帧，系统记 AppBootFail/ANR）。
-    // 现在：最多等 3 秒，拿不到就当没东西要迁移，直接继续启动。
-    final legacyIOSOptions = const IOSOptions(
+    await migrateLegacySecureStorage();
+  }
+
+  Future<void> migrateLegacySecureStorage() async {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.iOS) return;
+    final target = secureStorageIOSOptions;
+    final group = target.toMap()['groupId'];
+    if (group == null) return;
+    final marker = 'iosKeychainMigration:${sha256.convert(utf8.encode(group))}';
+    final completed = Map<String, bool>.from(optionsBox.get(marker) ?? {});
+    // A query without an access group can see multiple groups. Never delete its results.
+    const source = IOSOptions(
         accessibility: KeychainAccessibility.first_unlock,
         accountName: 'Celechron');
-    final secureStorageItems = await secureStorageOrNull(secureStorage.readAll(
-          iOptions: legacyIOSOptions,
-        )) ??
-        const <String, String>{};
-    for (final e in secureStorageItems.entries) {
-      await secureStorageOrNull(
-          secureStorage.delete(key: e.key, iOptions: legacyIOSOptions));
-      await secureStorageOrNull(secureStorage.write(
-          key: e.key, value: e.value, iOptions: secureStorageIOSOptions));
+    Map<String, String> items;
+    try {
+      items = await secureStorage
+          .readAll(iOptions: source)
+          .timeout(const Duration(seconds: 3));
+    } on Object {
+      return;
+    }
+    for (final entry in items.entries) {
+      // Keep a per-group record so logout cannot resurrect retained legacy credentials.
+      if (completed[entry.key] == true) continue;
+      try {
+        final existing = await secureStorage
+            .read(key: entry.key, iOptions: target)
+            .timeout(const Duration(seconds: 3));
+        if (existing == null) {
+          await secureStorage
+              .write(key: entry.key, value: entry.value, iOptions: target)
+              .timeout(const Duration(seconds: 3));
+          final copied = await secureStorage
+              .read(key: entry.key, iOptions: target)
+              .timeout(const Duration(seconds: 3));
+          if (copied != entry.value) continue;
+        }
+        completed[entry.key] = true;
+        await optionsBox.put(marker, completed);
+      } on Object {
+        // Keep the original encrypted record available for the next startup.
+      }
     }
   }
 
@@ -688,7 +716,8 @@ class DatabaseHelper {
 
   final String kLibraryLastName = 'libraryLastName';
 
-  String getLibraryLastName() => optionsBox.get(kLibraryLastName) as String? ?? '';
+  String getLibraryLastName() =>
+      optionsBox.get(kLibraryLastName) as String? ?? '';
 
   Future<void> setLibraryLastName(String value) async {
     await optionsBox.put(kLibraryLastName, value);

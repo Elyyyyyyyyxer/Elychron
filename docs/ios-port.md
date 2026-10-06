@@ -18,6 +18,8 @@
 
 ## 构建和签名
 
+用户直接安装 Release IPA 的自签步骤和验收范围见 [用户自签教程](self-sign-ios.md)。AltStore 改写的分组由主 App、分享、小组件统一读取；标准 Xcode 构建继续使用其原有组。
+
 最低安装版本为 iOS / iPadOS 15；原生闹钟需要 26+。
 本轮验证环境为 Flutter 3.47.5、Xcode 27；iPhone 与 iPad 共用 IPA。
 先在仓库根执行 `flutter pub get`，再打开 `ios/Runner.xcworkspace`，不是单独的 xcodeproj。

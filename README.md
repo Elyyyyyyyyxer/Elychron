@@ -16,7 +16,7 @@
 ## 下载与安装
 
 Android 到 [Releases](https://github.com/Elyyyyyyyyxer/Elychron/releases/latest) 下载 APK 直接安装。
-iPhone / iPad 需使用自己的开发签名构建 IPA，当前不提供公开 iOS 下载；见 [iOS 构建与签名](docs/ios-port.md)。
+iPhone / iPad 的自签 Release 文件按 [用户自签教程](docs/self-sign-ios.md) 用自己的账号安装；无需重新编译，当前尚未公开发布。开发者构建见 [iOS 构建与签名](docs/ios-port.md)。
 
 - 只提供 **arm64** 包（近年的校园机型都支持）
 - 与官方 Celechron **包名不同，可以共存**，装它不会覆盖官方版，两边数据互不影响
