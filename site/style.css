@@ -27,7 +27,13 @@ body::before, body::after{display:none}
   -webkit-mask-image:radial-gradient(120% 80% at 50% 0%, #000 20%, transparent 78%);
   mask-image:radial-gradient(120% 80% at 50% 0%, #000 20%, transparent 78%);
 }
-a{color:inherit; text-decoration:none}
+a, a:link, a:visited{color:inherit; text-decoration:none}
+a:active{color:inherit}
+.navlinks a, .navlinks a:link, .navlinks a:visited{color:var(--ink-2)}
+.navlinks a:hover{color:var(--ink)}
+.links a, .links a:link, .links a:visited{color:var(--ink-2)}
+.mirrors .src, .mirrors .src:link, .mirrors .src:visited{color:var(--ink)}
+.faq a, .faq a:link, .faq a:visited{color:var(--pink-2)}
 a:hover{color:var(--pink-2)}
 .mono{font-family:var(--mono); font-variant-numeric:tabular-nums}
 :focus-visible{outline:2px solid var(--pink); outline-offset:3px; border-radius:8px}
