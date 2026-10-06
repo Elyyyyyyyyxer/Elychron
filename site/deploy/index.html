@@ -42,7 +42,7 @@ body::before, body::after{display:none}
   background-size:26px 26px;
   -webkit-mask-image:radial-gradient(120% 80% at 50% 0%, #000 20%, transparent 78%);
   mask-image:radial-gradient(120% 80% at 50% 0%, #000 20%, transparent 78%);
-}
+
 a, a:link, a:visited{color:inherit; text-decoration:none}
 a:active{color:inherit}
 .navlinks a, .navlinks a:link, .navlinks a:visited{color:var(--ink-2)}
@@ -72,7 +72,7 @@ main{max-width:var(--maxw); margin:0 auto; padding:0 24px}
   background:transparent; transition:background .18s ease, border-color .18s ease, transform .18s ease, color .18s ease}
 .btn:hover{border-color:var(--ink-3); background:rgba(255,255,255,.05)}
 .btn.primary{background:var(--btn); border-color:var(--btn); color:var(--btn-text)}
-.btn.primary:hover{transform:translateY(-1px); background:#fff; color:var(--btn-text)}
+.btn.primary:hover{transform:translateY(-1px); background:#000; color:#fff}
 .btn.small{padding:8px 16px; font-size:14px}
 
 /* ===== Hero ===== */
@@ -308,6 +308,20 @@ body{background:var(--bg)}
 @media (max-width:820px){ .fgrid{grid-template-columns:1fr} }
 /* 页脚版本标记：一眼看出线上是不是最新 */
 .sitever{margin:0 0 10px; font-size:10.5px; letter-spacing:.14em; color:var(--ink-3); opacity:.8}
+
+/* ===== 链接收口（作者样式不一定稳赢 UA，这里从根上钉死）===== */
+a, a:link, a:visited, a:hover, a:active{ text-decoration:none; }
+.logo, .logo:link, .logo:visited{ color:var(--ink) !important; }
+.navlinks a, .navlinks a:link, .navlinks a:visited{ color:var(--ink-2) !important; }
+.navlinks a:hover{ color:var(--ink) !important; }
+.links a, .links a:link, .links a:visited{ color:var(--ink-2) !important; }
+.mirrors .src, .mirrors .src:link, .mirrors .src:visited{ color:var(--ink) !important; }
+.link, .link:link, .link:visited{ color:var(--ink) !important; }
+.link.todo, .link.todo:link, .link.todo:visited{ color:var(--ink-3) !important; }
+.btn, .btn:link, .btn:visited{ color:var(--ink) !important; }
+.btn.primary, .btn.primary:link, .btn.primary:visited{ color:#fff !important; }
+.btn.primary:hover{ color:#fff !important; }
+.footer a, .footer a:link, .footer a:visited{ color:var(--ink-2) !important; }
 
 </style>
 </head>
