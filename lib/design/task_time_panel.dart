@@ -1,6 +1,8 @@
 import 'package:celechron/design/date_picker_sheet.dart';
 import 'package:celechron/design/repeat_sheet.dart';
 import 'package:celechron/design/task_kind_selector.dart';
+import 'package:celechron/design/ios_reminder_mode_control.dart';
+import 'package:celechron/mod/ios_task_reminder_preferences.dart';
 import 'package:celechron/model/task.dart';
 import 'package:celechron/utils/time_helper.dart';
 import 'package:celechron/database/database_helper.dart';
@@ -15,25 +17,37 @@ Future<void> showTaskTimePanel(
   BuildContext context, {
   required Task task,
   required VoidCallback onChanged,
+  int reminderMode = 0,
+  ValueChanged<int>? onReminderModeChanged,
 }) {
   return showCupertinoModalPopup<void>(
     context: context,
-    builder: (BuildContext context) =>
-        _TaskTimePanel(task: task, onChanged: onChanged),
+    builder: (BuildContext context) => _TaskTimePanel(
+        task: task,
+        onChanged: onChanged,
+        reminderMode: reminderMode,
+        onReminderModeChanged: onReminderModeChanged),
   );
 }
 
 class _TaskTimePanel extends StatefulWidget {
   final Task task;
   final VoidCallback onChanged;
+  final int reminderMode;
+  final ValueChanged<int>? onReminderModeChanged;
 
-  const _TaskTimePanel({required this.task, required this.onChanged});
+  const _TaskTimePanel(
+      {required this.task,
+      required this.onChanged,
+      required this.reminderMode,
+      this.onReminderModeChanged});
 
   @override
   State<_TaskTimePanel> createState() => _TaskTimePanelState();
 }
 
 class _TaskTimePanelState extends State<_TaskTimePanel> {
+  late int _reminderMode = widget.reminderMode;
   Task get _task => widget.task;
 
   void _notify() {
@@ -194,7 +208,7 @@ class _TaskTimePanelState extends State<_TaskTimePanel> {
         CupertinoDynamicColor.resolve(CupertinoColors.secondaryLabel, context);
     final textColor = CupertinoTheme.of(context).textTheme.textStyle.color;
 
-    return Container(
+    final content = Container(
       color: CupertinoDynamicColor.resolve(
           CupertinoColors.systemBackground, context),
       child: SafeArea(
@@ -270,6 +284,18 @@ class _TaskTimePanelState extends State<_TaskTimePanel> {
                     ),
                     _divider(),
                   ],
+                  if (IosTaskReminderPreferences.isIOS &&
+                      _task.schedulesReminder &&
+                      widget.onReminderModeChanged != null) ...[
+                    IosReminderModeControl(
+                      mode: _reminderMode,
+                      onChanged: (mode) {
+                        setState(() => _reminderMode = mode);
+                        widget.onReminderModeChanged!(mode);
+                      },
+                    ),
+                    _divider(),
+                  ],
                   _row(
                     icon: CupertinoIcons.repeat,
                     label: '设置重复',
@@ -304,5 +330,6 @@ class _TaskTimePanelState extends State<_TaskTimePanel> {
         ),
       ),
     );
+    return SingleChildScrollView(child: content);
   }
 }

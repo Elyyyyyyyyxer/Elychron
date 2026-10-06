@@ -4,6 +4,7 @@ import 'package:celechron/database/database_helper.dart';
 import 'package:celechron/design/task_detail_nav.dart';
 import 'package:celechron/model/task.dart';
 import 'package:celechron/mod/system_alarm.dart';
+import 'package:celechron/mod/ios_task_reminder_preferences.dart';
 import 'package:celechron/services/diagnostic_log_service.dart';
 import 'package:celechron/utils/task_alarm_center.dart';
 import 'package:celechron/utils/global.dart';
@@ -52,6 +53,8 @@ class TaskReminder {
 
   /// uid -> 上次同步时的签名
   static final Map<String, String> _synced = <String, String>{};
+  static Future<void>? _syncFuture;
+  static List<Task>? _pendingSyncTasks;
 
   /// uid -> 延迟提醒到什么时候
   static final Map<String, DateTime> _snoozed = <String, DateTime>{};
@@ -136,10 +139,16 @@ class TaskReminder {
         actions: actionsFor(modeAlarm),
       );
 
-  static NotificationDetails get _details => NotificationDetails(
-        android: mode == modeAlarm ? _alarmDetails : _notificationDetails,
+  static int modeFor(Task task) => IosTaskReminderPreferences.isIOS
+      ? IosTaskReminderPreferences.modeFor(task.uid, fromUid: task.fromUid)
+      : mode;
+
+  static NotificationDetails _detailsFor(int reminderMode) =>
+      NotificationDetails(
+        android:
+            reminderMode == modeAlarm ? _alarmDetails : _notificationDetails,
         iOS: DarwinNotificationDetails(
-          categoryIdentifier: mode == modeAlarm
+          categoryIdentifier: reminderMode == modeAlarm
               ? _iosAlarmFallbackCategory
               : _iosNotificationCategory,
         ),
@@ -252,7 +261,7 @@ class TaskReminder {
     final task = _findTask(payload);
     if (task == null) return;
     // 闹钟模式：弹全屏闹钟；通知模式：直接进这条待办的详情页
-    if (mode == modeAlarm) {
+    if (!IosTaskReminderPreferences.isIOS && modeFor(task) == modeAlarm) {
       // 与前台 tick 共用同一套按提醒时刻去重（见 TaskAlarmCenter），
       // 所以点通知弹出来的这次不会被 tick 再弹一遍，反之亦然。
       TaskAlarmCenter.fire(
@@ -346,7 +355,7 @@ class TaskReminder {
         _fireTimeOf(task).millisecondsSinceEpoch,
         task.status.index,
         task.summary,
-        mode,
+        modeFor(task),
       ].join('|');
 
   static bool _shouldSchedule(Task task) {
@@ -402,12 +411,33 @@ class TaskReminder {
   }
 
   /// 把整个任务列表的提醒状态与系统通知对齐。
-  static Future<void> syncAll(List<Task> tasks) async {
+  static Future<void> syncAll(List<Task> tasks) {
+    // Permission prompts can outlive a tick; drain the newest requested state.
+    _pendingSyncTasks = List<Task>.of(tasks);
+    return _syncFuture ??= _drainSyncs();
+  }
+
+  static Future<void> _drainSyncs() async {
+    try {
+      while (_pendingSyncTasks != null) {
+        final tasks = _pendingSyncTasks!;
+        _pendingSyncTasks = null;
+        await _syncAll(tasks);
+      }
+    } finally {
+      _syncFuture = null;
+    }
+  }
+
+  static Future<void> _syncAll(List<Task> tasks) async {
     if (tasks.isEmpty && _synced.isEmpty) return;
     await _ensureInit();
 
     final alive = <String>{};
     for (final task in tasks) {
+      if (IosTaskReminderPreferences.isIOS) {
+        await IosTaskReminderPreferences.inherit(task.uid, task.fromUid);
+      }
       alive.add(task.uid);
       final signature = _signatureOf(task);
       if (_synced[task.uid] == signature) {
@@ -416,7 +446,8 @@ class TaskReminder {
         final id = _idOf(task.uid);
         try {
           await _plugin.cancel(id);
-          if (Platform.isIOS) await SystemAlarm.cancelTask(task.uid);
+          if (IosTaskReminderPreferences.isIOS)
+            await SystemAlarm.cancelTask(task.uid);
           if (_shouldSchedule(task)) {
             await _requestExactAlarmOnce();
             final when = _fireTimeOf(task);
@@ -471,7 +502,7 @@ class TaskReminder {
       _snoozed.remove(uid);
       try {
         await _plugin.cancel(_idOf(uid));
-        if (Platform.isIOS && !uid.startsWith('sub:')) {
+        if (IosTaskReminderPreferences.isIOS && !uid.startsWith('sub:')) {
           await SystemAlarm.cancelTask(uid);
         }
       } catch (_) {}
@@ -479,7 +510,7 @@ class TaskReminder {
   }
 
   static Future<void> _schedule(Task task, int id, DateTime when) async {
-    if (Platform.isIOS && mode == modeAlarm) {
+    if (IosTaskReminderPreferences.isIOS && modeFor(task) == modeAlarm) {
       final scheduled = await SystemAlarm.scheduleTask(
         uid: task.uid,
         at: when,
@@ -496,7 +527,7 @@ class TaskReminder {
         title,
         body,
         fireAt,
-        _details,
+        _detailsFor(modeFor(task)),
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
         uiLocalNotificationDateInterpretation:
             UILocalNotificationDateInterpretation.absoluteTime,
@@ -508,7 +539,7 @@ class TaskReminder {
         title,
         body,
         fireAt,
-        _details,
+        _detailsFor(modeFor(task)),
         androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
         uiLocalNotificationDateInterpretation:
             UILocalNotificationDateInterpretation.absoluteTime,
@@ -542,7 +573,7 @@ class TaskReminder {
         title,
         body,
         fireAt,
-        _details,
+        _detailsFor(modeNotification),
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
         uiLocalNotificationDateInterpretation:
             UILocalNotificationDateInterpretation.absoluteTime,
@@ -554,7 +585,7 @@ class TaskReminder {
         title,
         body,
         fireAt,
-        _details,
+        _detailsFor(modeNotification),
         androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
         uiLocalNotificationDateInterpretation:
             UILocalNotificationDateInterpretation.absoluteTime,
@@ -683,11 +714,10 @@ class TaskReminder {
     task.reminderEnabled = true;
     task.reminderTime = until;
     task.updatedAt = DateTime.now();
-    try {
-      await _plugin.cancel(_idOf(task.uid));
-    } catch (_) {}
-    if (Platform.isIOS) await SystemAlarm.cancelTask(task.uid);
-    await _schedule(task, _idOf(task.uid), _snoozed[task.uid]!);
+    final tasks = Get.isRegistered<RxList<Task>>(tag: 'taskList')
+        ? Get.find<RxList<Task>>(tag: 'taskList')
+        : <Task>[task];
+    await syncAll(tasks);
   }
 
   /// 划掉：停掉这次提醒（不改任务本身的提醒设置）。
@@ -698,7 +728,8 @@ class TaskReminder {
     try {
       await _plugin.cancel(_idOf(task.uid));
     } catch (_) {}
-    if (Platform.isIOS) await SystemAlarm.cancelTask(task.uid);
+    if (IosTaskReminderPreferences.isIOS)
+      await SystemAlarm.cancelTask(task.uid);
   }
 
   /// 任务被删除时立刻撤销提醒。
@@ -709,6 +740,7 @@ class TaskReminder {
     try {
       await _plugin.cancel(_idOf(task.uid));
     } catch (_) {}
-    if (Platform.isIOS) await SystemAlarm.cancelTask(task.uid);
+    if (IosTaskReminderPreferences.isIOS)
+      await SystemAlarm.cancelTask(task.uid);
   }
 }

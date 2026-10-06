@@ -1,9 +1,17 @@
 import Flutter
 import Foundation
+import UIKit
 
 final class ShareStreamHandler: NSObject, FlutterStreamHandler {
     private var sink: FlutterEventSink?
     private var delivered = Set<String>()
+    private var sceneActivationObserver: NSObjectProtocol?
+
+    deinit {
+        if let sceneActivationObserver {
+            NotificationCenter.default.removeObserver(sceneActivationObserver)
+        }
+    }
 
     func initial() -> [[String: String]] {
         let items = ShareInbox.pending()
@@ -29,12 +37,25 @@ final class ShareStreamHandler: NSObject, FlutterStreamHandler {
 
     func onListen(withArguments arguments: Any?, eventSink events: @escaping FlutterEventSink) -> FlutterError? {
         sink = events
+        if let sceneActivationObserver {
+            NotificationCenter.default.removeObserver(sceneActivationObserver)
+        }
+        // UIScene apps no longer receive AppDelegate's foreground callback.
+        sceneActivationObserver = NotificationCenter.default.addObserver(
+            forName: UIScene.didActivateNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            self?.emit()
+        }
         emit()
         return nil
     }
 
     func onCancel(withArguments arguments: Any?) -> FlutterError? {
         sink = nil
+        if let sceneActivationObserver {
+            NotificationCenter.default.removeObserver(sceneActivationObserver)
+        }
+        sceneActivationObserver = nil
         return nil
     }
 }

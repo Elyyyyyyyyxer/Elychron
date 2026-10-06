@@ -479,7 +479,7 @@ class Task {
     final now = DateTime.now();
     if (isMemo) return null;
     if (isRemind) {
-      final d = endTime.difference(now);
+      final d = reminderTargetTime.difference(now);
       // 提醒型过期不标红
       return TaskTimeStatus(
         d.isNegative ? '提醒已过 ${humanDuration(-d)}' : '距提醒 ${humanDuration(d)}',

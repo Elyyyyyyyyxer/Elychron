@@ -524,8 +524,9 @@ class TaskPage extends StatelessWidget {
                         if (deadline.type == TaskType.deadline) {
                           label = deadlineStatusName[deadline.status]!;
                         } else if (deadline.isRemind) {
-                          label =
-                              now.isBefore(deadline.endTime) ? '待提醒' : '已提醒';
+                          label = now.isBefore(deadline.reminderTargetTime)
+                              ? '待提醒'
+                              : '已提醒';
                         } else if (deadline.isMemo) {
                           label = deadline.status == TaskStatus.completed
                               ? '完成'

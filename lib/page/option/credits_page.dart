@@ -243,7 +243,7 @@ class _CreditsPageState extends State<CreditsPage> {
                     height: 16,
                   ),
                   const Text(
-                    'Tixer',
+                    'Tixer · obladi',
                     textAlign: TextAlign.center,
                     style: TextStyle(fontSize: 18),
                   ),
