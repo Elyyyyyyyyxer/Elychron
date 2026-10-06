@@ -39,6 +39,11 @@ class LibraryWebSession {
   static const String casLoginUrl = 'https://zjuam.zju.edu.cn/cas/login?service='
       'https%3A%2F%2Fbooking.lib.zju.edu.cn%2Fapi%2Fcas%2Fcas';
 
+  static Uri? secureCasRedirect(Uri url) =>
+      url.scheme == 'http' && url.host == 'zjuam.zju.edu.cn'
+          ? url.replace(scheme: 'https')
+          : null;
+
   static const String _ua = 'Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 '
       '(KHTML, like Gecko) Chrome/126.0.0.0 Mobile Safari/537.36';
   static const Duration _loadTimeout = Duration(seconds: 20);
@@ -152,10 +157,15 @@ class LibraryWebSession {
           libraryTrace('图书馆会话：页面报错 ' + error.description);
           if (!completer.isCompleted) completer.complete();
         },
-        onNavigationRequest: (NavigationRequest request) {
+        onNavigationRequest: (NavigationRequest request) async {
           // 只记 host + path：**丢掉 query**，因为回调地址里带着一次性的 CAS ticket
           // （凭据绝不进日志，见 AGENTS.md）。
           final uri = Uri.tryParse(request.url);
+          final secure = uri == null ? null : secureCasRedirect(uri);
+          if (secure != null && _controller != null) {
+            await _controller!.loadRequest(secure);
+            return NavigationDecision.prevent;
+          }
           final safe = uri == null ? '(无法解析)' : uri.host + uri.path;
           libraryTrace('图书馆会话：导航 → ' + safe);
           return NavigationDecision.navigate;
