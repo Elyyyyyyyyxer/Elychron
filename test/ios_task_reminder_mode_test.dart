@@ -12,8 +12,14 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter_local_notifications_platform_interface/flutter_local_notifications_platform_interface.dart';
 import 'package:get/get.dart';
 import 'package:hive/hive.dart';
+import 'package:timezone/data/latest.dart' as tzdata;
+import 'package:timezone/timezone.dart' as tz;
+
+class _UninitializedNotifications extends FlutterLocalNotificationsPlatform {}
 
 class _DelayedOptions implements Box<dynamic> {
   final Box<dynamic> box;
@@ -45,6 +51,9 @@ class _DelayedOptions implements Box<dynamic> {
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  // Reproduce a plugin singleton first created on a non-iOS test host.
+  FlutterLocalNotificationsPlugin();
+  FlutterLocalNotificationsPlatform.instance = _UninitializedNotifications();
   const notifications =
       MethodChannel('dexterous.com/flutter/local_notifications');
   const alarms = MethodChannel('celechron/alarm');
@@ -70,6 +79,12 @@ void main() {
 
   setUp(() async {
     debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+    // The platform flag does not replace an already-created plugin singleton.
+    FlutterLocalNotificationsPlatform.instance =
+        IOSFlutterLocalNotificationsPlugin();
+    // Linux/Windows hosts skip the production mobile initialization path.
+    tzdata.initializeTimeZones();
+    tz.setLocalLocation(tz.getLocation('Asia/Shanghai'));
     TaskReminder.mode = TaskReminder.modeNotification;
     dir = await Directory.systemTemp.createTemp('elychron-mode-test-');
     Hive.init(dir.path);
@@ -184,7 +199,7 @@ void main() {
       return true;
     });
     final first = TaskReminder.syncAll([native]);
-    await started.future;
+    await started.future.timeout(const Duration(seconds: 5));
     await IosTaskReminderPreferences.save(native.uid, 0);
     final updated = TaskReminder.syncAll([native]);
     await Future<void>.delayed(Duration.zero);
@@ -229,7 +244,7 @@ void main() {
         return true;
       });
       final delayed = TaskReminder.snooze(native, const Duration(minutes: 10));
-      await started.future;
+      await started.future.timeout(const Duration(seconds: 5));
       if (deleting) {
         tasks.clear();
       } else {

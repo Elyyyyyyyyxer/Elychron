@@ -45,6 +45,7 @@ dependencies:
   webview_flutter: ^4.14.1
 
 dev_dependencies:
+  flutter_local_notifications_platform_interface: ^7.2.0
   flutter_test:
     sdk: flutter
 
