@@ -21,6 +21,13 @@ private class FlowMessengerImplementation: FlowMessenger {
 
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
+    private let shareStream = ShareStreamHandler()
+
+    override func applicationDidBecomeActive(_ application: UIApplication) {
+        super.applicationDidBecomeActive(application)
+        shareStream.emit()
+    }
+
     override func application(
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
@@ -55,5 +62,25 @@ private class FlowMessengerImplementation: FlowMessenger {
                 WidgetCenter.shared.reloadTimelines(ofKind: "ECardWidget")
             }
         })
+
+        NativeAlarmBridge.register(messenger: engineBridge.applicationRegistrar.messenger())
+
+        let messenger = engineBridge.applicationRegistrar.messenger()
+        let shareMethod = FlutterMethodChannel(name: "celechron/share", binaryMessenger: messenger)
+        shareMethod.setMethodCallHandler { [weak self] call, result in
+            guard let self else { result(nil); return }
+            switch call.method {
+            case "getInitialShared":
+                result(self.shareStream.initial())
+            case "ackShared":
+                let batches = call.arguments as? [String] ?? []
+                self.shareStream.acknowledge(batches)
+                result(nil)
+            default:
+                result(FlutterMethodNotImplemented)
+            }
+        }
+        FlutterEventChannel(name: "celechron/share/stream", binaryMessenger: messenger)
+            .setStreamHandler(shareStream)
     }
 }

@@ -24,7 +24,7 @@ String toStringHumanReadable(DateTime dateTime) {
   return str;
 }
 
-const secureStorageIOSOptions = kDebugMode
+const secureStorageIOSOptions = !kReleaseMode
     ? IOSOptions(
         accessibility: KeychainAccessibility.first_unlock,
         accountName: 'Celechron',

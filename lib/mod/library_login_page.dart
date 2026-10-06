@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:celechron/design/app_accent.dart';
 import 'package:celechron/design/page_background.dart';
@@ -53,12 +54,24 @@ class _LibraryLoginPageState extends State<LibraryLoginPage> {
           '(KHTML, like Gecko) Chrome/126.0.0.0 Mobile Safari/537.36')
       ..setNavigationDelegate(NavigationDelegate(
         onPageFinished: (String url) => _harvest(),
+        onNavigationRequest: (NavigationRequest request) async {
+          final uri = Uri.tryParse(request.url);
+          final secure =
+              uri == null ? null : LibraryWebSession.secureCasRedirect(uri);
+          if (secure != null && _webView != null) {
+            await _webView!.loadRequest(secure);
+            return NavigationDecision.prevent;
+          }
+          return NavigationDecision.navigate;
+        },
         onWebResourceError: (WebResourceError error) {
           if (!mounted) return;
           setState(() => _status = '页面加载失败：' + error.description);
         },
       ))
-      ..loadRequest(Uri.parse(_homeUrl));
+      // Establish the booking session before entering CAS on iOS.
+      ..loadRequest(
+          Uri.parse(Platform.isIOS ? LibraryWebSession.casEntryUrl : _homeUrl));
     // 交接给常驻会话：这个页面就是"那把钥匙"，之后所有读取都用它
     // （不能另起 HttpClient —— 服务端会当成另一台设备，见 library_web_session 的注释）
     LibraryWebSession.instance.adopt(_webView!);
@@ -78,6 +91,11 @@ class _LibraryLoginPageState extends State<LibraryLoginPage> {
     }
     _harvesting = true;
     try {
+      final current = Uri.tryParse(await controller.currentUrl() ?? '');
+      if (current?.host != 'booking.lib.zju.edu.cn') {
+        if (mounted) setState(() => _status = '请在下面完成统一身份认证登录');
+        return;
+      }
       // 数据**在页面里取**（关键改动，2026-10-01）：
       //
       // 实测：WebView 里页面自己显示着"当前预约"，而我们在 Dart 侧另起一个
@@ -95,8 +113,8 @@ class _LibraryLoginPageState extends State<LibraryLoginPage> {
             ? (decodedMe['msg'] ?? decodedMe['message'] ?? '').toString()
             : '';
         if (mounted) {
-          setState(() => _status =
-              '还没登录成功' + (reason.isEmpty ? '' : '：' + reason));
+          setState(
+              () => _status = '还没登录成功' + (reason.isEmpty ? '' : '：' + reason));
         }
         return;
       }
@@ -107,15 +125,15 @@ class _LibraryLoginPageState extends State<LibraryLoginPage> {
       var count = 0;
       try {
         count = LibrarySpider.reservationsFrom(jsonDecode(
-                await LibraryWebSession.instance.postJson('/api/Member/seminar')))
+                await LibraryWebSession.instance
+                    .postJson('/api/Member/seminar')))
             .length;
       } on Object {
         // 数不出来不影响"登录成功"这个结论
       }
       await LibraryConfig.setEnabled(true);
-      LibraryWebSession.instance.adoptToken(
-          LibraryConfig.tokenFromJavaScript(await LibraryWebSession.instance
-              .runTokenProbe()));
+      LibraryWebSession.instance.adoptToken(LibraryConfig.tokenFromJavaScript(
+          await LibraryWebSession.instance.runTokenProbe()));
       await LibraryConfig.setLastCount(count);
       await LibraryConfig.setLastResult('页面内登录成功' +
           (name.isEmpty ? '' : '：' + name) +

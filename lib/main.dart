@@ -757,11 +757,13 @@ class _CelechronAppState extends State<CelechronApp>
   void _initAppLinks() {
     final appLinks = AppLinks();
     _appLinkSubscription = appLinks.uriLinkStream.listen((uri) {
-      if (uri.toString() == 'celechron://ecardpaypage') {
+      if (uri.toString() == 'celechron://ecardpaypage' ||
+          uri.toString() == 'elychron://ecardpaypage') {
         navigator?.popUntil((route) =>
             !(route.settings.name?.endsWith('ecardpaypage') ?? false));
         navigator?.pushNamed('/ecardpaypage');
-      } else if (uri.scheme == 'celechron' && uri.host == 'todo') {
+      } else if ((uri.scheme == 'celechron' || uri.scheme == 'elychron') &&
+          uri.host == 'todo') {
         TodoWidgetActionCenter.dispatch(
           uri.path == '/create'
               ? TodoWidgetAction.create

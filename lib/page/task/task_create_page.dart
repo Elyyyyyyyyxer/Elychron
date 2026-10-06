@@ -1,4 +1,5 @@
 import 'package:celechron/design/app_accent.dart';
+import 'package:celechron/design/adaptive_form_body.dart';
 import 'package:celechron/design/page_background.dart';
 import 'package:celechron/design/date_picker_sheet.dart';
 import 'package:celechron/design/repeat_sheet.dart';
@@ -7,6 +8,8 @@ import 'package:celechron/design/tag_picker.dart';
 import 'package:celechron/design/task_priority_color.dart';
 import 'package:celechron/design/task_kind_selector.dart';
 import 'package:celechron/design/task_time_panel.dart';
+import 'package:celechron/design/ios_reminder_mode_control.dart';
+import 'package:celechron/mod/ios_task_reminder_preferences.dart';
 import 'package:celechron/model/task.dart';
 import 'package:celechron/utils/attachment_helper.dart';
 import 'package:celechron/utils/time_helper.dart';
@@ -43,6 +46,8 @@ class TaskCreatePage extends StatefulWidget {
 
 class _TaskCreatePageState extends State<TaskCreatePage> {
   late Task now;
+  int _iosReminderMode = 0;
+  bool _saving = false;
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _locationController = TextEditingController();
@@ -51,6 +56,10 @@ class _TaskCreatePageState extends State<TaskCreatePage> {
   void initState() {
     super.initState();
     now = widget.initial.copyWith();
+    if (IosTaskReminderPreferences.isIOS && widget.heightFactor == null) {
+      _iosReminderMode =
+          IosTaskReminderPreferences.modeFor(now.uid, fromUid: now.fromUid);
+    }
 
     // 把传入的内容回填到输入框（分享进来 / 编辑子待办时会预填）
     _titleController.text = now.summary;
@@ -99,8 +108,9 @@ class _TaskCreatePageState extends State<TaskCreatePage> {
 
   // ------------------------------------------------------------------ 保存
 
-  void _saveAndExit() {
-    if (!_canCreate) return;
+  Future<void> _saveAndExit() async {
+    if (!_canCreate || _saving) return;
+    setState(() => _saving = true);
 
     now.summary = _titleController.text.trim();
     now.description = _descriptionController.text;
@@ -108,6 +118,18 @@ class _TaskCreatePageState extends State<TaskCreatePage> {
     now.createdAt ??= DateTime.now();
     now.updatedAt = DateTime.now();
     now.forceRefreshStatus();
+    if (IosTaskReminderPreferences.isIOS && widget.heightFactor == null) {
+      try {
+        await IosTaskReminderPreferences.save(now.uid, _iosReminderMode);
+      } catch (_) {
+        if (mounted) {
+          setState(() => _saving = false);
+          _alert('提醒方式未能保存，请重试');
+        }
+        return;
+      }
+    }
+    if (!mounted) return;
     Navigator.of(context).pop(now);
   }
 
@@ -174,6 +196,10 @@ class _TaskCreatePageState extends State<TaskCreatePage> {
     await showTaskTimePanel(
       context,
       task: now,
+      reminderMode: _iosReminderMode,
+      onReminderModeChanged: widget.heightFactor == null
+          ? (mode) => setState(() => _iosReminderMode = mode)
+          : null,
       onChanged: () {
         if (mounted) setState(() {});
       },
@@ -785,6 +811,14 @@ class _TaskCreatePageState extends State<TaskCreatePage> {
                       style: TextStyle(fontSize: 13, color: labelColor),
                     ),
                   ),
+                  if (IosTaskReminderPreferences.isIOS &&
+                      widget.heightFactor == null &&
+                      now.schedulesReminder)
+                    IosReminderModeControl(
+                      mode: _iosReminderMode,
+                      onChanged: (mode) =>
+                          setState(() => _iosReminderMode = mode),
+                    ),
                 ],
               ),
 
@@ -1030,19 +1064,23 @@ class _TaskCreatePageState extends State<TaskCreatePage> {
               ],
             ),
           ],
-        ),
+        ).asAdaptiveFormBody(),
       ),
     );
 
     // 子待办用：不占满屏幕，上方留出一条空隙，顶部圆角
-    if (widget.heightFactor == null) return page;
+    final protectedPage = PopScope(
+      canPop: !_saving,
+      child: AbsorbPointer(absorbing: _saving, child: page),
+    );
+    if (widget.heightFactor == null) return protectedPage;
     return Align(
       alignment: Alignment.bottomCenter,
       child: FractionallySizedBox(
         heightFactor: widget.heightFactor,
         child: ClipRRect(
           borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
-          child: page,
+          child: protectedPage,
         ),
       ),
     );

@@ -3,24 +3,45 @@ import 'package:celechron/services/diagnostic_log_service.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 
-/// 把一条待办**交给系统时钟**（而不是我们自己的通知/全屏闹钟）。
+/// Android 交给系统时钟；iOS 26+ 由 Elychron 使用 AlarmKit 管理原生闹钟。
 ///
 /// 为什么单独做这个：其他 App 的提醒在系统眼里优先级低于系统时钟，
 /// 关键事项（考试、集合、赶车）交给系统时钟最稳。
 ///
-/// ⚠️ **必须说清楚的限制**（界面上也要写）：
-/// 1. 系统只提供设置闹钟，**没有按标签删除闹钟的接口**，
-///    待办删了/完成了，这个闹钟**不会跟着撤销**，时间改了也是新增一个；
-/// 2. 一次性，设不了"每周重复"；
-/// 3. 只有一个标题，没有延迟/划掉以外的交互。
-///
-/// 所以它只适合必须叫醒我的一次性关键事项，不做成常驻提醒方式。
+/// Android 手动入口写入时钟，之后无法按标签撤销。iOS 的手动入口安排一次性
+/// AlarmKit 闹钟，不写入 Apple 时钟；任务提醒模式下的 iOS 闹钟则会随任务同步。
 class SystemAlarm {
   SystemAlarm._();
 
   static const MethodChannel _channel = MethodChannel('celechron/alarm');
 
-  /// 这台设备有没有能接收设置闹钟的应用
+  /// iOS 26+ 可安排由本应用管理的原生闹钟；旧版系统返回 false。
+  static Future<bool> scheduleTask({
+    required String uid,
+    required DateTime at,
+    required String label,
+  }) async {
+    try {
+      return await _channel.invokeMethod<bool>('scheduleTaskAlarm', {
+            'uid': uid,
+            'atMillis': at.millisecondsSinceEpoch,
+            'label': label,
+          }) ??
+          false;
+    } on Object {
+      return false;
+    }
+  }
+
+  static Future<void> cancelTask(String uid) async {
+    try {
+      await _channel.invokeMethod<void>('cancelTaskAlarm', {'uid': uid});
+    } on Object {
+      // 旧版 iOS 或未安排过原生闹钟时无需阻断普通通知同步。
+    }
+  }
+
+  /// Android 是否有可接收的时钟应用；iOS 是否支持且未拒绝 AlarmKit。
   static Future<bool> isSupported() async {
     try {
       return await _channel.invokeMethod<bool>('canSetSystemAlarm') ?? false;
@@ -29,7 +50,7 @@ class SystemAlarm {
     }
   }
 
-  /// 让系统时钟在 [at] 响一次。返回是否提交成功。
+  /// 手动安排一次性闹钟。Android 写系统时钟，iOS 26+ 用 AlarmKit。
   ///
   /// 结果写进诊断日志：这个功能一旦"没反应"，用户只能看到什么都没发生，
   /// 有日志才能区分设备没有处理程序系统拒绝了提交成功但没响。
@@ -38,6 +59,7 @@ class SystemAlarm {
       final ok = await _channel.invokeMethod<bool>('setSystemAlarm', {
             'hour': at.hour,
             'minutes': at.minute,
+            'atMillis': at.millisecondsSinceEpoch,
             'label': label,
           }) ??
           false;
@@ -97,7 +119,7 @@ DateTime? systemAlarmTimeFor(Task task, DateTime now) {
   return candidate;
 }
 
-/// 系统闹钟的标题：`Elychron · 待办标题`（在时钟 App 里能一眼认出是谁设的）
+/// 闹钟标题：`Elychron · 待办标题`，便于辨认来源。
 String systemAlarmLabelFor(Task task) {
   final title = task.summary.trim();
   return title.isEmpty ? 'Elychron · 待办' : 'Elychron · $title';

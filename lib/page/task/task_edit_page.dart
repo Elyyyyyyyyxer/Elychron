@@ -1,4 +1,5 @@
 import 'package:celechron/design/app_accent.dart';
+import 'package:celechron/design/adaptive_form_body.dart';
 import 'package:celechron/design/page_background.dart';
 import 'dart:async';
 
@@ -8,6 +9,9 @@ import 'package:celechron/design/dingtalk_menu.dart';
 import 'package:celechron/design/image_preview.dart';
 import 'package:celechron/design/repeat_sheet.dart';
 import 'package:celechron/design/system_alarm_picker.dart';
+import 'package:celechron/design/ios_reminder_mode_control.dart';
+import 'package:celechron/mod/ios_task_reminder_preferences.dart';
+import 'package:celechron/utils/platform_features.dart';
 import 'package:celechron/design/tag_picker.dart';
 import 'package:celechron/design/task_priority_color.dart';
 import 'package:celechron/design/task_kind_selector.dart';
@@ -46,6 +50,8 @@ class TaskEditPage extends StatefulWidget {
 
 class _TaskEditPageState extends State<TaskEditPage> {
   late Task now;
+  int _iosReminderMode = 0;
+  bool _saving = false;
 
   Timer? _ticker;
   final _titleController = TextEditingController();
@@ -57,6 +63,10 @@ class _TaskEditPageState extends State<TaskEditPage> {
   void initState() {
     super.initState();
     now = widget.deadline.copyWith();
+    if (IosTaskReminderPreferences.isIOS) {
+      _iosReminderMode =
+          IosTaskReminderPreferences.modeFor(now.uid, fromUid: now.fromUid);
+    }
     if (now.startTime.isAfter(now.endTime)) {
       now.startTime = now.endTime;
     }
@@ -103,7 +113,8 @@ class _TaskEditPageState extends State<TaskEditPage> {
     );
   }
 
-  void saveAndExit() {
+  Future<void> saveAndExit() async {
+    if (_saving) return;
     if (now.hasTimeRange &&
         now.repeatType != TaskRepeatType.norepeat &&
         dateOnly(now.startTime).isAfter(dateOnly(now.repeatEndsTime))) {
@@ -135,6 +146,19 @@ class _TaskEditPageState extends State<TaskEditPage> {
     now.normalizeType();
     now.updatedAt = DateTime.now();
     now.forceRefreshStatus();
+    setState(() => _saving = true);
+    if (IosTaskReminderPreferences.isIOS) {
+      try {
+        await IosTaskReminderPreferences.save(now.uid, _iosReminderMode);
+      } catch (_) {
+        if (mounted) {
+          setState(() => _saving = false);
+          _alert('提醒方式未能保存，请重试');
+        }
+        return;
+      }
+    }
+    if (!mounted) return;
     Navigator.of(context).pop(now);
   }
 
@@ -171,7 +195,9 @@ class _TaskEditPageState extends State<TaskEditPage> {
         // 关键事项可以直接交给系统时钟（优先级等同起床闹钟）。
         // 放在这里而不是只藏在设置里，是因为用户找"更响的提醒"就会来这条待办的菜单。
         DingTalkMenuItem(
-          label: '设为系统闹钟',
+          label: PlatformFeatures.isMobile && !PlatformFeatures.isAndroid
+              ? '设为原生闹钟'
+              : '设为系统闹钟',
           icon: CupertinoIcons.alarm,
           onTap: () => setSystemAlarmForTask(context, now),
         ),
@@ -1109,7 +1135,7 @@ class _TaskEditPageState extends State<TaskEditPage> {
         CupertinoDynamicColor.resolve(CupertinoColors.secondaryLabel, context);
     final textColor = CupertinoTheme.of(context).textTheme.textStyle.color;
 
-    return CupertinoPageScaffold(
+    final page = CupertinoPageScaffold(
       backgroundColor: pageBackground(context),
       navigationBar: CupertinoNavigationBar(
         backgroundColor: pageBackground(context),
@@ -1317,6 +1343,12 @@ class _TaskEditPageState extends State<TaskEditPage> {
                         : null,
                   ),
                   // 开始时间：只有活动型才有时段
+                  if (IosTaskReminderPreferences.isIOS && now.schedulesReminder)
+                    IosReminderModeControl(
+                      mode: _iosReminderMode,
+                      onChanged: (mode) =>
+                          setState(() => _iosReminderMode = mode),
+                    ),
                   if (now.isEvent) ...[
                     _divider(),
                     _iconRow(
@@ -1780,8 +1812,12 @@ class _TaskEditPageState extends State<TaskEditPage> {
               ),
             ),
           ],
-        ),
+        ).asAdaptiveFormBody(),
       ),
+    );
+    return PopScope(
+      canPop: !_saving,
+      child: AbsorbPointer(absorbing: _saving, child: page),
     );
   }
 }

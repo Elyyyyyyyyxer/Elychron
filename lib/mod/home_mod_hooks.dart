@@ -285,7 +285,7 @@ class HomeModHooks {
   /// 而专注会话是"未完成"状态，于是再进专注页就会提示"上次没有正常结束"。
   ///
   /// 现在：专注进行中先把分享内容**存起来**，等专注结束再自动弹出来处理。
-  final List<SharedItem> _pendingShares = <SharedItem>[];
+  final List<List<SharedItem>> _pendingShares = <List<SharedItem>>[];
   Timer? _focusPendingPoll;
 
   /// 现在**真的**在专注计时吗？
@@ -305,21 +305,31 @@ class HomeModHooks {
       _handleShared(items);
 
   Future<void> _handleShared(List<SharedItem> items) async {
-    if (items.isEmpty || _handlingShare) return;
+    if (items.isEmpty) return;
+    final batches = ShareReceiver.batches(items);
     if (_isFocusRunning()) {
       // 专注中：攒着，每 3 秒看一眼是否结束了
-      _pendingShares.addAll(items);
+      _pendingShares.addAll(batches);
       _focusPendingPoll ??= Timer.periodic(const Duration(seconds: 3), (_) {
         if (_isFocusRunning()) return;
         _focusPendingPoll?.cancel();
         _focusPendingPoll = null;
-        final pending = List<SharedItem>.from(_pendingShares);
+        final pending = List<List<SharedItem>>.from(_pendingShares);
         _pendingShares.clear();
-        if (pending.isNotEmpty) _handleShared(pending);
+        for (final batch in pending) {
+          unawaited(_handleShared(batch));
+        }
       });
       return;
     }
+    if (_handlingShare) {
+      _pendingShares.addAll(batches);
+      return;
+    }
+    _pendingShares.insertAll(0, batches.skip(1));
+    items = batches.first;
     _handlingShare = true;
+    var handled = false;
     try {
       // 先把分享过来的文件复制到应用附件目录
       final attachments = <TaskAttachment>[];
@@ -375,6 +385,7 @@ class HomeModHooks {
             ],
           ),
         );
+        handled = true;
         return;
       }
 
@@ -411,7 +422,7 @@ class HomeModHooks {
       if (target == null || !context.mounted) return;
 
       if (target == _ShareTarget.attach) {
-        await _attachToExistingTask(context, title, attachments);
+        handled = await _attachToExistingTask(context, title, attachments);
         return;
       }
 
@@ -478,8 +489,13 @@ class HomeModHooks {
       controller.updateDeadlineList();
       controller.updateDeadlineListTime();
       controller.taskList.refresh();
+      handled = true;
     } finally {
+      if (handled) await ShareReceiver.acknowledge(items);
       _handlingShare = false;
+      if (_pendingShares.isNotEmpty && !_isFocusRunning()) {
+        unawaited(_handleShared(_pendingShares.removeAt(0)));
+      }
     }
   }
 
@@ -492,7 +508,7 @@ class HomeModHooks {
   }
 
   /// 把分享内容（附件 + 文字）追加到用户选中的那条待办上。
-  Future<void> _attachToExistingTask(
+  Future<bool> _attachToExistingTask(
     BuildContext context,
     String text,
     List<TaskAttachment> attachments,
@@ -520,7 +536,7 @@ class HomeModHooks {
           DingTalkPanelNote('先新建一条，下次分享时再选添加到已有待办。'),
         ],
       );
-      return;
+      return false;
     }
 
     // 太多条就截断：列表弹层不是用来翻页的
@@ -541,7 +557,7 @@ class HomeModHooks {
           ),
       ],
     );
-    if (picked == null || !context.mounted) return;
+    if (picked == null || !context.mounted) return false;
 
     if (attachments.isNotEmpty) {
       picked.attachments = <TaskAttachment>[
@@ -562,7 +578,7 @@ class HomeModHooks {
     controller.updateDeadlineList();
     controller.taskList.refresh();
 
-    if (!context.mounted) return;
+    if (!context.mounted) return true;
     await showDingTalkPanel(
       context: context,
       title: '已添加到待办',
@@ -577,6 +593,7 @@ class HomeModHooks {
       primaryLabel: '好',
       onPrimary: () => Navigator.of(context).pop(),
     );
+    return true;
   }
 
   /// 待办选择行下面那行小字：类型 + 时间
