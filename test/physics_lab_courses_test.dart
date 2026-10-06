@@ -4,6 +4,8 @@ import 'package:celechron/model/period.dart';
 import 'package:celechron/model/semester.dart';
 import 'package:celechron/model/scholar.dart';
 import 'package:celechron/model/session.dart';
+import 'package:celechron/model/grade.dart';
+import 'package:celechron/model/exam.dart';
 import 'package:celechron/mod/physics_lab_courses.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -156,5 +158,88 @@ void main() {
     installPhysicsLabCourses(scholar.semesters, plan, owned);
     expect(scholar.semesters, hasLength(1));
     expect(() => scholar.thisSemester, returnsNormally);
+  });
+  test('选择实验来源仅替换确认课程的上课安排，保留成绩学分和其他课程，切回可恢复', () {
+    Session regular(String name, String id) => Session.empty()
+      ..id = id
+      ..name = name
+      ..teacher = '教师'
+      ..location = '教室'
+      ..time = [1]
+      ..firstHalf = true
+      ..oddWeek = true
+      ..evenWeek = true;
+    semester.addSession(regular('普通物理学实验', 'fixture-physics'), '2026-2027-1');
+    semester.addSession(regular('其他课程', 'fixture-other'), '2026-2027-1');
+    final academic = semester.courses.entries.first;
+    academic.value.credit = 2;
+    final base = semester.toJson();
+    final lessons = parsePhysicsLabCourses(fixture());
+    final plan = planPhysicsLabCourses([semester], lessons, {},
+        replacements: {lessons.single.courseUid: academic.key});
+    installPhysicsLabCourses([semester], plan, {});
+    expect(semester.courses, hasLength(2));
+    expect(semester.courses[academic.key]!.credit, 2);
+    expect(semester.courses[academic.key]!.sessions.single.name, '测量实验');
+    expect(semester.courses[academic.key]!.sessions.single.id, academic.key);
+    expect(semester.sessions.where((s) => s.name == '普通物理学实验'), isEmpty);
+    expect(semester.sessions.where((s) => s.name == '其他课程'), isNotEmpty);
+    expect(semester.periods.where((p) => p.summary == '普通物理学实验'), isEmpty);
+    expect(semester.periods.where((p) => p.summary == '其他课程'), isNotEmpty);
+    expect(semester.physicsLabPeriods.single.fromUid, academic.key);
+    expect(semester.toJson(), base);
+    installPhysicsLabCourses(
+        [semester], planPhysicsLabCourses([semester], [], {}), {});
+    expect(semester.courses[academic.key], same(academic.value));
+    expect(semester.sessions.where((s) => s.name == '普通物理学实验'), isNotEmpty);
+  });
+  test('重启反序列化且课程没有课号时，实验来源仍移除旧安排并保留考试和成绩', () {
+    Session regular(String name) => Session.empty()
+      ..name = name
+      ..teacher = '教师'
+      ..location = '教室'
+      ..time = [1]
+      ..firstHalf = true
+      ..oddWeek = true
+      ..evenWeek = true;
+    semester.addSession(regular('普通物理学实验'), '2026-2027-1');
+    semester.addSession(regular('其他课程'), '2026-2027-1');
+    final key = semester.academicCourses.keys.first;
+    final academic = semester.academicCourses[key]!;
+    academic.grade = Grade({
+      'xkkh': 'fixture-course',
+      'kcmc': academic.name,
+      'xf': 2,
+      'cj': '优秀',
+      'jd': 4.5
+    });
+    academic.credit = 2;
+    final exam = Exam.empty()
+      ..id = 'fixture-exam'
+      ..name = academic.name
+      ..time = [DateTime(2027, 1, 5, 10), DateTime(2027, 1, 5, 12)];
+    academic.exams.add(exam);
+    semester.exams.add(exam);
+    final restored =
+        Semester.fromJson(jsonDecode(jsonEncode(semester.toJson())));
+    final lessons = parsePhysicsLabCourses(fixture());
+    final plan = planPhysicsLabCourses([restored], lessons, {},
+        replacements: {lessons.single.courseUid: key});
+    installPhysicsLabCourses([restored], plan, {});
+    expect(
+        restored.firstHalfTimetable
+            .expand((s) => s)
+            .where((s) => s.name == '普通物理学实验'),
+        isEmpty);
+    expect(
+        restored.periods.where(
+            (p) => p.type == PeriodType.classes && p.summary == '普通物理学实验'),
+        isEmpty);
+    expect(restored.periods.where((p) => p.summary == '其他课程'), isNotEmpty);
+    expect(
+        restored.periods.where((p) => p.type == PeriodType.test), hasLength(1));
+    expect(restored.courses[key]!.exams, hasLength(1));
+    expect(restored.courses[key]!.grade!.original, '优秀');
+    expect(restored.courseCredit, 2);
   });
 }

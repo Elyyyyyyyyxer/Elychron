@@ -1,8 +1,9 @@
 const physicsLabReadScript = r'''
 (function(){
+  let stage = 'origin';
   const result = {state: 'pending'};
   window.__elychronPhysics = result;
-  const finish = value => { if (window.__elychronPhysics === result) window.__elychronPhysics = value; };
+  const finish = value => { if (window.__elychronPhysics === result) window.__elychronPhysics = {...value, bridgeVersion:2}; };
   const wait = () => new Promise(resolve => setTimeout(resolve, 100));
   function findStudent() {
     const seen = new Set();
@@ -12,12 +13,15 @@ const physicsLabReadScript = r'''
       if (seen.has(node)) continue;
       seen.add(node);
       if (node.$options && node.$options.name === 'studentCourse') return node;
+      // 官网课表根元素无 id；导航组件与它同属 Index，从父组件进入路由子树。
+      if (node.$parent) nodes.push(node.$parent);
       nodes.push(...(node.$children || []));
     }
     return null;
   }
   (async function(){
     if (location.host !== '10.203.16.55:86') { finish({state:'error'}); return; }
+    stage = 'component';
     let student;
     for (let i = 0; i < 60; i++) {
       if (location.pathname.endsWith('/login') || !localStorage.getItem('Authorization')) {
@@ -28,7 +32,7 @@ const physicsLabReadScript = r'''
       await wait();
     }
     if (!student || !student.user || !student.user.username || !student.currentTerm || !student.currentTerm.id || typeof student.emitAjax !== 'function') {
-      finish({state:'error'}); return;
+      finish({state:'error',reason:stage}); return;
     }
     // 使用官网自身的认证与签名函数；只调用当前学生课表的三个只读端点。
     function get(path, data) {
@@ -38,12 +42,14 @@ const physicsLabReadScript = r'''
     const authorization = localStorage.getItem('Authorization');
     const uid = student.user.username;
     const termId = student.currentTerm.id;
+    stage = 'courses';
     const courses = await get('/api/courses/uid', {uid,termId,page:-1,size:-1});
     if (!Array.isArray(courses)) throw Error('shape');
     const rows = [];
     for (const course of courses) {
       if (course.id == null) throw Error('shape');
       const data = {uid,termId,courseId:course.id,page:-1,size:-1};
+      stage = 'selections';
       let selected = await get('/api/course/lab/students/full',data);
       if (!selected || !Array.isArray(selected.content)) throw Error('shape');
       const entries = [...selected.content];
@@ -54,6 +60,7 @@ const physicsLabReadScript = r'''
         if (!selected || !Array.isArray(selected.content)) throw Error('shape');
         entries.push(...selected.content);
       }
+      stage = 'dates';
       const dates = await get('/api/courseLabTimes/date',{uid,courseId:course.id});
       for (const row of entries) {
         const safe = {};
@@ -68,6 +75,6 @@ const physicsLabReadScript = r'''
       finish({state:'login'}); return;
     }
     finish({state:'ready',owner:uid,rows});
-  })().catch(() => finish({state:localStorage.getItem('Authorization')?'error':'login'}));
+  })().catch(() => finish({state:localStorage.getItem('Authorization')?'error':'login',reason:stage}));
 })();
 ''';

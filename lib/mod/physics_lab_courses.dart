@@ -130,11 +130,15 @@ DateTime _at(String date, String clock) {
 }
 
 void _fillPhysicsLabCourses(
-    List<Semester> semesters, List<PhysicsLabLesson> lessons) {
+    List<Semester> semesters,
+    List<PhysicsLabLesson> lessons,
+    Map<String, Semester> originals,
+    Map<String, String> replacements) {
   for (final semester in semesters) {
     semester.physicsLabCourses = {};
     semester.physicsLabSessions = [];
     semester.physicsLabPeriods = [];
+    semester.physicsLabReplacedCourseKeys = {};
     final calendar = semester.toJson()['dayOfWeekToDays'] as List;
     final firstDates = <DateTime>[];
     if (calendar.isNotEmpty) {
@@ -152,26 +156,41 @@ void _fillPhysicsLabCourses(
     final sessions = <String, _PhysicsLabSession>{};
     for (final lesson
         in lessons.where((l) => semester.name.startsWith(l.semesterName))) {
+      final academicKey = replacements[lesson.courseUid];
+      final original = academicKey == null || academicKey.isEmpty
+          ? null
+          : originals[semester.name]?.academicCourses[academicKey];
+      if (academicKey != null && academicKey.isNotEmpty && original == null) {
+        throw const FormatException('对应教务课程已变化，请重新选择');
+      }
+      final target = original == null ? lesson.courseUid : academicKey!;
+      if (original != null) semester.physicsLabReplacedCourseKeys.add(target);
       final key =
           '${lesson.courseUid}|${lesson.title}|${lesson.location}|${lesson.start.weekday}|${_clock(lesson.start)}|${_clock(lesson.end)}';
       final session = sessions.putIfAbsent(
           key, () => _PhysicsLabSession(lesson, _slots(semester, lesson)));
+      session.id = target;
       session.dates.add(lesson.start);
       if (firstEnd == null || lesson.start.isBefore(firstEnd)) {
         session.firstHalf = true;
       } else {
         session.secondHalf = true;
       }
-      final course = semester.physicsLabCourses.putIfAbsent(
-          lesson.courseUid,
-          () => Course.fromUgrsSessionWithoutID(session)
-            ..id = lesson.courseUid
-            ..name =
-                '${lesson.course.isEmpty ? '普通物理实验' : lesson.course}（实验选课）');
+      final course = semester.physicsLabCourses.putIfAbsent(target, () {
+        if (original != null) {
+          return Course.fromJson({...original.toJson(), 'sessions': []})
+            ..id = target
+            ..grade = original.grade
+            ..exams = List.of(original.exams);
+        }
+        return Course.fromUgrsSessionWithoutID(session)
+          ..id = target
+          ..name = '${lesson.course.isEmpty ? '普通物理实验' : lesson.course}（实验选课）';
+      });
       if (!course.sessions.contains(session)) course.sessions.add(session);
       semester.physicsLabPeriods.add(Period(
           uid: lesson.uid,
-          fromUid: lesson.courseUid,
+          fromUid: target,
           summary: lesson.title,
           description: '普物实验选课系统\n教师：${lesson.teacher}',
           location: lesson.location,
@@ -232,10 +251,9 @@ void attachPhysicsLabCourses(
   }
 }
 
-List<Semester> planPhysicsLabCourses(
-    List<Semester> semesters,
-    List<PhysicsLabLesson> lessons,
-    Map<String, Map<String, dynamic>> calendars) {
+List<Semester> planPhysicsLabCourses(List<Semester> semesters,
+    List<PhysicsLabLesson> lessons, Map<String, Map<String, dynamic>> calendars,
+    {Map<String, String> replacements = const {}}) {
   final plan = semesters
       .map((s) => Semester.fromJson({
             ...s.toJson(),
@@ -255,7 +273,8 @@ List<Semester> planPhysicsLabCourses(
     }
     if (matches.isEmpty) plan.add(semester);
   }
-  _fillPhysicsLabCourses(plan, lessons);
+  _fillPhysicsLabCourses(
+      plan, lessons, {for (final s in semesters) s.name: s}, replacements);
   return plan;
 }
 

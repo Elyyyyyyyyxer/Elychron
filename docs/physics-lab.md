@@ -4,6 +4,11 @@
 
 在「设置 → 教务」中，普物实验与 PTA、图书馆并列。
 进入「登录选课系统」，在官网自行登录并进入「我的课表」，点击 App 右上角「完成」。
+首次同步后选择「教务课表」或「实验选课系统」作为普物实验的最终上课安排。
+未选择时保留教务课表；选择实验选课后，逐门确认它对应的教务课程，或明确教务中没有此课。
+仅替换确认课程的上课安排，成绩、学分及考试保留教务数据；其他课程不变。
+选择按账号保存。可随时切回教务来源，原始教务缓存不会被改写。
+
 打开或回到 App 会尝试同步；自动同步有五分钟间隔，也可以立即同步。
 
 已选实验显示在现有课程表、课程详情和日历中，不创建待办。课程详情显示实验日期和精确起止钟点。
@@ -29,6 +34,7 @@ macOS 模拟器需宿主机分流正常；iPhone/iPad 实机需要自身可访�
 ## 自动验证
 
 - `flutter test test/physics_lab_courses_test.dart`：日期、去重、改期、序列化隔离、原子替换、校历归属与学期清理。
-- `flutter test test/physics_lab_service_test.dart`：离线恢复通知、教务刷新重新附加、账号隔离。
+- `flutter test test/physics_lab_service_test.dart`：离线恢复通知、教务刷新重新附加、账号隔离、来源持久化与过期操作取消。
+- `flutter test test/physics_lab_page_test.dart`：来源选择、对应课程确认及切回教务的界面流程。
 - `flutter test test/physics_lab_semester_selection_test.dart`：三个既有控制器在学期变化后保持选择、安全回退。
 - `node test_native/physics_lab_bridge/main.cjs`：官网桥接端点、所有课程、字段白名单、异站阻止、登录/错误与会话变化。

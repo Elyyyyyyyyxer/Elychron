@@ -48,6 +48,7 @@ class Semester {
   Map<String, Course> physicsLabCourses = {};
   List<Session> physicsLabSessions = [];
   List<Period> physicsLabPeriods = [];
+  Set<String> physicsLabReplacedCourseKeys = {};
 
   void applyPhysicsLabProjection(Semester projection) {
     if (!hasCalendar && projection.hasCalendar) {
@@ -57,9 +58,18 @@ class Semester {
       _exchanges = projection._exchanges;
       _invalidatePeriodsCache();
     }
+    if (physicsLabReplacedCourseKeys
+            .difference(projection.physicsLabReplacedCourseKeys)
+            .isNotEmpty ||
+        projection.physicsLabReplacedCourseKeys
+            .difference(physicsLabReplacedCourseKeys)
+            .isNotEmpty) {
+      _invalidatePeriodsCache();
+    }
     physicsLabCourses = projection.physicsLabCourses;
     physicsLabSessions = projection.physicsLabSessions;
     physicsLabPeriods = projection.physicsLabPeriods;
+    physicsLabReplacedCourseKeys = projection.physicsLabReplacedCourseKeys;
   }
 
   // 第几节课 => 时间
@@ -121,9 +131,13 @@ class Semester {
     return name.substring(10, 11);
   }
 
+  Map<String, Course> get academicCourses => Map.unmodifiable(_courses);
+
   // 课程数据
   Map<String, Course> get courses {
-    return physicsLabCourses.isEmpty ? _courses : {..._courses, ...physicsLabCourses};
+    return physicsLabCourses.isEmpty
+        ? _courses
+        : {..._courses, ...physicsLabCourses};
   }
 
   int get courseCount {
@@ -149,8 +163,34 @@ class Semester {
   }
 
   // 所有课程（几乎没用，绘制课程表是要分学期的，看下面的）
-  List<Session> get sessions => physicsLabSessions.isEmpty
-      ? _sessions : [..._sessions, ...physicsLabSessions];
+  // JSON restores the two session lists as distinct objects; compare schedule values.
+  Object _sessionKey(Session s) => (
+        s.id,
+        s.name,
+        s.teacher,
+        s.location,
+        s.dayOfWeek,
+        s.time.join(','),
+        s.firstHalf,
+        s.secondHalf,
+        s.oddWeek,
+        s.evenWeek,
+        s.customRepeat,
+        s.customRepeatWeeks.join(',')
+      );
+  Set<Object> get _replacedSessionKeys => physicsLabReplacedCourseKeys
+      .expand((key) => _courses[key]?.sessions ?? <Session>[])
+      .map(_sessionKey)
+      .toSet();
+
+  List<Session> get sessions {
+    if (physicsLabSessions.isEmpty) return _sessions;
+    final replaced = _replacedSessionKeys;
+    return [
+      ..._sessions.where((s) => !replaced.contains(_sessionKey(s))),
+      ...physicsLabSessions
+    ];
+  }
 
   void mergePartialFrom(Semester incoming) {
     // 用于部分刷新失败时补充新数据；空或不完整对象不得替换已有课程安排。
@@ -285,12 +325,16 @@ class Semester {
   // 调用方不得原地修改返回的列表（需要排序等操作时先拷贝）。
   List<Period> get periods {
     final regular = _periodsCache ??= _buildPeriods();
-    return physicsLabPeriods.isEmpty ? regular : [...regular, ...physicsLabPeriods];
+    if (physicsLabPeriods.isEmpty) return regular;
+    return [...regular, ...physicsLabPeriods];
   }
 
   List<Period> _buildPeriods() {
     List<Period> periods = [];
-    for (var session in _sessions) {
+    final replaced = _replacedSessionKeys;
+    final selectedSessions =
+        _sessions.where((s) => !replaced.contains(_sessionKey(s)));
+    for (var session in selectedSessions) {
       // 自定义单双周的课程在后面处理（目前均为研究生课）
       if (session.customRepeat) {
         continue;
@@ -390,7 +434,7 @@ class Semester {
       }
     }
     // 自定义第几周上课的课程，在这里处理
-    for (var session in _sessions) {
+    for (var session in selectedSessions) {
       if (session.customRepeat) {
         // ===== MOD: 单半学期课程按"它自己那一半"为基准 =====
         // 研究生院给的 zc 是**该课程所在半学期内部**的周次（只有冬学期的课也给 1-8 周），

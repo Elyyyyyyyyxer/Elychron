@@ -3,7 +3,7 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const source = fs.readFileSync('lib/mod/physics_lab_bridge.dart', 'utf8').split("r'''")[1].split("'''")[0];
 
-async function read({host='10.203.16.55:86',login=false,fail=false,switchAccount=false}={}) {
+async function read({host='10.203.16.55:86',login=false,fail=false,switchAccount=false,officialDom=false}={}) {
   const calls=[];
   let authorization = 'fixture-authorization';
   const student={$options:{name:'studentCourse'},user:{username:'fixture-user'},currentTerm:{id:5},$children:[]};
@@ -26,12 +26,15 @@ async function read({host='10.203.16.55:86',login=false,fail=false,switchAccount
     }
     throw Error('unexpected endpoint');
   };
+  const navbar = {$options:{name:'VueHead'},$children:[]};
+  const parent = {$options:{name:'Index'},$children:[navbar,student]};
+  navbar.$parent = parent; student.$parent = parent;
   const window={location:{host,pathname:login?'/lab-course/login':'/lab-course/studentCourse'}};
   const context={window,location:window.location,
-    document:{querySelectorAll:()=>[{__vue__:student}]},
+    document:{querySelectorAll:()=>officialDom ? [{__vue__:navbar}, {}] : [{__vue__:student}]},
     localStorage:{getItem:()=>login?null:authorization},setTimeout};
   vm.runInNewContext(source,context,{timeout:1000});
-  for(let i=0;i<100;i++) {
+  for(let i=0;i<1600;i++) {
     const result=window.__elychronPhysics;
     if(result && result.state!=='pending') return {result:JSON.parse(JSON.stringify(result)),calls};
     await new Promise(r=>setTimeout(r,5));
@@ -52,5 +55,8 @@ async function read({host='10.203.16.55:86',login=false,fail=false,switchAccount
   assert.equal(login.result.state,'login'); assert.equal(login.calls.length,0);
   assert.equal((await read({fail:true})).result.state,'error');
   assert.equal((await read({switchAccount:true})).result.state,'login','同步期间切换会话不能输出旧账号课表');
+  const official=await read({officialDom:true});
+  assert.equal(official.result.state,'ready','官网课表根元素没有 id，应通过带 id 的导航组件向上找到它');
+  assert.equal(official.result.rows.length,2);
   console.log('PHYSICS_LAB_BRIDGE_TESTS PASSED');
 })().catch(e=>{console.error(e);process.exit(1)});

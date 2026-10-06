@@ -3,6 +3,7 @@ import 'package:celechron/design/app_accent.dart';
 import 'package:celechron/design/app_route.dart';
 import 'package:celechron/design/page_background.dart';
 import 'package:celechron/mod/physics_lab_service.dart';
+import 'package:celechron/mod/physics_lab_courses.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
@@ -47,7 +48,79 @@ class _PhysicsLabPageState extends State<PhysicsLabPage> {
   Future<void> _login() async {
     await Navigator.of(context)
         .push(appPageRoute<void>(builder: (_) => const PhysicsLabLoginPage()));
-    if (mounted) setState(() {});
+    if (!mounted) return;
+    setState(() {});
+    if (service.lessons.isNotEmpty && service.timetableSource == null) {
+      await _chooseSource();
+    }
+  }
+
+  Future<void> _chooseSource() async {
+    final source = await showCupertinoModalPopup<String>(
+        context: context,
+        builder: (context) => CupertinoActionSheet(
+              title: const Text('选择最终课表来源'),
+              message: const Text('只影响普物实验的上课安排，成绩和学分保留教务数据。'),
+              actions: [
+                CupertinoActionSheetAction(
+                    onPressed: () => Navigator.pop(context, 'academic'),
+                    child: const Text('使用教务课表')),
+                CupertinoActionSheetAction(
+                    onPressed: () => Navigator.pop(context, 'physics'),
+                    child: const Text('使用实验选课系统')),
+              ],
+              cancelButton: CupertinoActionSheetAction(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('取消')),
+            ));
+    if (source == null || !mounted) return;
+    setState(() => busy = true);
+    await service.setTimetableSource(source);
+    if (!mounted) return;
+    setState(() => busy = false);
+    if (source == 'physics' && service.timetableSource == 'physics') {
+      for (final lesson in service.courseChoices.values) {
+        if (!mounted) return;
+        if (service.replacementFor(lesson.courseUid) == null) {
+          await _chooseCourse(lesson);
+        }
+      }
+    }
+  }
+
+  Future<void> _chooseCourse(PhysicsLabLesson lesson) async {
+    final courses = service.academicCoursesFor(lesson.courseUid);
+    final key = await showCupertinoModalPopup<String>(
+        context: context,
+        builder: (context) => CupertinoActionSheet(
+              title: Text(
+                  '${lesson.course.isEmpty ? '普物实验' : lesson.course} · ${lesson.semesterName}'),
+              message: const Text('选择这门实验对应的教务课程，仅替换它的上课安排。'),
+              actions: [
+                for (final entry in courses.entries)
+                  CupertinoActionSheetAction(
+                      onPressed: () => Navigator.pop(context, entry.key),
+                      child: Text(entry.value.name)),
+                CupertinoActionSheetAction(
+                    onPressed: () => Navigator.pop(context, ''),
+                    child: const Text('教务课表中没有这门课程')),
+              ],
+              cancelButton: CupertinoActionSheetAction(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('取消')),
+            ));
+    if (key == null || !mounted) return;
+    setState(() => busy = true);
+    await service.setCourseReplacement(lesson.courseUid, key);
+    if (mounted) setState(() => busy = false);
+  }
+
+  String _courseLabel(PhysicsLabLesson lesson) {
+    final key = service.replacementFor(lesson.courseUid);
+    if (key == null) return '请确认对应的教务课程';
+    if (key.isEmpty) return '教务课表中没有这门课程';
+    return service.academicCoursesFor(lesson.courseUid)[key]?.name ??
+        '对应课程已变化，请重新选择';
   }
 
   @override
@@ -64,6 +137,16 @@ class _PhysicsLabPageState extends State<PhysicsLabPage> {
                   title: const Text('登录选课系统'),
                   trailing: const CupertinoListTileChevron(),
                   onTap: busy || !service.available ? null : _login),
+              CupertinoListTile(
+                  title: const Text('最终课表来源'),
+                  subtitle: Text(service.timetableSource == 'academic'
+                      ? '教务课表'
+                      : service.timetableSource == 'physics'
+                          ? '实验选课系统'
+                          : '未选择，保留教务课表'),
+                  trailing: const CupertinoListTileChevron(),
+                  onTap:
+                      busy || service.lessons.isEmpty ? null : _chooseSource),
               CupertinoListTile(
                   title: const Text('自动同步实验课表'),
                   trailing: CupertinoSwitch(
@@ -88,6 +171,22 @@ class _PhysicsLabPageState extends State<PhysicsLabPage> {
                         ? '$status\n需要校园网或学校 VPN。实验显示在课程表和日历中。'
                         : '当前平台暂不支持内置网页登录',
                     style: const TextStyle(fontSize: 13))),
+            if (service.timetableSource == 'physics' &&
+                service.courseChoices.isNotEmpty)
+              CupertinoListSection.insetGrouped(
+                header: const Text('确认对应课程'),
+                footer: const Text('仅显示选中的来源；可随时切回教务课表。'),
+                children: [
+                  for (final lesson in service.courseChoices.values)
+                    CupertinoListTile(
+                      title:
+                          Text(lesson.course.isEmpty ? '普物实验' : lesson.course),
+                      subtitle: Text(_courseLabel(lesson)),
+                      trailing: const CupertinoListTileChevron(),
+                      onTap: busy ? null : () => _chooseCourse(lesson),
+                    )
+                ],
+              ),
             if (service.lessons.isNotEmpty)
               CupertinoListSection.insetGrouped(
                   header: const Text('已选实验'),
