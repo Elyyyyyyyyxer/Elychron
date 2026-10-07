@@ -8,21 +8,39 @@
 > - 基于上游版本：**v1.3.0**（commit `ceab2a4`）
 > - 许可协议：**GPLv3**（继承上游，见 [LICENSE](LICENSE)）。本仓库即为对应源码，
 >   只要分发本程序的二进制，你就有权获得这份源码。
-> - 独立 `applicationId`（`xyz.nosig.celechron.mod`），**可与官方版共存**，装它不会覆盖官方版
+> - Android 使用独立 `applicationId`（`xyz.nosig.celechron.mod`），**可与官方版共存**，装它不会覆盖官方版
 >
 > Elychron 不是 Celechron 官方版本，与官方项目无关。遇到问题请提到本仓库 Issues，
 > **不要去打扰上游作者**。
 
 ## 下载与安装
 
-Android 到 [Releases](https://github.com/Elyyyyyyyyxer/Elychron/releases/latest) 下载 APK 直接安装。
-iPhone / iPad 的自签 Release 文件按 [用户自签教程](docs/self-sign-ios.md) 用自己的账号安装；无需重新编译，当前尚未公开发布。开发者构建见 [iOS 构建与签名](docs/ios-port.md)。
+### Android
+
+到 [Android Releases](https://github.com/Elyyyyyyyyxer/Elychron/releases/tag/v1.4.1-elychron.1) 下载 APK 直接安装。
 
 - 只提供 **arm64** 包（近年的校园机型都支持）
-- 与官方 Celechron **包名不同，可以共存**，装它不会覆盖官方版，两边数据互不影响
+- 与官方 Celechron **包名不同，可以共存**，两边数据互不影响
 - 首次安装需要在系统里允许「安装未知来源应用」
-- **校验**：每个版本的 APK SHA-256 与签名证书指纹都写在对应 Release 说明里；
-  签名指纹应当是 `b2cc42560a1378b9087c7660ff9904c1cef5cb89a12f5eba68faa98a93a771c8`
+- 每个版本的 APK SHA-256 与签名证书指纹都写在对应 Release 说明里；
+  Android 签名指纹应当是 `b2cc42560a1378b9087c7660ff9904c1cef5cb89a12f5eba68faa98a93a771c8`
+
+### iPhone / iPad
+
+到 [iOS 自签版 Release](https://github.com/Elyyyyyyyyxer/Elychron/releases/tag/v1.5.0.1-ios)
+下载 **`Elychron-1.5.0.1-ios.ipa`**；手机和平板共用一个安装包。
+**无需 Mac、Xcode 或重新编译，但需要用自己的 Apple 账号签名后安装。**
+
+Windows 推荐使用 [iloader](https://iloader.app/)：先安装 iloader 和 iTunes 驱动，再连接并信任设备 → 在工具中登录自己的 Apple 账号 →
+导入 IPA → 保留分享和小组件扩展 → 按提示完成安装、信任和开发者模式设置。
+
+- 构建最低版本为 **iOS / iPadOS 15**；原生闹钟需要 **26+**，旧系统使用通知。
+- **免费账号签名通常有效 7 天**；到期前用同一账号重新签名安装。iloader 的这套流程不保证自动续签。
+- 更新或换签名工具前先导出 JSON 备份；同一账号、同一实际 Bundle ID 才能尝试覆盖安装保留数据。
+- **不要删除 ShareExtension 和 WidgetExtensions**；分享和小组件还需要签名工具保留有效 App Group 共享权限。
+- Release 提供 `.ipa.sha256` 校验值；签名和安装工具只从各自官方渠道下载。
+
+完整步骤见 [iPhone / iPad 自签教程](docs/self-sign-ios.md)，版本说明见 [iOS / iPadOS 版本说明](docs/ios-release-notes.md)，开发者见 [iOS 构建与签名](docs/ios-port.md)。
 
 ## 一、为什么会有这个改版
 
@@ -110,18 +128,29 @@ Celechron 可以查课表、成绩、考试、作业，也允许自定义日程�
 - **待办 JSON 导出 / 导入**：按 `uid` + 更新时间合并（不是覆盖），删除留墓碑，便于数据迁移
 - **普物实验（Android / iOS / iPadOS）**：官网同步已选实验到课程表与日历，用户选择教务或实验来源并确认对应课程；不额外创建待办。需要校园内网访问，见 [使用说明](docs/physics-lab.md)。
 
-### 苹果平台额外功能与适配
+### iPhone / iPad 功能与适配
 
-| 功能 | 平台及条件 |
+iPhone 和 iPad 都能使用课表、待办、专注、PTA、图书馆与普物实验等共用功能，
+另外提供以下苹果平台体验：
+
+| 功能 | 怎么使用 / 使用条件 |
 |---|---|
-| 每条待办选择 AlarmKit 原生闹钟 | iOS / iPadOS 26+ 专属；需要授权，旧系统或拒绝授权时回退通知 |
-| iPad 宽屏侧边栏、限宽表单和弹窗 | iPadOS 适配；窗口宽度至少 900 逻辑像素使用侧边栏，窄窗口保留底栏 |
-| 「存到 Elychron」分享扩展 | 苹果平台使用 Share Extension；保存后返回 App 选择新建或已有待办。Android 同样支持分享导入，采用 Intent 实现 |
-| 待办／校园卡小组件 | 苹果平台采用 WidgetKit，Android 采用 AppWidget；不是苹果独占能力 |
-| 快捷指令打开新建待办 | 苹果「快捷指令 → 打开 URL」可用 `elychron://todo/create`；本轮未完成此入口的实机验收 |
-| 系统日历导出、普物实验、PTA、图书馆 | 手机平台共用功能，需相应权限或校园网络，不属于苹果独占 |
+| **每条待办独立选择原生闹钟** | 设置时间时选择「通知／原生闹钟」。系统 26+ 并授权后可用；改时间会调整闹钟，完成或删除会取消，不可用时回退通知 |
+| **iPad 宽屏布局** | 宽窗口使用侧边栏，窄窗口保留底栏；表单和弹窗适配平板，和 iPhone 共用同一个 IPA |
+| **「存到 Elychron」分享导入** | 从照片或其它 App 分享图片、文件、文字；保存后手动回到 Elychron，选择新建待办或添加到已有待办。需要分享扩展和共享权限 |
+| **待办／校园卡小组件** | 苹果平台采用 WidgetKit，需要小组件扩展和共享权限；Android 也有小组件，不是苹果独占 |
+| **系统日历导出** | 按需授权后导出；属于共用功能，当前自签版的实际导出仍待分别验收 |
+| **快捷指令新建待办** | 在苹果「快捷指令 → 打开 URL」使用 `elychron://todo/create`；实机入口仍待验收 |
 
-详细系统要求、签名配置与验证范围见 [苹果平台说明](docs/ios-port.md)。
+**普物实验不是额外待办**：官网登录后将已选实验加入课程表和日历，
+用户选择教务或实验选课系统作为最终来源，并确认对应课程，避免同一门课重复显示。
+普物实验、图书馆等需要手机自身的校园网络或学校 VPN。
+
+通知与原生闹钟需要分别授权；通知的横幅和声音受系统设置、专注模式影响。
+「已提醒」表示提醒时刻已到，**不代表待办已经完成**。
+详情菜单单独创建的闹钟和时间设置里选择的逐条提醒方式不同，前者需要独立管理。
+
+详细说明与验证范围见 [苹果平台说明](docs/ios-port.md) 和 [自签教程](docs/self-sign-ios.md)。
 
 ### 与官方版的对照
 
@@ -138,7 +167,7 @@ Celechron 可以查课表、成绩、考试、作业，也允许自定义日程�
 | **数据备份** | ❌ 无 | ✅ JSON **导出 / 导入**（按 `uid` + 更新时间合并，删除留墓碑） |
 | **出问题的排查** | 诊断日志 | 诊断日志 + **刷新数字**（接口返回几行 / 解析入库几条 / 能显示几条） |
 | **电脑上操作待办** | ❌ 无 | 局域网直连网页端（**本版尚未开放**，见「已知问题」） |
-| **包名** | `xyz.nosig.celechron` | `xyz.nosig.celechron.mod` —— **可与官方版共存** |
+| **Android 包名** | `xyz.nosig.celechron` | `xyz.nosig.celechron.mod` —— **可与官方版共存** |
 
 > 上表每一行都能在源码里对上：上游 1.3.0 的 `Task` 模型**没有** priority / attachment /
 > tags / subtask / reminder 字段，仓库里也**没有** `lib/mod/` 目录、
@@ -155,7 +184,9 @@ Celechron 可以查课表、成绩、考试、作业，也允许自定义日程�
 
 ## 四、已知问题
 
-- 只提供 **arm64** 包
+- Android 只提供 **arm64** 包
+- **iOS 自签不等于永久安装**：免费签名通常 7 天到期，需重新签名；续签保留数据仍需实际验收
+- **签名工具兼容性**：iloader 安装流程已确认跑通，不保证所有签名工具都能保留分享和小组件所需的共享权限。
 - **局域网直连网页端尚未开放**（手机当服务器、电脑浏览器操作待办）：为后续开发目标，
   当前版本不可使用，设置里没有入口
 - **跨网络同步（坚果云 / WebDAV）** 只有预留配置项，功能未实现
