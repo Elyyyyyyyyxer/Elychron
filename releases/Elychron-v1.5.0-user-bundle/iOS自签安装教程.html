@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Elychron iPhone / iPad 自签安装教程</title>
+<style>
+:root{--pink:#FF5E93;--pink-deep:#D9346B;--ink:#1E232C;--ink-2:rgba(0,0,0,.66);--line:rgba(0,0,0,.1);--soft:#FFF4F8}
+*{box-sizing:border-box}
+body{margin:0;background:#FBFAFC;color:var(--ink);font:17px/1.75 -apple-system,BlinkMacSystemFont,"PingFang SC","HarmonyOS Sans SC","Microsoft YaHei",system-ui,sans-serif}
+.wrap{max-width:820px;margin:0 auto;padding:48px 24px 80px}
+h1{font-size:32px;letter-spacing:-.02em;margin:0 0 8px}
+.sub{color:var(--ink-2);margin:0 0 34px;font-size:16px}
+h2{font-size:22px;margin:44px 0 14px;padding-bottom:10px;border-bottom:1px solid var(--line)}
+p{margin:0 0 14px}
+.callout{background:var(--soft);border-left:4px solid var(--pink);border-radius:12px;padding:18px 20px;margin:22px 0}
+.callout h3{margin:0 0 8px;font-size:17px}
+.callout ul{margin:0;padding-left:20px;color:var(--ink-2)}
+ol{padding-left:0;counter-reset:s;list-style:none;margin:0}
+ol li{counter-increment:s;position:relative;padding:16px 0 16px 46px;border-top:1px solid var(--line)}
+ol li:first-child{border-top:0}
+ol li::before{content:counter(s);position:absolute;left:0;top:16px;width:28px;height:28px;border-radius:50%;background:var(--pink);color:#fff;font-size:15px;font-weight:700;display:flex;align-items:center;justify-content:center}
+code{background:rgba(0,0,0,.05);border-radius:5px;padding:2px 6px;font-size:15px}
+.faq{display:grid;gap:16px}
+.faq div{border-top:1px solid var(--line);padding-top:16px}
+.faq b{display:block;margin-bottom:6px}
+.faq p{color:var(--ink-2);margin:0}
+footer{margin-top:56px;padding-top:20px;border-top:1px solid var(--line);color:var(--ink-2);font-size:14px}
+@media print{body{background:#fff}.wrap{padding:0 0 40px}h2{page-break-after:avoid}ol li{page-break-inside:avoid}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>iPhone / iPad 安装 Elychron</h1>
+<p class="sub">跟着做大概十分钟。全程不需要 Xcode，也不需要会写代码。</p>
+<div class="callout"><h3>开始之前，先知道三件事</h3><ul>
+<li>没有苹果开发者账号，所以要用你自己的 Apple 账号给它签一次名，这一步叫「自签」。</li>
+<li>免费账号签出来的应用 <b>7 天后打不开</b>，重新签一次就好，数据不会丢。</li>
+<li>Elychron 会占用 3 个应用标识（主应用、分享扩展、小组件），免费账号一共只有 3 个，所以同时装不了别的自签应用。</li>
+</ul></div>
+<h2>准备</h2>
+<p>一台电脑（Windows 或 macOS 都行）和数据线；一个 Apple 账号（平时用的 iCloud 账号就行）；Release 里的那个 <code>.ipa</code> 文件。</p>
+<p>推荐用 AltStore Classic 自签：电脑上装 AltServer，手机上装 AltStore。官方安装说明：macOS 见 faq.altstore.io/altstore-classic/how-to-install-altstore-macos，Windows 见 faq.altstore.io/altstore-classic/how-to-install-altstore-windows。</p>
+<h2>八步装好</h2>
+<ol>
+<li>在电脑上安装 <b>AltServer</b>。装好打开，它会常驻在任务栏（Windows）或菜单栏（macOS）。</li>
+<li>用数据线连上 iPhone / iPad，手机上点「信任此电脑」。</li>
+<li>在 AltServer 菜单里选 <b>Install AltStore</b>，选中你的设备，然后输入<b>你自己的 Apple 账号</b>。密码只填在你自己电脑上，我们不会也不需要它。</li>
+<li>手机上会出现 AltStore 图标。第一次打开若提示「不受信任的开发者」，进 设置 → 通用 → VPN 与设备管理 信任你的证书；iOS 16 起还要在 设置 → 隐私与安全性 里打开<b>开发者模式</b>并重启手机。</li>
+<li>把 Elychron 的 <code>.ipa</code> 存到手机的「文件」App（微信、AirDrop、网盘都行）。</li>
+<li>打开 AltStore → <b>My Apps</b> → 右上角加号 → 选那个 IPA。</li>
+<li>如果它问要不要保留扩展，<b>两个都保留</b>：ShareExtension 和 WidgetExtensions。删掉的话照片分享和桌面小组件就不能用了。</li>
+<li>装完打开 Elychron，重新登录学校服务、授权通知。想用原生闹钟需要 iOS 26 及以上，并在系统里给闹钟权限。</li>
+</ol>
+<p>之后隔一段时间打开 AltStore 看一眼 My Apps 里的过期倒计时，快到期时用 AltServer 刷新签名，手机和电脑在同一 Wi-Fi 下就行。</p>
+<h2>遇到问题看这里</h2>
+<div class="faq">
+<div><b>装的时候报错，或者一直转圈</b><p>先查三样：电脑上 AltServer 开着吗、手机和电脑在同一个 Wi-Fi 吗、iOS 的开发者模式打开了吗。</p></div>
+<div><b>7 天后打不开</b><p>签名过期，不是应用坏了。重新刷新签名即可，数据和登录状态都在。</p></div>
+<div><b>换了 Apple 账号，或者从 Xcode 安装换到 AltStore</b><p>可能被当成一个新应用装上去，旧容器和钥匙串里的登录信息不保证迁移。装之前在旧版本里用「设置 → 导出数据」留一份 JSON 备份，旧应用先别删。</p></div>
+<div><b>登录一直失败，或者小组件读不到数据</b><p>有些签名工具（例如爱思助手）会去掉共享钥匙串权限。Elychron 启动时会实际检查，读不到就改用系统私有钥匙串，登录通常还能用；这种时候照片分享和小组件不可用。用 AltStore 保留扩展权限一般不会遇到。</p></div>
+<div><b>校园服务连不上</b><p>确认手机自己在校园网或学校 VPN 里，不能借电脑的代理。</p></div>
+</div>
+<footer>Elychron 是 Celechron 的非官方改版，与浙江大学无关，按 GPLv3 分发。<br>维护者视角的交付说明在仓库 docs/self-sign-ios.md。</footer>
+</div>
+</body>
+</html>
