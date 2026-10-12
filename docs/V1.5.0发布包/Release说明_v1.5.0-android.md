@@ -4,7 +4,8 @@
 
 ## 下载
 
-- `Elychron-v1.5.0-elychron.1-arm64.apk`（约 28.6 MB，只需 arm64）｜ **SHA-256**：`369a47979cbd95254b8a54e1df813e0be5ff0bf76334e702431677844b51fd84`
+- `Elychron-v1.5.0-android-arm64.apk`（约 28.6 MB，只需 arm64）｜ **SHA-256**：`369a47979cbd95254b8a54e1df813e0be5ff0bf76334e702431677844b51fd84`
+- `Elychron-v1.5.0-windows-x64.zip`（约 15.6 MB，解压后双击 `Elychron.exe`，免安装）
 - Windows 桌面版压缩包（解压后双击 `Elychron.exe`，免安装）
 
 ## 这一版新增
